@@ -23,6 +23,8 @@ type BrowserRow = {
   readonly autoBackend: RendererBackend
   // The browser row that hosts the gate-proof project on its launch.
   readonly hostsGateProofs?: boolean
+  // The browser row that hosts visual baselines.
+  readonly hostsVisualBaselines?: boolean
 }
 
 export const browsers: readonly BrowserRow[] = [
@@ -32,6 +34,7 @@ export const browsers: readonly BrowserRow[] = [
     channel: { name: 'chrome', brand: 'Google Chrome' },
     autoBackend: 'webgpu',
     hostsGateProofs: true,
+    hostsVisualBaselines: true,
   },
   {
     name: 'msedge',
@@ -47,12 +50,23 @@ type ModeRow = {
   readonly name: string
   readonly path: string
   readonly expectedBackend: (browser: BrowserRow) => RendererBackend
+  // The mode that hosts the specs run once per browser row rather than once
+  // per project: the gate proofs and the visual baselines.
+  readonly primary?: boolean
 }
 
 export const modes: readonly ModeRow[] = [
-  { name: 'auto', path: '/', expectedBackend: (browser) => browser.autoBackend },
+  { name: 'auto', path: '/', expectedBackend: (browser) => browser.autoBackend, primary: true },
   { name: 'webgl2', path: '/?backend=webgl', expectedBackend: () => 'webgl2' },
 ]
+
+function primaryMode(): ModeRow {
+  const mode = modes.find((candidate) => candidate.primary === true)
+  if (mode === undefined) {
+    throw new Error('no backend mode is primary: flag one with primary')
+  }
+  return mode
+}
 
 export type MatrixAssignment = {
   readonly project: string
@@ -60,6 +74,7 @@ export type MatrixAssignment = {
   readonly channel?: ChannelSpec
   readonly backendPath: string
   readonly expectedBackend: RendererBackend
+  readonly hostsVisualBaselines: boolean
 }
 
 export function matrixAssignments(): readonly MatrixAssignment[] {
@@ -70,6 +85,7 @@ export function matrixAssignments(): readonly MatrixAssignment[] {
       ...(browser.channel !== undefined ? { channel: browser.channel } : {}),
       backendPath: mode.path,
       expectedBackend: mode.expectedBackend(browser),
+      hostsVisualBaselines: browser.hostsVisualBaselines === true && mode.primary === true,
     })),
   )
 }
@@ -89,10 +105,7 @@ export function gateProofProject(): GateProofProject {
   if (host === undefined) {
     throw new Error('no browser row hosts the gate proofs: flag one with hostsGateProofs')
   }
-  const mode = modes.find((candidate) => candidate.name === 'auto')
-  if (mode === undefined) {
-    throw new Error('the gate proofs expect the auto backend mode, which the table lacks')
-  }
+  const mode = primaryMode()
   return {
     name: 'gate-proof',
     // The spec file names sort, so the first-file spec always loads before
@@ -104,6 +117,7 @@ export function gateProofProject(): GateProofProject {
       ...(host.channel !== undefined ? { channel: host.channel } : {}),
       backendPath: mode.path,
       expectedBackend: mode.expectedBackend(host),
+      hostsVisualBaselines: false,
     },
   }
 }
