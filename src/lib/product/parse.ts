@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import type { z } from 'zod'
 import { formatFieldPath, ManifestError, type ProductIssue } from './errors'
 import { SLUG_PATTERN } from './rules'
 import { productManifestSchema, type Product } from './schema'
