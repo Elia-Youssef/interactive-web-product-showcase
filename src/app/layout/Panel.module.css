@@ -9,15 +9,18 @@ and its own scroll container.
 Values are tokens.
 */
 
+/* The panel is the one scroll container of its content at every breakpoint.
+The content grows to push the footer down but never shrinks below its own
+height: a shrunken content box would let its children run under the footer. */
 .panel {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  overflow-y: auto;
 }
 
 .content {
-  flex: 1;
-  min-block-size: 0;
+  flex: 1 0 auto;
 }
 
 .footer {
@@ -57,7 +60,6 @@ Values are tokens.
     background-color: var(--bg);
     border-block-start: var(--hairline-width) solid var(--hairline);
     border-inline-end: none;
-    overflow-y: auto;
   }
 }
 
@@ -77,7 +79,6 @@ Values are tokens.
     border-block-end: none;
     border-start-start-radius: var(--radius);
     border-start-end-radius: var(--radius);
-    overflow-y: auto;
   }
 
   .handle {
