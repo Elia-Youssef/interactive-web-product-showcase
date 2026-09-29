@@ -15,6 +15,7 @@ export const siteCopy = {
   zoomInLabel: 'Zoom in',
   zoomOutLabel: 'Zoom out',
   closeLabel: 'Close',
+  panelLabel: 'Product details',
 } as const
 
 export type SiteCopy = typeof siteCopy
