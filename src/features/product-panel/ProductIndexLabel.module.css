@@ -1,0 +1,10 @@
+/* The product index label, in the mono readout type.
+Values are tokens. */
+
+.label {
+  font-family: var(--mono);
+  font-size: var(--fs-readout);
+  font-weight: var(--weight-readout);
+  color: var(--label);
+  text-transform: uppercase;
+}
