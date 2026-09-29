@@ -1,9 +1,7 @@
-import type { z } from 'zod'
-import { formatFieldPath, ManifestError, type ProductIssue } from './errors'
+import { issuesFromZod } from '../validation'
+import { ManifestError } from './errors'
 import { SLUG_PATTERN } from './rules'
 import { productManifestSchema, type Product } from './schema'
-
-const UNKNOWN_KEY_MESSAGE = 'unknown key'
 
 // Validates one manifest at the boundary. Returns the parsed Product, or
 // throws a ManifestError that names the product and every failing field.
@@ -28,23 +26,4 @@ function rawSlug(raw: unknown): string | undefined {
   }
   const slug = raw.slug
   return typeof slug === 'string' && SLUG_PATTERN.test(slug) ? slug : undefined
-}
-
-// Maps zod issues to the structured (path, message) form the errors carry.
-// An unrecognized key reports once per key, with the key appended to the path.
-function issuesFromZod(issues: readonly z.core.$ZodIssue[]): ProductIssue[] {
-  const productIssues: ProductIssue[] = []
-  for (const issue of issues) {
-    if (issue.code === 'unrecognized_keys') {
-      for (const key of issue.keys) {
-        productIssues.push({
-          path: formatFieldPath([...issue.path, key]),
-          message: UNKNOWN_KEY_MESSAGE,
-        })
-      }
-      continue
-    }
-    productIssues.push({ path: formatFieldPath(issue.path), message: issue.message })
-  }
-  return productIssues
 }
