@@ -2,6 +2,7 @@ import '@styles/global.css'
 import type { Product } from '@lib/product'
 import { ProductIndexLabel, ProductPanel } from '@features/product-panel'
 import { AppStoreProvider } from '@store/index'
+import { Stage } from '@viewer/Stage'
 import { CollectionProvider } from './collection/CollectionProvider'
 import { AppLayout } from './layout/index'
 
@@ -25,13 +26,15 @@ export function CollectionApp({ manifests }: CollectionAppProps) {
   )
 }
 
-// The layout with one product's words in its slots. The current product is
-// the collection's first until routing arrives.
+// The layout with one product's words in its slots and the renderer in its
+// stage slot. The current product is the collection's first until routing
+// arrives; the stage shows no model yet.
 function ProductPage({ product }: { readonly product: Product }) {
   return (
     <AppLayout
       productIndex={<ProductIndexLabel number={product.number} category={product.category} />}
       panel={<ProductPanel product={product} />}
+      stage={<Stage />}
     />
   )
 }

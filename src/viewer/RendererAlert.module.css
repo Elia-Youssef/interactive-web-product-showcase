@@ -1,0 +1,9 @@
+/* The renderer alert, positioned against the stage box, never against the
+   viewport. Values are tokens. */
+.alert {
+  position: absolute;
+  left: var(--space-4);
+  right: var(--space-4);
+  bottom: var(--space-4);
+  margin: 0;
+}

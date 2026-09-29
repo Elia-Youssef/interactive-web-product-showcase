@@ -136,7 +136,10 @@ for (const spec of viewportContracts) {
       await expect(corner).toBeHidden()
     }
 
-    // 6. Static text corners pass pointer events through to the stage
+    // 6. Static text corners pass pointer events through to the canvas. The
+    // canvas takes its size when the renderer is ready, so the check waits
+    // for that: before it there is nothing to drag.
+    await expect.poll(() => page.evaluate(() => window.__viewer?.status)).toBe('ready')
     if (spec.visibleCorners.includes('bottom-left')) {
       const hint = page.locator('[data-corner="bottom-left"]')
       const hintBox = await hint.boundingBox()
@@ -145,7 +148,8 @@ for (const spec of viewportContracts) {
           ({ x, y }) => {
             const el = document.elementFromPoint(x, y)
             return {
-              slot: el?.getAttribute('data-slot'),
+              slot: el?.closest('[data-slot]')?.getAttribute('data-slot'),
+              isCanvas: el instanceof HTMLCanvasElement,
               isHint: el !== null && el.closest('[data-corner="bottom-left"]') !== null,
             }
           },
@@ -153,6 +157,7 @@ for (const spec of viewportContracts) {
         )
         expect(target.isHint, 'hint text must pass pointer events through').toBe(false)
         expect(target.slot, 'event at hint center resolves to stage slot').toBe('stage')
+        expect(target.isCanvas, 'a drag on the hint reaches the canvas').toBe(true)
       }
     }
 
@@ -164,7 +169,8 @@ for (const spec of viewportContracts) {
           ({ x, y }) => {
             const el = document.elementFromPoint(x, y)
             return {
-              slot: el?.getAttribute('data-slot'),
+              slot: el?.closest('[data-slot]')?.getAttribute('data-slot'),
+              isCanvas: el instanceof HTMLCanvasElement,
               isLabel: el !== null && el.closest('[data-corner="top-left"]') !== null,
             }
           },
@@ -172,6 +178,7 @@ for (const spec of viewportContracts) {
         )
         expect(target.isLabel, 'label text must pass pointer events through').toBe(false)
         expect(target.slot, 'event at label center resolves to stage slot').toBe('stage')
+        expect(target.isCanvas, 'a drag on the label reaches the canvas').toBe(true)
       }
     }
   })
@@ -217,7 +224,13 @@ for (const spec of viewportContracts) {
 
     await page.setViewportSize({ width: spec.width, height: spec.height })
     await page.goto(backendPath)
+    await expect.poll(() => page.evaluate(() => window.__viewer?.status)).toBe('ready')
 
-    await expect(page).toHaveScreenshot(spec.snapshotName, { fullPage: true })
+    // The dev HUD shows live timings and exists only in dev builds, so it is
+    // masked: the baseline pins the design, not a measurement.
+    await expect(page).toHaveScreenshot(spec.snapshotName, {
+      fullPage: true,
+      mask: [page.getByTestId('dev-hud')],
+    })
   })
 }
