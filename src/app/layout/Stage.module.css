@@ -24,7 +24,7 @@ Values are tokens.
     order: 2;
     flex: 1;
     min-inline-size: 0;
-    block-size: 100%;
+    block-size: var(--size-fill);
   }
 }
 
@@ -32,7 +32,7 @@ Values are tokens.
   .stage {
     order: 1;
     flex: 0 0 var(--height-stage-tablet);
-    inline-size: 100%;
+    inline-size: var(--size-fill);
     block-size: var(--height-stage-tablet);
   }
 }
@@ -41,7 +41,7 @@ Values are tokens.
   .stage {
     order: 1;
     flex: 0 0 var(--height-stage-phone);
-    inline-size: 100%;
+    inline-size: var(--size-fill);
     block-size: var(--height-stage-phone);
   }
 }

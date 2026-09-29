@@ -20,7 +20,7 @@ the font faces. Nothing product-specific or component-specific lives here.
 html,
 body,
 #root {
-  height: 100%;
+  height: var(--size-fill);
 }
 
 body {
