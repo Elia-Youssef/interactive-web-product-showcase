@@ -5,10 +5,7 @@
 // quantization inserts, so nothing depends on mesh placement.
 import type { Document, Node } from '@gltf-transform/core'
 import { KHRMaterialsVariants, type MappingList } from '@gltf-transform/extensions'
-
-export const HOTSPOT_PREFIX = 'HS_'
-export const CAMERA_PREFIX = 'CAM_'
-export const PART_PREFIX = 'PART_'
+import { HOTSPOT_PREFIX } from '../src/lib/product/contractNames.ts'
 
 // The extension a file must carry to prove the optimize step ran its
 // Meshopt pass. The reader decodes the compressed accessors, so the

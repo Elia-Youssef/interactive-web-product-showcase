@@ -9,16 +9,15 @@
 // resolve no src import (they are extensionless for the browser bundle), so
 // runtime values cross the boundary through scripts/manifestIo.ts alone.
 import type { Product } from '../src/lib/product/index.ts'
-import { DRAW_CALLS_MAX, MODEL_BUDGET_BYTES, TEXTURE_MAX_SIZE_PX } from './budgets.ts'
-import { budgetShare, formatBytes, type TextureReport } from './report.ts'
 import {
+  CAMERA_HOME_ID,
   CAMERA_PREFIX,
   HOTSPOT_PREFIX,
   PART_PREFIX,
-  describeParent,
-  findExplodeClipViolations,
-  type ProductStructure,
-} from './structure.ts'
+} from '../src/lib/product/contractNames.ts'
+import { DRAW_CALLS_MAX, MODEL_BUDGET_BYTES, TEXTURE_MAX_SIZE_PX } from './budgets.ts'
+import { budgetShare, formatBytes, type TextureReport } from './report.ts'
+import { describeParent, findExplodeClipViolations, type ProductStructure } from './structure.ts'
 
 export type CheckStatus = 'pass' | 'fail' | 'skipped'
 
@@ -122,8 +121,10 @@ export function checkHotspots(manifest: Product, structure: ProductStructure): C
 export function checkCameras(manifest: Product, structure: ProductStructure): CheckResult {
   const violations: string[] = []
   const warnings: string[] = []
-  if (!structure.cameraNames.includes(`${CAMERA_PREFIX}home`)) {
-    violations.push(`no ${CAMERA_PREFIX}home node, the start and reset view is required`)
+  if (!structure.cameraNames.includes(`${CAMERA_PREFIX}${CAMERA_HOME_ID}`)) {
+    violations.push(
+      `no ${CAMERA_PREFIX}${CAMERA_HOME_ID} node, the start and reset view is required`,
+    )
   }
   const hotspotIds = new Set(manifest.hotspots.map((hotspot) => hotspot.id))
   for (const cameraName of structure.cameraNames) {
@@ -131,7 +132,7 @@ export function checkCameras(manifest: Product, structure: ProductStructure): Ch
       continue
     }
     const id = cameraName.slice(CAMERA_PREFIX.length)
-    if (id !== 'home' && !hotspotIds.has(id)) {
+    if (id !== CAMERA_HOME_ID && !hotspotIds.has(id)) {
       warnings.push(`camera ${cameraName} has no manifest hotspot '${id}'`)
     }
   }
