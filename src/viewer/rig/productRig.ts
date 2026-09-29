@@ -1,0 +1,30 @@
+import type { AnimationClip, Camera, Object3D } from 'three'
+
+// One resolved hotspot of the rig: the manifest hotspot id, its HS_<id>
+// node and the PART_ node the hotspot rides on.
+export type ProductHotspot = {
+  readonly id: string
+  readonly node: Object3D
+  readonly part: Object3D
+}
+
+// The typed contract of a loaded product, as the runtime features read it.
+// Every lookup a later feature would redo by name over the scene graph is
+// resolved and typed here, once, at parse time: the parts of the exploded
+// view, the hotspots and the parts they ride, the cameras, the shadow, the
+// explode clip and the finish variants.
+export type ProductRig = {
+  // Every PART_* node, by full node name.
+  readonly parts: ReadonlyMap<string, Object3D>
+  // One per manifest hotspot, in manifest order.
+  readonly hotspots: readonly ProductHotspot[]
+  // CAM_home under the 'home' id, plus each manifest hotspot id the model
+  // carries a CAM_<id> camera for.
+  readonly cameras: ReadonlyMap<string, Camera>
+  // The one baked contact shadow plane.
+  readonly shadow: Object3D
+  // The one animation the manifest's explode block names.
+  readonly clip: AnimationClip
+  // The KHR_materials_variants names in declaration order.
+  readonly variants: readonly string[]
+}
