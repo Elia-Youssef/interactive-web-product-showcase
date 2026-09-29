@@ -1,0 +1,29 @@
+# dependencies and builds
+node_modules/
+dist/
+*.local
+
+# env
+.env
+.env.*
+
+# Blender backups and raw exports (regenerable from the .blend)
+*.blend1
+*.blend@
+assets/blender/**/export/
+
+# test artifacts
+test-results/
+playwright-report/
+blob-report/
+
+# scratch and OS clutter
+scratch/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# editor and per-machine settings
+.vscode/*
+!.vscode/extensions.json
+.idea/

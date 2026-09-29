@@ -1,0 +1,25 @@
+# Text is stored with LF. Windows shell scripts check out with CRLF.
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.psm1 text eol=crlf
+*.psd1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Binary assets: never diffed, never normalized
+*.glb binary
+*.bin binary
+*.blend binary
+*.ktx2 binary
+*.hdr binary
+*.exr binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.avif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.mp4 binary
+*.webm binary
