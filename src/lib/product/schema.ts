@@ -144,7 +144,10 @@ export const productManifestSchema = z.strictObject({
   intro: z.array(singleLineText).max(INTRO_MAX_LINES),
   finishes: finishesSchema,
   hotspots: hotspotsSchema,
-  explode: explodeSchema.optional(),
+  // Normalized with prefault, not defaulted: a parsed product always
+  // carries the block, so every reader of explode.clip can trust the clip
+  // name without repeating the default. The input keeps the block optional.
+  explode: explodeSchema.prefault({}),
   camera: cameraSchema.optional(),
 })
 

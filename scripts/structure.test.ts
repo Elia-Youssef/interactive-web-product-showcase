@@ -18,10 +18,11 @@ import { createModelIO } from './modelIo.ts'
 import { buildGeometryStageArgs } from './pipeline.ts'
 import { DEFAULT_OPTIMIZE_SETTINGS, type OptimizeSettings } from './settings.ts'
 import {
-  findExplodeClipViolations,
+  findSingleAnimationViolations,
   findStructureLosses,
   nearestNamedAncestor,
   readProductStructure,
+  type ProductStructure,
 } from './structure.ts'
 
 function vec3Accessor(doc: Document, values: number[]): ReturnType<Document['createAccessor']> {
@@ -198,6 +199,7 @@ describe('the geometry stage keeps the Blender contract', () => {
     expect(structure.animationNames).toEqual(['Explode'])
     expect(structure.unlitMaterialNames).toEqual(['shadow-unlit'])
     expect(structure.occlusionMaterialNames).toEqual([])
+    expect(structure.meshoptCompressed).toBe(false)
   })
 
   it('resolves hotspot parents by name, past unnamed wrapper nodes', () => {
@@ -218,8 +220,9 @@ describe('the geometry stage keeps the Blender contract', () => {
     expect(after.variantNames).toEqual(before.variantNames)
     expect(after.mappingCount).toBe(before.mappingCount)
     expect(after.animationNames).toEqual(['Explode'])
+    expect(after.meshoptCompressed).toBe(true)
     expect(findStructureLosses(before, after)).toEqual([])
-    expect(findExplodeClipViolations(after)).toEqual([])
+    expect(findSingleAnimationViolations(after)).toEqual([])
   })
 
   it('loses the hotspots when pruning is on', { timeout: 120000 }, async () => {
@@ -234,5 +237,35 @@ describe('the geometry stage keeps the Blender contract', () => {
     expect(losses).toEqual(
       expect.arrayContaining([expect.stringMatching(/hotspot lost: HS_grille/)]),
     )
+  })
+})
+
+describe('the one-clip rule without a name', () => {
+  const structureWith = (animationNames: string[]): ProductStructure => ({
+    nodeNames: [],
+    hotspotAnchors: [],
+    cameraNames: [],
+    variantNames: [],
+    mappingCount: 0,
+    animationNames,
+    unlitMaterialNames: [],
+    occlusionMaterialNames: [],
+    meshoptCompressed: true,
+  })
+
+  it('passes on one animation of any name', () => {
+    expect(findSingleAnimationViolations(structureWith(['Open up']))).toEqual([])
+  })
+
+  it('fails on zero animations', () => {
+    expect(findSingleAnimationViolations(structureWith([]))).toEqual([
+      'expected exactly one animation, found 0',
+    ])
+  })
+
+  it('fails on two animations', () => {
+    expect(findSingleAnimationViolations(structureWith(['Explode', 'Explode']))).toEqual([
+      'expected exactly one animation, found 2',
+    ])
   })
 })
