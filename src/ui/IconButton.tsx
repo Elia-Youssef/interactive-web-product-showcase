@@ -15,11 +15,5 @@ export type IconButtonProps = IconButtonBase & {
 }
 
 export function IconButton({ className, ...rest }: IconButtonProps) {
-  return (
-    <button
-      {...rest}
-      type="button"
-      className={joinClassNames(styles.button, className)}
-    />
-  )
+  return <button {...rest} type="button" className={joinClassNames(styles.button, className)} />
 }

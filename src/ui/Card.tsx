@@ -36,19 +36,12 @@ export function Card({
   ...rest
 }: CardProps) {
   if (bullets.length > HOTSPOT_BULLETS_MAX) {
-    throw new Error(
-      `Card takes at most ${HOTSPOT_BULLETS_MAX} bullets, but got ${bullets.length}`,
-    )
+    throw new Error(`Card takes at most ${HOTSPOT_BULLETS_MAX} bullets, but got ${bullets.length}`)
   }
 
   return (
     <div className={joinClassNames(styles.card, className)} {...rest}>
-      <button
-        type="button"
-        className={styles.close}
-        aria-label={closeLabel}
-        onClick={onClose}
-      >
+      <button type="button" className={styles.close} aria-label={closeLabel} onClick={onClose}>
         <CloseIcon />
       </button>
       <Eyebrow>{eyebrow}</Eyebrow>

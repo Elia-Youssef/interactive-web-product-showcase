@@ -42,7 +42,7 @@ test('Card names its close button with the caller label', () => {
 })
 
 test(`Card reports more than ${HOTSPOT_BULLETS_MAX} bullets as the caller error it is`, () => {
-  expect(() =>
-    render({ bullets: [...bullets, 'One bullet too many'] }),
-  ).toThrowError(new RegExp(`at most ${HOTSPOT_BULLETS_MAX} bullets, but got 4`))
+  expect(() => render({ bullets: [...bullets, 'One bullet too many'] })).toThrowError(
+    new RegExp(`at most ${HOTSPOT_BULLETS_MAX} bullets, but got 4`),
+  )
 })
