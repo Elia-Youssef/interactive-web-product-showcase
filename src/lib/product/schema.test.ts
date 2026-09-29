@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ManifestError } from './errors'
-import { sampleOneManifest, sampleTwoManifest } from './fixtures'
+import { sampleThreeManifest, sampleTwoManifest } from './fixtures'
 import type { ManifestCase } from './manifestCases/case'
 import { finishCases } from './manifestCases/finishes'
 import { hotspotCases } from './manifestCases/hotspots'
@@ -46,18 +46,28 @@ for (const [concern, cases] of casesByConcern) {
   })
 }
 
-describe('the explode clip default', () => {
-  it('fills in the default clip in the parsed output', () => {
-    const product = parseProduct({ ...sampleOneManifest, explode: {} }, 'test')
-    expect(product.explode?.clip).toEqual(DEFAULT_EXPLODE_CLIP)
-  })
+describe('the explode block is normalized to carry its clip', () => {
+  const cases: ReadonlyArray<{ name: string; manifest: unknown; explode: unknown }> = [
+    {
+      name: 'an absent block gives the default clip',
+      manifest: sampleTwoManifest,
+      explode: { clip: DEFAULT_EXPLODE_CLIP },
+    },
+    {
+      name: 'a label-only block keeps the default clip',
+      manifest: sampleThreeManifest,
+      explode: { clip: DEFAULT_EXPLODE_CLIP, label: 'See inside' },
+    },
+    {
+      name: 'an explicit clip is kept',
+      manifest: { ...sampleTwoManifest, explode: { clip: 'Open up' } },
+      explode: { clip: 'Open up' },
+    },
+  ]
 
-  it('leaves explode undefined when the manifest has none', () => {
-    expect(parseProduct(sampleTwoManifest, 'test').explode).toBeUndefined()
-  })
-
-  it('keeps a given clip', () => {
-    const product = parseProduct(sampleOneManifest, 'test')
-    expect(product.explode).toEqual({ clip: 'Explode', label: 'See inside' })
-  })
+  for (const testCase of cases) {
+    it(testCase.name, () => {
+      expect(parseProduct(testCase.manifest, 'test').explode).toEqual(testCase.explode)
+    })
+  }
 })
