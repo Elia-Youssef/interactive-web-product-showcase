@@ -1,0 +1,19 @@
+/* Structural only: no brand tokens yet. The HUD is an overlay on the
+   stage box and must never eat input aimed at the canvas. */
+.hud {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  pointer-events: none;
+}
+
+.row {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
