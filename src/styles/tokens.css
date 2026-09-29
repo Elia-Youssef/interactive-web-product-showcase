@@ -1,0 +1,133 @@
+/*
+The single source of truth for every color, size, duration and font in the UI.
+No other stylesheet may repeat them raw.
+
+Colors that appear at more than one alpha are stored once as RGB channels
+(--*-rgb) and every variant derives from them, so changing a color changes
+all of its uses.
+
+Type sizes given as a range take their maximum on desktop and
+their minimum below it, switched by the breakpoints at the end of this file.
+*/
+
+:root {
+  /* Color */
+  --bg-rgb: 16 18 18;
+  --black-rgb: 0 0 0;
+  --white-rgb: 255 255 255;
+  --bg: rgb(var(--bg-rgb));
+  --black: rgb(var(--black-rgb));
+  --white: rgb(var(--white-rgb));
+  --surface: #1b1f20;
+  --raised: #262b2c;
+  --off: #dfe0e2;
+  --muted: #a0a0a0;
+  --label: #a9aeb0;
+  --red: #de0b00;
+  --hairline-alpha: 0.1;
+  --hairline-hover-alpha: 0.2;
+  --hairline: rgb(var(--white-rgb) / var(--hairline-alpha));
+  --hairline-hover: rgb(var(--white-rgb) / var(--hairline-hover-alpha));
+
+  /* Fonts */
+  --sans: 'Montserrat', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+
+  /* Shape */
+  --radius: 16px;
+
+  /* Type */
+  --fs-title: clamp(56px, 7vw, 112px);
+  --lh-title: .95;
+  --tracking-title: -.02em;
+  --weight-title: 800;
+  --fs-eyebrow-min: 11px;
+  --fs-eyebrow-max: 12px;
+  --fs-eyebrow: var(--fs-eyebrow-max);
+  --tracking-eyebrow: .22em;
+  --weight-eyebrow: 600;
+  --fs-tagline-min: 18px;
+  --fs-tagline-max: 20px;
+  --fs-tagline: var(--fs-tagline-max);
+  --weight-tagline: 500;
+  --fs-body-min: 14px;
+  --fs-body-max: 15px;
+  --fs-body: var(--fs-body-max);
+  --weight-body: 400;
+  --fs-readout-min: 11px;
+  --fs-readout-max: 12px;
+  --fs-readout: var(--fs-readout-max);
+  --weight-readout: 500;
+
+  /* Spacing on a 4px base, named by step */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-9: 36px;
+  --space-10: 40px;
+  --space-11: 44px;
+  --space-12: 48px;
+
+  /* Component sizes */
+  --size-swatch: 22px;
+  --offset-swatch-ring: 3px;
+  --size-hotspot-dot: 10px;
+  --size-hotspot-ring: 28px;
+  --size-hotspot-hit: 44px;
+  --focus-width: 2px;
+  --focus-offset: 3px;
+
+  /*
+  Motion. Every duration is this scale times its own
+  value, so reduced motion resolves each of them to instant in one place.
+  */
+  --motion-scale: 1;
+  --duration-camera: calc(700ms * var(--motion-scale));
+  --ease-camera: cubic-bezier(0.215, 0.61, 0.355, 1);
+
+  /*
+  Stage backdrop. The grid line is --white-rgb
+  at --backdrop-grid-alpha. The exploded view animates that alpha up to about
+  .05 on the backdrop element, so the grid color is composed in the backdrop
+  rule itself: a color pre-composed here would resolve once, on :root, and
+  never see the change.
+  */
+  --backdrop-grid-cell: 64px;
+  --backdrop-grid-line: 1px;
+  --backdrop-grid-alpha: 0.025;
+  --backdrop-vignette-shape: 120% 90% at 50% 42%;
+  --backdrop-vignette-inner: rgb(var(--bg-rgb) / 0);
+  --backdrop-vignette-inner-stop: 35%;
+  --backdrop-vignette-outer-alpha: 0.85;
+  --backdrop-vignette-outer: rgb(var(--black-rgb) / var(--backdrop-vignette-outer-alpha));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-scale: 0;
+  }
+}
+
+/*
+Breakpoints, defined once. Custom media is resolved
+at build time, so every stylesheet that queries one of these must
+`@import './tokens.css'` first.
+*/
+@custom-media --vp-phone (width < 640px);
+@custom-media --vp-tablet (640px <= width < 1024px);
+@custom-media --vp-desktop (width >= 1024px);
+
+/* Ranged type sizes drop to their minimum below the desktop breakpoint. */
+@media not (--vp-desktop) {
+  :root {
+    --fs-eyebrow: var(--fs-eyebrow-min);
+    --fs-tagline: var(--fs-tagline-min);
+    --fs-body: var(--fs-body-min);
+    --fs-readout: var(--fs-readout-min);
+  }
+}
