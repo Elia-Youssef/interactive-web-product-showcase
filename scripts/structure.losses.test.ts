@@ -14,6 +14,7 @@ function structureWith(hotspotAnchors: readonly HotspotAnchor[]): ProductStructu
     animationNames: [],
     unlitMaterialNames: [],
     occlusionMaterialNames: [],
+    meshoptCompressed: false,
   }
 }
 

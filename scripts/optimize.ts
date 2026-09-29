@@ -28,7 +28,7 @@ import {
 import { productPaths, type ProductPaths } from './productPaths.ts'
 import { loadOptimizeSettings, type OptimizeSettings } from './settings.ts'
 import {
-  findExplodeClipViolations,
+  findSingleAnimationViolations,
   findStructureLosses,
   readProductStructure,
 } from './structure.ts'
@@ -82,7 +82,7 @@ async function optimizeProduct(paths: ProductPaths, settings: OptimizeSettings):
   printStructure(afterStructure)
   const losses = [
     ...findStructureLosses(beforeStructure, afterStructure),
-    ...findExplodeClipViolations(afterStructure),
+    ...findSingleAnimationViolations(afterStructure),
   ]
   if (losses.length > 0) {
     const lines = losses.map((loss) => `- ${loss}`).join('\n')
@@ -123,6 +123,7 @@ function printStructure(structure: ReturnType<typeof readProductStructure>): voi
     `  variants: ${structure.variantNames.join(', ') || 'none'} (${structure.mappingCount} mappings)`,
   )
   writeLine(`  animations: ${structure.animationNames.join(', ') || 'none'}`)
+  writeLine(`  meshopt compression: ${structure.meshoptCompressed ? 'on' : 'off'}`)
   writeLine(`  unlit materials: ${structure.unlitMaterialNames.join(', ') || 'none'}`)
   writeLine(`  occlusion maps on: ${structure.occlusionMaterialNames.join(', ') || 'none'}`)
 }

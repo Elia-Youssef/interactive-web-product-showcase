@@ -8,7 +8,13 @@ import { KHRMaterialsVariants, type MappingList } from '@gltf-transform/extensio
 
 export const HOTSPOT_PREFIX = 'HS_'
 export const CAMERA_PREFIX = 'CAM_'
-export const EXPLODE_CLIP_NAME = 'Explode'
+export const PART_PREFIX = 'PART_'
+
+// The extension a file must carry to prove the optimize step ran its
+// Meshopt pass. The reader decodes the compressed accessors, so the
+// primitive-level markers are consumed; the document keeps the extension
+// listed (and required) and that is the fact the checks read.
+export const MESHOPT_EXTENSION = 'EXT_meshopt_compression'
 
 export type HotspotAnchor = {
   name: string
@@ -26,6 +32,7 @@ export type ProductStructure = {
   animationNames: string[]
   unlitMaterialNames: string[]
   occlusionMaterialNames: string[]
+  meshoptCompressed: boolean
 }
 
 export function isHotspotNode(node: Node): boolean {
@@ -44,6 +51,12 @@ export function nearestNamedAncestor(node: Node): string | null {
     parent = parent.getParentNode()
   }
   return null
+}
+
+// Names a hotspot parent for people: the node name, or the scene root when
+// the hotspot hangs free.
+export function describeParent(parentName: string | null): string {
+  return parentName ?? 'scene root'
 }
 
 function readMappingCount(doc: Document): number {
@@ -94,6 +107,9 @@ export function readProductStructure(doc: Document): ProductStructure {
     animationNames: root.listAnimations().map((animation) => animation.getName()),
     unlitMaterialNames,
     occlusionMaterialNames,
+    meshoptCompressed: root
+      .listExtensionsUsed()
+      .some((extension) => extension.extensionName === MESHOPT_EXTENSION),
   }
 }
 
@@ -103,10 +119,6 @@ function countByName(anchors: readonly HotspotAnchor[]): Map<string, number> {
     counts.set(anchor.name, (counts.get(anchor.name) ?? 0) + 1)
   }
   return counts
-}
-
-function describeParent(parentName: string | null): string {
-  return parentName ?? 'scene root'
 }
 
 function isDuplicatedIn(counts: Map<string, number>, name: string): boolean {
@@ -206,17 +218,29 @@ export function findStructureLosses(before: ProductStructure, after: ProductStru
   return losses
 }
 
-// The clip rule on its own: exactly one animation, named Explode. The
-// Blender exporter turns any extra action into an extra clip, so the check
-// fails loudly instead of letting the site scrub the wrong one.
-export function findExplodeClipViolations(structure: ProductStructure): string[] {
+// The one-clip rule without a name: exactly one animation, whatever it is
+// called. The optimize step has no manifest, so no clip name to check; the
+// structure comparison above already keeps the name from changing.
+export function findSingleAnimationViolations(structure: ProductStructure): string[] {
+  const count = structure.animationNames.length
+  if (count === 1) {
+    return []
+  }
+  return [`expected exactly one animation, found ${count}`]
+}
+
+// The clip rule with a name: exactly one animation, named by the given clip
+// name. The Blender exporter turns any extra action into an extra clip, so
+// the check fails loudly instead of letting the site scrub the wrong one.
+// The validate step checks the clip the parsed manifest carries.
+export function findExplodeClipViolations(structure: ProductStructure, clipName: string): string[] {
   const violations: string[] = []
-  const explodeCount = structure.animationNames.filter((name) => name === EXPLODE_CLIP_NAME).length
+  const explodeCount = structure.animationNames.filter((name) => name === clipName).length
   if (explodeCount !== 1) {
-    violations.push(`expected exactly one '${EXPLODE_CLIP_NAME}' animation, found ${explodeCount}`)
+    violations.push(`expected exactly one '${clipName}' animation, found ${explodeCount}`)
   }
   for (const name of structure.animationNames) {
-    if (name !== EXPLODE_CLIP_NAME) {
+    if (name !== clipName) {
       violations.push(`unexpected animation: ${name}`)
     }
   }
