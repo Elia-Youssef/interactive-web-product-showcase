@@ -38,7 +38,10 @@ export const sampleOneManifest = {
   model: 'One',
   eyebrow: 'Wireless over-ear headphones / 001',
   tagline: 'Sound first, everything else second.',
-  intro: ['Sample One is an over-ear headphone for long sessions.', 'Every part opens without glue.'],
+  intro: [
+    'Sample One is an over-ear headphone for long sessions.',
+    'Every part opens without glue.',
+  ],
   finishes: [sageFinish, graphiteFinish],
   hotspots: [driverHotspot, shellHotspot],
   explode: { clip: 'Explode', label: 'See inside' },
