@@ -1,12 +1,16 @@
-/* The dev-only remount page: the stage fills the viewport, and the remount
-   button sits over its top-left corner. Values are tokens. */
+/* The dev-only remount page: the stage fills the viewport, and the toggle
+   and the renderer status readout sit over its top-left corner. Values are
+   tokens. */
 .viewportFrame {
   position: fixed;
   inset: 0;
 }
 
-.remount {
+.controls {
   position: absolute;
   left: var(--space-4);
   top: var(--space-4);
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
 }

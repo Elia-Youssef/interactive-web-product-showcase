@@ -28,12 +28,21 @@ function projectOptions(row: MatrixAssignment) {
 
 const proofs = gateProofProject()
 
+// How many browsers run at once. Every test holds a GPU context, and the GPU
+// and the software-rendered WebKit build are the bounded resource, not the
+// CPU count Playwright sizes its default from: at the default of half the
+// cores (16 here), context creation failed and WebKit stopped presenting
+// frames, while a cap of 6 ran the whole matrix green in about a minute.
+const E2E_WORKERS = 6
+
 export default defineConfig({
   testDir: './tests/e2e',
   testMatch: SPEC_GLOB,
-  // The browser matrix runs fully parallel. Only the gate proofs pin the
-  // spec file load order, and their project alone drops back to one worker.
+  // The browser matrix runs fully parallel within the worker cap. Only the
+  // gate proofs pin the spec file load order, and their project alone drops
+  // back to one worker.
   fullyParallel: true,
+  workers: E2E_WORKERS,
   // The gate runs locally, so a stray .only must fail it everywhere, not
   // only on CI.
   forbidOnly: true,
