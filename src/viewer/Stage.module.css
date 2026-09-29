@@ -1,0 +1,7 @@
+/* Structural only: no brand tokens yet. The stage fills the box its
+   container gives it and is positioned against it, never against the
+   viewport; the container owns the page frame. */
+.stage {
+  position: absolute;
+  inset: 0;
+}
