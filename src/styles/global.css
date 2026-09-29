@@ -1,0 +1,35 @@
+/*
+Global base styles: the minimal reset, the page colors and the keyboard focus
+ring. This is the one stylesheet the app imports; it pulls in the tokens and
+the font faces. Nothing product-specific or component-specific lives here.
+*/
+
+@import './tokens.css';
+@import './fonts.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background-color: var(--bg);
+  color: var(--off);
+  font-family: var(--sans);
+}
+
+:focus-visible {
+  outline: var(--focus-width) solid var(--off);
+  outline-offset: var(--focus-offset);
+}
