@@ -1,8 +1,8 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { extensionGlob, sourceExtensions, unitTestMarker } from './tooling/extensions.ts'
 import { resolveDevPort } from './tooling/devPort.ts'
+import { unitTestGlobs } from './tooling/testRoots.ts'
 
 const port = resolveDevPort(process.env)
 
@@ -21,13 +21,11 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    // The test include and every lint files glob read the same extension
-    // list and marker data, so what typechecks, what lints and what runs as
-    // a test cannot drift apart. Vitest includes the unit marker only: the
-    // spec marker belongs to Playwright.
-    include: ['src', 'tooling', 'tests/e2e'].map(
-      (folder) => `${folder}/**/*.${unitTestMarker}.${extensionGlob(sourceExtensions)}`,
-    ),
+    // The unit test roots, marker and extensions come from tooling/, so what
+    // lints and what runs as a test cannot drift apart, and a guard test
+    // fails on any unit test file outside these roots. Vitest includes the
+    // unit marker only: the spec marker belongs to Playwright.
+    include: unitTestGlobs(),
     // The gate runs locally, so a stray .only must fail it, not pass quietly.
     allowOnly: false,
   },
