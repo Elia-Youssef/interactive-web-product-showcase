@@ -3,61 +3,81 @@
 // property with the --focus-offset token as the fallback. A stylesheet that
 // must force the state without a keyboard reuses exactly those two
 // declarations, and a component moves the ring only by setting the custom
-// property on itself. This scan pins that rule over every stylesheet in the
-// repo, so no primitive can grow a second, diverging focus ring. It reads
-// sources as text, so it lives with the tooling instead of a component.
+// property on itself. This scan pins that rule over every owned stylesheet
+// through the shared owned-stylesheet list and the shared parser, and
+// checks declarations, not text lines: a hand-kept folder list misses new
+// folders, and line matching misreads any line that is not a plain
+// declaration.
 
-import { readFileSync, readdirSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, test } from 'vitest'
+import { declarationValueSource, lineColumnOf, parseStylesheet } from './styleParse.ts'
+import { ownedStyleSheets } from './styleSheets.ts'
+import { tokenSourcePath } from './tokenSource.ts'
 
 const ROOT = join(import.meta.dirname, '..')
-const STYLE_DIRS = ['src/styles', 'src/ui', 'src/app/gallery']
 
-const OUTLINE_RECIPE = 'outline: var(--focus-ring);'
-const OFFSET_RECIPE = 'outline-offset: var(--focus-ring-offset, var(--focus-offset));'
+const RING_VALUE = 'var(--focus-ring)'
+const RING_OFFSET_VALUE = 'var(--focus-ring-offset, var(--focus-offset))'
+const RING_OWNER = 'src/styles/global.css'
 
-function stylesheets(): { file: string; css: string }[] {
-  const found: { file: string; css: string }[] = []
-  for (const dir of STYLE_DIRS) {
-    for (const entry of readdirSync(join(ROOT, dir), {
-      recursive: true,
-      encoding: 'utf8',
-    })) {
-      if (!entry.endsWith('.css')) {
-        continue
-      }
-      found.push({
-        file: `${dir}/${entry.replaceAll('\\', '/')}`,
-        css: readFileSync(join(ROOT, dir, entry), 'utf8'),
-      })
-    }
-  }
-  return found
+function ownedStylesheets(): { file: string; css: string }[] {
+  return ownedStyleSheets(ROOT).map((file) => ({
+    file,
+    css: readFileSync(join(ROOT, file), 'utf8'),
+  }))
 }
 
 test('the tokens define the ring and global.css keeps the only :focus-visible rule', () => {
-  const tokens = readFileSync(join(ROOT, 'src/styles/tokens.css'), 'utf8')
-  const global = readFileSync(join(ROOT, 'src/styles/global.css'), 'utf8')
+  const focusVisibleRules: { file: string; declarations: Map<string, string> }[] = []
+  let ringToken: string | undefined
+  for (const { file, css } of ownedStylesheets()) {
+    const root = parseStylesheet(css, file)
+    if (file === tokenSourcePath) {
+      root.walkDecls((decl) => {
+        if (decl.prop === '--focus-ring') {
+          ringToken = decl.value
+        }
+      })
+    }
+    root.walkRules((rule) => {
+      if (!rule.selectors.some((selector) => selector.includes(':focus-visible'))) {
+        return
+      }
+      const declarations = new Map<string, string>()
+      rule.walkDecls((decl) => {
+        declarations.set(decl.prop, decl.value)
+      })
+      focusVisibleRules.push({ file, declarations })
+    })
+  }
 
-  expect(tokens).toContain('--focus-ring: var(--focus-width) solid var(--off);')
-  expect(global.match(/:focus-visible/g)).toHaveLength(1)
-  expect(global).toContain(OUTLINE_RECIPE)
-  expect(global).toContain(OFFSET_RECIPE)
+  expect(ringToken).toBe('var(--focus-width) solid var(--off)')
+  expect(focusVisibleRules).toHaveLength(1)
+  const owner = focusVisibleRules[0]
+  expect(owner?.file).toBe(RING_OWNER)
+  expect(owner?.declarations.get('outline')).toBe(RING_VALUE)
+  expect(owner?.declarations.get('outline-offset')).toBe(RING_OFFSET_VALUE)
 })
 
 test('no stylesheet draws a focus ring outside the recipe', () => {
   const offenders: string[] = []
-  for (const { file, css } of stylesheets()) {
-    for (const line of css.split('\n')) {
-      const declaration = line.trim()
-      if (!declaration.startsWith('outline')) {
-        continue
+  for (const { file, css } of ownedStylesheets()) {
+    parseStylesheet(css, file).walkDecls((decl) => {
+      if (!decl.prop.startsWith('outline')) {
+        return
       }
-      if (declaration !== OUTLINE_RECIPE && declaration !== OFFSET_RECIPE) {
-        offenders.push(`${file}: ${declaration}`)
+      const matchesRecipe =
+        (decl.prop === 'outline' && decl.value === RING_VALUE) ||
+        (decl.prop === 'outline-offset' && decl.value === RING_OFFSET_VALUE)
+      if (matchesRecipe) {
+        return
       }
-    }
+      const source = declarationValueSource(decl)
+      const { line, column } = lineColumnOf(css, source.start)
+      offenders.push(`${file}:${line}:${column} ${decl.prop}: ${decl.value}`)
+    })
   }
 
   expect(offenders).toEqual([])
