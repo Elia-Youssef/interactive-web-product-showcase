@@ -10,7 +10,8 @@ Every value comes from a token in tokens.css.
   inset: 0;
   pointer-events: none;
   background-color: var(--bg);
-  background-image: radial-gradient(
+  background-image:
+    radial-gradient(
       var(--backdrop-vignette-shape),
       var(--backdrop-vignette-inner) var(--backdrop-vignette-inner-stop),
       var(--backdrop-vignette-outer) 100%

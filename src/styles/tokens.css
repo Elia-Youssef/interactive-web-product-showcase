@@ -38,13 +38,13 @@ their minimum below it, switched by the breakpoints at the end of this file.
 
   /* Type */
   --fs-title: clamp(56px, 7vw, 112px);
-  --lh-title: .95;
-  --tracking-title: -.02em;
+  --lh-title: 0.95;
+  --tracking-title: -0.02em;
   --weight-title: 800;
   --fs-eyebrow-min: 11px;
   --fs-eyebrow-max: 12px;
   --fs-eyebrow: var(--fs-eyebrow-max);
-  --tracking-eyebrow: .22em;
+  --tracking-eyebrow: 0.22em;
   --weight-eyebrow: 600;
   --fs-tagline-min: 18px;
   --fs-tagline-max: 20px;
