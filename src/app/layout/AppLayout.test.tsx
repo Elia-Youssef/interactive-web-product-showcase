@@ -1,10 +1,10 @@
 import { expect, test } from 'vitest'
 import { renderToString } from 'react-dom/server'
 import { siteCopy } from '@lib/copy/site'
-import { DesktopLayout } from './DesktopLayout'
+import { AppLayout } from './AppLayout'
 
-test('DesktopLayout renders banner, main, complementary, and region landmarks', () => {
-  const html = renderToString(<DesktopLayout />)
+test('AppLayout renders banner, main, complementary, and region landmarks', () => {
+  const html = renderToString(<AppLayout />)
 
   expect(html).toContain('<header')
   expect(html).toContain('<main')
@@ -14,8 +14,8 @@ test('DesktopLayout renders banner, main, complementary, and region landmarks', 
   expect(html).toContain(`aria-label="${siteCopy.stageLabel}"`)
 })
 
-test('DesktopLayout renders site copy for studio, collection, stage, and site URL', () => {
-  const html = renderToString(<DesktopLayout />)
+test('AppLayout renders site copy for studio, collection, stage, and site URL', () => {
+  const html = renderToString(<AppLayout />)
 
   expect(html).toContain(siteCopy.studioName)
   expect(html).toContain(siteCopy.collectionName)
@@ -24,8 +24,8 @@ test('DesktopLayout renders site copy for studio, collection, stage, and site UR
   expect(html).toContain(siteCopy.siteUrl)
 })
 
-test('DesktopLayout renders four chrome corners with their data attributes', () => {
-  const html = renderToString(<DesktopLayout />)
+test('AppLayout renders four chrome corners with their data attributes', () => {
+  const html = renderToString(<AppLayout />)
 
   expect(html).toContain('data-corner="top-left"')
   expect(html).toContain('data-corner="top-right"')
@@ -33,9 +33,15 @@ test('DesktopLayout renders four chrome corners with their data attributes', () 
   expect(html).toContain('data-corner="bottom-right"')
 })
 
-test('DesktopLayout renders content in provided slots', () => {
+test('AppLayout renders decorative bottom sheet handle for phone layout', () => {
+  const html = renderToString(<AppLayout />)
+
+  expect(html).toContain('aria-hidden="true"')
+})
+
+test('AppLayout renders content in provided slots', () => {
   const html = renderToString(
-    <DesktopLayout
+    <AppLayout
       mark={<span data-testid="test-mark">M</span>}
       productIndex={<span data-testid="test-index">01 / AUDIO</span>}
       panel={<p data-testid="test-panel">Product story</p>}

@@ -1,4 +1,5 @@
-// The text panel of the desktop layout: product details slot and site URL footer.
+// The text panel of the responsive layout: product details slot and site URL footer.
+// On phone, becomes a bottom sheet surface with a grab handle.
 // Words come from siteCopy. Primitives come from @ui.
 
 import type { ReactNode } from 'react'
@@ -13,6 +14,7 @@ export type PanelProps = {
 export function Panel({ children }: PanelProps) {
   return (
     <aside className={styles.panel} aria-label={siteCopy.panelLabel}>
+      <div className={styles.handle} aria-hidden="true" />
       <div className={styles.content} data-slot="panel">
         {children}
       </div>

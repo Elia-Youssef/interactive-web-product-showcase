@@ -1,7 +1,14 @@
+@import '../../styles/tokens.css';
+
 /*
 Stage chrome corner overlays.
 Four corner slots positioned over the stage canvas. The container ignores pointer
-events so interactions pass to the canvas underneath. Values are tokens.
+events so interactions pass to the canvas underneath.
+Static text corners (top-left label, bottom-left hint) pass pointer events
+through at every width so dragging over them reaches the canvas.
+Only slot corners that hold interactive controls take pointer events.
+On phone, the rotation hint is dropped.
+Values are tokens.
 */
 
 .chrome {
@@ -11,8 +18,14 @@ events so interactions pass to the canvas underneath. Values are tokens.
 }
 
 .topLeft,
+.bottomLeft {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+
 .topRight,
-.bottomLeft,
 .bottomRight {
   position: absolute;
   display: flex;
@@ -49,4 +62,10 @@ events so interactions pass to the canvas underneath. Values are tokens.
 .topRight:empty,
 .bottomRight:empty {
   pointer-events: none;
+}
+
+@media (--vp-phone) {
+  .bottomLeft {
+    display: none;
+  }
 }

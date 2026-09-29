@@ -1,0 +1,45 @@
+@import '../../styles/tokens.css';
+
+/*
+The responsive application layout shell.
+Contains the top bar header and the main page body hosting the product panel
+and the 3D stage. Body direction stacks on tablet and phone, and sits
+side-by-side on desktop.
+Values are tokens.
+*/
+
+.layout {
+  display: flex;
+  flex-direction: column;
+  inline-size: 100%;
+  block-size: 100%;
+  min-block-size: 100vh;
+  background-color: var(--bg);
+  overflow: hidden;
+}
+
+.body {
+  display: flex;
+  flex: 1;
+  min-block-size: 0;
+  inline-size: 100%;
+  position: relative;
+}
+
+@media (--vp-desktop) {
+  .body {
+    flex-direction: row;
+  }
+}
+
+@media (--vp-tablet) {
+  .body {
+    flex-direction: column;
+  }
+}
+
+@media (--vp-phone) {
+  .body {
+    flex-direction: column;
+  }
+}

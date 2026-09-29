@@ -1,8 +1,8 @@
 // Public API of the layout module. App shell and tests reach layout
 // components through this file.
 
-export { DesktopLayout } from './DesktopLayout'
-export type { DesktopLayoutProps } from './DesktopLayout'
+export { AppLayout } from './AppLayout'
+export type { AppLayoutProps } from './AppLayout'
 export { TopBar } from './TopBar'
 export type { TopBarProps } from './TopBar'
 export { Panel } from './Panel'

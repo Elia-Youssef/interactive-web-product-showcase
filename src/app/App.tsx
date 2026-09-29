@@ -1,6 +1,6 @@
 import '@styles/global.css'
-import { DesktopLayout } from './layout/index'
+import { AppLayout } from './layout/index'
 
 export function App() {
-  return <DesktopLayout />
+  return <AppLayout />
 }
