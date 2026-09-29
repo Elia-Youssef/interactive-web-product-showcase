@@ -1,16 +1,20 @@
 import { initFailureReason } from '../../src/lib/renderer/initFailure'
-import { parseBackendRequest } from '../../src/lib/renderer/request'
+import { backendQueryParam, parseBackendRequest } from '../../src/lib/renderer/request'
 import { expect, test } from './fixtures'
+
+// A query with a value the parser does not allow, built from the parser's
+// own parameter name.
+const bogusQuery = `?${new URLSearchParams({ [backendQueryParam]: 'bogus' }).toString()}`
 
 test('an unknown backend parameter fails with the reason in a visible alert', async ({ page }) => {
   // The expected reason is the parser's own verdict for this exact query, so
   // the spec repeats none of the contract's words.
-  const parsed = parseBackendRequest('?backend=bogus')
+  const parsed = parseBackendRequest(bogusQuery)
   if (parsed.kind !== 'invalid') {
     throw new Error('the bogus backend request must parse as invalid')
   }
 
-  await page.goto('/?backend=bogus')
+  await page.goto(`/${bogusQuery}`)
 
   await expect.poll(() => page.evaluate(() => window.__viewer?.status)).toBe('failed')
   await expect.poll(() => page.evaluate(() => window.__viewer?.failure)).toBe(parsed.reason)
