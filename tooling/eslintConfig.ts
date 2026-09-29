@@ -129,8 +129,18 @@ function srcPolicyConfig(): Linter.Config {
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'error',
       // Imports inside src/ carry no script extension; the root tool
-      // configs keep theirs for the loaders that need them.
-      'import-x/extensions': ['error', 'never'],
+      // configs keep theirs for the loaders that need them. The rule
+      // governs first-party sources: three's examples ship as .js files
+      // whose specifiers must carry the extension, so that path group is
+      // ignored outright.
+      'import-x/extensions': [
+        'error',
+        'never',
+        {
+          ignorePackages: true,
+          pathGroupOverrides: [{ pattern: 'three/examples/**', action: 'ignore' }],
+        },
+      ],
       'source-policy/known-source-extension': 'error',
     },
   }
