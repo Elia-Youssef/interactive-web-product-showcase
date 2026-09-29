@@ -103,6 +103,8 @@ their minimum below it, switched by the breakpoints at the end of this file.
   Layout structural sizes.
   The panel is clamped between 380px and 520px at about 34% width.
   Top bar height, mark size, and stage chrome insets.
+  Tablet stage height is 60vh; phone stage height is 62svh.
+  Bottom sheet grab handle dimensions.
   */
   --size-ra-mark: var(--space-6);
   --height-top-bar: 56px;
@@ -110,6 +112,10 @@ their minimum below it, switched by the breakpoints at the end of this file.
   --panel-width-max: 520px;
   --panel-width-basis: 34%;
   --panel-width: clamp(var(--panel-width-min), var(--panel-width-basis), var(--panel-width-max));
+  --height-stage-tablet: 60vh;
+  --height-stage-phone: 62svh;
+  --size-sheet-handle-width: var(--space-9);
+  --size-sheet-handle-height: var(--space-1);
   --inset-stage-chrome: var(--space-8);
 
   /*
