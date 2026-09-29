@@ -19,7 +19,7 @@ export type CollectionProblem = {
 // The slice of a zod refinement context the schema checks use, kept structural
 // so the checks stay testable without zod.
 export type IssueSink = {
-  addIssue: (issue: { code: 'custom', message: string, path: (string | number)[] }) => void
+  addIssue: (issue: { code: 'custom'; message: string; path: (string | number)[] }) => void
 }
 
 // Paths render object keys with a dot and array positions with brackets:

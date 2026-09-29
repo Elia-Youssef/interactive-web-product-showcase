@@ -58,7 +58,10 @@ describe('createCollection', () => {
   })
 
   it('reports duplicate slugs', () => {
-    const error = collectionErrorOf([sampleOneManifest, { ...sampleTwoManifest, slug: 'sample-one' }])
+    const error = collectionErrorOf([
+      sampleOneManifest,
+      { ...sampleTwoManifest, slug: 'sample-one' },
+    ])
     expect(error.problems).toContainEqual({
       product: 'manifests[1]',
       path: 'slug',

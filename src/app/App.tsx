@@ -1,5 +1,5 @@
 import '@styles/global.css'
 
 export function App() {
-  return null
+  return <main />
 }
