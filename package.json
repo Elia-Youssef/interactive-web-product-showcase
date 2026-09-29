@@ -17,6 +17,7 @@
     "test": "vitest run",
     "e2e": "playwright test",
     "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm assets:validate && pnpm build && pnpm e2e",
+    "assets:basis": "node scripts/copyBasis.ts",
     "assets:optimize": "node scripts/optimize.ts",
     "assets:validate": "node scripts/validate.ts"
   },
