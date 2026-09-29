@@ -82,6 +82,18 @@ export const sizeValueRows: readonly Row[] = [
     expected: [{ line: 1, column: 21, property: '@supports', kind: 'length', literal: '4px' }],
   },
   {
+    title: 'a custom media definition outside the tokens is raw',
+    css: '@custom-media --vp-probe (min-width: 600px);\n',
+    expected: [
+      { line: 1, column: 38, property: '@custom-media', kind: 'length', literal: '600px' },
+    ],
+  },
+  {
+    title: 'preludes that only name things pass',
+    css: "@import '../styles/tokens.css';\n@keyframes fade-in {\n  from { opacity: 0; }\n}\n@layer base;\n",
+    expected: [],
+  },
+  {
     title: 'a shorthand reports each literal once, at its own column',
     css: '  padding: 12px 8px 4px 2px;\n',
     expected: [

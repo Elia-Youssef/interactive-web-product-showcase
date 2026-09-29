@@ -21,12 +21,11 @@ export type RawValueFinding = {
   readonly literal: string
 }
 
-// The at-rules whose prelude states a condition. A breakpoint or support
-// query written with a literal bypasses the tokens the same way a
-// declaration value does. Other preludes name things, a keyframes or layer
-// name, an import path, and carry no design values.
-const preludeAtRules: ReadonlySet<string> = new Set(['media', 'container', 'supports'])
-
+// Every at-rule prelude is scanned, with no list of at-rules: a literal in
+// a media, container or supports condition, or in a custom media
+// definition, bypasses the tokens the same way a declaration value does.
+// Preludes that only name things (a keyframes or layer name, an import
+// path) carry no literal tokens, so they pass by the same rules.
 export function findRawValues(path: string, css: string): RawValueFinding[] {
   if (isTokenSource(path)) {
     return []
@@ -37,9 +36,6 @@ export function findRawValues(path: string, css: string): RawValueFinding[] {
     collectFindings(path, css, decl.prop, declarationValueSource(decl), findings)
   })
   root.walkAtRules((atrule) => {
-    if (!preludeAtRules.has(atrule.name.toLowerCase())) {
-      return
-    }
     collectFindings(
       path,
       css,

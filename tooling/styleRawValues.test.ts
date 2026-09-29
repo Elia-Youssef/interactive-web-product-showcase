@@ -15,7 +15,6 @@ describe('the raw design value rules', () => {
       const expected: RawValueFinding[] = row.expected.map((finding) => ({
         path: row.path ?? plantedPath,
         ...finding,
-        kind: finding.kind as RawValueFinding['kind'],
       }))
       expect(findRawValues(row.path ?? plantedPath, row.css)).toEqual(expected)
     })

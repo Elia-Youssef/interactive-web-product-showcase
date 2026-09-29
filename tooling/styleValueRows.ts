@@ -2,13 +2,14 @@
 // single list the test iterates. The rows themselves live in their rule
 // family modules, so the table grows without anyone rewriting the runner.
 import { colorValueRows } from './styleColorValueRows.ts'
+import type { RawKind } from './styleRawRules.ts'
 import { sizeValueRows } from './styleSizeValueRows.ts'
 
 export type ExpectedFinding = {
   readonly line: number
   readonly column: number
   readonly property: string
-  readonly kind: string
+  readonly kind: RawKind
   readonly literal: string
 }
 
