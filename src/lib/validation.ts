@@ -1,7 +1,7 @@
 // The one validation-issue logic every schema boundary shares: field path
 // formatting and the mapping of zod issues to structured (path, message)
 // form. Pure: no React, no three, nothing else from src/.
-import { z } from 'zod'
+import type { z } from 'zod'
 
 export type ValidationIssue = {
   path: string
