@@ -7,9 +7,12 @@ import { resolve } from 'node:path'
 import { hasExtension, scriptExtensions } from './extensions.ts'
 import { createConfig } from './eslintConfig.ts'
 import { listOwnedFiles } from './ownedFiles.ts'
+import { notVendored } from './vendoredFiles.ts'
 
 const root = resolve(import.meta.dirname, '..')
-const files = listOwnedFiles(root).filter((file) => hasExtension(file, scriptExtensions))
+const files = listOwnedFiles(root)
+  .filter(notVendored)
+  .filter((file) => hasExtension(file, scriptExtensions))
 
 const eslint = new ESLint({
   cwd: root,

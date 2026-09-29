@@ -1,0 +1,7 @@
+/* Structural only: no brand tokens yet. The toggle sits against the
+   stage box, never against the viewport. */
+.toggle {
+  position: absolute;
+  left: 1rem;
+  top: 1rem;
+}

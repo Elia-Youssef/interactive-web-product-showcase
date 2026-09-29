@@ -6,10 +6,13 @@ import { resolve } from 'node:path'
 import { check as checkFormat, format as formatSource, resolveConfig } from 'prettier'
 import { formatExtensions, hasExtension } from './extensions.ts'
 import { listOwnedFiles } from './ownedFiles.ts'
+import { notVendored } from './vendoredFiles.ts'
 
 const root = resolve(import.meta.dirname, '..')
 const mode = process.argv[2] === '--write' ? 'write' : 'check'
-const files = listOwnedFiles(root).filter((file) => hasExtension(file, formatExtensions))
+const files = listOwnedFiles(root)
+  .filter(notVendored)
+  .filter((file) => hasExtension(file, formatExtensions))
 
 let unformatted = 0
 for (const file of files) {
