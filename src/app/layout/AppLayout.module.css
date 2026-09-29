@@ -11,9 +11,9 @@ Values are tokens.
 .layout {
   display: flex;
   flex-direction: column;
-  inline-size: 100%;
-  block-size: 100%;
-  min-block-size: 100vh;
+  inline-size: var(--size-fill);
+  block-size: var(--size-fill);
+  min-block-size: var(--height-viewport);
   background-color: var(--bg);
   overflow: hidden;
 }
@@ -22,7 +22,7 @@ Values are tokens.
   display: flex;
   flex: 1;
   min-block-size: 0;
-  inline-size: 100%;
+  inline-size: var(--size-fill);
   position: relative;
 }
 

@@ -14,10 +14,10 @@ Every value comes from a token in tokens.css.
     radial-gradient(
       var(--backdrop-vignette-shape),
       var(--backdrop-vignette-inner) var(--backdrop-vignette-inner-stop),
-      var(--backdrop-vignette-outer) 100%
+      var(--backdrop-vignette-outer) var(--backdrop-vignette-outer-stop)
     ),
     linear-gradient(
-      90deg,
+      to right,
       rgb(var(--white-rgb) / var(--backdrop-grid-alpha)) var(--backdrop-grid-line),
       transparent var(--backdrop-grid-line)
     ),
@@ -26,7 +26,7 @@ Every value comes from a token in tokens.css.
       transparent var(--backdrop-grid-line)
     );
   background-size:
-    100% 100%,
+    var(--size-fill) var(--size-fill),
     var(--backdrop-grid-cell) var(--backdrop-grid-cell),
     var(--backdrop-grid-cell) var(--backdrop-grid-cell);
 }

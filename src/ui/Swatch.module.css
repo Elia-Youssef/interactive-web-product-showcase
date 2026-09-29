@@ -14,7 +14,7 @@ arrives as a prop; every other value is a token. */
   block-size: var(--size-swatch);
   padding: 0;
   border: var(--hairline-width) solid var(--hairline);
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   cursor: pointer;
   transition: border-color var(--duration-hover);
 }

@@ -37,7 +37,7 @@ Values are tokens.
     inline-size: var(--panel-width);
     min-inline-size: var(--panel-width-min);
     max-inline-size: var(--panel-width-max);
-    block-size: 100%;
+    block-size: var(--size-fill);
     padding: var(--space-8);
     background-color: var(--bg);
     border-inline-end: var(--hairline-width) solid var(--hairline);
@@ -49,9 +49,9 @@ Values are tokens.
     order: 2;
     justify-content: space-between;
     flex: 1;
-    inline-size: 100%;
+    inline-size: var(--size-fill);
     min-inline-size: 0;
-    max-inline-size: 100%;
+    max-inline-size: var(--size-fill);
     min-block-size: 0;
     padding: var(--space-8);
     background-color: var(--bg);
@@ -66,9 +66,9 @@ Values are tokens.
     order: 2;
     justify-content: flex-start;
     flex: 1;
-    inline-size: 100%;
+    inline-size: var(--size-fill);
     min-inline-size: 0;
-    max-inline-size: 100%;
+    max-inline-size: var(--size-fill);
     min-block-size: 0;
     padding: var(--space-4) var(--space-6) var(--space-6);
     gap: var(--space-4);

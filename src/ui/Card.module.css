@@ -71,7 +71,7 @@ The forced focus of the gallery demos: the same two declarations the global
 .bullets li::before {
   inline-size: var(--size-bullet-dot);
   block-size: var(--size-bullet-dot);
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   background-color: var(--red);
   content: '';
 }

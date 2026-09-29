@@ -35,6 +35,8 @@ their minimum below it, switched by the breakpoints at the end of this file.
 
   /* Shape */
   --radius: 16px;
+  /* The fully round corner: a square box becomes a circle or an ellipse. */
+  --radius-circle: 50%;
 
   /* Type */
   --fs-title: clamp(56px, 7vw, 112px);
@@ -106,6 +108,13 @@ their minimum below it, switched by the breakpoints at the end of this file.
   Tablet stage height is 60vh; phone stage height is 62svh.
   Bottom sheet grab handle dimensions.
   */
+  /*
+  The full extent of the containing block, for the elements that fill their
+  parent in one axis.
+  */
+  --size-fill: 100%;
+  /* The height of the viewport, for the app shell that must span it. */
+  --height-viewport: 100vh;
   --size-ra-mark: var(--space-6);
   --height-top-bar: 56px;
   --panel-width-min: 380px;
@@ -144,6 +153,7 @@ their minimum below it, switched by the breakpoints at the end of this file.
   --backdrop-vignette-shape: 120% 90% at 50% 42%;
   --backdrop-vignette-inner: rgb(var(--bg-rgb) / 0);
   --backdrop-vignette-inner-stop: 35%;
+  --backdrop-vignette-outer-stop: 100%;
   --backdrop-vignette-outer-alpha: 0.85;
   --backdrop-vignette-outer: rgb(var(--black-rgb) / var(--backdrop-vignette-outer-alpha));
 }

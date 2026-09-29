@@ -5,7 +5,7 @@ panel hairline. Values are tokens.
 */
 
 .page {
-  min-block-size: 100%;
+  min-block-size: var(--size-fill);
   background-color: var(--bg);
 }
 
