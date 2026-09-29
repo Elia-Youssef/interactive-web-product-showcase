@@ -1,0 +1,17 @@
+/* The product title. Values are tokens. */
+
+.title {
+  font-size: var(--fs-title);
+  line-height: var(--lh-title);
+  font-weight: var(--weight-title);
+  letter-spacing: var(--tracking-title);
+  color: var(--off);
+}
+
+.line {
+  display: block;
+}
+
+.accent {
+  color: var(--red);
+}

@@ -1,0 +1,8 @@
+/* The mono readout label. Values are tokens. */
+
+.readout {
+  font-family: var(--mono);
+  font-size: var(--fs-readout);
+  font-weight: var(--weight-readout);
+  color: var(--label);
+}

@@ -1,0 +1,9 @@
+/* The tracked uppercase label. Values are tokens. */
+
+.eyebrow {
+  font-size: var(--fs-eyebrow);
+  font-weight: var(--weight-eyebrow);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--label);
+}

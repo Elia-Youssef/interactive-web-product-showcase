@@ -1,0 +1,36 @@
+/* The finish swatch. The fill
+arrives as a prop; every other value is a token. */
+
+.swatch {
+  /*
+  The selected ring and the focus ring must stay distinguishable: selected
+  is the close ring below, so this swatch moves the global focus outline
+  outside that ring by widening the shared offset. A focused swatch shows
+  the outline whether it is selected or not, and a focused, selected swatch
+  shows both.
+  */
+  --focus-ring-offset: calc(var(--offset-swatch-ring) + var(--focus-width) + var(--focus-offset));
+  inline-size: var(--size-swatch);
+  block-size: var(--size-swatch);
+  padding: 0;
+  border: var(--hairline-width) solid var(--hairline);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: border-color var(--duration-hover);
+}
+
+.swatch:hover,
+.swatch[data-force-hover] {
+  border-color: var(--hairline-hover);
+}
+
+/*
+Selected is the close ring: a gap in --bg at --offset-swatch-ring, then the
+off ring at the shared ring width. It is a box-shadow, not an outline, so it
+cannot be mistaken for the focus outline that sits further out.
+*/
+.swatch[aria-pressed='true'] {
+  box-shadow:
+    0 0 0 var(--offset-swatch-ring) var(--bg),
+    0 0 0 calc(var(--offset-swatch-ring) + var(--focus-width)) var(--off);
+}
