@@ -74,13 +74,30 @@ their minimum below it, switched by the breakpoints at the end of this file.
   --space-12: 48px;
 
   /* Component sizes */
+  --hairline-width: 1px;
+  /*
+  The minimum touch target: every control that exists to be hit derives its
+  size from this one value, so the minimum appears here and nowhere else.
+  */
+  --size-hit-min: 44px;
   --size-swatch: 22px;
   --offset-swatch-ring: 3px;
+  --size-bullet-dot: 6px;
+  --size-icon-button: var(--size-hit-min);
   --size-hotspot-dot: 10px;
   --size-hotspot-ring: 28px;
-  --size-hotspot-hit: 44px;
+  --size-hotspot-hit: var(--size-hit-min);
+  /*
+  The keyboard focus ring. global.css owns the one
+  :focus-visible rule and draws it from --focus-ring; a component that needs
+  the ring further out sets --focus-ring-offset on itself, with --focus-offset
+  as the fallback where it does not.
+  */
   --focus-width: 2px;
   --focus-offset: 3px;
+  --focus-ring: var(--focus-width) solid var(--off);
+  /* Gap between a selected text button and its persistent underline. */
+  --offset-text-underline: var(--space-1);
 
   /*
   Motion. Every duration is this scale times its own
@@ -89,6 +106,11 @@ their minimum below it, switched by the breakpoints at the end of this file.
   --motion-scale: 1;
   --duration-camera: calc(700ms * var(--motion-scale));
   --ease-camera: cubic-bezier(0.215, 0.61, 0.355, 1);
+  /*
+  The hover and state lift of the small controls: 150ms, fast enough to
+  feel immediate. Reduced motion resolves it to instant.
+  */
+  --duration-hover: calc(150ms * var(--motion-scale));
 
   /*
   Stage backdrop. The grid line is --white-rgb
