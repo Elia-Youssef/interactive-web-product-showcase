@@ -1,21 +1,17 @@
+@import '../../styles/tokens.css';
+
 /*
-The text panel of the desktop layout.
-Clamped between 380px and 520px at about 34% width. Separated from the stage
-by one hairline. Values are tokens.
+The product details panel.
+On desktop: clamped between 380px and 520px at about 34% width on the left.
+On tablet: follows the stage at full width with a horizontal hairline.
+On phone: becomes a bottom sheet with a grab handle, top corner radius,
+and its own scroll container.
+Values are tokens.
 */
 
 .panel {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  flex: 0 0 var(--panel-width);
-  inline-size: var(--panel-width);
-  min-inline-size: var(--panel-width-min);
-  max-inline-size: var(--panel-width-max);
-  block-size: 100%;
-  padding: var(--space-8);
-  background-color: var(--bg);
-  border-inline-end: var(--hairline-width) solid var(--hairline);
   box-sizing: border-box;
 }
 
@@ -27,4 +23,71 @@ by one hairline. Values are tokens.
 .footer {
   display: flex;
   align-items: center;
+}
+
+.handle {
+  display: none;
+}
+
+@media (--vp-desktop) {
+  .panel {
+    order: 1;
+    justify-content: space-between;
+    flex: 0 0 var(--panel-width);
+    inline-size: var(--panel-width);
+    min-inline-size: var(--panel-width-min);
+    max-inline-size: var(--panel-width-max);
+    block-size: 100%;
+    padding: var(--space-8);
+    background-color: var(--bg);
+    border-inline-end: var(--hairline-width) solid var(--hairline);
+  }
+}
+
+@media (--vp-tablet) {
+  .panel {
+    order: 2;
+    justify-content: space-between;
+    flex: 1;
+    inline-size: 100%;
+    min-inline-size: 0;
+    max-inline-size: 100%;
+    min-block-size: 0;
+    padding: var(--space-8);
+    background-color: var(--bg);
+    border-block-start: var(--hairline-width) solid var(--hairline);
+    border-inline-end: none;
+    overflow-y: auto;
+  }
+}
+
+@media (--vp-phone) {
+  .panel {
+    order: 2;
+    justify-content: flex-start;
+    flex: 1;
+    inline-size: 100%;
+    min-inline-size: 0;
+    max-inline-size: 100%;
+    min-block-size: 0;
+    padding: var(--space-4) var(--space-6) var(--space-6);
+    gap: var(--space-4);
+    background-color: var(--surface);
+    border: var(--hairline-width) solid var(--hairline);
+    border-block-end: none;
+    border-start-start-radius: var(--radius);
+    border-start-end-radius: var(--radius);
+    overflow-y: auto;
+  }
+
+  .handle {
+    display: block;
+    align-self: center;
+    flex-shrink: 0;
+    inline-size: var(--size-sheet-handle-width);
+    block-size: var(--size-sheet-handle-height);
+    border-radius: calc(var(--size-sheet-handle-height) / 2);
+    background-color: var(--hairline-hover);
+    margin-block-end: var(--space-2);
+  }
 }
