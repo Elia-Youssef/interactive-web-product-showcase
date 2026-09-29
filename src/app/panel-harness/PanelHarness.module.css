@@ -1,0 +1,30 @@
+/* The dev-only harness layout: a top bar over a panel column, the panel
+carrying the hairline that separates it from the stage the layout will own.
+The panel column is a desktop share of the page; the real widths are the
+layout's. Values are tokens. */
+
+.page {
+  min-block-size: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg);
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+  padding: var(--space-6) var(--space-12);
+}
+
+.content {
+  flex: 1;
+  display: flex;
+}
+
+.panel {
+  inline-size: 34%;
+  padding: var(--space-12);
+  border-inline-end: var(--hairline-width) solid var(--hairline);
+}
