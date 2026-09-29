@@ -135,7 +135,7 @@ function addExplodeAnimation(doc: Document, target: GltfNode): void {
   animation.addChannel(channel)
 }
 
-function buildContractDocument(): { doc: Document, hotspotNode: GltfNode, partNode: GltfNode } {
+function buildContractDocument(): { doc: Document; hotspotNode: GltfNode; partNode: GltfNode } {
   const doc = new Document()
   doc.createBuffer()
   doc.createScene('Scene')
@@ -230,9 +230,7 @@ describe('the geometry stage keeps the Blender contract', () => {
     const before = readProductStructure(await io.read(sourcePath))
     const after = readProductStructure(await io.read(outputPath))
     const losses = findStructureLosses(before, after)
-    expect(losses).toEqual(
-      expect.arrayContaining([expect.stringMatching(/hotspot lost: HS_dial/)]),
-    )
+    expect(losses).toEqual(expect.arrayContaining([expect.stringMatching(/hotspot lost: HS_dial/)]))
     expect(losses).toEqual(
       expect.arrayContaining([expect.stringMatching(/hotspot lost: HS_grille/)]),
     )

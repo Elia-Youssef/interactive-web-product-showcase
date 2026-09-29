@@ -131,8 +131,12 @@ export async function runOptimizePipeline(params: PipelineParams): Promise<void>
       ),
     )
     await params.run(
-      buildEtc1sStageArgs(afterOcclusion, afterAllTextures, params.settings.textureMaxSize,
-        params.settings),
+      buildEtc1sStageArgs(
+        afterOcclusion,
+        afterAllTextures,
+        params.settings.textureMaxSize,
+        params.settings,
+      ),
     )
     await mkdir(path.dirname(params.outputPath), { recursive: true })
     await params.run(buildGeometryStageArgs(afterAllTextures, params.outputPath, params.settings))

@@ -144,7 +144,7 @@ export const DEFAULT_OPTIMIZE_SETTINGS: OptimizeSettings = resolveOptimizeSettin
 // was applied, so the run report can name it.
 export async function loadOptimizeSettings(
   settingsFile: string,
-): Promise<{ settings: OptimizeSettings, usedOverride: boolean }> {
+): Promise<{ settings: OptimizeSettings; usedOverride: boolean }> {
   let contents: string
   try {
     contents = await readFile(settingsFile, 'utf8')

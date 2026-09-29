@@ -89,7 +89,7 @@ describe('textureSizeRule', () => {
 })
 
 describe('runOptimizePipeline', () => {
-  const recordedRunner = (): { run: CliRunner, calls: string[][] } => {
+  const recordedRunner = (): { run: CliRunner; calls: string[][] } => {
     const calls: string[][] = []
     const run: CliRunner = async (args) => {
       calls.push([...args])

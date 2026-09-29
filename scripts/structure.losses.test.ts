@@ -2,11 +2,7 @@
 // losses (lost, moved, duplicated, renamed) against findStructureLosses,
 // without the CLI or a file.
 import { describe, expect, it } from 'vitest'
-import {
-  findStructureLosses,
-  type HotspotAnchor,
-  type ProductStructure,
-} from './structure.ts'
+import { findStructureLosses, type HotspotAnchor, type ProductStructure } from './structure.ts'
 
 function structureWith(hotspotAnchors: readonly HotspotAnchor[]): ProductStructure {
   return {

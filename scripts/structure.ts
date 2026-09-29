@@ -74,11 +74,17 @@ export function readProductStructure(doc: Document): ProductStructure {
     }
   }
   return {
-    nodeNames: root.listNodes().map((node) => node.getName()).filter((name) => name !== ''),
-    hotspotAnchors: root.listNodes().filter(isHotspotNode).map((node) => ({
-      name: node.getName(),
-      parentName: nearestNamedAncestor(node),
-    })),
+    nodeNames: root
+      .listNodes()
+      .map((node) => node.getName())
+      .filter((name) => name !== ''),
+    hotspotAnchors: root
+      .listNodes()
+      .filter(isHotspotNode)
+      .map((node) => ({
+        name: node.getName(),
+        parentName: nearestNamedAncestor(node),
+      })),
     cameraNames: root
       .listNodes()
       .filter((node) => node.getCamera() !== null)
