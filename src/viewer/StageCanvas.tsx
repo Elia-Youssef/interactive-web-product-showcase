@@ -2,7 +2,7 @@ import { Canvas } from '@react-three/fiber'
 import type { ReactNode } from 'react'
 import type { FrameClock } from './FrameClock'
 import { FrameObserver } from './FrameObserver'
-import { RendererAlert } from './RendererAlert'
+import { StageAlert } from './StageAlert'
 import { RendererErrorBoundary } from './RendererErrorBoundary'
 import { RendererRig } from './RendererRig'
 import { ProductDecoderProvider } from './product/DecoderProvider'
@@ -38,7 +38,7 @@ export function StageCanvas({
   return (
     <RendererErrorBoundary
       onError={onInitError}
-      fallback={(error) => <RendererAlert reason={initFailureReason(error)} />}
+      fallback={(error) => <StageAlert reason={initFailureReason(error)} />}
     >
       <Canvas gl={stageRenderer.factory} frameloop={stageConfig.frameloop} dpr={stageConfig.dpr}>
         <RendererRig />
