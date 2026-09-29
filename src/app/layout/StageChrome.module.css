@@ -1,0 +1,52 @@
+/*
+Stage chrome corner overlays.
+Four corner slots positioned over the stage canvas. The container ignores pointer
+events so interactions pass to the canvas underneath. Values are tokens.
+*/
+
+.chrome {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.topLeft,
+.topRight,
+.bottomLeft,
+.bottomRight {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  pointer-events: auto;
+}
+
+.topLeft {
+  inset-block-start: var(--inset-stage-chrome);
+  inset-inline-start: var(--inset-stage-chrome);
+}
+
+.topRight {
+  inset-block-start: var(--inset-stage-chrome);
+  inset-inline-end: var(--inset-stage-chrome);
+  justify-content: flex-end;
+  min-inline-size: var(--size-hit-min);
+  min-block-size: var(--size-hit-min);
+}
+
+.bottomLeft {
+  inset-block-end: var(--inset-stage-chrome);
+  inset-inline-start: var(--inset-stage-chrome);
+}
+
+.bottomRight {
+  inset-block-end: var(--inset-stage-chrome);
+  inset-inline-end: var(--inset-stage-chrome);
+  justify-content: flex-end;
+  min-inline-size: var(--size-hit-min);
+  min-block-size: var(--size-hit-min);
+}
+
+.topRight:empty,
+.bottomRight:empty {
+  pointer-events: none;
+}
