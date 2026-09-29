@@ -1,0 +1,18 @@
+/*
+The stage section of the desktop layout.
+Fills the remaining width. Hosts the stage backdrop, the WebGPU canvas slot,
+and the stage chrome corners. Values are tokens.
+*/
+
+.stage {
+  position: relative;
+  flex: 1;
+  min-inline-size: 0;
+  block-size: 100%;
+  overflow: hidden;
+}
+
+.canvasSlot {
+  position: absolute;
+  inset: 0;
+}

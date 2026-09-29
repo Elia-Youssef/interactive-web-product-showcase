@@ -100,6 +100,19 @@ their minimum below it, switched by the breakpoints at the end of this file.
   --offset-text-underline: var(--space-1);
 
   /*
+  Layout structural sizes.
+  The panel is clamped between 380px and 520px at about 34% width.
+  Top bar height, mark size, and stage chrome insets.
+  */
+  --size-ra-mark: var(--space-6);
+  --height-top-bar: 56px;
+  --panel-width-min: 380px;
+  --panel-width-max: 520px;
+  --panel-width-basis: 34%;
+  --panel-width: clamp(var(--panel-width-min), var(--panel-width-basis), var(--panel-width-max));
+  --inset-stage-chrome: var(--space-8);
+
+  /*
   Motion. Every duration is this scale times its own
   value, so reduced motion resolves each of them to instant in one place.
   */
