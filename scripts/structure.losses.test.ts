@@ -1,0 +1,106 @@
+// The structure comparison, compared purely: the whole class of hotspot
+// losses (lost, moved, duplicated, renamed) against findStructureLosses,
+// without the CLI or a file.
+import { describe, expect, it } from 'vitest'
+import {
+  findStructureLosses,
+  type HotspotAnchor,
+  type ProductStructure,
+} from './structure.ts'
+
+function structureWith(hotspotAnchors: readonly HotspotAnchor[]): ProductStructure {
+  return {
+    nodeNames: hotspotAnchors.map((anchor) => anchor.name),
+    hotspotAnchors: [...hotspotAnchors],
+    cameraNames: [],
+    variantNames: [],
+    mappingCount: 0,
+    animationNames: [],
+    unlitMaterialNames: [],
+    occlusionMaterialNames: [],
+  }
+}
+
+function lossesBetween(
+  before: readonly HotspotAnchor[],
+  after: readonly HotspotAnchor[],
+): string[] {
+  return findStructureLosses(structureWith(before), structureWith(after))
+}
+
+describe('findStructureLosses hotspot comparison', () => {
+  it('reports nothing when every hotspot keeps its part', () => {
+    const before: HotspotAnchor[] = [
+      { name: 'HS_dial', parentName: 'PART_base' },
+      { name: 'HS_grille', parentName: 'PART_base' },
+    ]
+    expect(lossesBetween(before, before)).toEqual([])
+  })
+
+  it('reports a hotspot moved to another part', () => {
+    const losses = lossesBetween(
+      [{ name: 'HS_x', parentName: 'PART_a' }],
+      [{ name: 'HS_x', parentName: 'PART_b' }],
+    )
+    expect(losses).toEqual(['hotspot HS_x moved: was under PART_a, now under PART_b'])
+  })
+
+  it('reports a hotspot moved to the scene root', () => {
+    const losses = lossesBetween(
+      [{ name: 'HS_x', parentName: 'PART_a' }],
+      [{ name: 'HS_x', parentName: null }],
+    )
+    expect(losses).toEqual(['hotspot HS_x moved: was under PART_a, now under scene root'])
+  })
+
+  it('reports a hotspot lost from under its part', () => {
+    const losses = lossesBetween([{ name: 'HS_x', parentName: 'PART_a' }], [])
+    expect(losses).toContainEqual('node name lost: HS_x')
+    expect(losses).toContainEqual('hotspot lost: HS_x (was under PART_a)')
+  })
+
+  it('reports a renamed hotspot as a loss of the old name', () => {
+    const losses = lossesBetween(
+      [{ name: 'HS_x', parentName: 'PART_a' }],
+      [{ name: 'HS_y', parentName: 'PART_a' }],
+    )
+    expect(losses).toContainEqual('node name lost: HS_x')
+    expect(losses).toContainEqual('hotspot lost: HS_x (was under PART_a)')
+  })
+
+  it('reports a duplicated hotspot name in the output as its own violation', () => {
+    const losses = lossesBetween(
+      [{ name: 'HS_x', parentName: 'PART_a' }],
+      [
+        { name: 'HS_x', parentName: 'PART_a' },
+        { name: 'HS_x', parentName: 'PART_b' },
+      ],
+    )
+    expect(losses).toEqual(['hotspot name duplicated in the output: HS_x appears 2 times'])
+  })
+
+  it('reports a duplicated hotspot name in the source as its own violation', () => {
+    const losses = lossesBetween(
+      [
+        { name: 'HS_x', parentName: 'PART_a' },
+        { name: 'HS_x', parentName: 'PART_b' },
+      ],
+      [{ name: 'HS_x', parentName: 'PART_a' }],
+    )
+    expect(losses).toEqual(['hotspot name duplicated in the source: HS_x appears 2 times'])
+  })
+
+  it('reports the losses of several hotspots independently', () => {
+    const losses = lossesBetween(
+      [
+        { name: 'HS_x', parentName: 'PART_a' },
+        { name: 'HS_y', parentName: 'PART_b' },
+      ],
+      [
+        { name: 'HS_x', parentName: 'PART_c' },
+        { name: 'HS_y', parentName: 'PART_b' },
+      ],
+    )
+    expect(losses).toEqual(['hotspot HS_x moved: was under PART_a, now under PART_c'])
+  })
+})
