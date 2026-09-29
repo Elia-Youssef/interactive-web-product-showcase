@@ -1,6 +1,7 @@
 // The smoke matrix as two data tables: the browsers and the backend modes.
 // The Playwright projects are their cross product, so every project carries a
 // real browserName, and the fixtures hold the launch to it.
+import { backendForceWebGLValue, backendQueryParam } from '../../src/lib/renderer/request'
 import type { RendererBackend } from '../../src/lib/renderer/backend'
 
 export type BrowserName = 'chromium' | 'firefox' | 'webkit'
@@ -49,9 +50,13 @@ type ModeRow = {
   readonly expectedBackend: (browser: BrowserRow) => RendererBackend
 }
 
+// The forced fallback path is built from the request parser's own data, so
+// the URL the matrix drives and the contract the app parses cannot drift.
+const forcedWebGL2Path = `/?${backendQueryParam}=${backendForceWebGLValue}`
+
 export const modes: readonly ModeRow[] = [
   { name: 'auto', path: '/', expectedBackend: (browser) => browser.autoBackend },
-  { name: 'webgl2', path: '/?backend=webgl', expectedBackend: () => 'webgl2' },
+  { name: 'webgl2', path: forcedWebGL2Path, expectedBackend: () => 'webgl2' },
 ]
 
 export type MatrixAssignment = {
