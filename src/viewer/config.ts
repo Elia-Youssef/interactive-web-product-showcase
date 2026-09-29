@@ -23,6 +23,9 @@ export type StageConfig = {
   // work, and the backend multi-samples the frame's edges.
   readonly alpha: boolean
   readonly antialias: boolean
+  // The environment map the stage lights its content with, served from
+  // public/env. Reflections only, never a background.
+  readonly environmentFile: string
 }
 
 export const stageConfig: StageConfig = {
@@ -34,4 +37,5 @@ export const stageConfig: StageConfig = {
   clearAlpha: 0,
   alpha: true,
   antialias: true,
+  environmentFile: '/env/studio_small_09_1k.hdr',
 }

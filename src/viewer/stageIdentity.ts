@@ -8,8 +8,12 @@ import { Scene, WebGPURenderer } from 'three/webgpu'
 // The renderer the stage renders through must be the one its factory built,
 // from the three/webgpu module the stage imports, never a renderer that came
 // out of a second copy of three.
+export function isStageRenderer(gl: object): gl is WebGPURenderer {
+  return gl instanceof WebGPURenderer
+}
+
 export function assertStageRenderer(gl: object): void {
-  if (!(gl instanceof WebGPURenderer)) {
+  if (!isStageRenderer(gl)) {
     throw new Error('The stage needs the WebGPURenderer its factory built')
   }
 }
