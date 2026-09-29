@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useGLTF } from '@react-three/drei'
 import { useThree } from '@react-three/fiber'
 import { modelUrl } from '@lib/product'
@@ -26,7 +26,12 @@ export function ProductModel({ product }: ProductModelProps) {
   const watch = useStageModelWatch()
 
   useStageCameraFit(frame)
-  useStageModelReport(watch, product.slug, frame)
+  const compileFailure = useStageModelReport(watch, product.slug, frame)
+  // A failed compile is thrown to the boundary that owns the stage's content
+  // failures, never reported as a settled model.
+  if (compileFailure !== null) {
+    throw compileFailure
+  }
 
   // The offset centers the model on the origin, where the camera looks.
   return (
@@ -44,12 +49,14 @@ export function ProductModel({ product }: ProductModelProps) {
 // can still change under a reader. The compile is the renderer's own signal
 // for that work; its resolution pays the stage's last load-frame debt and
 // marks the report, so a non-null model reads as a settled, presented one.
-// The fit runs first, so the compile sees the fitted camera.
-function useStageModelReport(watch: ModelWatch, slug: string, frame: ModelFrame): void {
+// The fit runs first, so the compile sees the fitted camera. A rejected
+// compile is returned as the failure, and the model is never reported.
+function useStageModelReport(watch: ModelWatch, slug: string, frame: ModelFrame): Error | null {
   const gl = useThree((state) => state.gl)
   const scene = useThree((state) => state.scene)
   const camera = useThree((state) => state.camera)
   const invalidate = useThree((state) => state.invalidate)
+  const [failure, setFailure] = useState<Error | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -60,10 +67,18 @@ function useStageModelReport(watch: ModelWatch, slug: string, frame: ModelFrame)
       watch.report({ slug, meshes: frame.meshes, triangles: frame.triangles })
       invalidate()
     }
-    void gl.compileAsync(scene, camera).then(settle, settle)
+    const fail = (error: unknown) => {
+      if (cancelled) {
+        return
+      }
+      setFailure(error instanceof Error ? error : new Error(String(error)))
+    }
+    void gl.compileAsync(scene, camera).then(settle, fail)
     return () => {
       cancelled = true
       watch.clear()
     }
   }, [gl, scene, camera, invalidate, watch, slug, frame])
+
+  return failure
 }
