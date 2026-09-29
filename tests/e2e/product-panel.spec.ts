@@ -1,14 +1,14 @@
 import { expect, test } from './fixtures'
 
-// The panel evidence runs on the dev-only harness page, which mounts the
-// collection loader, the store provider and the panel on their own. No
-// canvas is involved, so every matrix project runs it.
+// The panel evidence runs on the app itself, over the real manifests. The
+// error screen runs on the dev-only invalid-collection page, which is the
+// same app over a deliberately broken manifest list.
 
-const HARNESS_URL = '/panel-harness.html'
-const INVALID_HARNESS_URL = '/panel-harness.html?manifests=invalid'
+const APP_URL = '/'
+const INVALID_COLLECTION_URL = '/invalid-collection.html'
 
 test('the panel shows the stand-in manifest words', async ({ page }) => {
-  await page.goto(HARNESS_URL)
+  await page.goto(APP_URL)
 
   await expect(page.getByText('Wireless over-ear headphones / 001')).toBeVisible()
   await expect(page.getByRole('heading', { name: /Forma\s+One/ })).toBeVisible()
@@ -24,7 +24,7 @@ test('the panel shows the stand-in manifest words', async ({ page }) => {
 test('the finish list shows the heading, one swatch per finish and the default label', async ({
   page,
 }) => {
-  await page.goto(HARNESS_URL)
+  await page.goto(APP_URL)
 
   await expect(page.getByText('Choose your finish')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Midnight' })).toHaveAttribute(
@@ -40,7 +40,7 @@ test('the finish list shows the heading, one swatch per finish and the default l
 })
 
 test('clicking a swatch moves the selected state and the active label', async ({ page }) => {
-  await page.goto(HARNESS_URL)
+  await page.goto(APP_URL)
 
   const beach = page.getByRole('button', { name: 'Beach' })
   const midnight = page.getByRole('button', { name: 'Midnight' })
@@ -53,7 +53,7 @@ test('clicking a swatch moves the selected state and the active label', async ({
 })
 
 test('the top bar shows the product index label', async ({ page }) => {
-  await page.goto(HARNESS_URL)
+  await page.goto(APP_URL)
 
   await expect(page.getByText('01 / Audio')).toBeVisible()
 })
@@ -61,7 +61,7 @@ test('the top bar shows the product index label', async ({ page }) => {
 test('a broken manifest list renders the alert error screen with the field paths', async ({
   page,
 }) => {
-  await page.goto(INVALID_HARNESS_URL)
+  await page.goto(INVALID_COLLECTION_URL)
 
   const alert = page.getByRole('alert')
   await expect(alert).toBeVisible()

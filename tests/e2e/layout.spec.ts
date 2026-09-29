@@ -177,6 +177,33 @@ for (const spec of viewportContracts) {
   })
 }
 
+// Whatever the panel slot holds stays clear of the panel footer and can be
+// scrolled into view, at every viewport: the panel is the scroll container,
+// and its content never shrinks under the footer.
+for (const spec of viewportContracts) {
+  test(`panel content stays clear of the footer at ${spec.width}x${spec.height}`, async ({
+    page,
+    backendPath,
+  }) => {
+    await page.setViewportSize({ width: spec.width, height: spec.height })
+    await page.goto(backendPath)
+
+    const panel = page.getByRole('complementary', { name: siteCopy.panelLabel })
+    const slotContent = panel.locator('[data-slot="panel"] > *').last()
+    const footer = panel.getByText(siteCopy.siteUrl)
+
+    await slotContent.scrollIntoViewIfNeeded()
+    await expect(slotContent).toBeInViewport()
+
+    const contentBox = await slotContent.boundingBox()
+    const footerBox = await footer.boundingBox()
+    if (contentBox === null || footerBox === null) {
+      throw new Error('the panel content and footer bounding boxes must be present')
+    }
+    expect(contentBox.y + contentBox.height).toBeLessThanOrEqual(footerBox.y + 0.5)
+  })
+}
+
 for (const spec of viewportContracts) {
   test(`layout visual baseline at ${spec.width}x${spec.height}`, async ({
     page,
