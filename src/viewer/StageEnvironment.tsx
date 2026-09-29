@@ -12,10 +12,17 @@ import { isStageRenderer } from './stageIdentity'
 // happens lazily inside the first render that samples it, and under demand
 // mode the stage would come to rest on a frame the environment had not
 // reached yet.
+//
+// The source texture comes out of the loader cache, so releasing it means
+// both disposing it and clearing its cache entry, with the same options it
+// was loaded with: a later mount then loads a fresh texture instead of
+// reusing the disposed one.
+const environmentOptions = { files: stageConfig.environmentFile }
+
 export function StageEnvironment() {
   const gl = useThree((state) => state.gl)
   const scene = useThree((state) => state.scene)
-  const equirectangular = useEnvironment({ files: stageConfig.environmentFile })
+  const equirectangular = useEnvironment(environmentOptions)
 
   useEffect(() => {
     if (!isStageRenderer(gl)) {
@@ -31,6 +38,7 @@ export function StageEnvironment() {
       scene.environment = previous
       prefiltered.dispose()
       equirectangular.dispose()
+      useEnvironment.clear(environmentOptions)
     }
   }, [gl, scene, equirectangular])
 
