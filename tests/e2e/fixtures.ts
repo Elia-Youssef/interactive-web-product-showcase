@@ -16,6 +16,10 @@ export type E2EOptions = {
   expectedBackend: RendererBackend
   expectedBrowserName: BrowserName
   expectedChannel?: ChannelSpec
+  // Whether this project hosts the committed visual baselines, from the
+  // matrix data. Its safe default is false: a project that forgets it only
+  // skips baselines, it never tests the wrong thing.
+  hostsVisualBaselines: boolean
 }
 
 export type ConsoleGate = {
@@ -47,6 +51,7 @@ export const test = base.extend<E2EFixtures>({
     { option: true },
   ],
   expectedChannel: [undefined, { option: true }],
+  hostsVisualBaselines: [false, { option: true }],
   // The browser contract: what actually launched must be what the project's
   // matrix row says, browser type and branded channel included. A misrouted
   // project fails every test it runs. The branded channel proves itself

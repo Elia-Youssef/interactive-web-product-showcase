@@ -1,0 +1,77 @@
+/* The hotspot card: --surface, hairline
+border, --radius. The title is --off, the bullets --muted with red dot
+markers. Values are tokens. */
+
+.card {
+  position: relative;
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  background-color: var(--surface);
+  border: var(--hairline-width) solid var(--hairline);
+  border-radius: var(--radius);
+}
+
+.close {
+  position: absolute;
+  inset-block-start: var(--space-2);
+  inset-inline-end: var(--space-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--size-icon-button);
+  block-size: var(--size-icon-button);
+  padding: 0;
+  border: none;
+  border-radius: calc(var(--size-icon-button) / 2);
+  background: none;
+  color: var(--label);
+  cursor: pointer;
+  transition: color var(--duration-hover);
+}
+
+.close:hover,
+.close[data-force-hover],
+.card[data-force-hover] .close {
+  color: var(--white);
+}
+
+/*
+The forced focus of the gallery demos: the same two declarations the global
+:focus-visible recipe uses, which owns the ring; no second recipe.
+*/
+.card[data-force-focus] .close {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset, var(--focus-offset));
+}
+
+.title {
+  padding-inline-end: var(--size-icon-button);
+  font-size: var(--fs-tagline);
+  font-weight: var(--weight-tagline);
+  color: var(--off);
+}
+
+.bullets {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.bullets li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--fs-body);
+  font-weight: var(--weight-body);
+  color: var(--muted);
+}
+
+.bullets li::before {
+  inline-size: var(--size-bullet-dot);
+  block-size: var(--size-bullet-dot);
+  border-radius: var(--radius-circle);
+  background-color: var(--red);
+  content: '';
+}

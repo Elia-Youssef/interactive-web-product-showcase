@@ -1,0 +1,25 @@
+/* The surface pill: the surface
+lifts to --raised and the icon to --white on hover. Values are tokens. */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--size-icon-button);
+  block-size: var(--size-icon-button);
+  padding: 0;
+  border: none;
+  border-radius: calc(var(--size-icon-button) / 2);
+  background-color: var(--surface);
+  color: var(--off);
+  cursor: pointer;
+  transition:
+    background-color var(--duration-hover),
+    color var(--duration-hover);
+}
+
+.button:hover,
+.button[data-force-hover] {
+  background-color: var(--raised);
+  color: var(--white);
+}

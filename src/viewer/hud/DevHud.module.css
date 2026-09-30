@@ -1,19 +1,23 @@
-/* Structural only: no brand tokens yet. The HUD is an overlay on the
-   stage box and must never eat input aimed at the canvas. */
+/* The dev HUD, a mono readout overlay on the stage box that must never eat
+   input aimed at the canvas, in the mono readout type. Values are
+   tokens. */
 .hud {
   position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
+  top: var(--space-3);
+  right: var(--space-3);
   display: grid;
-  gap: 0.25rem;
-  padding: 0.5rem;
-  font-size: 0.75rem;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  font-family: var(--mono);
+  font-size: var(--fs-readout);
+  font-weight: var(--weight-readout);
   line-height: 1.4;
+  color: var(--label);
   pointer-events: none;
 }
 
 .row {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--space-2);
   justify-content: space-between;
 }

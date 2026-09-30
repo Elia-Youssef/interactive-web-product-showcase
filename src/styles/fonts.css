@@ -1,0 +1,22 @@
+/*
+Local variable fonts, Latin subset, served from public/fonts. The weight
+ranges are the wght axis ranges measured in each file:
+montserrat-latin.woff2 spans 100 to 900, jetbrains-mono-latin.woff2 400 to 800.
+No font is ever requested from another origin.
+*/
+
+@font-face {
+  font-family: 'Montserrat';
+  src: url('/fonts/montserrat-latin.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/jetbrains-mono-latin.woff2') format('woff2');
+  font-weight: 400 800;
+  font-style: normal;
+  font-display: swap;
+}

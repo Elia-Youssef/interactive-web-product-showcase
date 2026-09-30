@@ -1,0 +1,94 @@
+@import '../../styles/tokens.css';
+
+/*
+The product details panel.
+On desktop: clamped between 380px and 520px at about 34% width on the left.
+On tablet: follows the stage at full width with a horizontal hairline.
+On phone: becomes a bottom sheet with a grab handle, top corner radius,
+and its own scroll container.
+Values are tokens.
+*/
+
+/* The panel is the one scroll container of its content at every breakpoint.
+The content grows to push the footer down but never shrinks below its own
+height: a shrunken content box would let its children run under the footer. */
+.panel {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+.content {
+  flex: 1 0 auto;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+}
+
+.handle {
+  display: none;
+}
+
+@media (--vp-desktop) {
+  .panel {
+    order: 1;
+    justify-content: space-between;
+    flex: 0 0 var(--panel-width);
+    inline-size: var(--panel-width);
+    min-inline-size: var(--panel-width-min);
+    max-inline-size: var(--panel-width-max);
+    block-size: var(--size-fill);
+    padding: var(--space-8);
+    background-color: var(--bg);
+    border-inline-end: var(--hairline-width) solid var(--hairline);
+  }
+}
+
+@media (--vp-tablet) {
+  .panel {
+    order: 2;
+    justify-content: space-between;
+    flex: 1;
+    inline-size: var(--size-fill);
+    min-inline-size: 0;
+    max-inline-size: var(--size-fill);
+    min-block-size: 0;
+    padding: var(--space-8);
+    background-color: var(--bg);
+    border-block-start: var(--hairline-width) solid var(--hairline);
+    border-inline-end: none;
+  }
+}
+
+@media (--vp-phone) {
+  .panel {
+    order: 2;
+    justify-content: flex-start;
+    flex: 1;
+    inline-size: var(--size-fill);
+    min-inline-size: 0;
+    max-inline-size: var(--size-fill);
+    min-block-size: 0;
+    padding: var(--space-4) var(--space-6) var(--space-6);
+    gap: var(--space-4);
+    background-color: var(--surface);
+    border: var(--hairline-width) solid var(--hairline);
+    border-block-end: none;
+    border-start-start-radius: var(--radius);
+    border-start-end-radius: var(--radius);
+  }
+
+  .handle {
+    display: block;
+    align-self: center;
+    flex-shrink: 0;
+    inline-size: var(--size-sheet-handle-width);
+    block-size: var(--size-sheet-handle-height);
+    border-radius: calc(var(--size-sheet-handle-height) / 2);
+    background-color: var(--hairline-hover);
+    margin-block-end: var(--space-2);
+  }
+}

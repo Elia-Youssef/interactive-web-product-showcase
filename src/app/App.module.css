@@ -1,5 +1,0 @@
-/* Structural only: no brand tokens and no page frame yet. */
-.viewportFrame {
-  position: fixed;
-  inset: 0;
-}

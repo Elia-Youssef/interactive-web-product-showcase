@@ -1,0 +1,72 @@
+/*
+The dev-only gallery layout: one run of every primitive and its states on
+the stage backdrop, one on the flat panel background, separated by the
+panel hairline. Values are tokens.
+*/
+
+.page {
+  min-block-size: var(--size-fill);
+  background-color: var(--bg);
+}
+
+.header {
+  padding-block-start: var(--space-6);
+  padding-inline: var(--space-12);
+}
+
+.stage {
+  position: relative;
+  margin: var(--space-6) var(--space-12);
+  padding: var(--space-12);
+}
+
+/* The backdrop paints absolute in step 8, above static content: the
+content joins it in step 8 and wins through DOM order. */
+.stageContent {
+  position: relative;
+}
+
+.panel {
+  margin: 0 var(--space-12) var(--space-12);
+  padding: var(--space-12);
+  background-color: var(--bg);
+  border-block-start: var(--hairline-width) solid var(--hairline);
+}
+
+.stack {
+  display: grid;
+  gap: var(--space-10);
+}
+
+.section {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.states {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.state {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+}
+
+.ruleCell {
+  inline-size: var(--space-12);
+}
+
+/*
+The forced focus state of the gallery demos. It reuses the same two
+declarations as the global :focus-visible recipe, which owns the ring; no
+second recipe. Because the declarations read --focus-ring-offset, a swatch
+here is forced out as far as a real keyboard focus would push it.
+*/
+.forceFocus {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset, var(--focus-offset));
+}

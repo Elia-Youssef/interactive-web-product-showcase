@@ -1,0 +1,184 @@
+/*
+The single source of truth for every color, size, duration and font in the UI.
+No other stylesheet may repeat them raw.
+
+Colors that appear at more than one alpha are stored once as RGB channels
+(--*-rgb) and every variant derives from them, so changing a color changes
+all of its uses.
+
+Type sizes given as a range take their maximum on desktop and
+their minimum below it, switched by the breakpoints at the end of this file.
+*/
+
+:root {
+  /* Color */
+  --bg-rgb: 16 18 18;
+  --black-rgb: 0 0 0;
+  --white-rgb: 255 255 255;
+  --bg: rgb(var(--bg-rgb));
+  --black: rgb(var(--black-rgb));
+  --white: rgb(var(--white-rgb));
+  --surface: #1b1f20;
+  --raised: #262b2c;
+  --off: #dfe0e2;
+  --muted: #a0a0a0;
+  --label: #a9aeb0;
+  --red: #de0b00;
+  --hairline-alpha: 0.1;
+  --hairline-hover-alpha: 0.2;
+  --hairline: rgb(var(--white-rgb) / var(--hairline-alpha));
+  --hairline-hover: rgb(var(--white-rgb) / var(--hairline-hover-alpha));
+
+  /* Fonts */
+  --sans: 'Montserrat', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+
+  /* Shape */
+  --radius: 16px;
+  /* The fully round corner: a square box becomes a circle or an ellipse. */
+  --radius-circle: 50%;
+
+  /* Type */
+  --fs-title: clamp(56px, 7vw, 112px);
+  --lh-title: 0.95;
+  --tracking-title: -0.02em;
+  --weight-title: 800;
+  --fs-eyebrow-min: 11px;
+  --fs-eyebrow-max: 12px;
+  --fs-eyebrow: var(--fs-eyebrow-max);
+  --tracking-eyebrow: 0.22em;
+  --weight-eyebrow: 600;
+  --fs-tagline-min: 18px;
+  --fs-tagline-max: 20px;
+  --fs-tagline: var(--fs-tagline-max);
+  --weight-tagline: 500;
+  --fs-body-min: 14px;
+  --fs-body-max: 15px;
+  --fs-body: var(--fs-body-max);
+  --weight-body: 400;
+  --fs-readout-min: 11px;
+  --fs-readout-max: 12px;
+  --fs-readout: var(--fs-readout-max);
+  --weight-readout: 500;
+
+  /* Spacing on a 4px base, named by step */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-9: 36px;
+  --space-10: 40px;
+  --space-11: 44px;
+  --space-12: 48px;
+
+  /* Component sizes */
+  --hairline-width: 1px;
+  /*
+  The minimum touch target: every control that exists to be hit derives its
+  size from this one value, so the minimum appears here and nowhere else.
+  */
+  --size-hit-min: 44px;
+  --size-swatch: 22px;
+  --offset-swatch-ring: 3px;
+  --size-bullet-dot: 6px;
+  --size-icon-button: var(--size-hit-min);
+  --size-hotspot-dot: 10px;
+  --size-hotspot-ring: 28px;
+  --size-hotspot-hit: var(--size-hit-min);
+  /*
+  The keyboard focus ring. global.css owns the one
+  :focus-visible rule and draws it from --focus-ring; a component that needs
+  the ring further out sets --focus-ring-offset on itself, with --focus-offset
+  as the fallback where it does not.
+  */
+  --focus-width: 2px;
+  --focus-offset: 3px;
+  --focus-ring: var(--focus-width) solid var(--off);
+  /* Gap between a selected text button and its persistent underline. */
+  --offset-text-underline: var(--space-1);
+
+  /*
+  Layout structural sizes.
+  The panel is clamped between 380px and 520px at about 34% width.
+  Top bar height, mark size, and stage chrome insets.
+  Tablet stage height is 60vh; phone stage height is 62svh.
+  Bottom sheet grab handle dimensions.
+  */
+  /*
+  The full extent of the containing block, for the elements that fill their
+  parent in one axis.
+  */
+  --size-fill: 100%;
+  /* The height of the viewport, for the app shell that must span it. */
+  --height-viewport: 100vh;
+  --size-ra-mark: var(--space-6);
+  --height-top-bar: 56px;
+  --panel-width-min: 380px;
+  --panel-width-max: 520px;
+  --panel-width-basis: 34%;
+  --panel-width: clamp(var(--panel-width-min), var(--panel-width-basis), var(--panel-width-max));
+  --height-stage-tablet: 60vh;
+  --height-stage-phone: 62svh;
+  --size-sheet-handle-width: var(--space-9);
+  --size-sheet-handle-height: var(--space-1);
+  --inset-stage-chrome: var(--space-8);
+
+  /*
+  Motion. Every duration is this scale times its own
+  value, so reduced motion resolves each of them to instant in one place.
+  */
+  --motion-scale: 1;
+  --duration-camera: calc(700ms * var(--motion-scale));
+  --ease-camera: cubic-bezier(0.215, 0.61, 0.355, 1);
+  /*
+  The hover and state lift of the small controls: 150ms, fast enough to
+  feel immediate. Reduced motion resolves it to instant.
+  */
+  --duration-hover: calc(150ms * var(--motion-scale));
+
+  /*
+  Stage backdrop. The grid line is --white-rgb
+  at --backdrop-grid-alpha. The exploded view animates that alpha up to about
+  .05 on the backdrop element, so the grid color is composed in the backdrop
+  rule itself: a color pre-composed here would resolve once, on :root, and
+  never see the change.
+  */
+  --backdrop-grid-cell: 64px;
+  --backdrop-grid-line: 1px;
+  --backdrop-grid-alpha: 0.025;
+  --backdrop-vignette-shape: 120% 90% at 50% 42%;
+  --backdrop-vignette-inner: rgb(var(--bg-rgb) / 0);
+  --backdrop-vignette-inner-stop: 35%;
+  --backdrop-vignette-outer-stop: 100%;
+  --backdrop-vignette-outer-alpha: 0.85;
+  --backdrop-vignette-outer: rgb(var(--black-rgb) / var(--backdrop-vignette-outer-alpha));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-scale: 0;
+  }
+}
+
+/*
+Breakpoints, defined once. Custom media is resolved
+at build time, so every stylesheet that queries one of these must
+`@import './tokens.css'` first.
+*/
+@custom-media --vp-phone (width < 640px);
+@custom-media --vp-tablet (640px <= width < 1024px);
+@custom-media --vp-desktop (width >= 1024px);
+
+/* Ranged type sizes drop to their minimum below the desktop breakpoint. */
+@media not (--vp-desktop) {
+  :root {
+    --fs-eyebrow: var(--fs-eyebrow-min);
+    --fs-tagline: var(--fs-tagline-min);
+    --fs-body: var(--fs-body-min);
+    --fs-readout: var(--fs-readout-min);
+  }
+}
