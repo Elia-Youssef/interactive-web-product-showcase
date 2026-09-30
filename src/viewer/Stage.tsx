@@ -4,6 +4,8 @@ import { AutomationBridge } from './automation/AutomationBridge'
 import { FrameClock } from './FrameClock'
 import { ModelWatch } from './ModelWatch'
 import { StageModelContext } from './stageModelContext'
+import { StageSettle } from './StageSettle'
+import { StageSettleContext } from './stageSettleContext'
 import { DevHud } from './hud/DevHud'
 import { RendererAlert } from './RendererAlert'
 import { StageCanvas } from './StageCanvas'
@@ -18,15 +20,17 @@ export type StageProps = {
   readonly content?: ReactNode
 }
 
-// The stage: it owns its frame clock and model watch, one per mount, and
-// reads the backend request once. It wires the renderer lifecycle to the
-// store, mounts the automation hook for its whole lifetime (failure paths
-// included), mounts the dev HUD in dev builds, and shows either the canvas
-// or the typed error state of an invalid request. It owns no landmark and
-// fills the box its container gives it; the app owns the page frame.
+// The stage: it owns its frame clock, its model watch and its scene settle,
+// one per mount, and reads the backend request once. It wires the renderer
+// lifecycle to the store, mounts the automation hook for its whole lifetime
+// (failure paths included), mounts the dev HUD in dev builds, and shows
+// either the canvas or the typed error state of an invalid request. It owns
+// no landmark and fills the box its container gives it; the app owns the
+// page frame.
 export function Stage({ content }: StageProps = {}) {
   const [clock] = useState(() => new FrameClock())
   const [modelWatch] = useState(() => new ModelWatch())
+  const [settle] = useState(() => new StageSettle(clock))
   const [request] = useState(backendRequestFromLocation)
   const { stageRenderer, handleFirstFrame, handleInitError, getToneMapping } =
     useRendererLifecycle(request)
@@ -46,11 +50,13 @@ export function Stage({ content }: StageProps = {}) {
 
   return (
     <div className={styles.stage}>
-      <StageModelContext.Provider value={modelWatch}>
-        <AutomationBridge clock={clock} modelWatch={modelWatch} getToneMapping={getToneMapping} />
-        {canvas}
-        {import.meta.env.DEV && <DevHud clock={clock} />}
-      </StageModelContext.Provider>
+      <StageSettleContext.Provider value={settle}>
+        <StageModelContext.Provider value={modelWatch}>
+          <AutomationBridge clock={clock} modelWatch={modelWatch} getToneMapping={getToneMapping} />
+          {canvas}
+          {import.meta.env.DEV && <DevHud clock={clock} />}
+        </StageModelContext.Provider>
+      </StageSettleContext.Provider>
     </div>
   )
 }

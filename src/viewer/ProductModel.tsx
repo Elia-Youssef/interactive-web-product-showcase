@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useGLTF } from '@react-three/drei'
-import { useThree } from '@react-three/fiber'
 import { modelUrl } from '@lib/product'
 import type { Product } from '@lib/product'
 import type { ModelFrame } from './modelFrame'
@@ -8,6 +7,7 @@ import type { ModelWatch } from './ModelWatch'
 import { useStageModelWatch } from './stageModelContext'
 import { measureModelFrame } from './modelFrame'
 import { useStageCameraFit } from './useStageCameraFit'
+import { useStageSettle } from './stageSettleContext'
 
 export type ProductModelProps = {
   // The parsed product whose model loads. The slug alone reaches this
@@ -41,21 +41,16 @@ export function ProductModel({ product }: ProductModelProps) {
   )
 }
 
-// Reports the model to the stage's watch once the renderer has finished its
-// own async work for the scene, and clears the report on unmount. A freshly
-// mounted scene is not done after its first frame: pipelines and the
-// environment settle across more frames, and under demand mode nothing
-// renders while they do, so a report at mount would promise a stage that
-// can still change under a reader. The compile is the renderer's own signal
-// for that work; its resolution pays the stage's last load-frame debt and
-// marks the report, so a non-null model reads as a settled, presented one.
-// The fit runs first, so the compile sees the fitted camera. A rejected
-// compile is returned as the failure, and the model is never reported.
+// Reports the model to the stage's watch once the stage has settled around
+// it: the stage's settle compiles the scene the model just joined, presents
+// it, and holds the settled promise until that frame is recorded, so a
+// non-null model reads as a model the stage has presented, not one whose
+// render pipelines may still be pending. The settle is the stage's own chain,
+// so an environment assignment that lands during the compile is included
+// before the report moves. A rejected compile is returned as the failure, and
+// the model is never reported.
 function useStageModelReport(watch: ModelWatch, slug: string, frame: ModelFrame): Error | null {
-  const gl = useThree((state) => state.gl)
-  const scene = useThree((state) => state.scene)
-  const camera = useThree((state) => state.camera)
-  const invalidate = useThree((state) => state.invalidate)
+  const settleScene = useStageSettle()
   const [failure, setFailure] = useState<Error | null>(null)
 
   useEffect(() => {
@@ -65,7 +60,6 @@ function useStageModelReport(watch: ModelWatch, slug: string, frame: ModelFrame)
         return
       }
       watch.report({ slug, meshes: frame.meshes, triangles: frame.triangles })
-      invalidate()
     }
     const fail = (error: unknown) => {
       if (cancelled) {
@@ -73,12 +67,12 @@ function useStageModelReport(watch: ModelWatch, slug: string, frame: ModelFrame)
       }
       setFailure(error instanceof Error ? error : new Error(String(error)))
     }
-    void gl.compileAsync(scene, camera).then(settle, fail)
+    settleScene().then(settle, fail)
     return () => {
       cancelled = true
       watch.clear()
     }
-  }, [gl, scene, camera, invalidate, watch, slug, frame])
+  }, [settleScene, watch, slug, frame])
 
   return failure
 }
