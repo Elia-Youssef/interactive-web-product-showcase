@@ -11,6 +11,16 @@ export default defineConfig({
   resolve: {
     tsconfigPaths: true,
   },
+  // Breakpoints are @custom-media rules in src/styles/tokens.css; only the
+  // lightningcss transformer can resolve them (CSS Level 5 draft syntax).
+  css: {
+    transformer: 'lightningcss',
+    lightningcss: {
+      drafts: {
+        customMedia: true,
+      },
+    },
+  },
   server: {
     port,
     strictPort: true,

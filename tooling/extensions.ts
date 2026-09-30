@@ -43,6 +43,12 @@ export const jsxExtensions = ['tsx'] as const
 // tooling.
 export const scriptExtensions = ['ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs', 'mts', 'cts'] as const
 
+// The extensions a stylesheet of this repo carries. The stylesheet scans,
+// the raw design value gate and the focus ring, derive their file list from
+// this list, so a stylesheet in a new folder is scanned the moment git
+// owns it.
+export const styleExtensions = ['css'] as const
+
 // What the formatter owns. YAML stays out on purpose: the only tracked yaml
 // file is the generated lockfile.
 export const formatExtensions = [

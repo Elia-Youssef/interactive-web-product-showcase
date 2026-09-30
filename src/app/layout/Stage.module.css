@@ -1,0 +1,47 @@
+@import '../../styles/tokens.css';
+
+/*
+The stage section of the responsive layout.
+On desktop: fills the remaining width next to the side panel.
+On tablet: stacks on top at 60vh.
+On phone: stacks on top at 62svh.
+Hosts the stage backdrop, the WebGPU canvas slot, and the stage chrome corners.
+Values are tokens.
+*/
+
+.stage {
+  position: relative;
+  overflow: hidden;
+}
+
+.canvasSlot {
+  position: absolute;
+  inset: 0;
+}
+
+@media (--vp-desktop) {
+  .stage {
+    order: 2;
+    flex: 1;
+    min-inline-size: 0;
+    block-size: var(--size-fill);
+  }
+}
+
+@media (--vp-tablet) {
+  .stage {
+    order: 1;
+    flex: 0 0 var(--height-stage-tablet);
+    inline-size: var(--size-fill);
+    block-size: var(--height-stage-tablet);
+  }
+}
+
+@media (--vp-phone) {
+  .stage {
+    order: 1;
+    flex: 0 0 var(--height-stage-phone);
+    inline-size: var(--size-fill);
+    block-size: var(--height-stage-phone);
+  }
+}

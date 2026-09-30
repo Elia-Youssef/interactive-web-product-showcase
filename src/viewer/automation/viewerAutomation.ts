@@ -8,6 +8,14 @@ import { selectRendererBackend, type ProductStatus, type RendererStatus } from '
 // field from the stage's frame clock, so the hook holds no copies that can
 // go stale.
 
+// The model a stage has loaded, exactly as the automation hook reports it.
+// The counts come from the loaded scene, computed once on load.
+export type ViewerModel = {
+  readonly slug: string
+  readonly meshes: number
+  readonly triangles: number
+}
+
 export type ViewerAutomation = {
   readonly status: RendererStatus['kind']
   readonly backend: RendererBackend | null
@@ -27,6 +35,8 @@ export type ViewerAutomation = {
   readonly renderedFrames: number
   // The live tone mapping of the renderer, or null while there is none.
   readonly toneMapping: number | null
+  // The model in the stage's scene, or null until one is in it.
+  readonly model: ViewerModel | null
 }
 
 export type ViewerAutomationSources = {
@@ -36,6 +46,7 @@ export type ViewerAutomationSources = {
   readonly getProductStatus: () => ProductStatus
   readonly renderedFrames: () => number
   readonly getToneMapping: () => number | null
+  readonly getModel: () => ViewerModel | null
 }
 
 export function createViewerAutomation(sources: ViewerAutomationSources): ViewerAutomation {
@@ -75,6 +86,9 @@ export function createViewerAutomation(sources: ViewerAutomationSources): Viewer
     },
     get toneMapping(): number | null {
       return sources.getToneMapping()
+    },
+    get model(): ViewerModel | null {
+      return sources.getModel()
     },
   })
 }

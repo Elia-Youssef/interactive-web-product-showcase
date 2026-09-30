@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { Canvas } from '@react-three/fiber'
 import type { ReactNode } from 'react'
 import type { FrameClock } from './FrameClock'
@@ -6,6 +7,7 @@ import { StageAlert } from './StageAlert'
 import { RendererErrorBoundary } from './RendererErrorBoundary'
 import { RendererRig } from './RendererRig'
 import { ProductDecoderProvider } from './product/DecoderProvider'
+import { StageEnvironment } from './StageEnvironment'
 import { initFailureReason } from '@lib/renderer/initFailure'
 import type { StageRendererStart } from './rendererFactory'
 import { stageConfig } from './config'
@@ -18,16 +20,17 @@ type StageCanvasProps = {
   readonly onFirstFrame: () => void
   // Reports a renderer that could not start on either backend.
   readonly onInitError: (error: Error) => void
-  // The scene content the stage renders inside its Canvas, under the
-  // decoder provider. The stage owns the renderer; the content owns what
-  // the renderer draws.
+  // The scene content the stage shows: mounted after the rig and the frame
+  // observer, under one null-fallback Suspense boundary and the decoder
+  // provider, so an async load never crosses the canvas and every loader
+  // decodes through the renderer's own decoders.
   readonly content?: ReactNode
 }
 
 // The Canvas subtree of a valid request: the error boundary R3F routes a
 // failed factory through, the Canvas with the async renderer factory, and
 // the in-canvas components that own the start-up identity checks, the
-// renderer's settings and the frame signal.
+// renderer's settings, the frame signal, and the content.
 export function StageCanvas({
   clock,
   stageRenderer,
@@ -43,7 +46,10 @@ export function StageCanvas({
       <Canvas gl={stageRenderer.factory} frameloop={stageConfig.frameloop} dpr={stageConfig.dpr}>
         <RendererRig />
         <FrameObserver clock={clock} onFirstFrame={onFirstFrame} />
-        <ProductDecoderProvider>{content}</ProductDecoderProvider>
+        <Suspense fallback={null}>
+          <StageEnvironment />
+          <ProductDecoderProvider>{content}</ProductDecoderProvider>
+        </Suspense>
       </Canvas>
     </RendererErrorBoundary>
   )

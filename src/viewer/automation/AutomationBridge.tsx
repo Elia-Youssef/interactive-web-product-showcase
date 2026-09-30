@@ -1,20 +1,24 @@
 import { useEffect } from 'react'
 import { selectProductStatus, selectRendererStatus, useAppStoreApi } from '@store/index'
 import type { FrameClock } from '../FrameClock'
+import type { ModelWatch } from '../ModelWatch'
 import { createViewerAutomation } from './viewerAutomation'
 
 type AutomationBridgeProps = {
   readonly clock: FrameClock
   // The live renderer's tone mapping, or null while there is no renderer.
   readonly getToneMapping: () => number | null
+  // The stage's per-mount watch of the model its content reports.
+  readonly modelWatch: ModelWatch
 }
 
 // Installs window.__viewer for as long as the stage lives and removes it on
 // unmount, on the failure paths included: the hook is the test contract of
 // the whole stage, not only of its happy path. The stage owns the renderer
-// reference and hands the live reads down; there is no module-level
-// singleton, and a second stage cannot silently take the contract over.
-export function AutomationBridge({ clock, getToneMapping }: AutomationBridgeProps) {
+// reference and the model watch and hands the live reads down; there is no
+// module-level singleton, and a second stage cannot silently take the
+// contract over.
+export function AutomationBridge({ clock, getToneMapping, modelWatch }: AutomationBridgeProps) {
   const store = useAppStoreApi()
 
   useEffect(() => {
@@ -26,6 +30,7 @@ export function AutomationBridge({ clock, getToneMapping }: AutomationBridgeProp
       getProductStatus: () => selectProductStatus(store.getState()),
       renderedFrames: () => clock.renderedFrames,
       getToneMapping,
+      getModel: () => modelWatch.current,
     })
     window.__viewer = automation
     return () => {
@@ -35,7 +40,7 @@ export function AutomationBridge({ clock, getToneMapping }: AutomationBridgeProp
         delete window.__viewer
       }
     }
-  }, [clock, getToneMapping, store])
+  }, [clock, getToneMapping, modelWatch, store])
 
   return null
 }

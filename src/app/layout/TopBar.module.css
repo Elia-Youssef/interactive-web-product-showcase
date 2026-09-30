@@ -1,0 +1,42 @@
+/*
+Top bar of the desktop layout.
+Carries the mark and studio name on the left, collection name and product index
+slot on the right. Values are tokens.
+*/
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  inline-size: var(--size-fill);
+  block-size: var(--height-top-bar);
+  padding-inline: var(--space-8);
+  background-color: var(--bg);
+  flex-shrink: 0;
+}
+
+.left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--size-ra-mark);
+  block-size: var(--size-ra-mark);
+  flex-shrink: 0;
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.productIndex {
+  display: inline-flex;
+  align-items: center;
+}

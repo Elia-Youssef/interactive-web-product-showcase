@@ -1,0 +1,7 @@
+/* The hairline rule. Values are tokens. */
+
+.divider {
+  border: none;
+  block-size: var(--hairline-width);
+  background-color: var(--hairline);
+}

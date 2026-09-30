@@ -22,6 +22,7 @@ function projectOptions(row: MatrixAssignment) {
     backendPath: row.backendPath,
     expectedBackend: row.expectedBackend,
     expectedBrowserName: row.browserName,
+    hostsVisualBaselines: row.hostsVisualBaselines,
   }
 }
 

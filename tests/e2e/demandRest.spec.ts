@@ -32,6 +32,13 @@ test('the stage stands still at rest and renders again on a resize', async ({
   await expect.poll(() => page.evaluate(() => window.__viewer?.status)).toBe('ready')
   await expect.poll(() => page.evaluate(() => window.__viewer?.ready)).toBe(true)
 
+  // The stage's load work (model, camera fit, renderer compile) owes frames
+  // of its own after ready; the at-rest measurement starts once it is in,
+  // so the settle window below measures rest, not a late load frame.
+  await expect
+    .poll(() => page.evaluate(() => window.__viewer?.model ?? null), { timeout: 30000 })
+    .not.toBeNull()
+
   // At rest under demand mode, with the HUD mounted: nothing renders for 2 s.
   const framesAtRest = await settledFrames(page)
   await page.waitForTimeout(2000)

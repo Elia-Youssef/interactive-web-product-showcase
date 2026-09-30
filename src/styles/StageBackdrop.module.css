@@ -1,0 +1,32 @@
+/*
+The stage backdrop: the brand's blueprint grid under a radial vignette. The
+stage slot places this element under the transparent WebGPU canvas; the
+panel stays flat.
+Every value comes from a token in tokens.css.
+*/
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(
+      var(--backdrop-vignette-shape),
+      var(--backdrop-vignette-inner) var(--backdrop-vignette-inner-stop),
+      var(--backdrop-vignette-outer) var(--backdrop-vignette-outer-stop)
+    ),
+    linear-gradient(
+      to right,
+      rgb(var(--white-rgb) / var(--backdrop-grid-alpha)) var(--backdrop-grid-line),
+      transparent var(--backdrop-grid-line)
+    ),
+    linear-gradient(
+      rgb(var(--white-rgb) / var(--backdrop-grid-alpha)) var(--backdrop-grid-line),
+      transparent var(--backdrop-grid-line)
+    );
+  background-size:
+    var(--size-fill) var(--size-fill),
+    var(--backdrop-grid-cell) var(--backdrop-grid-cell),
+    var(--backdrop-grid-cell) var(--backdrop-grid-cell);
+}

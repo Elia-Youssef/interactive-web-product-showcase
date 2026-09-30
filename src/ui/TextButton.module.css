@@ -1,0 +1,30 @@
+/* The text button. Values are
+tokens; the hover duration goes through --motion-scale. Hover changes the
+color only, so it stays distinguishable from selected, which adds the
+persistent off underline. */
+
+.button {
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: var(--fs-eyebrow);
+  font-weight: var(--weight-eyebrow);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--label);
+  transition: color var(--duration-hover);
+}
+
+.button:hover,
+.button[data-force-hover] {
+  color: var(--white);
+}
+
+.button[aria-pressed='true'] {
+  color: var(--white);
+  text-decoration: underline;
+  text-decoration-color: var(--off);
+  text-decoration-thickness: var(--hairline-width);
+  text-underline-offset: var(--offset-text-underline);
+}

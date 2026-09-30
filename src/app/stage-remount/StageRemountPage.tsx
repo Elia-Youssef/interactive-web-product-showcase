@@ -1,7 +1,7 @@
+import '@styles/global.css'
 import { useState } from 'react'
 import { AppStoreProvider, selectRendererStatus, useAppStore } from '@store/index'
 import { Stage } from '@viewer/Stage'
-import appStyles from '../App.module.css'
 import styles from './StageRemountPage.module.css'
 
 // The dev-only page the remount spec drives: one store for the page's whole
@@ -15,7 +15,7 @@ export function StageRemountPage() {
 
   return (
     <AppStoreProvider>
-      <main className={appStyles.viewportFrame}>
+      <main className={styles.viewportFrame}>
         {mounted && <Stage />}
         <div className={styles.controls}>
           <button
