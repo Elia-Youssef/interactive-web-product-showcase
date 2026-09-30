@@ -1,0 +1,9 @@
+/* Structural only: no brand tokens yet. */
+.controls {
+  position: absolute;
+  left: 1rem;
+  top: 1rem;
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
