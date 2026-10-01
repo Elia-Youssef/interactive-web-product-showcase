@@ -16,6 +16,8 @@ for (const product of products) {
   // renderer-owned textures exist before the baseline is read, so the proof
   // is exact: after every teardown, geometries and textures equal the
   // baseline, and repeating the cycle proves nothing accumulates per cycle.
+  // Every cycle switches through the product's finishes first, so the
+  // finish materials the load resolved ride the same teardown.
   test(`unmounting the ${product.slug} returns the renderer memory to its baseline, every cycle`, async ({
     page,
     backendPath,
@@ -51,13 +53,23 @@ for (const product of products) {
       expect(mounted.geometries).toBeGreaterThan(baseline.geometries)
       expect(mounted.textures).toBeGreaterThan(baseline.textures)
 
-      // Teardown: every geometry and texture the product held goes, and the
-      // counts return to the exact baseline. Nothing is allowed to lag: one
-      // leaked texture per cycle is the smallest leak there is, and the
-      // equality catches it.
+      // Cycle every finish before the teardown, so the resources the
+      // switches touched ride the same teardown. The settled count over a
+      // switch is the lifecycle spec's proof; here every applied finish
+      // must simply be on the product the teardown then releases.
+      for (const finish of product.finishes) {
+        await page.getByTestId(`harness-finish-${finish.variant}`).click()
+        await expectPoll(page, () => window.__viewer?.finish?.applied ?? null).toBe(finish.variant)
+      }
+
+      // Teardown: every geometry, texture and finish material the product
+      // held goes, and the counts return to the exact baseline. Nothing is
+      // allowed to lag: one leaked texture per cycle is the smallest leak
+      // there is, and the equality catches it.
       await toggle.click()
       await expectPoll(page, () => window.__viewer?.product).toBe('idle')
       expect(await page.evaluate(() => window.__viewer?.model ?? null)).toBeNull()
+      expect(await page.evaluate(() => window.__viewer?.finish ?? null)).toBeNull()
       const afterTeardown = await waitForSettledMemory(page)
       expectToEqualBaseline(afterTeardown, baseline, cycle)
     }
