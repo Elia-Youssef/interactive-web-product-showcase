@@ -139,6 +139,13 @@ their minimum below it, switched by the breakpoints at the end of this file.
   feel immediate. Reduced motion resolves it to instant.
   */
   --duration-hover: calc(150ms * var(--motion-scale));
+  /*
+  The hotspot marker's one first-load pulse: a slow ring pulse, so the
+  first look tells the markers are interactive. Scaled by the motion scale,
+  so reduced motion resolves it to none.
+  */
+  --duration-hotspot-pulse: calc(1800ms * var(--motion-scale));
+  --ease-pulse: ease-out;
 
   /*
   Stage backdrop. The grid line is --white-rgb

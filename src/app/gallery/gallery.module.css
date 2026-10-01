@@ -61,6 +61,16 @@ content joins it in step 8 and wins through DOM order. */
 }
 
 /*
+The marker is positioned by its stage overlay in the app; the gallery cell
+stands in for that box, sized around the marker's hit area.
+*/
+.markerCell {
+  position: relative;
+  inline-size: var(--size-hotspot-hit);
+  block-size: var(--size-hotspot-hit);
+}
+
+/*
 The forced focus state of the gallery demos. It reuses the same two
 declarations as the global :focus-visible recipe, which owns the ring; no
 second recipe. Because the declarations read --focus-ring-offset, a swatch
