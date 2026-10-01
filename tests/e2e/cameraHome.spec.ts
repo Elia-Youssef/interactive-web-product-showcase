@@ -4,6 +4,7 @@ import { readProductCameraFacts } from './productCamera'
 import { waitForProductReady } from './stageCamera'
 import { settledStage } from './stageSettle'
 import { homeExpectation, readCamera, stageAspectOfCanvas } from './stageCamera'
+import { zoomReadoutText } from '../../src/features/stage-controls/stage-controls.logic'
 // The full matrix runs six browsers against one GPU, and the heaviest wait
 // in every test here is the busy-matrix ready wait, so each test carries a
 // budget above the sum of its waits on the slowest backend.
@@ -55,7 +56,10 @@ test('the stage camera starts at the home view the model authors', async ({
   expect(camera.maxDistance).toBeCloseTo(expected.maxDistance, 6)
   const percent =
     ((camera.maxDistance - camera.distance) / (camera.maxDistance - camera.minDistance)) * 100
-  expect(percent, 'the home view sits at the ratio limits home percentage').toBeCloseTo(75, 6)
+  expect(percent, 'the home view sits at the ratio limits home percentage').toBeCloseTo(
+    expected.zoomPercent,
+    6,
+  )
 })
 
 test('the chrome readouts read the live camera at home', async ({ page, backendPath }) => {
@@ -77,7 +81,8 @@ test('the chrome readouts read the live camera at home', async ({ page, backendP
   await expect(angle).toHaveText(`${Math.round(normalized) % 360} / 360`)
 
   // The zoom readout is the exact linear map of the live distance between
-  // the limits: at home, the ratio limits put the product at 75 percent.
+  // the limits, formatted as the chrome formats it: at home, the ratio
+  // limits put the product at the home percentage.
   const zoom = page.locator('[data-corner="bottom-right"]')
-  await expect(zoom).toContainText('75%')
+  await expect(zoom).toContainText(zoomReadoutText(expected.zoomPercent))
 })
