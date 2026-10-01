@@ -2,7 +2,9 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { ResourceHolds } from '@lib/async/resourceHolds'
 import { useAppStore, selectProductStatus } from '@store/index'
+import { StageProbes } from './automation/StageProbes'
 import { AutomationBridge } from './automation/AutomationBridge'
+import { StageProbesContext } from './automation/stageProbesContext'
 import { FrameClock } from './FrameClock'
 import { StageSettle } from './StageSettle'
 import { StageHoldsContext } from './stageHoldsContext'
@@ -39,6 +41,10 @@ export function Stage({ content }: StageProps = {}) {
   // so the microtask after it is the first moment nothing can take the hold
   // again.
   const [holds] = useState(() => new ResourceHolds<object>((callback) => queueMicrotask(callback)))
+  // The stage's probes, one per mount like the settle and the holds: the
+  // in-canvas components that own live objects register their readers here,
+  // and the automation bridge reads them at access time.
+  const [probes] = useState(() => new StageProbes())
   const [request] = useState(backendRequestFromLocation)
   const productStatus = useAppStore(selectProductStatus)
   const { stageRenderer, handleFirstFrame, handleInitError, getToneMapping } =
@@ -60,17 +66,19 @@ export function Stage({ content }: StageProps = {}) {
   return (
     <div className={styles.stage}>
       <StageSettleContext.Provider value={settle}>
-        <StageHoldsContext.Provider value={holds}>
-          <AutomationBridge clock={clock} getToneMapping={getToneMapping} />
-          {canvas}
-          {productStatus.kind === 'failed' && (
-            <StageAlert
-              testid="product-alert"
-              reason={`${productStatus.slug}: ${productStatus.reason}`}
-            />
-          )}
-          {import.meta.env.DEV && <DevHud clock={clock} />}
-        </StageHoldsContext.Provider>
+        <StageProbesContext.Provider value={probes}>
+          <StageHoldsContext.Provider value={holds}>
+            <AutomationBridge clock={clock} probes={probes} getToneMapping={getToneMapping} />
+            {canvas}
+            {productStatus.kind === 'failed' && (
+              <StageAlert
+                testid="product-alert"
+                reason={`${productStatus.slug}: ${productStatus.reason}`}
+              />
+            )}
+            {import.meta.env.DEV && <DevHud clock={clock} />}
+          </StageHoldsContext.Provider>
+        </StageProbesContext.Provider>
       </StageSettleContext.Provider>
     </div>
   )
