@@ -8,6 +8,7 @@ import { hasExtension, scriptExtensions } from './extensions.ts'
 import { createConfig } from './eslintConfig.ts'
 import { listOwnedFiles } from './ownedFiles.ts'
 import { formatRawValueFindings, scanOwnedStyleSheets } from './styleGate.ts'
+import { formatPointerFindings, scanOwnedFilesForPointers } from './pointerGate.ts'
 import { notVendored } from './vendoredFiles.ts'
 
 const root = resolve(import.meta.dirname, '..')
@@ -38,9 +39,19 @@ if (errors > 0 || warnings > 0) {
 
 // The stylesheet gate runs after ESLint, in the same process: every owned
 // stylesheet is scanned for raw design values, and any finding fails the
-// run the way an ESLint error does. Both gates report in one run.
+// run the way an ESLint error does. All gates report in one run.
 const styleFindings = scanOwnedStyleSheets(root)
 if (styleFindings.length > 0) {
   process.stdout.write(`${formatRawValueFindings(styleFindings)}\n`)
+  process.exitCode = 1
+}
+
+// The pointer gate runs after the stylesheet gate, in the same process:
+// every owned text file is scanned for pointers to local-only material, and
+// any finding fails the run the way an ESLint error does. All gates report
+// in one run.
+const pointerFindings = scanOwnedFilesForPointers(root)
+if (pointerFindings.length > 0) {
+  process.stdout.write(`${formatPointerFindings(pointerFindings)}\n`)
   process.exitCode = 1
 }
