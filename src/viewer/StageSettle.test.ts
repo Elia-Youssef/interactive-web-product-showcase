@@ -96,34 +96,27 @@ describe('StageSettle', () => {
     expect(stage.invalidations()).toBe(2)
   })
 
-  it('compiles again when a frame raced the compile, counting both presents, then settles', async () => {
+  it('a frame that raced the compile repeats nothing: the presents still follow the compile', async () => {
     const stage = fakeStage()
     const first = stage.nextSettle()
     const done = stage.run(first.resources)
     await nextTurn()
 
-    // A frame renders while the compile is walking: with the two presented
-    // frames after it, the compile's resolve is untrusted, so the step
-    // compiles again over a drained loop.
+    // A frame renders while the compile is walking. The presents are
+    // ordered after the compile's resolution, and that resolution carries
+    // every pipeline, so a raced frame is no reason to compile again: the
+    // step presents twice over the one compile and settles.
     stage.clock.recordFrame(performance.now(), 0)
     first.releaseCompile()
     await nextTurn()
-    stage.clock.recordFrame(performance.now(), 0)
-    await nextTurn()
-    stage.clock.recordFrame(performance.now(), 0)
-    await nextTurn()
-    expect(first.compiles()).toBe(2)
+    expect(stage.invalidations()).toBe(1)
 
-    // The second compile's two presents are exactly the two frames the
-    // step counts, so it settles without a third compile.
-    first.releaseCompile()
-    await nextTurn()
     stage.clock.recordFrame(performance.now(), 0)
     await nextTurn()
     stage.clock.recordFrame(performance.now(), 0)
     await done
-    expect(first.compiles()).toBe(2)
-    expect(stage.invalidations()).toBe(4)
+    expect(first.compiles()).toBe(1)
+    expect(stage.invalidations()).toBe(2)
   })
 
   it('rejects with the compile failure and still runs the next settle', async () => {
