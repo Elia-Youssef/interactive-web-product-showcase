@@ -1,9 +1,8 @@
 import type { CameraControlsImpl } from '@react-three/drei'
-import { z } from 'zod'
-import { MathUtils, type PerspectiveCamera } from 'three'
+import { MathUtils, Vector3, type PerspectiveCamera } from 'three'
 import { containedDistanceScale } from '@lib/camera/aspect'
 import { orbitAnglesOf, positionOfOrbitAngles } from '@lib/camera/view'
-import type { Vec3 } from '@lib/camera/view'
+import type { OrbitAngles } from '@lib/camera/view'
 import { distanceOfZoomPercent, steppedZoomPercent, zoomPercentOfDistance } from '@lib/camera/zoom'
 import type { DistanceRange } from '@lib/camera/limits'
 import { stageCameraConfig } from './config'
@@ -14,24 +13,17 @@ import type { CameraPlan, CameraView } from './productPlan'
 // aspect, and does no React and no store work: the component and its hooks
 // wire these into their lifecycles.
 
-// The end state of the controls, as their own toJSON reports it: the orbit
-// target and the camera position the current transition is moving toward.
-// The live getters lag an eased move, and the zoom buttons must step from
-// where the move ends, so the buttons read the end state, the one state
-// that makes the same request twice run twice.
-const controlsEndStateSchema = z.object({
-  position: z.tuple([z.number(), z.number(), z.number()]),
-  target: z.tuple([z.number(), z.number(), z.number()]),
-})
-
-export type ControlsEndState = {
-  readonly position: Vec3
-  readonly target: Vec3
-}
-
-export function readControlsEndState(controls: CameraControlsImpl): ControlsEndState {
-  const end = controlsEndStateSchema.parse(JSON.parse(controls.toJSON()))
-  return { position: end.position, target: end.target }
+// The end state of the controls through their public getters: the orbit
+// angles of the camera position and target the current transition is
+// moving toward. The live getters lag an eased move, and the zoom buttons
+// must step from where the move ends, so the steps read the end state, the
+// one state that makes the same request twice run twice. receiveEndValue
+// is the public getters' own default (camera-controls dist/index.d.ts),
+// spelled out in the call so the read's meaning stays in it.
+export function readControlsEndOrbit(controls: CameraControlsImpl): OrbitAngles {
+  const position = controls.getPosition(new Vector3(), true)
+  const target = controls.getTarget(new Vector3(), true)
+  return orbitAnglesOf([position.x, position.y, position.z], [target.x, target.y, target.z])
 }
 
 // The distance limits of a plan at one stage aspect, by the aspect rule:
@@ -106,8 +98,7 @@ export function stepZoom(
   direction: 1 | -1,
   enableTransition: boolean,
 ): Promise<void> {
-  const end = readControlsEndState(controls)
-  const percent = zoomPercentOfDistance(orbitAnglesOf(end.position, end.target).distance, range)
+  const percent = zoomPercentOfDistance(readControlsEndOrbit(controls).distance, range)
   const stepped = steppedZoomPercent(percent, direction, stageCameraConfig.zoomStepPercent)
   return controls.dollyTo(distanceOfZoomPercent(stepped, range), enableTransition)
 }

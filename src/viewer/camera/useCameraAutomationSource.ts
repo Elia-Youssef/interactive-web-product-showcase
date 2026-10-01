@@ -1,9 +1,8 @@
 import { useEffect } from 'react'
 import type { CameraControlsImpl } from '@react-three/drei'
-import { MathUtils, type PerspectiveCamera } from 'three'
+import { MathUtils, Vector3, type PerspectiveCamera } from 'three'
 import type { ViewerCameraAutomation } from '../automation/viewerAutomation'
 import { useStageProbes } from '../automation/stageProbesContext'
-import { readControlsEndState } from './controls'
 
 // The live camera read for the automation hook, registered into the stage's
 // probes for the controls' lifetime: every value is read from the camera
@@ -26,10 +25,13 @@ function readCameraAutomation(
   controls: CameraControlsImpl,
   camera: PerspectiveCamera,
 ): ViewerCameraAutomation {
-  const end = readControlsEndState(controls)
+  // The orbit target from the controls' end state: the public getter's
+  // receiveEndValue default, spelled out so the read's meaning stays in it
+  // (camera-controls dist/index.d.ts).
+  const endTarget = controls.getTarget(new Vector3(), true)
   return {
     position: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
-    target: { x: end.target[0], y: end.target[1], z: end.target[2] },
+    target: { x: endTarget.x, y: endTarget.y, z: endTarget.z },
     fovY: MathUtils.degToRad(camera.fov),
     azimuth: controls.azimuthAngle,
     polar: controls.polarAngle,
