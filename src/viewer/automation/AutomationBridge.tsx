@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { selectProductStatus, selectRendererStatus, useAppStoreApi } from '@store/index'
 import type { FrameClock } from '../FrameClock'
 import type { StageProbes } from './StageProbes'
-import { createViewerAutomation } from './viewerAutomation'
+import { createViewerAutomation, type ViewerCameraSource } from './viewerAutomation'
 
 type AutomationBridgeProps = {
   readonly clock: FrameClock
@@ -11,15 +11,24 @@ type AutomationBridgeProps = {
   readonly probes: StageProbes
   // The live renderer's tone mapping, or null while there is no renderer.
   readonly getToneMapping: () => number | null
+  // The live stage camera read, or null while no stage camera owns the
+  // view. The stage hands the read of its camera slot down.
+  readonly getCamera: ViewerCameraSource
 }
 
 // Installs window.__viewer for as long as the stage lives and removes it on
 // unmount, on the failure paths included: the hook is the test contract of
 // the whole stage, not only of its happy path. The stage owns the renderer
-// reference and hands the live reads down; every field is read from the
-// store, the clock or the probes at access time, so there is no copy that
-// can go stale, and a second stage cannot silently take the contract over.
-export function AutomationBridge({ clock, probes, getToneMapping }: AutomationBridgeProps) {
+// reference and the camera read and hands the live reads down; every field
+// is read from the store, the clock, the probes or the camera at access
+// time, so there is no copy that can go stale, and a second stage cannot
+// silently take the contract over.
+export function AutomationBridge({
+  clock,
+  probes,
+  getToneMapping,
+  getCamera,
+}: AutomationBridgeProps) {
   const store = useAppStoreApi()
 
   useEffect(() => {
@@ -32,6 +41,7 @@ export function AutomationBridge({ clock, probes, getToneMapping }: AutomationBr
       renderedFrames: () => clock.renderedFrames,
       getToneMapping,
       getLook: () => probes.read('look'),
+      getCamera,
     })
     window.__viewer = automation
     return () => {
@@ -41,7 +51,7 @@ export function AutomationBridge({ clock, probes, getToneMapping }: AutomationBr
         delete window.__viewer
       }
     }
-  }, [clock, probes, getToneMapping, store])
+  }, [clock, probes, getToneMapping, getCamera, store])
 
   return null
 }

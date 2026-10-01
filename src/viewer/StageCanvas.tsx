@@ -6,6 +6,8 @@ import { FrameObserver } from './FrameObserver'
 import { StageAlert } from './StageAlert'
 import { RendererErrorBoundary } from './RendererErrorBoundary'
 import { RendererRig } from './RendererRig'
+import { StageCamera } from './camera/StageCamera'
+import type { CameraSourceSlot } from './camera/cameraSource'
 import { ProductDecoderProvider } from './product/DecoderProvider'
 import { StageEnvironment } from './StageEnvironment'
 import { initFailureReason } from '@lib/renderer/initFailure'
@@ -20,6 +22,9 @@ type StageCanvasProps = {
   readonly onFirstFrame: () => void
   // Reports a renderer that could not start on either backend.
   readonly onInitError: (error: Error) => void
+  // The slot the stage camera registers its live read into, for the
+  // automation hook.
+  readonly cameraSlot: CameraSourceSlot
   // The scene content the stage shows: mounted after the rig and the frame
   // observer, under one null-fallback Suspense boundary and the decoder
   // provider, so an async load never crosses the canvas and every loader
@@ -30,12 +35,13 @@ type StageCanvasProps = {
 // The Canvas subtree of a valid request: the error boundary R3F routes a
 // failed factory through, the Canvas with the async renderer factory, and
 // the in-canvas components that own the start-up identity checks, the
-// renderer's settings, the frame signal, and the content.
+// renderer's settings, the frame signal, the camera, and the content.
 export function StageCanvas({
   clock,
   stageRenderer,
   onFirstFrame,
   onInitError,
+  cameraSlot,
   content,
 }: StageCanvasProps) {
   return (
@@ -46,10 +52,12 @@ export function StageCanvas({
       <Canvas gl={stageRenderer.factory} frameloop={stageConfig.frameloop} dpr={stageConfig.dpr}>
         <RendererRig />
         <FrameObserver clock={clock} onFirstFrame={onFirstFrame} />
-        <Suspense fallback={null}>
-          <StageEnvironment />
-          <ProductDecoderProvider>{content}</ProductDecoderProvider>
-        </Suspense>
+        <StageCamera cameraSlot={cameraSlot}>
+          <Suspense fallback={null}>
+            <StageEnvironment />
+            <ProductDecoderProvider>{content}</ProductDecoderProvider>
+          </Suspense>
+        </StageCamera>
       </Canvas>
     </RendererErrorBoundary>
   )

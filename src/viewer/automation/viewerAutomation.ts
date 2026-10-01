@@ -46,6 +46,31 @@ export type ViewerLook = {
   readonly shadow: ViewerLookShadow | null
   readonly textures: readonly ViewerLookTexture[] | null
 }
+// One point of the stage camera, read at access time.
+export type ViewerVector3 = {
+  readonly x: number
+  readonly y: number
+  readonly z: number
+}
+
+// The live stage camera: its world position, its orbit target and its
+// vertical fov, plus the readouts the controls hold. Every value is read
+// from the camera and the controls themselves at access time, never from
+// the store's copy of the readouts. Null while no stage camera owns the
+// view.
+export type ViewerCameraAutomation = {
+  readonly position: ViewerVector3
+  readonly target: ViewerVector3
+  readonly fovY: number
+  readonly azimuth: number
+  readonly polar: number
+  readonly distance: number
+  readonly minDistance: number
+  readonly maxDistance: number
+}
+
+// The live read of the stage camera, or null while there is none.
+export type ViewerCameraSource = () => ViewerCameraAutomation | null
 
 export type ViewerAutomation = {
   readonly status: RendererStatus['kind']
@@ -70,6 +95,8 @@ export type ViewerAutomation = {
   readonly model: ViewerModel | null
   // The applied look of the stage, or null while no product has applied one.
   readonly look: ViewerLook | null
+  // The live stage camera, or null while there is none.
+  readonly camera: ViewerCameraAutomation | null
 }
 
 export type ViewerAutomationSources = {
@@ -82,6 +109,8 @@ export type ViewerAutomationSources = {
   // The applied look exactly as the renderer, the scene and the shadow
   // material hold it right now.
   readonly getLook: () => ViewerLook | null
+  // The live stage camera read, from the camera and the controls.
+  readonly getCamera: ViewerCameraSource
 }
 
 export function createViewerAutomation(sources: ViewerAutomationSources): ViewerAutomation {
@@ -130,6 +159,9 @@ export function createViewerAutomation(sources: ViewerAutomationSources): Viewer
       return status.kind === 'ready'
         ? { slug: status.slug, meshes: status.model.meshes, triangles: status.model.triangles }
         : null
+    },
+    get camera(): ViewerCameraAutomation | null {
+      return sources.getCamera()
     },
   })
 }

@@ -21,12 +21,12 @@ type ProductContentProps = {
 
 // The loaded product inside the Canvas: it loads the model through the
 // stage's own decoders, parses the rig, measures the frame once, renders the
-// scene centered on the origin, and hands the stage life (fit, settle,
-// ready report) to the presentation hook. Its extensions mount with it and
-// read the loaded product from context. Suspends while the model loads,
-// so it mounts only under the Suspense boundary its Product provides; a load
-// failure, a contract-breaking model or a settle failure propagates to the
-// product boundary.
+// scene centered on the origin, and hands the stage life (the home
+// presentation, the settle, the ready report) to the presentation hook. Its
+// extensions mount with it and read the loaded product from context.
+// Suspends while the model loads, so it mounts only under the Suspense
+// boundary its Product provides; a load failure, a contract-breaking model
+// or a settle failure propagates to the product boundary.
 export function ProductContent({ manifest, children }: ProductContentProps) {
   const slug = manifest.slug
   const url = productModelUrl(slug)
@@ -58,14 +58,14 @@ export function ProductContent({ manifest, children }: ProductContentProps) {
     [manifest, gltf, rig],
   )
   // The frame is measured once per load: it centers the scene, feeds the
-  // camera fit, and its counts ride with the ready status.
+  // home presentation, and its counts ride with the ready status.
   const frame = useMemo(() => measureModelFrame(gltf.scene), [gltf.scene])
 
   const report = useCallback(() => {
     productReady(slug, summary, { meshes: frame.meshes, triangles: frame.triangles })
   }, [productReady, slug, summary, frame])
 
-  const failure = useProductPresentation({ frame, report })
+  const failure = useProductPresentation({ rig, manifest, frame, report })
 
   // The loaded product's lifetime is this component's hold on it. Once the
   // hold is gone for good, the scene is disposed and its suspense cache entry

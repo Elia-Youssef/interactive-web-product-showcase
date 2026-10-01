@@ -1,5 +1,6 @@
 import '@styles/global.css'
 import type { Product as ProductManifest } from '@lib/product'
+import { StageAngleReadout, StageZoomControls } from '@features/stage-controls'
 import { ProductIndexLabel, ProductPanel } from '@features/product-panel'
 import { AppStoreProvider } from '@store/index'
 import { Product } from '@viewer/product/Product'
@@ -29,13 +30,17 @@ export function CollectionApp({ manifests }: CollectionAppProps) {
 
 // The layout with one product's words in its slots and the renderer in its
 // stage slot, showing the current product through the product channel. The
-// current product is the collection's first until routing arrives.
+// stage chrome's angle slot and controls slot carry the stage controls
+// feature, which reads the camera through the store. The current product is
+// the collection's first until routing arrives.
 function ProductPage({ product }: { readonly product: ProductManifest }) {
   return (
     <AppLayout
       productIndex={<ProductIndexLabel number={product.number} category={product.category} />}
       panel={<ProductPanel product={product} />}
       stage={<Stage content={<Product manifest={product} />} />}
+      angleReadout={<StageAngleReadout />}
+      stageControls={<StageZoomControls />}
     />
   )
 }
