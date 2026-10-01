@@ -1,16 +1,16 @@
 import type { Material } from 'three'
-import type { ViewerFinish } from '@viewer/automation/viewerAutomation'
 import type { LoadedProduct } from '@viewer/product/loadedProduct'
 import type { MappedMesh } from './mappedMeshes'
 import { mappedSceneMeshes } from './mappedMeshes'
-import { finishMaterialIndex, finishPrimitiveKey } from './variants.logic'
+import { finishMaterialIndex } from './variants.logic'
 
 // One application of a finish to a loaded product: it swaps every mapped
 // mesh's material to what the plan prescribes for the variant and settles
 // the stage so the pipelines rebuild and the frame is recorded. The
-// precompile has run at load, so an application sets materials and
-// settles, nothing else. It is the only code that changes materials for
-// finishes.
+// precompile has run with the first application, so an application here sets
+// materials and settles, nothing else. The applier is its only caller, and
+// what the application landed on is read from the meshes by the applier's
+// own read, never recorded beside them.
 
 export type FinishApplication = {
   readonly loaded: LoadedProduct
@@ -19,10 +19,8 @@ export type FinishApplication = {
   readonly settle: () => Promise<void>
 }
 
-// Applies one finish and resolves with the automation record of what the
-// scene graph carries afterwards. The record is read from the meshes
-// themselves, never from the plan, so it is what the model really shows.
-export async function applyFinish(application: FinishApplication): Promise<ViewerFinish> {
+// Applies one finish. It resolves when the settle has presented the swap.
+export async function applyFinish(application: FinishApplication): Promise<void> {
   const { loaded, variant, settle } = application
   const variantIndex = loaded.finishes.plan.variants.indexOf(variant)
   if (variantIndex === -1) {
@@ -33,7 +31,6 @@ export async function applyFinish(application: FinishApplication): Promise<Viewe
   const mapped = mappedSceneMeshes(loaded)
   applyVariantMaterials(loaded, mapped, variantIndex)
   await settle()
-  return readFinishRecord(loaded, mapped, variant)
 }
 
 function applyVariantMaterials(
@@ -48,7 +45,9 @@ function applyVariantMaterials(
   }
 }
 
-function resolvedMaterial(loaded: LoadedProduct, index: number): Material {
+// The material behind one plan index: the table every application and the
+// applier's read resolve through.
+export function resolvedMaterial(loaded: LoadedProduct, index: number): Material {
   const material = loaded.finishes.materials.get(index)
   if (material === undefined) {
     throw new Error(
@@ -64,23 +63,4 @@ function assertSingleMaterial(mesh: MappedMesh['mesh']): void {
       `the mapped mesh '${mesh.name}' carries a material array, the plan maps one material per primitive`,
     )
   }
-}
-
-// The automation record of the applied finish: the material name every
-// mapped mesh carries, read from the scene graph after the settle.
-function readFinishRecord(
-  loaded: LoadedProduct,
-  mapped: readonly MappedMesh[],
-  variant: string,
-): ViewerFinish {
-  const materials: Record<string, string> = {}
-  for (const { mesh, entry } of mapped) {
-    if (Array.isArray(mesh.material)) {
-      throw new Error(
-        `the mapped mesh '${mesh.name}' carries a material array after the application`,
-      )
-    }
-    materials[finishPrimitiveKey(entry.mesh, entry.primitive)] = mesh.material.name
-  }
-  return { product: loaded.manifest.slug, applied: variant, materials }
 }

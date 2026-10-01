@@ -1,5 +1,4 @@
 import { Group, Mesh, type Material } from 'three'
-import type { ViewerFinish } from '@viewer/automation/viewerAutomation'
 import { precompilePairs } from './variants.logic'
 import type { LoadedProduct } from '@viewer/product/loadedProduct'
 import type { MappedMesh } from './mappedMeshes'
@@ -11,7 +10,8 @@ import { applyFinish } from './applyFinish'
 // variant and, in the same settle, draws the finishes the scene does not
 // carry yet on zero-scale proxies, so their pipelines build and their
 // textures upload with the load. A later application then only sets
-// materials and settles.
+// materials and settles. The applier runs it as its first step, once per
+// load, so every load precompiles with its own first application.
 //
 // The proxies ride the product's own first settle instead of compiling on
 // a detached group through the renderer, and they cover only the
@@ -35,11 +35,9 @@ export type FirstFinishApplication = {
   readonly settle: () => Promise<void>
 }
 
-// Applies the first finish and resolves with the automation record of
-// what the scene graph carries afterwards. The caller holds the promise,
-// so a later application awaits this one instead of repeating its
-// precompile.
-export async function applyFirstFinish(target: FirstFinishApplication): Promise<ViewerFinish> {
+// Applies the first finish with its precompile. It resolves when the
+// settle has presented the swap and the proxies are gone from the scene.
+export async function applyFirstFinish(target: FirstFinishApplication): Promise<void> {
   const { loaded, variant, settle } = target
   let group: Group | null = null
   try {
@@ -52,7 +50,7 @@ export async function applyFirstFinish(target: FirstFinishApplication): Promise<
       }
       await settle()
     }
-    return await applyFinish({ loaded, variant, settle: settleWithProxies })
+    await applyFinish({ loaded, variant, settle: settleWithProxies })
   } finally {
     if (group !== null) {
       loaded.scene.remove(group)

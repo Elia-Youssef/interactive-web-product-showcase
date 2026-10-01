@@ -45,6 +45,7 @@ test('the product is on its default finish at ready, read in one snapshot', asyn
   expect(snapshot.finish).toEqual({
     product: product.slug,
     applied: defaultVariant,
+    requested: defaultVariant,
     materials: defaultRecord,
   })
 })
@@ -66,6 +67,7 @@ test(`clicking each swatch of ${product.slug} applies exactly that finish's mate
       .toEqual({
         product: product.slug,
         applied: finish.variant,
+        requested: finish.variant,
         materials: expected,
       })
 

@@ -1,30 +1,28 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
-import { asError } from '@lib/errors'
 import { selectSelectedVariant, useAppStore } from '@store/index'
-import { publishViewerFinish, type ViewerFinish } from '@viewer/automation/viewerAutomation'
 import { useLoadedProduct } from '@viewer/product/loadedProduct'
 import { useStageSettle } from '@viewer/stageSettleContext'
-import { applyFinish } from './applyFinish'
-import { applyFirstFinish } from './firstFinishApplication'
+import { createFinishApplier, type FinishApplier } from './finishApplier'
 
-// The finish controller of a loaded product: it reads the store's selected
-// variant for the product it extends, swaps the model's mapped meshes to
-// that finish's materials through the stage settle, and publishes the
-// applied finish for the automation contract. It is the only code that
-// changes materials for finishes.
+// The finish controller of a loaded product: it owns one applier for the
+// product it extends and hands it each new selection. The applier swaps the
+// model's mapped meshes to that finish's materials through the stage settle;
+// this component is the only code that creates an applier, so it is the only
+// code that changes materials for finishes.
 //
-// The first application runs in a layout effect, as a child of
-// ProductContent: a child's effects run before its parent's, so the
-// precompile and the application and their settle are queued ahead of the
-// presentation's ready settle, and the frame ready reports already carries
-// the selection. The layout phase also paints no frame between the mount
-// and the application, so a remount never flashes the model's default
-// finish before the stored one.
+// The applier is created in a layout effect keyed on the load and disposed
+// with it, so a new load gets a fresh applier that precompiles again, and an
+// old applier's pending work never lands on a new load. Each selection is
+// handed over in a second layout effect, keyed on the load as well as the
+// selection, so a fresh applier receives the selection the store already
+// holds even when the selection itself did not change.
 //
-// The finishes are precompiled once per load, before the first
-// application: the held promise makes every application wait on the same
-// compile instead of repeating it, and the scene is clean again by the
-// time it resolves.
+// The hand-off runs in a layout effect, as a child of ProductContent: a
+// child's effects run before its parent's, so the first application and its
+// settle are queued ahead of the presentation's ready settle, and the frame
+// ready reports already carries the selection. The layout phase also paints
+// no frame between the mount and the application, so a remount never flashes
+// the model's default finish before the stored one.
 //
 // A failed application, a settle included, reaches the product's typed
 // failure the way the presentation reports its own: the error is held here
@@ -34,11 +32,20 @@ export function ProductFinishes() {
   const loaded = useLoadedProduct()
   const settleScene = useStageSettle()
   const selected = useAppStore((state) => selectSelectedVariant(state, loaded.manifest.slug))
-  const precompile = useRef<Promise<ViewerFinish> | null>(null)
+  const applier = useRef<FinishApplier | null>(null)
   const [failure, setFailure] = useState<Error | null>(null)
   const fail = useCallback((error: Error) => {
     setFailure((first) => first ?? error)
   }, [])
+
+  useLayoutEffect(() => {
+    const created = createFinishApplier({ loaded, settle: settleScene, onFailure: fail })
+    applier.current = created
+    return () => {
+      applier.current = null
+      created.dispose()
+    }
+  }, [loaded, settleScene, fail])
 
   useLayoutEffect(() => {
     // The offer must exist before any application: without it the
@@ -54,35 +61,16 @@ export function ProductFinishes() {
       )
       return
     }
-    let cancelled = false
-    const run = async (): Promise<ViewerFinish> => {
-      precompile.current ??= applyFirstFinish({ loaded, variant: selected, settle: settleScene })
-      const applied = await precompile.current
-      if (applied.applied === selected) {
-        return applied
-      }
-      // The selection moved while the first application was in flight.
-      return applyFinish({ loaded, variant: selected, settle: settleScene })
+    const current = applier.current
+    // The applier is created by the load's effect, which runs before this
+    // one in every commit; a missing applier is a broken effect order and
+    // fails loudly instead of silently applying nothing.
+    if (current === null) {
+      fail(new Error(`the finish applier of the product '${loaded.manifest.slug}' is missing`))
+      return
     }
-    run().then(
-      (finish) => {
-        if (!cancelled) {
-          publishViewerFinish(finish)
-        }
-      },
-      (cause: unknown) => {
-        if (!cancelled) {
-          fail(asError(cause))
-        }
-      },
-    )
-    return () => {
-      cancelled = true
-      // The record names what the scene carried; once this controller is
-      // gone, re-applying it or leaving it behind would both lie.
-      publishViewerFinish(null)
-    }
-  }, [loaded, selected, settleScene, fail])
+    current.apply(selected)
+  }, [loaded, selected, fail])
 
   if (failure !== null) {
     throw failure

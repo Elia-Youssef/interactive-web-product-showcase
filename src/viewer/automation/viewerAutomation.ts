@@ -72,15 +72,21 @@ export type ViewerCameraAutomation = {
 // The live read of the stage camera, or null while there is none.
 export type ViewerCameraSource = () => ViewerCameraAutomation | null
 
-// The finish a product on the stage carries, as the variants controller
-// read it from the scene graph after the settle that applied it: the
-// applied variant name and, per mapped mesh primitive, the material name
-// the mesh carries. The record is keyed by the file's own tables
-// ('<mesh>:<primitive>'), the identity an e2e can derive from the shipped
-// model, not by the names the loader renames.
+// The finish a product on the stage carries: the applied variant name and,
+// per mapped mesh primitive, the material name the mesh carries. The
+// record is keyed by the file's own tables ('<mesh>:<primitive>'), the
+// identity an e2e can derive from the shipped model, not by the names the
+// loader renames. The stage's finish probe reads it live from the scene
+// graph at access time, so it is what the model really shows, never the
+// store selection that was supposed to cause it. The applied variant is
+// derived from the meshes too: the one variant whose plan materials every
+// mapped mesh carries, or null while the meshes match no single variant.
+// The selection the applier is moving to rides beside it as requested, so
+// a wait that needs the intent can name it without confusing the two.
 export type ViewerFinish = {
   readonly product: string
-  readonly applied: string
+  readonly applied: string | null
+  readonly requested: string
   readonly materials: Readonly<Record<string, string>>
 }
 

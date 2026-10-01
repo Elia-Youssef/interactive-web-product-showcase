@@ -85,8 +85,8 @@ for (const product of products) {
     await expectPoll(page, () => window.__viewer?.finish ?? null).toBeNull()
 
     // Remount: a fresh load, driven straight to the selection the store
-    // kept. The record the controller publishes names the fresh scene, so
-    // the full record here is the new load's own materials, not the file's
+    // kept. The full record the finish channel reports names the fresh
+    // scene, so it is the new load's own materials, not the file's
     // default and not a survivor of the disposed load.
     await toggle.click()
     await waitForProductReady(page)
@@ -98,6 +98,7 @@ for (const product of products) {
     expect(snapshot.finish).toEqual({
       product: product.slug,
       applied: selected,
+      requested: selected,
       materials: expectations.get(selected),
     })
   })
