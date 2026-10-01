@@ -8,6 +8,7 @@ import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { loadParseProduct, namedExport, readManifestFile } from './manifestIo.ts'
 import { productPaths } from './productPaths.ts'
+import { listShippedSlugs } from './shippedProducts.ts'
 
 // The repo root of this checkout: the parent of the scripts folder.
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
@@ -37,14 +38,14 @@ describe('namedExport', () => {
 })
 
 describe('readManifestFile', () => {
-  it('loads the committed placeholder manifest as plain data', async () => {
-    const load = await readManifestFile(productPaths(ROOT, 'placeholder-speaker').manifestFile)
-    expect(load).toEqual({
-      kind: 'loaded',
-      manifest: expect.objectContaining({
-        slug: 'placeholder-speaker',
-      }),
-    })
+  it('loads every shipped manifest as plain data, under its own slug', async () => {
+    for (const slug of await listShippedSlugs(ROOT)) {
+      const load = await readManifestFile(productPaths(ROOT, slug).manifestFile)
+      expect(load, slug).toEqual({
+        kind: 'loaded',
+        manifest: expect.objectContaining({ slug }),
+      })
+    }
   })
 
   it('reports a missing manifest file', async () => {

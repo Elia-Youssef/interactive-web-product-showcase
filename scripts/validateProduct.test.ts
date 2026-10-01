@@ -1,5 +1,5 @@
-// The validate step against the committed placeholder: the real manifest
-// file, the real optimized model, the real loaders. This is the
+// The validate step against every shipped product: the real manifest
+// files, the real optimized models, the real loaders. This is the
 // fresh-clone case: committed files only, zero violations expected.
 // The temp-root cases cover discovery's other half: a product named by one
 // side only is exactly its missing-side violation, with the repo-relative
@@ -11,10 +11,15 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { loadParseProduct, type ParseProduct } from './manifestIo.ts'
 import { MANIFEST_SUFFIX, productPaths } from './productPaths.ts'
 import { validateShippedProduct } from './validateProduct.ts'
+import { listShippedSlugs } from './shippedProducts.ts'
 import { countViolations, countWarnings } from './validateChecks.ts'
 
 // The repo root of this checkout: the parent of the scripts folder.
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
+
+// The shipped products of this checkout, by the discovery the validate step
+// itself runs.
+const SHIPPED_SLUGS = await listShippedSlugs(ROOT)
 
 // A manifest file that parses, for a product whose model never exists.
 const GHOST_MANIFEST = [
@@ -32,10 +37,10 @@ const GHOST_MANIFEST = [
   '}',
 ].join('\n')
 
-describe('the validate step on the committed placeholder', () => {
-  it('reports zero violations and zero warnings', async () => {
+describe('the validate step on every shipped product', () => {
+  it.each(SHIPPED_SLUGS)('reports zero violations and zero warnings for %s', async (slug) => {
     const parseProduct = await loadParseProduct()
-    const validation = await validateShippedProduct(ROOT, 'placeholder-speaker', parseProduct)
+    const validation = await validateShippedProduct(ROOT, slug, parseProduct)
     expect(validation.checks.map((check) => check.name)).toEqual([
       'manifest',
       'model',
@@ -66,9 +71,14 @@ describe('the validate step on a temp root, one side missing', () => {
     const modelsDir = path.join(tempRoot, 'public', 'models')
     await mkdir(productsDir, { recursive: true })
     await mkdir(path.join(modelsDir, 'orphan-speaker'), { recursive: true })
-    // The committed placeholder model stands in for a readable model.glb.
+    // A committed model stands in for a readable model.glb: the first
+    // shipped product's, since the case is about the missing manifest.
+    const [standIn] = SHIPPED_SLUGS
+    if (standIn === undefined) {
+      throw new Error('the discovery lists at least one shipped product or fails on its own')
+    }
     await copyFile(
-      productPaths(ROOT, 'placeholder-speaker').modelGlb,
+      productPaths(ROOT, standIn).modelGlb,
       path.join(modelsDir, 'orphan-speaker', 'model.glb'),
     )
     await writeFile(

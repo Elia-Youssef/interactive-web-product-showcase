@@ -32,5 +32,5 @@ test('the vendored transcoder copies are excluded, whatever their extension', ()
 test('owned sources are not vendored', () => {
   expect(notVendored('src/viewer/Stage.tsx')).toBe(true)
   expect(notVendored('scripts/basisAssets.ts')).toBe(true)
-  expect(notVendored('public/models/placeholder-speaker/model.glb')).toBe(true)
+  expect(notVendored('public/models/sample-one/model.glb')).toBe(true)
 })
