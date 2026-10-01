@@ -3,6 +3,9 @@ import { loadCollection } from './productList'
 import { countRegionPixelsBrighterThan } from './stagePixels'
 import { settledStage } from './stageSettle'
 
+// The collection's first product, as the app builds it from the manifests.
+const first = (await loadCollection()).first
+
 // The brightest pixel the CSS backdrop can produce: the background channels
 // at 16/18/18 plus a white grid line at 0.025 alpha is about 22 per channel,
 // and the vignette only darkens it. The ceiling sits far above that and far
@@ -13,7 +16,6 @@ test('the stage reports the collection first product as its model', async ({
   page,
   backendPath,
 }) => {
-  const first = loadCollection().first
   await page.goto(backendPath)
   await expect.poll(() => page.evaluate(() => window.__viewer?.status)).toBe('ready')
 

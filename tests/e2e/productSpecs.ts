@@ -1,11 +1,13 @@
 import { expect, type Page } from '@playwright/test'
-import { parseProduct, type Product } from '../../src/lib/product'
-import { manifest as speakerManifest } from '../../src/products/placeholder-speaker.manifest.ts'
+import type { Product } from '../../src/lib/product'
+import { loadCollection } from './productList'
 
-// The product under test, parsed through the schema so the explode block is
-// normalized exactly as the runtime sees it.
-export function harnessProduct(): Product {
-  return parseProduct(speakerManifest, 'product.spec')
+// The products under test: every shipped product, as the collection's own
+// validation parsed them, so the explode block is normalized exactly as the
+// runtime sees it. The specs register per product from this list; a product
+// that joins the set is under test without a change here.
+export async function harnessProducts(): Promise<readonly Product[]> {
+  return (await loadCollection()).products
 }
 
 // The harness page URL for this project's backend mode, with the product's
