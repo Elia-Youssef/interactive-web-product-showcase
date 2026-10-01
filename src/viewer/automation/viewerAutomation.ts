@@ -16,6 +16,37 @@ export type ViewerModel = ProductModelCounts & {
   readonly slug: string
 }
 
+// The applied state of the shadow material, read back from the material
+// itself: the opacity the look left on it and the flags its compositing
+// depends on.
+export type ViewerLookShadow = {
+  readonly opacity: number
+  readonly transparent: boolean
+  readonly depthWrite: boolean
+}
+
+// One loaded texture as the color management check reads it: the material
+// that carries it, the material slot it sits in, and the color space the
+// loader left on it.
+export type ViewerLookTexture = {
+  readonly material: string
+  readonly slot: string
+  readonly colorSpace: string
+}
+
+// The look of the stage, read back from the renderer, the scene and the
+// shadow material at access time. Null while no product's look has ever been
+// applied on this stage; the shadow and texture fields are null while no
+// product is mounted, so the getter still proves the restore of the renderer
+// and scene values after the product leaves.
+export type ViewerLook = {
+  readonly exposure: number
+  readonly environmentIntensity: number
+  readonly environmentRotationDeg: number
+  readonly shadow: ViewerLookShadow | null
+  readonly textures: readonly ViewerLookTexture[] | null
+}
+
 export type ViewerAutomation = {
   readonly status: RendererStatus['kind']
   readonly backend: RendererBackend | null
@@ -37,6 +68,8 @@ export type ViewerAutomation = {
   readonly toneMapping: number | null
   // The product the stage has presented, or null while there is none.
   readonly model: ViewerModel | null
+  // The applied look of the stage, or null while no product has applied one.
+  readonly look: ViewerLook | null
 }
 
 export type ViewerAutomationSources = {
@@ -46,6 +79,9 @@ export type ViewerAutomationSources = {
   readonly getProductStatus: () => ProductStatus
   readonly renderedFrames: () => number
   readonly getToneMapping: () => number | null
+  // The applied look exactly as the renderer, the scene and the shadow
+  // material hold it right now.
+  readonly getLook: () => ViewerLook | null
 }
 
 export function createViewerAutomation(sources: ViewerAutomationSources): ViewerAutomation {
@@ -85,6 +121,9 @@ export function createViewerAutomation(sources: ViewerAutomationSources): Viewer
     },
     get toneMapping(): number | null {
       return sources.getToneMapping()
+    },
+    get look(): ViewerLook | null {
+      return sources.getLook()
     },
     get model(): ViewerModel | null {
       const status = currentProduct()

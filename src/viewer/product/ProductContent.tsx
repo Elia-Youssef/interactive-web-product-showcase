@@ -3,6 +3,7 @@ import { useGLTF } from '@react-three/drei'
 import { productModelUrl, type Product } from '@lib/product'
 import { useAppStore } from '@store/index'
 import { measureModelFrame } from '../modelFrame'
+import { ProductLook } from '../look/ProductLook'
 import { parseProductRig } from '../rig/parseProductRig'
 import { summarizeProductRig } from '../rig/summary'
 import { useStageHold } from '../stageHoldsContext'
@@ -91,7 +92,10 @@ export function ProductContent({ manifest, children }: ProductContentProps) {
       <group position={[-frame.centerX, -frame.centerY, -frame.centerZ]}>
         <primitive object={gltf.scene} />
       </group>
-      <LoadedProductContext.Provider value={loaded}>{children}</LoadedProductContext.Provider>
+      <LoadedProductContext.Provider value={loaded}>
+        <ProductLook />
+        {children}
+      </LoadedProductContext.Provider>
     </>
   )
 }

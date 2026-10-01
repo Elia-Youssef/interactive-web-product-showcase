@@ -8,10 +8,12 @@ export {
   PART_PREFIX,
   SHADOW_NODE_NAME,
 } from './contractNames'
-export { productManifestSchema } from './schema'
-export type { Product, ProductInput } from './schema'
+export { productManifestSchema, productLookSchema } from './schema'
+export type { Product, ProductInput, ProductLookBlock } from './schema'
 export { HOTSPOT_BULLETS_MAX } from './rules'
 export { parseProduct } from './parse'
+export { resolveProductLook } from './resolveLook'
+export type { ProductLookValues } from './resolveLook'
 export { CollectionError, ManifestError } from './errors'
 export type { CollectionProblem, ProductIssue } from './errors'
 export { createCollection } from './collection'
