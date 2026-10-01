@@ -20,7 +20,7 @@ describe('StageProbes', () => {
   it('reads the held reader live at access time', () => {
     const probes = new StageProbes()
     let value = lookOf(1)
-    probes.register('look', () => value)
+    const release = probes.register('look', () => value)
 
     expect(probes.read('look')).toEqual(lookOf(1))
 
@@ -28,12 +28,12 @@ describe('StageProbes', () => {
     // the next read reports.
     value = lookOf(2.5)
     expect(probes.read('look')).toEqual(lookOf(2.5))
+    release()
   })
 
-  it('reads null again once the reader unregisters', () => {
+  it('reads null again once the registration releases', () => {
     const probes = new StageProbes()
-    probes.register('look', () => lookOf(1))
-    probes.unregister('look')
+    probes.register('look', () => lookOf(1))()
     expect(probes.read('look')).toBeNull()
   })
 
@@ -45,11 +45,22 @@ describe('StageProbes', () => {
     expect(probes.read('look')).toEqual(lookOf(1))
   })
 
-  it('registers the key again after it unregisters, as an effect re-run does', () => {
+  it('registers the key again after a release, as an effect re-run does', () => {
     const probes = new StageProbes()
-    probes.register('look', () => lookOf(1))
-    probes.unregister('look')
+    probes.register('look', () => lookOf(1))()
     probes.register('look', () => lookOf(3))
     expect(probes.read('look')).toEqual(lookOf(3))
+  })
+
+  it('fails a stale release loudly and leaves the later holder standing', () => {
+    const probes = new StageProbes()
+    const stale = probes.register('look', () => lookOf(1))
+    stale()
+    probes.register('look', () => lookOf(2))
+
+    // The stale release is not the current holder's, so it must throw
+    // instead of dropping the reader a later registration installed.
+    expect(() => stale()).toThrow('stale')
+    expect(probes.read('look')).toEqual(lookOf(2))
   })
 })
