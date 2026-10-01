@@ -1,10 +1,12 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { devHost, isE2EServer } from './tooling/devHost.ts'
 import { resolveDevPort } from './tooling/devPort.ts'
 import { unitTestGlobs } from './tooling/testRoots.ts'
 
 const port = resolveDevPort(process.env)
+const e2eServer = isE2EServer(process.env)
 
 export default defineConfig({
   plugins: [react()],
@@ -24,6 +26,14 @@ export default defineConfig({
   server: {
     port,
     strictPort: true,
+    // The e2e server binds the one literal loopback address every e2e page
+    // opens (tooling/devHost.ts). A dev server by hand, without the e2e
+    // mark, keeps Vite's defaults.
+    ...(e2eServer
+      ? {
+          host: devHost.address,
+        }
+      : {}),
   },
   preview: {
     port,

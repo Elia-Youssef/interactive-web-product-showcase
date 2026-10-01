@@ -1,11 +1,12 @@
 import { defineConfig } from '@playwright/test'
 import { extensionGlob, sourceExtensions, specFileMarker } from './tooling/extensions.ts'
+import { e2eBaseURL, e2eServer } from './tooling/devHost.ts'
 import { gateProofProject, matrixAssignments } from './tests/e2e/matrix.ts'
 import type { MatrixAssignment } from './tests/e2e/matrix.ts'
 import { resolveDevPort } from './tooling/devPort.ts'
 
 const port = resolveDevPort(process.env)
-const baseURL = `http://localhost:${port}`
+const baseURL = e2eBaseURL(port)
 
 // Playwright runs the spec marker only: the unit marker belongs to Vitest.
 const SPEC_GLOB = `**/*.${specFileMarker}.${extensionGlob(sourceExtensions)}`
@@ -55,6 +56,9 @@ export default defineConfig({
     command: `pnpm exec vite --port ${port} --strictPort`,
     url: baseURL,
     reuseExistingServer: false,
+    // The mark that keys the server's e2e configuration: the loopback host
+    // and the no-HMR client stub (tooling/devHost.ts, tooling/devClientStub.ts).
+    env: { [e2eServer.variable]: e2eServer.value },
   },
   projects: [
     ...matrixAssignments().map((row) => ({
