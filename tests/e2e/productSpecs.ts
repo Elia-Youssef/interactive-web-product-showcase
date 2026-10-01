@@ -18,6 +18,18 @@ export function harnessPath(backendPath: string, slug: string): string {
   return `/product-harness.html?${params.toString()}`
 }
 
+// The one load budget for a product or a model to reach ready, in this
+// helper and in every spec that waits for one. Measured on the dev server
+// with all eight matrix projects loading at once (one more than the matrix
+// worker cap of six): 40 loads, min 6.3 s, median 11.1 s, max 14.6 s, with
+// nothing but this session running beside them. The budget is twice that
+// worst load: the stress the measurement cannot model is the machine the
+// matrix really runs on, where sibling dev servers, background CPU work and six
+// GPU contexts (one software-rendered) stretch every load, and the audited
+// waits at this value have never timed out waiting for a load. It also
+// bounds a genuinely broken load at half a minute instead of minutes.
+export const productLoadBudgetMs = 30_000
+
 export function expectPoll(page: Page, evaluate: () => unknown) {
   return expect.poll(() => page.evaluate(evaluate))
 }
@@ -26,15 +38,30 @@ export function expectPoll(page: Page, evaluate: () => unknown) {
 // the product is on a recorded frame: the stage settle around the mounted,
 // centered and framed product has resolved.
 export async function waitForProductReady(page: Page): Promise<void> {
-  await expectPoll(page, () => window.__viewer?.status).toBe('ready')
-  await expectPoll(page, () => window.__viewer?.product).toBe('ready')
+  await expect
+    .poll(() => page.evaluate(() => window.__viewer?.status), {
+      timeout: productLoadBudgetMs,
+    })
+    .toBe('ready')
+  await expect
+    .poll(() => page.evaluate(() => window.__viewer?.product), {
+      timeout: productLoadBudgetMs,
+    })
+    .toBe('ready')
 }
 
 // Waits until the page's stage warm-up has drawn its one-frame physical
 // material and removed it, so the renderer's lazily created internals all
-// exist and the memory baseline is the settled empty stage.
+// exist and the memory baseline is the settled empty stage. The flag only
+// lands after the renderer has started, which on the software-rendered
+// WebKit build stretches past the expect default under the matrix's own
+// load, so it rides the same budget as the product it precedes.
 export async function waitForStageWarm(page: Page): Promise<void> {
-  await expectPoll(page, () => window.__harnessStageWarm).toBe(true)
+  await expect
+    .poll(() => page.evaluate(() => window.__harnessStageWarm), {
+      timeout: productLoadBudgetMs,
+    })
+    .toBe(true)
 }
 
 export type RendererMemory = { readonly geometries: number; readonly textures: number }
@@ -76,7 +103,7 @@ export async function waitForSettledMemory(
       },
       // A fresh mount re-uploads everything, which is slow on the WebKit
       // builds, so the settle wait gets room of its own.
-      { timeout: 30_000 },
+      { timeout: productLoadBudgetMs },
     )
     .toBe(true)
   const settled = await page.evaluate(() => window.__harnessRendererMemory?.())
