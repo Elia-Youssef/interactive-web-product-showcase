@@ -1,7 +1,14 @@
 import type { Product } from '@lib/product'
+import { siteCopy } from '@lib/copy/site'
 
 // The finish one swatch of the panel carries.
 export type PanelFinish = Product['finishes'][number]
+
+// The exploded view toggle's label: the manifest's own word, or the site's
+// while the manifest names none.
+export function explodeToggleLabel(product: Product): string {
+  return product.explode.label ?? siteCopy.defaultExplodeLabel
+}
 
 // The collection position as a two-digit index:
 // 1 becomes '01'. Display formatting stays in the display layer.

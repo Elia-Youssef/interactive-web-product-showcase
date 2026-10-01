@@ -2,6 +2,8 @@ import '@styles/global.css'
 import { useMemo, useState } from 'react'
 import { CollectionError, createCollection } from '@lib/product'
 import { productManifests } from '@products/index'
+import { ProductExplode } from '@features/explode'
+import { ProductExplodeToggle } from '@features/product-panel'
 import { AppStoreProvider } from '@store/index'
 import { Stage } from '@viewer/Stage'
 import { StageAlert } from '@viewer/StageAlert'
@@ -65,7 +67,11 @@ function HarnessProduct({ slug, collection }: HarnessContentProps & HarnessColle
     <>
       <RendererMemoryProbe />
       <StageWarmup />
-      {manifest !== undefined && mounted && <Product manifest={manifest} />}
+      {manifest !== undefined && mounted && (
+        <Product manifest={manifest}>
+          <ProductExplode />
+        </Product>
+      )}
     </>
   )
 
@@ -87,14 +93,19 @@ function HarnessProduct({ slug, collection }: HarnessContentProps & HarnessColle
         />
       )}
       {manifest !== undefined && (
-        <button
-          type="button"
-          className={styles.toggle}
-          data-testid="remount-product"
-          onClick={() => setMounted((current) => !current)}
-        >
-          {mounted ? 'Unmount the product' : 'Mount the product'}
-        </button>
+        <>
+          <div className={styles.explodeToggle}>
+            <ProductExplodeToggle product={manifest} />
+          </div>
+          <button
+            type="button"
+            className={styles.toggle}
+            data-testid="remount-product"
+            onClick={() => setMounted((current) => !current)}
+          >
+            {mounted ? 'Unmount the product' : 'Mount the product'}
+          </button>
+        </>
       )}
     </>
   )
