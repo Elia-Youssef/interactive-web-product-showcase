@@ -1,6 +1,7 @@
 import type { Browser, Page } from '@playwright/test'
 import { expect, test } from './fixtures'
 import { createErrorLedger } from './errorLedger'
+import { productLoadBudgetMs } from './productSpecs'
 
 // The stage's DPR contract at the display extremes: the drawing buffer is
 // the CSS box times the device pixel ratio,
@@ -102,7 +103,9 @@ test('a resize across a breakpoint renders again and fills the new slot', async 
   // The model's own post-load frame settles first, so the frame the resize
   // owes is provably the resize's, not the load's.
   await expect
-    .poll(() => page.evaluate(() => window.__viewer?.model ?? null), { timeout: 30000 })
+    .poll(() => page.evaluate(() => window.__viewer?.model ?? null), {
+      timeout: productLoadBudgetMs,
+    })
     .not.toBeNull()
   const framesBefore = await page.evaluate(() => window.__viewer?.renderedFrames ?? -1)
 

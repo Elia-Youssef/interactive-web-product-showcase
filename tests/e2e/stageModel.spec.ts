@@ -3,6 +3,7 @@ import { productModelUrl } from '../../src/lib/product'
 import { stageConfig } from '../../src/viewer/config'
 import { expect, test } from './fixtures'
 import { loadCollection } from './productList'
+import { productLoadBudgetMs } from './productSpecs'
 import { countRegionPixelsBrighterThan, type BrightPixels } from './stagePixels'
 import { settledFrames, settledStage } from './stageSettle'
 
@@ -54,7 +55,7 @@ test('the stage reports the collection first product as its model', async ({
   await expect
     .poll(() => page.evaluate(() => window.__viewer?.model ?? null), {
       message: 'the stage must report its model once the product is presented',
-      timeout: 30000,
+      timeout: productLoadBudgetMs,
     })
     .not.toBeNull()
   const model = await page.evaluate(() => window.__viewer?.model ?? null)
@@ -73,7 +74,9 @@ test('the stage renders the model: its pixels rise above the bare backdrop', asy
   await page.goto(backendPath)
   await expect.poll(() => page.evaluate(() => window.__viewer?.status)).toBe('ready')
   await expect
-    .poll(() => page.evaluate(() => window.__viewer?.model ?? null), { timeout: 30000 })
+    .poll(() => page.evaluate(() => window.__viewer?.model ?? null), {
+      timeout: productLoadBudgetMs,
+    })
     .not.toBeNull()
 
   // The report marks the stage's settled frame, and at rest nothing renders
@@ -107,7 +110,9 @@ test('the stage loads its environment and the product model once each', async ({
 
   await page.goto(backendPath)
   await expect
-    .poll(() => page.evaluate(() => window.__viewer?.product), { timeout: 30000 })
+    .poll(() => page.evaluate(() => window.__viewer?.product), {
+      timeout: productLoadBudgetMs,
+    })
     .toBe('ready')
   await settledFrames(page)
 
@@ -123,11 +128,11 @@ test('the product is on the stage pixels the moment it reports ready', async ({
   // The wait reads the product status on every animation frame and the
   // capture follows at once, with no settle wait in between: a ready status
   // that lands before the product is on a recorded frame fails the count.
-  // The load gets the busy-matrix budget the other load waits carry.
+  // The load gets the one budget every ready wait carries.
   const readyAt = await page.waitForFunction(
     () => (window.__viewer?.product === 'ready' ? window.__viewer.renderedFrames : null),
     undefined,
-    { polling: 'raf', timeout: 30000 },
+    { polling: 'raf', timeout: productLoadBudgetMs },
   )
   const framesAtReady = await readyAt.jsonValue()
   const bright = await productPixels(page)

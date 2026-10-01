@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from './fixtures'
+import { productLoadBudgetMs } from './productSpecs'
 
 function renderedFrames(page: Page): Promise<number> {
   return page.evaluate(() => window.__viewer?.renderedFrames ?? -1)
@@ -36,7 +37,9 @@ test('the stage stands still at rest and renders again on a resize', async ({
   // of its own after ready; the at-rest measurement starts once it is in,
   // so the settle window below measures rest, not a late load frame.
   await expect
-    .poll(() => page.evaluate(() => window.__viewer?.model ?? null), { timeout: 30000 })
+    .poll(() => page.evaluate(() => window.__viewer?.model ?? null), {
+      timeout: productLoadBudgetMs,
+    })
     .not.toBeNull()
 
   // At rest under demand mode, with the HUD mounted: nothing renders for 2 s.
