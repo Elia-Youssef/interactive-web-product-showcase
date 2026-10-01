@@ -66,3 +66,32 @@ test('the initial store state renders the product default as the active finish',
   expect(html).toContain('Graphite')
   expect(html.match(/aria-pressed="true"/g)).toHaveLength(1)
 })
+
+test('the explode toggle sits after the swatches, named by the manifest, disabled while detached', () => {
+  const html = renderToString(
+    <AppStoreProvider>
+      <ProductPanel
+        product={parseProduct(
+          { ...sampleManifest, explode: { label: 'See inside' } },
+          'sample-one',
+        )}
+      />
+    </AppStoreProvider>,
+  )
+
+  // The manifest label is the accessible name. The static render runs no
+  // effects, so the store holds no attached view and the toggle renders
+  // disabled: a click before the model is presented cannot arm anything.
+  // The swatch group precedes it, as the panel order has it.
+  expect(html).toContain('role="group"')
+  expect(html.indexOf('role="group"')).toBeLessThan(html.indexOf('See inside</button>'))
+  expect(html).toContain('aria-pressed="false"')
+  expect(html).toContain('disabled')
+  expect(html).toContain('See inside</button>')
+})
+
+test('a manifest without an explode label names the toggle by the site word', () => {
+  const html = renderPanel()
+
+  expect(html).toContain('Exploded view</button>')
+})

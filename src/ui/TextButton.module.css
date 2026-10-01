@@ -28,3 +28,10 @@ persistent off underline. */
   text-decoration-thickness: var(--hairline-width);
   text-underline-offset: var(--offset-text-underline);
 }
+
+/* Disabled: the control waits for the state it acts on. It keeps its label
+color against the hover rule above and never suggests an action. */
+.button:disabled {
+  color: var(--label);
+  cursor: default;
+}

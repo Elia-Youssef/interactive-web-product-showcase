@@ -1,5 +1,6 @@
 import '@styles/global.css'
 import type { Product as ProductManifest } from '@lib/product'
+import { ProductExplode } from '@features/explode'
 import { ProductIndexLabel, ProductPanel } from '@features/product-panel'
 import { AppStoreProvider } from '@store/index'
 import { Product } from '@viewer/product/Product'
@@ -35,7 +36,15 @@ function ProductPage({ product }: { readonly product: ProductManifest }) {
     <AppLayout
       productIndex={<ProductIndexLabel number={product.number} category={product.category} />}
       panel={<ProductPanel product={product} />}
-      stage={<Stage content={<Product manifest={product} />} />}
+      stage={
+        <Stage
+          content={
+            <Product manifest={product}>
+              <ProductExplode />
+            </Product>
+          }
+        />
+      }
     />
   )
 }

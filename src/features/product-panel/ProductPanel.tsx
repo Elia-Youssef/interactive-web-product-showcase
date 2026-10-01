@@ -10,6 +10,7 @@ import type { Product } from '@lib/product'
 import { siteCopy } from '@lib/copy/site'
 import { selectSelectedVariant, useAppStore } from '@store/index'
 import { Divider, Eyebrow, Readout, Swatch, Title } from '@ui/index'
+import { ProductExplodeToggle } from './ProductExplodeToggle'
 import { activeFinish } from './product-panel.logic'
 import styles from './ProductPanel.module.css'
 
@@ -70,6 +71,7 @@ export function ProductPanel({ product }: ProductPanelProps) {
           ))}
         </div>
       </div>
+      <ProductExplodeToggle product={product} />
     </div>
   )
 }

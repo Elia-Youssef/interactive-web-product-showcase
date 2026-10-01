@@ -1,8 +1,9 @@
 import { expect, test } from 'vitest'
 import type { ProductInput } from '@lib/product'
 import { parseProduct } from '@lib/product'
+import { siteCopy } from '@lib/copy/site'
 import { createAppStore, selectSelectedVariant } from '@store/index'
-import { activeFinish, formatProductIndex } from './product-panel.logic'
+import { activeFinish, explodeToggleLabel, formatProductIndex } from './product-panel.logic'
 
 // Neutral fixture words, never a real product's: the logic renders whatever the
 // manifest says, and the real words belong to src/products/.
@@ -53,6 +54,21 @@ test('the active finish is the product default, the first, while nothing is sele
 
 test('a selected variant the product does not offer is the programming error it is', () => {
   expect(() => activeFinish(product, 'graphitee')).toThrowError(/graphitee/)
+})
+
+test('the toggle label is the manifest own word when the manifest names one', () => {
+  const labeled = parseProduct(
+    { ...sampleManifest, explode: { label: 'See inside' } },
+    'sample-one',
+  )
+
+  expect(explodeToggleLabel(labeled)).toBe('See inside')
+})
+
+test('the toggle label falls back to the site word when the manifest names none', () => {
+  // The schema normalizes the explode block, so a manifest without a label
+  // parses with the block present and the label absent.
+  expect(explodeToggleLabel(product)).toBe(siteCopy.defaultExplodeLabel)
 })
 
 // The cross-product pairs, over a real store: product A sits selected on a

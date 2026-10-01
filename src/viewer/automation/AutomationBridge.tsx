@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { selectProductStatus, selectRendererStatus, useAppStoreApi } from '@store/index'
 import type { FrameClock } from '../FrameClock'
+import { readExplode } from './explodeSource'
 import { createViewerAutomation } from './viewerAutomation'
 
 type AutomationBridgeProps = {
@@ -28,6 +29,7 @@ export function AutomationBridge({ clock, getToneMapping }: AutomationBridgeProp
       getProductStatus: () => selectProductStatus(store.getState()),
       renderedFrames: () => clock.renderedFrames,
       getToneMapping,
+      getExplode: () => readExplode(store),
     })
     window.__viewer = automation
     return () => {
