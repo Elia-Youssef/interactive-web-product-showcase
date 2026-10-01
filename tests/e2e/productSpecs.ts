@@ -1,6 +1,9 @@
 import { expect, type Page } from '@playwright/test'
 import type { Product } from '../../src/lib/product'
+import { productLoadBudgetMs } from './budgets'
 import { loadCollection } from './productList'
+
+export { productLoadBudgetMs }
 
 // The products under test: every shipped product, as the collection's own
 // validation parsed them, so the explode block is normalized exactly as the
@@ -17,18 +20,6 @@ export function harnessPath(backendPath: string, slug: string): string {
   params.set('slug', slug)
   return `/product-harness.html?${params.toString()}`
 }
-
-// The one load budget for a product or a model to reach ready, in this
-// helper and in every spec that waits for one. Measured on the dev server
-// with all eight matrix projects loading at once (one more than the matrix
-// worker cap of six): 40 loads, min 6.3 s, median 11.1 s, max 14.6 s, with
-// nothing but this session running beside them. The budget is twice that
-// worst load: the stress the measurement cannot model is the machine the
-// matrix really runs on, where sibling dev servers, background CPU work and six
-// GPU contexts (one software-rendered) stretch every load, and the audited
-// waits at this value have never timed out waiting for a load. It also
-// bounds a genuinely broken load at half a minute instead of minutes.
-export const productLoadBudgetMs = 30_000
 
 export function expectPoll(page: Page, evaluate: () => unknown) {
   return expect.poll(() => page.evaluate(evaluate))

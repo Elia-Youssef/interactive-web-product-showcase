@@ -1,13 +1,9 @@
 import { expect, test } from './fixtures'
 import type { Page } from '@playwright/test'
 import { settledFrames, settledStage } from './stageSettle'
-import { canvasCenter, readCamera, REST_THRESHOLD, waitForProductReady } from './stageCamera'
+import { waitForProductReady } from './productSpecs'
+import { canvasCenter, readCamera, REST_THRESHOLD } from './stageCamera'
 import { touchDrag, touchPinch } from './syntheticTouch'
-// The full matrix runs six browsers against one GPU, and the heaviest wait
-// in every test here is the busy-matrix ready wait, so each test carries a
-// budget above the sum of its waits on the slowest backend.
-test.setTimeout(90_000)
-
 // The touch contract, driven with synthesized pointer events (Playwright
 // has no multi-touch API): one finger rotates, two fingers pinch to dolly.
 // Every test runs on the whole matrix; the synthesized events are the same

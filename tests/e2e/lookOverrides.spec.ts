@@ -9,6 +9,7 @@ import {
   countDifferingPixels,
   countDifferingPixelsByDirection,
 } from './lookPixels'
+import { testBudgetMs } from './budgets'
 import { expectPoll, harnessProducts, waitForProductReady } from './productSpecs'
 import { settledStage } from './stageSettle'
 
@@ -93,7 +94,9 @@ for (const product of products) {
     page,
     backendPath,
   }) => {
-    test.setTimeout(120_000)
+    // Three product loads (reference, reload, effect) and the pixel work
+    // between them: the budget module's derivation for that count.
+    test.setTimeout(testBudgetMs({ productLoads: 3 }))
     const reference = await settledDecoded(page, backendPath, product.slug)
     const again = await determinismPair(page)
     const reload = await settledDecoded(page, backendPath, product.slug)
@@ -127,7 +130,9 @@ for (const product of products) {
     page,
     backendPath,
   }) => {
-    test.setTimeout(120_000)
+    // Three product loads (reference, reload, effect) and the pixel work
+    // between them: the budget module's derivation for that count.
+    test.setTimeout(testBudgetMs({ productLoads: 3 }))
     const reference = await settledDecoded(page, backendPath, product.slug)
     const again = await determinismPair(page)
     const reload = await settledDecoded(page, backendPath, product.slug)
@@ -159,7 +164,9 @@ for (const product of products) {
     page,
     backendPath,
   }) => {
-    test.setTimeout(120_000)
+    // Three product loads (reference, reload, effect) and the pixel work
+    // between them: the budget module's derivation for that count.
+    test.setTimeout(testBudgetMs({ productLoads: 3 }))
     const reference = await settledDecoded(page, backendPath, product.slug)
     const again = await determinismPair(page)
     const reload = await settledDecoded(page, backendPath, product.slug)
@@ -187,7 +194,9 @@ for (const product of products) {
     page,
     backendPath,
   }) => {
-    test.setTimeout(120_000)
+    // Three product loads (reference, reload, effect) and the pixel work
+    // between them: the budget module's derivation for that count.
+    test.setTimeout(testBudgetMs({ productLoads: 3 }))
     // The shadow can only darken what it covers, and it covers most of the
     // pixels its opacity step moves, so in each pair the frame changes, its
     // channel sum strictly falls, and the darkening mass exceeds the

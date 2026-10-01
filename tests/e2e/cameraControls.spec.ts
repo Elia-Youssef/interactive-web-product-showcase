@@ -6,18 +6,8 @@ import { zoomReadoutText } from '../../src/features/stage-controls/stage-control
 import { loadCollection } from './productList'
 import { readProductCameraFacts } from './productCamera'
 import { settledFrames, settledStage } from './stageSettle'
-import {
-  canvasCenter,
-  dragOnCanvas,
-  readCamera,
-  REST_THRESHOLD,
-  waitForProductReady,
-} from './stageCamera'
-// The full matrix runs six browsers against one GPU, and the heaviest wait
-// in every test here is the busy-matrix ready wait, so each test carries a
-// budget above the sum of its waits on the slowest backend.
-test.setTimeout(90_000)
-
+import { waitForProductReady } from './productSpecs'
+import { canvasCenter, dragOnCanvas, readCamera, REST_THRESHOLD } from './stageCamera'
 // The collection's first product, and its authored camera facts read from
 // the shipped `.glb`.
 const first = (await loadCollection()).first

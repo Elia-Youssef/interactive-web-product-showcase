@@ -1,15 +1,10 @@
 import { expect, test } from './fixtures'
 import { loadCollection } from './productList'
 import { readProductCameraFacts } from './productCamera'
-import { waitForProductReady } from './stageCamera'
+import { waitForProductReady } from './productSpecs'
 import { settledStage } from './stageSettle'
 import { homeExpectation, readCamera, stageAspectOfCanvas } from './stageCamera'
 import { zoomReadoutText } from '../../src/features/stage-controls/stage-controls.logic'
-// The full matrix runs six browsers against one GPU, and the heaviest wait
-// in every test here is the busy-matrix ready wait, so each test carries a
-// budget above the sum of its waits on the slowest backend.
-test.setTimeout(90_000)
-
 // The collection's first product, as the app builds it from the manifests.
 const first = (await loadCollection()).first
 
