@@ -64,12 +64,13 @@ function nextTurn(): Promise<void> {
 }
 
 describe('StageSettle', () => {
-  it('compiles once, invalidates, and resolves after the presented frame', async () => {
+  it('compiles once, then presents the settled state twice and resolves after both', async () => {
     const stage = fakeStage()
     const first = stage.nextSettle()
     const done = stage.run(first.resources)
 
-    // The compile is in flight: the settle holds until the frame lands.
+    // The compile is in flight: the settle holds, and nothing presents
+    // before the compile has resolved.
     let resolved = false
     void done.then(() => {
       resolved = true
@@ -77,38 +78,52 @@ describe('StageSettle', () => {
     await nextTurn()
     expect(resolved).toBe(false)
     expect(first.compiles()).toBe(1)
+    expect(stage.invalidations()).toBe(0)
 
     first.releaseCompile()
     await nextTurn()
+    // The first present alone does not settle the step: the settled state
+    // is presented twice before the step resolves.
+    stage.clock.recordFrame(performance.now(), 0)
+    await nextTurn()
+    expect(resolved).toBe(false)
+    expect(stage.invalidations()).toBe(2)
+
     stage.clock.recordFrame(performance.now(), 0)
     await done
     expect(resolved).toBe(true)
     expect(first.compiles()).toBe(1)
-    expect(stage.invalidations()).toBe(1)
+    expect(stage.invalidations()).toBe(2)
   })
 
-  it('compiles again when a frame raced the compile, then settles', async () => {
+  it('compiles again when a frame raced the compile, counting both presents, then settles', async () => {
     const stage = fakeStage()
     const first = stage.nextSettle()
     const done = stage.run(first.resources)
     await nextTurn()
 
-    // A frame renders while the compile is walking: with the presented
-    // frame after it, the compile's resolve is untrusted, so the step
+    // A frame renders while the compile is walking: with the two presented
+    // frames after it, the compile's resolve is untrusted, so the step
     // compiles again over a drained loop.
     stage.clock.recordFrame(performance.now(), 0)
     first.releaseCompile()
     await nextTurn()
     stage.clock.recordFrame(performance.now(), 0)
     await nextTurn()
+    stage.clock.recordFrame(performance.now(), 0)
+    await nextTurn()
     expect(first.compiles()).toBe(2)
 
+    // The second compile's two presents are exactly the two frames the
+    // step counts, so it settles without a third compile.
     first.releaseCompile()
+    await nextTurn()
+    stage.clock.recordFrame(performance.now(), 0)
     await nextTurn()
     stage.clock.recordFrame(performance.now(), 0)
     await done
     expect(first.compiles()).toBe(2)
-    expect(stage.invalidations()).toBe(2)
+    expect(stage.invalidations()).toBe(4)
   })
 
   it('rejects with the compile failure and still runs the next settle', async () => {
@@ -124,11 +139,13 @@ describe('StageSettle', () => {
     second.releaseCompile()
     await nextTurn()
     stage.clock.recordFrame(performance.now(), 0)
+    await nextTurn()
+    stage.clock.recordFrame(performance.now(), 0)
     await followingDone
     expect(second.compiles()).toBe(1)
   })
 
-  it('runs one settle at a time: the next compile waits for the presented frame', async () => {
+  it('runs one settle at a time: the next compile waits for both presents', async () => {
     const stage = fakeStage()
     const first = stage.nextSettle()
     const firstDone = stage.run(first.resources)
@@ -140,16 +157,21 @@ describe('StageSettle', () => {
     // The second settle waits while the first compile is in the chain.
     expect(second.compiles()).toBe(0)
 
+    // The first step ends with both its frames recorded; the chain then
+    // starts the second compile. The first caller's promise covers the
+    // drain, so it resolves only together with the second.
     stage.clock.recordFrame(performance.now(), 0)
-    // The first step ends with its frame recorded; the chain then starts the
-    // second compile. The first caller's promise covers the drain, so it
-    // resolves only together with the second.
-    second.releaseCompile()
+    await nextTurn()
+    stage.clock.recordFrame(performance.now(), 0)
     await nextTurn()
     expect(second.compiles()).toBe(1)
 
+    second.releaseCompile()
+    await nextTurn()
+    stage.clock.recordFrame(performance.now(), 0)
+    await nextTurn()
     stage.clock.recordFrame(performance.now(), 0)
     await Promise.all([firstDone, secondDone])
-    expect(stage.invalidations()).toBe(2)
+    expect(stage.invalidations()).toBe(4)
   })
 })

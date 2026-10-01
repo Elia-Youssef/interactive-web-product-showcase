@@ -79,21 +79,14 @@ test(`clicking each swatch of ${product.slug} applies exactly that finish's mate
   }
 })
 
-// Headless Firefox and WebKit hold the previous present of an idle
-// on-demand canvas in their visible and captured output (the compositor
-// video and the empty-after-resize captures are the evidence), so no
-// capture there carries the applied finish reliably. The direction proof
-// runs where the capture is truthful, a declared engine capability like
-// the matrix's backend expectations.
+// The direction proof runs on every engine. At rest the settle presents the
+// settled state twice, so a capture taken after it shows the applied finish
+// everywhere: the engines' compositors hold the canvas one present behind at
+// rest, and the second present is the one the capture sees.
 test('the finish change repaints the model in the manifest direction, past the noise of its own run', async ({
   page,
-  browserName,
   backendPath,
 }) => {
-  test.skip(
-    browserName !== 'chromium',
-    'this engine holds the previous present in its capture, so no capture carries the applied finish',
-  )
   await page.goto(backendPath)
   await waitForProductReady(page)
 
