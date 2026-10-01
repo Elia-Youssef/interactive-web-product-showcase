@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from './fixtures'
+import { restWindowBudgetMs } from './budgets'
 import { readExplodeModelFacts } from './explodeModelFacts'
 import { loadCollection } from './productList'
 import { expectPoll, waitForProductReady } from './productSpecs'
@@ -41,15 +42,17 @@ test('the toggle opens the exploded view and the stage comes to rest', async ({ 
   await expectPoll(page, () => window.__viewer?.explode?.target).toBe(1)
 
   // The spring moves: frames render while it runs, and the move's frame
-  // count is the browser's frame budget, not the spring's. The contract is
-  // that the move rendered and the rest that follows renders nothing.
+  // count is the browser's frame budget, not the spring's. The move goes
+  // through no settle, because a clip-time change rebuilds no pipeline; the
+  // contract is that the move rendered and the rest that follows renders
+  // nothing.
   await expectPoll(page, () => window.__viewer?.explode?.moving).toBe(true)
   await expectPoll(page, () => window.__viewer?.explode?.moving).toBe(false)
   const afterMove = await settledFrames(page)
   expect(afterMove).toBeGreaterThan(atRest)
 
-  // At rest the loop is stopped: nothing renders while the page idles.
-  await page.waitForTimeout(2000)
+  // At rest the loop is stopped: nothing renders across the rest window.
+  await page.waitForTimeout(restWindowBudgetMs)
   expect(await renderedFrames(page)).toBe(afterMove)
 
   // The applied progress is exactly the far end, and every animated PART_
@@ -76,7 +79,7 @@ test('the toggle closes the view back onto the assembled pose', async ({ page })
   await expectPoll(page, () => window.__viewer?.explode?.moving).toBe(false)
 
   const atRest = await settledFrames(page)
-  await page.waitForTimeout(2000)
+  await page.waitForTimeout(restWindowBudgetMs)
   expect(await renderedFrames(page)).toBe(atRest)
 
   await expectPose(page, facts.firstPose)
@@ -90,18 +93,20 @@ test('under reduced motion the toggle jumps to the target in one frame', async (
 
   await page.getByRole('button', { name: toggleLabel }).click()
 
-  // The first frame the toggle owes presents the end state already: no
-  // intermediate frame can exist between the click and it.
+  // The jump applies the far pose itself and owes exactly the one frame its
+  // invalidation presents, on which the spring is already at rest; the jump
+  // goes through no settle, so the stage's double-present settle adds
+  // nothing to the count.
   await expect
     .poll(() => renderedFrames(page), 'the toggle must render its one frame')
-    .toBeGreaterThan(before)
+    .toBe(before + 1)
   const reading = await explodeOf(page)
   expect(reading?.t).toBe(1)
   expect(reading?.moving).toBe(false)
 
   // The jump owes no further frames: the stage is at rest after its one.
   const afterJump = await renderedFrames(page)
-  await page.waitForTimeout(1000)
+  await page.waitForTimeout(restWindowBudgetMs)
   expect(await renderedFrames(page)).toBe(afterJump)
 
   await expectPose(page, facts.lastPose)
