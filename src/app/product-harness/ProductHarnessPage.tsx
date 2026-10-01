@@ -1,3 +1,4 @@
+import '@styles/global.css'
 import { useMemo, useState } from 'react'
 import { CollectionError, createCollection } from '@lib/product'
 import { productManifests } from '@products/index'
@@ -5,7 +6,6 @@ import { AppStoreProvider } from '@store/index'
 import { Stage } from '@viewer/Stage'
 import { StageAlert } from '@viewer/StageAlert'
 import { Product } from '@viewer/product/Product'
-import appStyles from '../App.module.css'
 import styles from './ProductHarnessPage.module.css'
 import { RendererMemoryProbe } from './RendererMemoryProbe'
 import { StageWarmup } from './StageWarmup'
@@ -26,7 +26,7 @@ type HarnessContentProps = {
 export function ProductHarnessPage() {
   return (
     <AppStoreProvider>
-      <main className={appStyles.viewportFrame}>
+      <main className={styles.frame}>
         <HarnessStage />
       </main>
     </AppStoreProvider>
