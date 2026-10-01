@@ -1,4 +1,5 @@
-import { Material } from 'three'
+import { Line, Material, Mesh, Points } from 'three'
+import type { Object3D } from 'three'
 import { readFinishPlan, type FinishPlan } from '@lib/product'
 
 // The loader plugin that loads every finish material as part of the model.
@@ -6,15 +7,23 @@ import { readFinishPlan, type FinishPlan } from '@lib/product'
 // defaults; the materials the KHR_materials_variants mappings name would
 // load lazily on the first switch. The plugin's afterRoot runs before the
 // load resolves, resolves every material the plan names through the
-// parser's own cache, and hands the resolved table to the parser, so
-// useGLTF resolves with all of them ready and a switch never loads.
+// parser's own cache, records every material the scene carries at that
+// moment, and hands both to the parser, so useGLTF resolves with all of
+// them ready and a switch never loads.
 
-// The finish facts of one loaded product, resolved: the pure plan plus the
-// material behind every index it names. The product owns these materials;
-// they are released with the scene in the one release ProductContent holds.
+// The finish facts of one loaded product, resolved: the pure plan, the
+// material behind every index it names, and the materials the scene
+// carried at parse time. The product owns all of them; they are released
+// with the scene in the one release ProductContent holds.
 export type ProductFinishMaterials = {
   readonly plan: FinishPlan
   readonly materials: ReadonlyMap<number, Material>
+  // The loader's own material instances the scene carried when the load was
+  // parsed, recorded before any finish swap: clones of the parsed materials
+  // included. A swap replaces them on the meshes, so the teardown's scene
+  // traversal no longer sees them; this record does, and the release
+  // disposes them with the load they came from.
+  readonly sceneMaterials: ReadonlySet<Material>
 }
 
 // The parser surface the resolver reads, kept structural: the loader hands
@@ -25,9 +34,11 @@ export interface FinishParserLike {
 }
 
 // The glTF result the loader hands afterRoot, as far as the resolver needs
-// it. userData is where the loader parks per-load payloads, and the one
-// named key below is the resolver's; nothing else writes it.
+// it: the parsed scene whose materials it records, and userData, where the
+// loader parks per-load payloads and the one named key below is the
+// resolver's; nothing else writes it.
 export interface GltfResultLike {
+  readonly scene: Object3D
   readonly userData: { finishMaterials?: ProductFinishMaterials }
 }
 
@@ -52,7 +63,33 @@ function isFinishMaterials(value: unknown): value is ProductFinishMaterials {
   if (typeof value !== 'object' || value === null) {
     return false
   }
-  return Reflect.get(value, 'plan') !== undefined && Reflect.get(value, 'materials') instanceof Map
+  return (
+    Reflect.get(value, 'plan') !== undefined &&
+    Reflect.get(value, 'materials') instanceof Map &&
+    Reflect.get(value, 'sceneMaterials') instanceof Set
+  )
+}
+
+// Every material the drawable nodes of the parsed scene carry, single or
+// per-group array. The walk runs in the resolver's afterRoot, before the
+// load resolves and before any finish swap can replace a mesh's material.
+function collectSceneMaterials(scene: Object3D): Set<Material> {
+  const materials = new Set<Material>()
+  const collect = (material: Material | Material[]): void => {
+    if (Array.isArray(material)) {
+      for (const entry of material) {
+        materials.add(entry)
+      }
+      return
+    }
+    materials.add(material)
+  }
+  scene.traverse((node) => {
+    if (node instanceof Mesh || node instanceof Line || node instanceof Points) {
+      collect(node.material)
+    }
+  })
+  return materials
 }
 
 class FinishMaterialsResolver {
@@ -82,7 +119,11 @@ class FinishMaterialsResolver {
       }
       materials.set(index, dependency)
     }
-    result.userData[FINISH_MATERIALS_KEY] = { plan, materials }
+    result.userData[FINISH_MATERIALS_KEY] = {
+      plan,
+      materials,
+      sceneMaterials: collectSceneMaterials(result.scene),
+    }
   }
 }
 

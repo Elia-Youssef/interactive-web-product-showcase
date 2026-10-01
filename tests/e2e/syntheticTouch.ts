@@ -107,3 +107,105 @@ export async function touchPinch(
     y: center.y,
   })
 }
+
+// The page-side state of one sweep, keyed under window so the Node side can
+// read its progress and stop it. Nothing else writes this key.
+type SweepState = {
+  moves: number
+  stopped: boolean
+  lastX: number
+  lastY: number
+}
+
+declare global {
+  interface Window {
+    __touchSweep?: SweepState
+  }
+}
+
+// The in-page half of the sweep: it installs the state, fires one move per
+// animation frame, and parks itself once the state is stopped or gone. It
+// runs in the page, so it sees no Node state.
+function installTouchSweep(probe: {
+  readonly pointerId: number
+  readonly start: TouchPoint
+  readonly sweepWidth: number
+}): void {
+  const { pointerId, start, sweepWidth } = probe
+  const state: SweepState = { moves: 0, stopped: false, lastX: start.x, lastY: start.y }
+  window.__touchSweep = state
+  const fire = (phase: 'pointermove' | 'pointerup', x: number, y: number): void => {
+    document.dispatchEvent(
+      new PointerEvent(phase, {
+        pointerId,
+        pointerType: 'touch',
+        isPrimary: pointerId === 0,
+        clientX: x,
+        clientY: y,
+        movementX: 0,
+        movementY: 0,
+        buttons: phase === 'pointerup' ? 0 : 1,
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+  }
+  const step = (): void => {
+    const sweep = window.__touchSweep
+    if (sweep === undefined || sweep.stopped) {
+      return
+    }
+    const cycle = sweepWidth * 2
+    const offset = ((sweep.moves * 20) % cycle) - sweepWidth
+    sweep.lastX = start.x + offset
+    fire('pointermove', sweep.lastX, start.y)
+    sweep.moves += 1
+    requestAnimationFrame(step)
+  }
+  requestAnimationFrame(step)
+}
+
+// A continuous one-finger drag: the pointer sweeps from `at` back and forth
+// across `sweepWidth` pixels, one move per animation frame, until stopped.
+// The moves are dispatched inside the page precisely because a drag that
+// must survive Node-side work (clicks, reads) cannot be paced from Node:
+// each round trip there is longer than a frame, and the drag would pause in
+// every gap. stop lifts the pointer where it stands.
+export async function startTouchSweep(
+  page: Page,
+  pointerId: number,
+  at: TouchPoint,
+  sweepWidth: number,
+): Promise<{ moves: () => Promise<number>; stop: () => Promise<void> }> {
+  await dispatchTouchPointer(page, { phase: 'pointerdown', pointerId, x: at.x, y: at.y })
+  await page.evaluate(installTouchSweep, { pointerId, start: at, sweepWidth })
+  return {
+    moves: async () =>
+      page.evaluate(() => {
+        const sweep = window.__touchSweep
+        if (sweep === undefined) {
+          throw new Error('the touch sweep is not running')
+        }
+        return sweep.moves
+      }),
+    stop: async () => {
+      const last = await page.evaluate(() => {
+        const sweep = window.__touchSweep
+        if (sweep === undefined) {
+          throw new Error('the touch sweep is not running')
+        }
+        sweep.stopped = true
+        return { x: sweep.lastX, y: sweep.lastY }
+      })
+      await dispatchTouchPointer(page, {
+        phase: 'pointerup',
+        pointerId,
+        x: last.x,
+        y: last.y,
+      })
+      await page.evaluate(() => {
+        delete window.__touchSweep
+      })
+    },
+  }
+}

@@ -10,8 +10,13 @@ function SlugOfLoadedProduct() {
   return <>{useLoadedProduct().manifest.slug}</>
 }
 
-// A load whose file declares no finishes resolves an empty finish table.
-const noFinishes: ProductFinishMaterials = { plan: readFinishPlan({}), materials: new Map() }
+// A load whose file declares no finishes resolves an empty finish table and
+// records nothing on the scene.
+const noFinishes: ProductFinishMaterials = {
+  plan: readFinishPlan({}),
+  materials: new Map(),
+  sceneMaterials: new Set(),
+}
 
 function loadedSample(): LoadedProduct {
   return {

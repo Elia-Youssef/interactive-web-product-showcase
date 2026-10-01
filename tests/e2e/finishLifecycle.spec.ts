@@ -112,12 +112,10 @@ for (const product of products) {
 
     // The mounted model's settled memory is the floor: the load holds the
     // scene, its geometries and every finish material's textures, uploaded
-    // by the load-time precompile. A switch swaps materials only. Engines
-    // differ in when that upload lands: chromium presents it with the
-    // load, headless WebKit defers it to a finish's first real draw, so
-    // the first pass lets the count warm once per finish, and the second
-    // pass, over an all-warm scene, must hold exactly. The teardown proof
-    // pins the whole load against the baseline either way.
+    // by the load-time precompile. A switch swaps materials only. The first
+    // pass lets any one-time counter movement happen once per finish, and
+    // the second pass, over an all-warm scene, must hold exactly. The
+    // teardown proof pins the whole load against the baseline either way.
     const warm = await (async () => {
       let count = await waitForSettledMemory(page)
       for (const finish of product.finishes) {
@@ -144,17 +142,10 @@ for (const product of products) {
     }
   })
 
-  // The load's precompile uploads every finish material with the model, so
-  // the first switch moves no renderer counter. Headless WebKit defers
-  // that upload to a finish's first real draw (a declared capability of
-  // its Playwright build, like its missing WebGPU), so the proof runs
-  // where the load's own draw path uploads.
   test(`the load of the ${product.slug} uploads every finish: the first switch moves no counter`, async ({
     page,
-    browserName,
     backendPath,
   }) => {
-    test.skip(browserName === 'webkit', 'this engine defers the upload to the first real draw')
     await page.goto(harnessPath(backendPath, product.slug))
     await waitForProductReady(page)
 

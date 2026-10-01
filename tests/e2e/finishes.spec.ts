@@ -4,6 +4,8 @@ import { readFinishExpectations } from './finishModel'
 import { measureFinishChange } from './finishPixels'
 import { settledFrames } from './stageSettle'
 import { waitForProductReady } from './productSpecs'
+import { canvasCenter } from './stageCamera'
+import { startTouchSweep } from './syntheticTouch'
 
 // The finish evidence on the app itself: the collection's first product,
 // whose swatches are the panel's own. The expected materials are read from
@@ -22,6 +24,25 @@ function swatchLuminance(swatch: string): number {
   const channel = (at: number): number => parseInt(swatch.slice(at, at + 2), 16) / 255
   return 0.2126 * channel(1) + 0.7015 * channel(3) + 0.0722 * channel(5)
 }
+
+// How long the drag keeps waiting for the mid-drag settle, and why it is
+// this long: the settle under test is one compile pass, measured at about
+// 0.2 s on the software-rendered WebKit build where it is slowest, and the
+// drag must hold past two of them (one per switch) with the clicks inside.
+// An older settle design, which recompiled while any frame raced its
+// compile, never finished inside a drag on that build at all; this budget
+// is an order of magnitude above the two compiles and far below that
+// design's own drag length, so a regression fails here on the budget
+// instead of on the test's timeout.
+const midDragSettleBudgetMs = 9_000
+
+// The consecutive liveness reads in which neither the sweep moved nor a
+// frame was recorded before the drag counts as dead. One read is two page
+// round trips, and the slowest build renders about every 31 ms, so a live
+// drag shows motion within a few reads; the margin leaves room for one long
+// compile pass starving the main thread, which the replaced settle design
+// did back to back and never recovered from.
+const deadDragReads = 12
 
 test('the product is on its default finish at ready, read in one snapshot', async ({
   page,
@@ -79,21 +100,14 @@ test(`clicking each swatch of ${product.slug} applies exactly that finish's mate
   }
 })
 
-// Headless Firefox and WebKit hold the previous present of an idle
-// on-demand canvas in their visible and captured output (the compositor
-// video and the empty-after-resize captures are the evidence), so no
-// capture there carries the applied finish reliably. The direction proof
-// runs where the capture is truthful, a declared engine capability like
-// the matrix's backend expectations.
+// The direction proof runs on every engine. At rest the settle presents the
+// settled state twice, so a capture taken after it shows the applied finish
+// everywhere: the engines' compositors hold the canvas one present behind at
+// rest, and the second present is the one the capture sees.
 test('the finish change repaints the model in the manifest direction, past the noise of its own run', async ({
   page,
-  browserName,
   backendPath,
 }) => {
-  test.skip(
-    browserName !== 'chromium',
-    'this engine holds the previous present in its capture, so no capture carries the applied finish',
-  )
   await page.goto(backendPath)
   await waitForProductReady(page)
 
@@ -150,4 +164,82 @@ test('the finish change repaints the model in the manifest direction, past the n
   } else {
     expect(change.meanFirst).toBeLessThan(change.meanSecond)
   }
+})
+
+test(`a finish switch of ${product.slug} during a continuous drag settles before the drag ends`, async ({
+  page,
+  backendPath,
+}) => {
+  await page.goto(backendPath)
+  await waitForProductReady(page)
+  await settledFrames(page)
+
+  const [firstFinish, secondFinish] = product.finishes
+  if (firstFinish === undefined || secondFinish === undefined) {
+    throw new Error('a product with one finish has no second switch to serialize behind the first')
+  }
+
+  // The proof reads the settle's completion off the applier's own
+  // serialization. The product starts on its default finish; the first click
+  // applies the other finish (a real switch, whose settle runs under the
+  // drag), and the second click applies the default again. The applied
+  // record is derived from the meshes, and the second click's materials can
+  // only land on the meshes once the first switch's settle has resolved,
+  // because one applier runs one application at a time. So the second
+  // applied, read while the drag is still moving and lifted only
+  // afterwards, is the first switch's settle resolved mid-drag.
+  const read = (): Promise<{ applied: string | null; frames: number; moves: number }> =>
+    page.evaluate(() => ({
+      applied: window.__viewer?.finish?.applied ?? null,
+      frames: window.__viewer?.renderedFrames ?? -1,
+      moves: window.__touchSweep?.moves ?? 0,
+    }))
+
+  const center = await canvasCenter(page)
+  const sweep = await startTouchSweep(page, 0, center, 320)
+
+  let previousFrames = -1
+  let previousMoves = -1
+  let stalled = 0
+  // One liveness read: the sweep must still move and the stage must still
+  // render. The drag is the premise of the proof, so a stalled one fails
+  // the test instead of passing a settle that ran against no motion.
+  const dragAlive = async (): Promise<void> => {
+    const live = await read()
+    const alive = live.moves !== previousMoves && live.frames !== previousFrames
+    previousMoves = live.moves
+    previousFrames = live.frames
+    stalled = alive ? 0 : stalled + 1
+    expect(
+      stalled,
+      'the drag stopped moving or rendering while the test still held it, so no mid-drag settle is proven',
+    ).toBeLessThan(deadDragReads)
+  }
+
+  const appliedWithinBudget = async (variant: string): Promise<void> => {
+    const deadline = Date.now() + midDragSettleBudgetMs
+    for (;;) {
+      await dragAlive()
+      if ((await read()).applied === variant) {
+        return
+      }
+      expect(Date.now(), 'the settle did not resolve before the drag had to end').toBeLessThan(
+        deadline,
+      )
+    }
+  }
+
+  // The first click must be a real switch: the store already holds the
+  // default, and a click that selects it again re-runs nothing, so the
+  // serialization below would have no first settle to wait for.
+  await page.getByRole('button', { name: secondFinish.label }).click()
+  await appliedWithinBudget(secondFinish.variant)
+  await page.getByRole('button', { name: firstFinish.label }).click()
+  await appliedWithinBudget(firstFinish.variant)
+
+  await sweep.stop()
+  await settledFrames(page)
+  expect(await page.evaluate(() => window.__viewer?.finish?.applied ?? null)).toBe(
+    firstFinish.variant,
+  )
 })
