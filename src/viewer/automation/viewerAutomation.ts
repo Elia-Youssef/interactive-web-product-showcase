@@ -16,6 +16,24 @@ export type ViewerModel = ProductModelCounts & {
   readonly slug: string
 }
 
+// The local position of one PART_ node, as the scene graph holds it.
+export type ViewerExplodePart = {
+  readonly x: number
+  readonly y: number
+  readonly z: number
+}
+
+// The exploded view's live reading, served by the mounted explode feature:
+// the spring's progress, the target it moves toward, whether the motion is
+// still running, and every PART_ node's local position read from the scene
+// graph itself.
+export type ViewerExplode = {
+  readonly t: number
+  readonly target: number
+  readonly moving: boolean
+  readonly parts: Readonly<Record<string, ViewerExplodePart>>
+}
+
 export type ViewerAutomation = {
   readonly status: RendererStatus['kind']
   readonly backend: RendererBackend | null
@@ -37,6 +55,9 @@ export type ViewerAutomation = {
   readonly toneMapping: number | null
   // The product the stage has presented, or null while there is none.
   readonly model: ViewerModel | null
+  // The mounted explode feature's live reading, or null while none is
+  // mounted.
+  readonly explode: ViewerExplode | null
 }
 
 export type ViewerAutomationSources = {
@@ -46,6 +67,8 @@ export type ViewerAutomationSources = {
   readonly getProductStatus: () => ProductStatus
   readonly renderedFrames: () => number
   readonly getToneMapping: () => number | null
+  // The mounted explode feature's live reading.
+  readonly getExplode: () => ViewerExplode | null
 }
 
 export function createViewerAutomation(sources: ViewerAutomationSources): ViewerAutomation {
@@ -91,6 +114,9 @@ export function createViewerAutomation(sources: ViewerAutomationSources): Viewer
       return status.kind === 'ready'
         ? { slug: status.slug, meshes: status.model.meshes, triangles: status.model.triangles }
         : null
+    },
+    get explode(): ViewerExplode | null {
+      return sources.getExplode()
     },
   })
 }
