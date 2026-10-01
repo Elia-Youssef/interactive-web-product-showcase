@@ -90,39 +90,6 @@ export type ViewerFinish = {
   readonly materials: Readonly<Record<string, string>>
 }
 
-// The slot the variants controller publishes the applied-finish record to,
-// and the automation's finish source reads it from. The controller is the
-// one writer (per settled application, cleared when it unmounts), the
-// automation the one reader, and the read is the post-settle scene graph
-// itself, not the store selection that was supposed to cause it.
-export function publishViewerFinish(finish: ViewerFinish | null): void {
-  if (finish === null) {
-    delete window.__viewerFinish
-    return
-  }
-  window.__viewerFinish = finish
-}
-
-export function readViewerFinish(): ViewerFinish | null {
-  const carried: unknown = window.__viewerFinish
-  return isViewerFinish(carried) ? carried : null
-}
-
-function isViewerFinish(value: unknown): value is ViewerFinish {
-  if (typeof value !== 'object' || value === null) {
-    return false
-  }
-  const materials: unknown = Reflect.get(value, 'materials')
-  if (typeof materials !== 'object' || materials === null) {
-    return false
-  }
-  return (
-    typeof Reflect.get(value, 'product') === 'string' &&
-    typeof Reflect.get(value, 'applied') === 'string' &&
-    Object.values(materials).every((name) => typeof name === 'string')
-  )
-}
-
 export type ViewerAutomation = {
   readonly status: RendererStatus['kind']
   readonly backend: RendererBackend | null
@@ -148,8 +115,9 @@ export type ViewerAutomation = {
   readonly look: ViewerLook | null
   // The live stage camera, or null while there is none.
   readonly camera: ViewerCameraAutomation | null
-  // The finish the presented product carries, or null while nothing is
-  // applied.
+  // The finish the product on the stage carries, read live from the scene
+  // graph through the stage's finish probe, or null while no product's
+  // finish controller holds that probe.
   readonly finish: ViewerFinish | null
 }
 
@@ -165,7 +133,8 @@ export type ViewerAutomationSources = {
   readonly getLook: () => ViewerLook | null
   // The live stage camera read, from the camera and the controls.
   readonly getCamera: ViewerCameraSource
-  // The applied finish exactly as the scene graph carries it right now.
+  // The applied finish exactly as the stage's finish probe reads it from
+  // the scene graph right now, or null while no controller holds the probe.
   readonly getFinish: () => ViewerFinish | null
 }
 
@@ -228,9 +197,5 @@ export function createViewerAutomation(sources: ViewerAutomationSources): Viewer
 declare global {
   interface Window {
     __viewer?: ViewerAutomation
-    // The applied-finish slot between the variants controller and the
-    // automation's finish source, typed unknown and read through a guard,
-    // so a foreign or stale value reads as no finish instead of lying.
-    __viewerFinish?: unknown
   }
 }

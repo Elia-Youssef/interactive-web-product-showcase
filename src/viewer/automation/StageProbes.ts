@@ -1,4 +1,4 @@
-import type { ViewerLook } from './viewerAutomation'
+import type { ViewerFinish, ViewerLook } from './viewerAutomation'
 
 // The per-stage probes of the automation hook: one reader per key, held for
 // the lifetime of the component that registered it. An in-canvas component
@@ -14,6 +14,7 @@ import type { ViewerLook } from './viewerAutomation'
 // key fails the typecheck and a read of an unregistered one returns null.
 export type StageProbeReads = {
   look: ViewerLook
+  finish: ViewerFinish
 }
 
 type StageProbeKey = keyof StageProbeReads
@@ -25,7 +26,7 @@ type ProbeReader<K extends StageProbeKey> = {
 type ProbeReaders = { [K in StageProbeKey]: ProbeReader<K> | null }
 
 export class StageProbes {
-  private readonly readers: ProbeReaders = { look: null }
+  private readonly readers: ProbeReaders = { look: null, finish: null }
 
   // Holds a reader for the key, for as long as the calling component's
   // effects are live. A key is held by one component at a time: a second
@@ -35,8 +36,7 @@ export class StageProbes {
     if (this.readers[key] !== null) {
       throw new Error(`the stage probe '${String(key)}' is already held`)
     }
-    const next: ProbeReaders[K] = { read }
-    this.readers[key] = next
+    this.hold(key, { read })
   }
 
   // Drops the reader when the registering component's effect cleanup runs.
@@ -48,5 +48,21 @@ export class StageProbes {
   read<K extends StageProbeKey>(key: K): StageProbeReads[K] | null {
     const reader = this.readers[key]
     return reader === null ? null : reader.read()
+  }
+
+  // The one write into the keyed record. Reads through the generic key keep
+  // it typed, but a write through it must satisfy every slot at once, which
+  // no reader of one key can. The register signature binds each reader to
+  // its key and the key never moves after the write, so each case here
+  // states that binding for its own slot.
+  private hold<K extends StageProbeKey>(key: K, reader: ProbeReader<K>): void {
+    switch (key) {
+      case 'look':
+        this.readers.look = reader as ProbeReader<'look'>
+        return
+      case 'finish':
+        this.readers.finish = reader as ProbeReader<'finish'>
+        return
+    }
   }
 }

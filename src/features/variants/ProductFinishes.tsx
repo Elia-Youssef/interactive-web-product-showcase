@@ -1,5 +1,6 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { selectSelectedVariant, useAppStore } from '@store/index'
+import { useStageProbes } from '@viewer/automation/stageProbesContext'
 import { useLoadedProduct } from '@viewer/product/loadedProduct'
 import { useStageSettle } from '@viewer/stageSettleContext'
 import { createFinishApplier, type FinishApplier } from './finishApplier'
@@ -17,6 +18,12 @@ import { createFinishApplier, type FinishApplier } from './finishApplier'
 // selection, so a fresh applier receives the selection the store already
 // holds even when the selection itself did not change.
 //
+// The same effect registers the stage's finish probe beside the hand-off, so
+// the automation reads the applied finish live from the scene's meshes while
+// this controller holds the applier, and reads null once it is gone. There
+// is no record published beside the meshes: what is applied is read from
+// the meshes themselves, plus the selection the applier is moving to.
+//
 // The hand-off runs in a layout effect, as a child of ProductContent: a
 // child's effects run before its parent's, so the first application and its
 // settle are queued ahead of the presentation's ready settle, and the frame
@@ -31,6 +38,7 @@ import { createFinishApplier, type FinishApplier } from './finishApplier'
 export function ProductFinishes() {
   const loaded = useLoadedProduct()
   const settleScene = useStageSettle()
+  const probes = useStageProbes()
   const selected = useAppStore((state) => selectSelectedVariant(state, loaded.manifest.slug))
   const applier = useRef<FinishApplier | null>(null)
   const [failure, setFailure] = useState<Error | null>(null)
@@ -70,7 +78,11 @@ export function ProductFinishes() {
       return
     }
     current.apply(selected)
-  }, [loaded, selected, fail])
+    probes.register('finish', () => current.readFinish())
+    return () => {
+      probes.unregister('finish')
+    }
+  }, [loaded, selected, probes, fail])
 
   if (failure !== null) {
     throw failure

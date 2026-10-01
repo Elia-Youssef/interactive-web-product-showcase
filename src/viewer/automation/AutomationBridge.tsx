@@ -2,16 +2,12 @@ import { useEffect } from 'react'
 import { selectProductStatus, selectRendererStatus, useAppStoreApi } from '@store/index'
 import type { FrameClock } from '../FrameClock'
 import type { StageProbes } from './StageProbes'
-import {
-  createViewerAutomation,
-  readViewerFinish,
-  type ViewerCameraSource,
-} from './viewerAutomation'
+import { createViewerAutomation, type ViewerCameraSource } from './viewerAutomation'
 
 type AutomationBridgeProps = {
   readonly clock: FrameClock
   // The stage's probes, created with the stage this bridge serves: the look
-  // getter reads the reader the product's look component registered.
+  // and finish getters read the readers the in-canvas components registered.
   readonly probes: StageProbes
   // The live renderer's tone mapping, or null while there is no renderer.
   readonly getToneMapping: () => number | null
@@ -46,7 +42,7 @@ export function AutomationBridge({
       getToneMapping,
       getLook: () => probes.read('look'),
       getCamera,
-      getFinish: readViewerFinish,
+      getFinish: () => probes.read('finish'),
     })
     window.__viewer = automation
     return () => {
