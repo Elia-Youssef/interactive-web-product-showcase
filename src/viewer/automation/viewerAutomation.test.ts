@@ -34,6 +34,7 @@ const camera: ViewerCameraAutomation = {
 const finish: ViewerFinish = {
   product: 'forma-one',
   applied: 'sage',
+  requested: 'sage',
   materials: { 'PART_base:0': 'MatSage' },
 }
 
@@ -54,13 +55,13 @@ function sourcesWith(overrides?: Partial<ViewerAutomationSources>): ViewerAutoma
   const probes = new StageProbes()
   probes.register('look', () => look)
   probes.register('camera', () => camera)
+  probes.register('finish', () => finish)
   return {
     probes,
     getStatus: () => readyRenderer,
     getProductStatus: () => readyProduct,
     renderedFrames: () => 7,
     getToneMapping: () => 4000,
-    getFinish: () => finish,
     ...overrides,
   }
 }
@@ -71,6 +72,7 @@ describe('createViewerAutomation', () => {
 
     expect(automation.look).toEqual(look)
     expect(automation.camera).toEqual(camera)
+    expect(automation.finish).toEqual(finish)
   })
 
   it('reads null for a probe key no component holds', () => {
@@ -78,9 +80,10 @@ describe('createViewerAutomation', () => {
 
     expect(automation.look).toBeNull()
     expect(automation.camera).toBeNull()
+    expect(automation.finish).toBeNull()
   })
 
-  it('reads the store, clock and finish fields at access time', () => {
+  it('reads the store and clock fields at access time', () => {
     let renderer: RendererStatus = readyRenderer
     let product: ProductStatus = readyProduct
     let frames = 1
@@ -102,7 +105,6 @@ describe('createViewerAutomation', () => {
     expect(automation.rig).toEqual(rig)
     expect(automation.model).toEqual({ slug: 'forma-one', meshes: 4, triangles: 1200 })
     expect(automation.renderedFrames).toBe(1)
-    expect(automation.finish).toEqual(finish)
 
     renderer = { kind: 'failed', reason: 'the canvas is gone' }
     product = { kind: 'failed', slug: 'forma-one', reason: 'the model broke' }

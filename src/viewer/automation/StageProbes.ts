@@ -2,11 +2,12 @@ import type { StageProbeKey, StageProbeReads } from './viewerAutomation'
 
 // The per-stage probes of the automation hook: one reader per key, held for
 // the lifetime of the component that registered it. An in-canvas component
-// that owns live objects (the product look, the stage camera) registers a
-// reader under its key, and the automation hook reads the value at access
-// time, so the hook always reports the live object and never a copy. The
-// stage creates one instance per mount, like its settle and holds; there is
-// no module state and nothing to reset, because a new stage has new probes.
+// that owns live objects (the product look, the stage camera, the finish)
+// registers a reader under its key, and the automation hook reads the value
+// at access time, so the hook always reports the live object and never a
+// copy. The stage creates one instance per mount, like its settle and
+// holds; there is no module state and nothing to reset, because a new stage
+// has new probes.
 
 // Releases one registration. Fails loudly when the calling registration is
 // no longer the key's holder, so a stale cleanup can never drop a reader a
@@ -24,7 +25,7 @@ export class StageProbes {
   // StageProbeReads gains without a slot here fails the typecheck. The
   // record is replaced whole on each registration, never mutated in place,
   // so a release can compare its reader against the current slot.
-  private readers: ProbeReaders = { look: null, camera: null }
+  private readers: ProbeReaders = { look: null, camera: null, finish: null }
 
   // Holds a reader for the key, for as long as the calling component's
   // effects are live, and returns the release of this one registration. A

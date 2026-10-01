@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { selectProductStatus, selectRendererStatus, useAppStoreApi } from '@store/index'
 import type { FrameClock } from '../FrameClock'
 import type { StageProbes } from './StageProbes'
-import { createViewerAutomation, readViewerFinish } from './viewerAutomation'
+import { createViewerAutomation } from './viewerAutomation'
 
 type AutomationBridgeProps = {
   readonly clock: FrameClock
@@ -18,7 +18,7 @@ type AutomationBridgeProps = {
 // unmount, on the failure paths included: the hook is the test contract of
 // the whole stage, not only of its happy path. The stage owns the renderer
 // reference and hands the live reads down; every field is read from the
-// store, the clock, the probes or the finish slot at access time, so there
+// store, the clock or the probes at access time, so there
 // is no copy that can go stale, and a second stage cannot silently take the
 // contract over.
 export function AutomationBridge({ clock, probes, getToneMapping }: AutomationBridgeProps) {
@@ -34,7 +34,6 @@ export function AutomationBridge({ clock, probes, getToneMapping }: AutomationBr
       getProductStatus: () => selectProductStatus(store.getState()),
       renderedFrames: () => clock.renderedFrames,
       getToneMapping,
-      getFinish: readViewerFinish,
     })
     window.__viewer = automation
     return () => {
