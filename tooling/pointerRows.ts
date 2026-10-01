@@ -32,6 +32,7 @@ const docsFolder: LocalOnlyEntry = { type: 'folder', value: ['do', 'cs/'].join('
 const plantedFile: LocalOnlyEntry = { type: 'file', value: ['planted', '-file', '.ext'].join('') }
 const decisionNeedle = ['decision', ' ', '32'].join('')
 const upperDecisionNeedle = ['Decision', ' ', '7'].join('')
+const otherDecisionNeedle = ['decision', ' ', '9'].join('')
 export const taskIdNeedle = ['S', '4', '-03'].join('')
 const introReference = ['intro', '.md'].join('')
 const handbookReference = ['hand', 'book', '.md'].join('')
@@ -183,6 +184,37 @@ export const allPointerRows: readonly PointerRow[] = [
       { line: 2, column: 6, kind: 'decision', literal: decisionNeedle },
       { line: 3, column: 5, kind: 'task-id', literal: taskIdNeedle },
       { line: 4, column: 6, kind: 'markdown', literal: introReference },
+    ],
+  },
+  {
+    title: 'two pointers of one kind on one line are both reported',
+    text: [decisionNeedle, ' and ', otherDecisionNeedle].join(''),
+    localOnlyEntries: [],
+    ownedFiles: [],
+    expected: [
+      { line: 1, column: 1, kind: 'decision', literal: decisionNeedle },
+      { line: 1, column: 17, kind: 'decision', literal: otherDecisionNeedle },
+    ],
+  },
+  {
+    title: 'the same entry twice on one line is reported twice',
+    text: [docsFolder.value, 'a and ', docsFolder.value, 'b'].join(''),
+    localOnlyEntries: docsEntries,
+    ownedFiles: [],
+    expected: [
+      { line: 1, column: 1, kind: 'local-path', literal: docsFolder.value },
+      { line: 1, column: 12, kind: 'local-path', literal: docsFolder.value },
+    ],
+  },
+  {
+    title: 'pointers of several kinds on one line are all reported',
+    text: ['see ', docsFolder.value, 'plan, ', decisionNeedle, ' and ', taskIdNeedle].join(''),
+    localOnlyEntries: docsEntries,
+    ownedFiles: [],
+    expected: [
+      { line: 1, column: 5, kind: 'local-path', literal: docsFolder.value },
+      { line: 1, column: 16, kind: 'decision', literal: decisionNeedle },
+      { line: 1, column: 32, kind: 'task-id', literal: taskIdNeedle },
     ],
   },
 ]
