@@ -1,6 +1,11 @@
 import '@styles/global.css'
 import { useMemo, useState } from 'react'
-import { CollectionError, createCollection } from '@lib/product'
+import {
+  CollectionError,
+  createCollection,
+  type Product as ProductManifest,
+  type ProductLookBlock,
+} from '@lib/product'
 import { productManifests } from '@products/index'
 import { AppStoreProvider } from '@store/index'
 import { Stage } from '@viewer/Stage'
@@ -9,10 +14,14 @@ import { Product } from '@viewer/product/Product'
 import styles from './ProductHarnessPage.module.css'
 import { RendererMemoryProbe } from './RendererMemoryProbe'
 import { StageWarmup } from './StageWarmup'
+import { harnessLook } from './harnessLook'
 import { harnessSlug } from './harnessSlug'
 
 type HarnessContentProps = {
   readonly slug: string | null
+  // The look block the look parameter parsed into, or null when the product
+  // keeps its manifest's own block.
+  readonly lookOverride: ProductLookBlock | null
 }
 
 // The dev-only page the product e2e drives: one store around one stage
@@ -21,8 +30,12 @@ type HarnessContentProps = {
 // product under the same stage, so the disposal proof measures the real
 // teardown against this page's own baseline. The manifests reach the page
 // through the derived index and the collection's own validation, never a
-// hand copy. The production build never emits this page: its only input is
-// index.html.
+// hand copy. The look query parameter, dev-only like the page itself,
+// overrides the product's own look block for this page at the data level:
+// the page hands Product a manifest whose look block is the parsed one, so
+// the product path reads one look source, its manifest. An invalid
+// parameter shows the harness alert. The production build never emits this
+// page: its only input is index.html.
 export function ProductHarnessPage() {
   return (
     <AppStoreProvider>
@@ -35,6 +48,7 @@ export function ProductHarnessPage() {
 
 function HarnessStage() {
   const slug = harnessSlug(window.location.search)
+  const look = harnessLook(window.location.search)
   const harness = useMemo(() => {
     try {
       return { kind: 'ready', collection: createCollection(productManifests) } as const
@@ -54,18 +68,45 @@ function HarnessStage() {
       </>
     )
   }
-  return <HarnessProduct slug={slug} collection={harness.collection} />
+  if (look.kind === 'invalid') {
+    return (
+      <>
+        <Stage />
+        <StageAlert testid="harness-alert" reason={look.reason} />
+      </>
+    )
+  }
+  return (
+    <HarnessProduct
+      slug={slug}
+      collection={harness.collection}
+      lookOverride={look.kind === 'override' ? look.look : null}
+    />
+  )
 }
 
-function HarnessProduct({ slug, collection }: HarnessContentProps & HarnessCollection) {
+function HarnessProduct({
+  slug,
+  collection,
+  lookOverride,
+}: HarnessContentProps & HarnessCollection) {
   const [mounted, setMounted] = useState(true)
   const manifest = slug === null ? undefined : collection.bySlug(slug)
+  // The override rides on the manifest, so the product path sees one look
+  // source and no test plumbing. The memo keeps the manifest's identity
+  // stable across renders, like the collection's own manifests are.
+  const pageManifest = useMemo<ProductManifest | undefined>(() => {
+    if (manifest === undefined) {
+      return undefined
+    }
+    return lookOverride === null ? manifest : { ...manifest, look: lookOverride }
+  }, [manifest, lookOverride])
 
   const content = (
     <>
       <RendererMemoryProbe />
       <StageWarmup />
-      {manifest !== undefined && mounted && <Product manifest={manifest} />}
+      {pageManifest !== undefined && mounted && <Product manifest={pageManifest} />}
     </>
   )
 
