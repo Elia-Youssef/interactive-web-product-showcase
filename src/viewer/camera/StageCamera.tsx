@@ -43,12 +43,6 @@ export function StageCamera({ children }: StageCameraProps) {
   const appliedRangeRef = useRef<DistanceRange | null>(null)
   const stageAspect = useStageAspect()
 
-  useCameraControlsConfig(controls)
-  useCameraReadoutPublish(controls, store)
-  useCameraRequests(controls, camera, store, planRef, stageAspect, invalidate)
-  useCameraResize(controls, size, planRef, appliedRangeRef, invalidate)
-  useCameraAutomationSource(controls, camera instanceof PerspectiveCamera ? camera : null)
-
   const state = useMemo<StageCameraState>(
     () => ({
       controls,
@@ -60,6 +54,12 @@ export function StageCamera({ children }: StageCameraProps) {
     }),
     [controls, camera, stageAspect, invalidate],
   )
+
+  useCameraControlsConfig(controls)
+  useCameraReadoutPublish(controls, store)
+  useCameraRequests(controls, store, state)
+  useCameraResize(controls, size, planRef, appliedRangeRef, invalidate)
+  useCameraAutomationSource(controls, camera instanceof PerspectiveCamera ? camera : null)
   const api = useMemo<StageCameraApi>(
     () => ({
       present: (plan, viewId) => presentPlan(state, plan, viewId),
