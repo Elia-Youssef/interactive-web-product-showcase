@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useGLTF } from '@react-three/drei'
-import { modelUrl } from '@lib/product'
+import { productModelUrl } from '@lib/product'
 import type { Product } from '@lib/product'
 import type { ModelFrame } from './modelFrame'
 import type { ModelWatch } from './ModelWatch'
@@ -21,7 +21,7 @@ export type ProductModelProps = {
 // failures are not handled here; the Suspense boundary that holds the
 // placeholder is the stage's.
 export function ProductModel({ product }: ProductModelProps) {
-  const gltf = useGLTF(modelUrl(product.slug), false, false)
+  const gltf = useGLTF(productModelUrl(product.slug), false, false)
   const frame = useMemo(() => measureModelFrame(gltf.scene), [gltf.scene])
   const watch = useStageModelWatch()
 
