@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest'
 import type { ProductModelCounts, ProductRigSummary } from '@lib/product'
 import type { ProductStatus, RendererStatus } from '@store/index'
 import { StageProbes } from './StageProbes'
-import type { ViewerCameraAutomation, ViewerFinish, ViewerLook } from './viewerAutomation'
+import type {
+  ViewerCameraAutomation,
+  ViewerExplode,
+  ViewerFinish,
+  ViewerLook,
+} from './viewerAutomation'
 import { createViewerAutomation, type ViewerAutomationSources } from './viewerAutomation'
 import {
   productFailureOf,
@@ -38,6 +43,13 @@ const finish: ViewerFinish = {
   materials: { 'PART_base:0': 'MatSage' },
 }
 
+const explode: ViewerExplode = {
+  t: 0.25,
+  target: 1,
+  moving: true,
+  parts: { PART_base: { x: 0, y: 0.4, z: 0 } },
+}
+
 const rig: ProductRigSummary = {
   parts: ['PART_base'],
   hotspots: [],
@@ -56,13 +68,13 @@ function sourcesWith(overrides?: Partial<ViewerAutomationSources>): ViewerAutoma
   probes.register('look', () => look)
   probes.register('camera', () => camera)
   probes.register('finish', () => finish)
+  probes.register('explode', () => explode)
   return {
     probes,
     getStatus: () => readyRenderer,
     getProductStatus: () => readyProduct,
     renderedFrames: () => 7,
     getToneMapping: () => 4000,
-    getExplode: () => null,
     ...overrides,
   }
 }
@@ -74,6 +86,7 @@ describe('createViewerAutomation', () => {
     expect(automation.look).toEqual(look)
     expect(automation.camera).toEqual(camera)
     expect(automation.finish).toEqual(finish)
+    expect(automation.explode).toEqual(explode)
   })
 
   it('reads null for a probe key no component holds', () => {
@@ -82,6 +95,18 @@ describe('createViewerAutomation', () => {
     expect(automation.look).toBeNull()
     expect(automation.camera).toBeNull()
     expect(automation.finish).toBeNull()
+    expect(automation.explode).toBeNull()
+  })
+
+  it('reads a probe registered after the automation was created', () => {
+    // The probe fields are live getters over the stage's probes, never a
+    // snapshot taken at creation: a component registers when its effect
+    // runs, which is after the bridge built the automation object.
+    const probes = new StageProbes()
+    const automation = createViewerAutomation(sourcesWith({ probes }))
+    probes.register('explode', () => explode)
+
+    expect(automation.explode).toEqual(explode)
   })
 
   it('reads the store and clock fields at access time', () => {
