@@ -97,11 +97,17 @@ function trackedTree() {
   return { parts, disposals }
 }
 
-// The table a load resolves, possibly empty for a file without finishes.
-function finishesOf(entries: readonly [number, ThreeMaterial][]): ProductFinishMaterials {
+// The table a load resolves, possibly empty for a file without finishes,
+// plus the materials the scene carried at parse time, which the swap may
+// have replaced.
+function finishesOf(
+  entries: readonly [number, ThreeMaterial][],
+  sceneMaterials: readonly ThreeMaterial[] = [],
+): ProductFinishMaterials {
   return {
     plan: readFinishPlan({}),
     materials: new Map(entries),
+    sceneMaterials: new Set(sceneMaterials),
   }
 }
 
@@ -157,6 +163,36 @@ test('a finish applied before teardown is disposed, and the default with it', ()
   expect(disposals).toContain('variantMaterial')
   expect(disposals).toContain('variantDiffuse')
   expect(disposals).toContain('bodyMaterial')
+})
+
+test('a load whose meshes were swapped disposes the materials it replaced', () => {
+  const { parts, disposals } = trackedTree()
+  const body = parts.root.children[0]
+  if (!(body instanceof Mesh)) {
+    throw new Error('the fixture body must be a mesh')
+  }
+
+  // The parse recorded the scene's materials, then the first finish swap
+  // replaced the body's on the mesh: the traversal sees only the swapped-in
+  // material, and the parse-time record is what still names the swapped-out
+  // one. Counting the events pins the whole class: every material the load
+  // created goes exactly once, whatever the swaps did to the mesh slots.
+  body.material = parts.variantMaterial
+  const grilleFirst = parts.grilleMaterials[0]
+  if (grilleFirst === undefined) {
+    throw new Error('the fixture grille must carry its first material')
+  }
+  disposeProductScene(
+    parts.root,
+    finishesOf([[1, parts.variantMaterial]], [parts.bodyMaterial, grilleFirst]),
+  )
+
+  // The swapped-out material goes through the record alone, exactly once.
+  // The grille's first material is both still applied and recorded, so its
+  // two passes both reach it, and three's dispose is idempotent about that.
+  expect(disposals.filter((event) => event === 'bodyMaterial')).toHaveLength(1)
+  expect(disposals).toContain('grilleMaterial0')
+  expect(disposals).toContain('variantMaterial')
 })
 
 test('disposing an already disposed scene is safe', () => {

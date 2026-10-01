@@ -22,6 +22,12 @@ import { applyFinish } from './applyFinish'
 // (a load cycle reads 5, 7, 7 textures at teardown instead of 5, 5, 5),
 // which breaks the product's exact teardown baseline.
 //
+// The timing of the first swap is not load-bearing for that baseline: a
+// frame that draws the load's own materials before the swap initializes
+// their textures too, but the load's parse-time record of its scene's
+// materials has the teardown dispose them with everything else, so no
+// texture of a released load survives to be re-created by the next one.
+//
 // The proxies are added before the settle and removed after it, so the
 // scene holds nothing but the product's own nodes by the time the
 // presentation's settle reports ready. Zero scale collapses them to no

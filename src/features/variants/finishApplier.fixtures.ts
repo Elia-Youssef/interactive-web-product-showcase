@@ -98,6 +98,9 @@ export function fakeLoad(): {
       finishes: {
         plan: plan(),
         materials: new Map(materials.map((material, index) => [index, material])),
+        // What the parse would have recorded: the three materials the fake
+        // scene's meshes carry.
+        sceneMaterials: new Set([materials[0], materials[2], materials[3]]),
       },
     },
     shell: scene.shell,
