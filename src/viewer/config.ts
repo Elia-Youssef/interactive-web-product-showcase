@@ -1,5 +1,5 @@
 import type { Frameloop } from '@react-three/fiber'
-import { NeutralToneMapping } from 'three'
+import { NeutralToneMapping, SRGBColorSpace } from 'three'
 
 // The stage's fixed settings, declared once. Every tunable names its unit or
 // kind, and nothing reaches the renderer that is not written here.
@@ -13,6 +13,13 @@ export type StageConfig = {
   // After an async gl factory R3F stamps its own tone mapping,
   // so the stage writes this in an effect inside the Canvas, after configure.
   readonly toneMapping: typeof NeutralToneMapping
+  // The space the canvas presents in. The node renderer converts every
+  // frame to this space in its output pass, and three's color management
+  // keeps the working space linear sRGB, so the sRGB canvas is the one
+  // correct presentation for the CSS page. R3F stamps sRGB of its own after
+  // an async gl factory, as it stamps tone mapping; the stage writes the
+  // value here so its color management is declared, not inherited.
+  readonly outputColorSpace: typeof SRGBColorSpace
   // Handed to the WebGPU adapter request. R3F's factory props type this
   // wider than the backend takes, so the factory pins it explicitly.
   readonly powerPreference: 'high-performance'
@@ -32,6 +39,7 @@ export const stageConfig: StageConfig = {
   frameloop: 'demand',
   dpr: [1, 2],
   toneMapping: NeutralToneMapping,
+  outputColorSpace: SRGBColorSpace,
   powerPreference: 'high-performance',
   clearColorHex: 0x000000,
   clearAlpha: 0,

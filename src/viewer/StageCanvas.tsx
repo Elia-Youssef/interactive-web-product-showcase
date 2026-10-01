@@ -6,6 +6,7 @@ import { FrameObserver } from './FrameObserver'
 import { StageAlert } from './StageAlert'
 import { RendererErrorBoundary } from './RendererErrorBoundary'
 import { RendererRig } from './RendererRig'
+import { StageCamera } from './camera/StageCamera'
 import { ProductDecoderProvider } from './product/DecoderProvider'
 import { StageEnvironment } from './StageEnvironment'
 import { initFailureReason } from '@lib/renderer/initFailure'
@@ -30,7 +31,7 @@ type StageCanvasProps = {
 // The Canvas subtree of a valid request: the error boundary R3F routes a
 // failed factory through, the Canvas with the async renderer factory, and
 // the in-canvas components that own the start-up identity checks, the
-// renderer's settings, the frame signal, and the content.
+// renderer's settings, the frame signal, the camera, and the content.
 export function StageCanvas({
   clock,
   stageRenderer,
@@ -46,10 +47,12 @@ export function StageCanvas({
       <Canvas gl={stageRenderer.factory} frameloop={stageConfig.frameloop} dpr={stageConfig.dpr}>
         <RendererRig />
         <FrameObserver clock={clock} onFirstFrame={onFirstFrame} />
-        <Suspense fallback={null}>
-          <StageEnvironment />
-          <ProductDecoderProvider>{content}</ProductDecoderProvider>
-        </Suspense>
+        <StageCamera>
+          <Suspense fallback={null}>
+            <StageEnvironment />
+            <ProductDecoderProvider>{content}</ProductDecoderProvider>
+          </Suspense>
+        </StageCamera>
       </Canvas>
     </RendererErrorBoundary>
   )

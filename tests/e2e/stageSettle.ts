@@ -1,4 +1,5 @@
 import { expect, type Page } from '@playwright/test'
+import { hudDrainBudgetMs } from './budgets'
 
 // Waits until the stage's frame count holds still across a settle window:
 // every load-frame debt (the model, the camera fit) is paid, and the stage
@@ -26,6 +27,8 @@ export async function settledStage(page: Page): Promise<void> {
   if ((await hud.count()) === 0) {
     return
   }
-  await expect(page.getByTestId('hud-fps')).toHaveText('0.0', { timeout: 10000 })
-  await expect(page.getByTestId('hud-tick-cpu')).toHaveText('-', { timeout: 10000 })
+  // The HUD drain budget from the suite's budget module: the rolling
+  // window's fall to the rest text, an order of magnitude above the drain.
+  await expect(page.getByTestId('hud-fps')).toHaveText('0.0', { timeout: hudDrainBudgetMs })
+  await expect(page.getByTestId('hud-tick-cpu')).toHaveText('-', { timeout: hudDrainBudgetMs })
 }

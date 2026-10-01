@@ -19,6 +19,10 @@ export function RendererRig() {
     assertStageRenderer(gl)
     assertStageScene(scene)
     gl.toneMapping = stageConfig.toneMapping
+    // R3F stamps its own output color space after an async gl factory, the
+    // way it stamps tone mapping, so the stage writes its declared value
+    // here, after configure, and the color management is the stage's.
+    gl.outputColorSpace = stageConfig.outputColorSpace
     gl.setClearColor(stageConfig.clearColorHex, stageConfig.clearAlpha)
   }, [gl, scene])
 

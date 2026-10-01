@@ -1,19 +1,29 @@
 import { Line, Mesh, Points, Texture, type Material, type Object3D } from 'three'
+import type { ProductFinishMaterials } from './finishMaterials'
 
-// Disposes everything a loaded product scene holds: every geometry, every
-// material, single or per-group array, and every texture those materials
-// carry, in whatever slots they sit. A finish a variant switch applied is
-// included as long as the scene holds it; materials a variants controller
-// resolved but never applied do not exist in the scene and stay that
-// controller's own release job. three's dispose calls are idempotent, so
-// the traversal is safe to run on an already disposed scene.
-export function disposeProductScene(scene: Object3D): void {
+// Disposes everything a loaded product holds: every geometry and material
+// the scene carries, single or per-group array, every texture those
+// materials carry in whatever slots they sit, every finish material the
+// load resolved, applied or not, and every material the scene carried when
+// the load was parsed, which a finish swap may have replaced on the meshes.
+// The product owns all of them, so its one release lets them all go; a
+// material named twice (shared between the scene and a table, or recorded
+// and still applied) simply runs through the passes, and three's dispose
+// calls are idempotent, so the later pass finds nothing left to free. The
+// traversal is safe to run on an already disposed scene.
+export function disposeProductScene(scene: Object3D, finishes: ProductFinishMaterials): void {
   scene.traverse((node) => {
     if (node instanceof Mesh || node instanceof Line || node instanceof Points) {
       node.geometry.dispose()
       disposeMaterial(node.material)
     }
   })
+  for (const material of finishes.materials.values()) {
+    disposeSingleMaterial(material)
+  }
+  for (const material of finishes.sceneMaterials) {
+    disposeSingleMaterial(material)
+  }
 }
 
 function disposeMaterial(material: Material | Material[]): void {

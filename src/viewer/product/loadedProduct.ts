@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react'
 import type { Object3D } from 'three'
 import type { Product } from '@lib/product'
+import type { ProductFinishMaterials } from './finishMaterials'
 import type { ProductRig } from '../rig/productRig'
 
 // What the glTF loader recorded about one object it built: the index of the
@@ -22,15 +23,17 @@ export interface ProductGltfParser {
 }
 
 // One loaded product as the features that extend it read it: the validated
-// manifest, the loaded scene, the rig parsed from it and the parser that
-// built both. The product owns every resource the loader created and
-// releases them with the scene; an extension releases only what it creates
-// itself, and mutates the scene only through the stage settle.
+// manifest, the loaded scene, the rig parsed from it, the parser that
+// built both, and the finish materials the load resolved with the model.
+// The product owns every resource the loader created and releases them
+// with the scene; an extension releases only what it creates itself, and
+// mutates the scene only through the stage settle.
 export type LoadedProduct = {
   readonly manifest: Product
   readonly scene: Object3D
   readonly rig: ProductRig
   readonly parser: ProductGltfParser
+  readonly finishes: ProductFinishMaterials
 }
 
 export const LoadedProductContext = createContext<LoadedProduct | null>(null)

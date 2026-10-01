@@ -4,6 +4,7 @@
 
 import { expect, test } from './fixtures'
 import { siteCopy } from '../../src/lib/copy/site'
+import { productLoadBudgetMs } from './productSpecs'
 import { settledStage } from './stageSettle'
 
 type CornerName = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
@@ -276,7 +277,9 @@ for (const spec of viewportContracts) {
     // the wait is for the model report, which lands once the product is on a
     // recorded frame, and the settle of its load frames.
     await expect
-      .poll(() => page.evaluate(() => window.__viewer?.model ?? null), { timeout: 30000 })
+      .poll(() => page.evaluate(() => window.__viewer?.model ?? null), {
+        timeout: productLoadBudgetMs,
+      })
       .not.toBeNull()
     await settledStage(page)
 
