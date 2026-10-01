@@ -81,16 +81,19 @@ describe('the real product manifest list', () => {
     expect(collection.products).toHaveLength(productManifests.length)
   })
 
-  it('opens on the stand-in with its finishes, midnight first', () => {
+  it('opens on the product with the lowest number, carrying its own finishes', () => {
     const collection = readyCollection(loadCollection(productManifests))
 
-    expect(collection.first.slug).toBe('stand-in')
-    expect(collection.first.number).toBe(1)
-    expect(collection.first.category).toBe('Audio')
-    expect(collection.first.finishes.map((finish) => finish.variant)).toEqual([
-      'midnight',
-      'beach',
-      'street',
-    ])
+    const lowest = Math.min(...productManifests.map((manifest) => manifest.number))
+    const first = productManifests.find((manifest) => manifest.number === lowest)
+    if (first === undefined) {
+      throw new Error('the lowest number came from the manifest list itself')
+    }
+    expect(collection.first.slug).toBe(first.slug)
+    expect(collection.first.number).toBe(first.number)
+    expect(collection.first.category).toBe(first.category)
+    expect(collection.first.finishes.map((finish) => finish.variant)).toEqual(
+      first.finishes.map((finish) => finish.variant),
+    )
   })
 })

@@ -7,6 +7,9 @@ dist/
 .env
 .env.*
 
+# Blender sources travel outside git; only the optimized model.glb is shipped
+*.blend
+
 # Blender backups and raw exports (regenerable from the .blend)
 *.blend1
 *.blend@

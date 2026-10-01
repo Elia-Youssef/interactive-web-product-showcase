@@ -1,6 +1,6 @@
-// The typed errors of the product domain and the one formatter every error
-// in this module shares. No zod here: the schema-facing mapping lives in
-// parse.ts, and these types stay usable on their own by the UI's error state.
+// The typed errors of the product domain. No zod here: the issue mapping is
+// shared logic in src/lib/validation, and these types stay usable on their
+// own by the UI's error state.
 
 export type ProductIssue = {
   path: string
@@ -20,20 +20,6 @@ export type CollectionProblem = {
 // so the checks stay testable without zod.
 export type IssueSink = {
   addIssue: (issue: { code: 'custom'; message: string; path: (string | number)[] }) => void
-}
-
-// Paths render object keys with a dot and array positions with brackets:
-// ['hotspots', 1, 'bullets'] becomes 'hotspots[1].bullets'.
-export function formatFieldPath(path: readonly PropertyKey[]): string {
-  let rendered = ''
-  for (const key of path) {
-    if (typeof key === 'number') {
-      rendered += `[${key}]`
-    } else {
-      rendered += rendered === '' ? String(key) : `.${String(key)}`
-    }
-  }
-  return rendered
 }
 
 function formatIssueLine(issue: ProductIssue): string {

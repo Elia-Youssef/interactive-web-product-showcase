@@ -2,8 +2,8 @@ import { Box3, Mesh, Sphere } from 'three'
 import type { Object3D } from 'three'
 
 // What it takes to frame a loaded model: the center of its bounding box, the
-// radius of the bounding sphere around it, and the shape counts the
-// automation hook reports. Measured once, on load, in the model's own space.
+// radius of the bounding sphere around it, and the shape counts the store's
+// ready status carries. Measured once, on load, in the model's own space.
 
 export type ModelFrame = {
   // The center of the bounding box, in the model's own space.

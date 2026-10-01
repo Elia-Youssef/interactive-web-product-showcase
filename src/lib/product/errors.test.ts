@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatFieldPath, ManifestError } from './errors'
+import { ManifestError } from './errors'
 import { driverHotspot, sampleOneManifest, graphiteFinish } from './fixtures'
 import { parseProduct } from './parse'
 
@@ -70,19 +70,5 @@ describe('parseProduct errors', () => {
       hotspots: [{ ...driverHotspot, nope: 1 }],
     })
     expect(error.issues).toContainEqual({ path: 'hotspots[0].nope', message: 'unknown key' })
-  })
-})
-
-describe('formatFieldPath', () => {
-  it('joins object keys with dots', () => {
-    expect(formatFieldPath(['camera', 'minDistance'])).toEqual('camera.minDistance')
-  })
-
-  it('wraps array positions in brackets', () => {
-    expect(formatFieldPath(['hotspots', 1, 'bullets', 0])).toEqual('hotspots[1].bullets[0]')
-  })
-
-  it('renders an empty path as an empty string', () => {
-    expect(formatFieldPath([])).toEqual('')
   })
 })

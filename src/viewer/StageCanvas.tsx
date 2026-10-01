@@ -3,9 +3,10 @@ import { Canvas } from '@react-three/fiber'
 import type { ReactNode } from 'react'
 import type { FrameClock } from './FrameClock'
 import { FrameObserver } from './FrameObserver'
-import { RendererAlert } from './RendererAlert'
+import { StageAlert } from './StageAlert'
 import { RendererErrorBoundary } from './RendererErrorBoundary'
 import { RendererRig } from './RendererRig'
+import { ProductDecoderProvider } from './product/DecoderProvider'
 import { StageEnvironment } from './StageEnvironment'
 import { initFailureReason } from '@lib/renderer/initFailure'
 import type { StageRendererStart } from './rendererFactory'
@@ -20,8 +21,9 @@ type StageCanvasProps = {
   // Reports a renderer that could not start on either backend.
   readonly onInitError: (error: Error) => void
   // The scene content the stage shows: mounted after the rig and the frame
-  // observer, under one null-fallback Suspense boundary, so an async load
-  // never crosses the canvas.
+  // observer, under one null-fallback Suspense boundary and the decoder
+  // provider, so an async load never crosses the canvas and every loader
+  // decodes through the renderer's own decoders.
   readonly content?: ReactNode
 }
 
@@ -39,14 +41,14 @@ export function StageCanvas({
   return (
     <RendererErrorBoundary
       onError={onInitError}
-      fallback={(error) => <RendererAlert reason={initFailureReason(error)} />}
+      fallback={(error) => <StageAlert reason={initFailureReason(error)} />}
     >
       <Canvas gl={stageRenderer.factory} frameloop={stageConfig.frameloop} dpr={stageConfig.dpr}>
         <RendererRig />
         <FrameObserver clock={clock} onFirstFrame={onFirstFrame} />
         <Suspense fallback={null}>
           <StageEnvironment />
-          {content}
+          <ProductDecoderProvider>{content}</ProductDecoderProvider>
         </Suspense>
       </Canvas>
     </RendererErrorBoundary>

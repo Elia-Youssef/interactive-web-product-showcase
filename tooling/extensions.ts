@@ -49,8 +49,8 @@ export const scriptExtensions = ['ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs', 'mts', 
 // owns it.
 export const styleExtensions = ['css'] as const
 
-// What the formatter owns. YAML stays out on purpose: the only tracked yaml
-// file is the generated lockfile.
+// What the formatter owns. YAML stays out on purpose: the project authors no
+// yaml file, and the one it tracks, the lockfile, is generated.
 export const formatExtensions = [
   'ts',
   'tsx',

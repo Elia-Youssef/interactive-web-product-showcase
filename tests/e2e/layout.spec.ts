@@ -271,9 +271,10 @@ for (const spec of viewportContracts) {
     await page.goto(backendPath)
     await expect.poll(() => page.evaluate(() => window.__viewer?.status)).toBe('ready')
 
-    // The baselines show the stage with the stand-in model in it. Ready
-    // alone would race the model load and shoot the empty stage, so the
-    // wait is for the model report and the settle of its load frames.
+    // The baselines show the stage with the collection's product in it.
+    // Ready alone would race the product load and shoot the empty stage, so
+    // the wait is for the model report, which lands once the product is on a
+    // recorded frame, and the settle of its load frames.
     await expect
       .poll(() => page.evaluate(() => window.__viewer?.model ?? null), { timeout: 30000 })
       .not.toBeNull()

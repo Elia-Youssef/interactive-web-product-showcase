@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { expect, test } from 'vitest'
 import { declarationValueSource, lineColumnOf, parseStylesheet } from './styleParse.ts'
-import { ownedStyleSheets } from './styleSheets.ts'
+import { gatedStyleSheets } from './styleSheets.ts'
 import { tokenSourcePath } from './tokenSource.ts'
 
 const ROOT = join(import.meta.dirname, '..')
@@ -23,7 +23,7 @@ const RING_OFFSET_VALUE = 'var(--focus-ring-offset, var(--focus-offset))'
 const RING_OWNER = 'src/styles/global.css'
 
 function ownedStylesheets(): { file: string; css: string }[] {
-  return ownedStyleSheets(ROOT).map((file) => ({
+  return gatedStyleSheets(ROOT).map((file) => ({
     file,
     css: readFileSync(join(ROOT, file), 'utf8'),
   }))

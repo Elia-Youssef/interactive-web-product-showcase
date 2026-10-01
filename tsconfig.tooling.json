@@ -4,5 +4,5 @@
     "lib": ["ES2022"],
     "types": ["node"]
   },
-  "include": ["vite.config.ts", "tooling", "eslint.config.ts", "playwright.config.ts"]
+  "include": ["vite.config.ts", "tooling", "scripts", "eslint.config.ts", "playwright.config.ts"]
 }

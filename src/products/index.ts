@@ -1,12 +1,16 @@
-// The raw manifest list of the collection, derived from the manifest files
-// themselves: every
-// `<slug>.manifest.ts` in this folder is one product, and nothing lists
-// products by hand, so a manifest can never be left out. Data only:
-// createCollection validates each entry and orders products by their number,
-// and every layer reads the result through the app's collection loader.
-const manifestModules = import.meta.glob<unknown>('./*.manifest.ts', {
+import type { ProductInput } from '@lib/product'
+
+// The derived product index: the manifest set is read off the
+// file names, so adding a product is adding a manifest file and nothing
+// else. The marker in the file names (scripts/productPaths.ts) is the same
+// one the validate step lists, so the browser bundle and the Node gate read
+// the same product set in both directions.
+const manifestModules = import.meta.glob<ProductInput>('./*.manifest.ts', {
   eager: true,
   import: 'manifest',
 })
 
-export const productManifests: readonly unknown[] = Object.values(manifestModules)
+// The raw manifests of the collection, in file name order. Callers validate
+// them once through the product domain's own parse, never by trusting the
+// files' shape.
+export const productManifests: readonly ProductInput[] = Object.values(manifestModules)

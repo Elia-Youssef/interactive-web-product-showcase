@@ -1,16 +1,17 @@
-// The lint gate. It lints every owned script file through the ESLint Node
-// API, so the file list comes from git (see ownedFiles.ts) with no
+// The lint gate. It lints every gated script file through the ESLint Node
+// API, so the file list comes from git (see gatedFiles.ts) with no
 // command-line length limit and no discovery rules of its own. Any error, and
 // any warning, fails the run.
 import { ESLint } from 'eslint'
 import { resolve } from 'node:path'
 import { hasExtension, scriptExtensions } from './extensions.ts'
 import { createConfig } from './eslintConfig.ts'
-import { listOwnedFiles } from './ownedFiles.ts'
-import { formatRawValueFindings, scanOwnedStyleSheets } from './styleGate.ts'
+import { listGatedFiles } from './gatedFiles.ts'
+import { formatRawValueFindings, scanGatedStyleSheets } from './styleGate.ts'
+import { formatPointerFindings, scanGatedFilesForPointers } from './pointerGate.ts'
 
 const root = resolve(import.meta.dirname, '..')
-const files = listOwnedFiles(root).filter((file) => hasExtension(file, scriptExtensions))
+const files = listGatedFiles(root).filter((file) => hasExtension(file, scriptExtensions))
 
 const eslint = new ESLint({
   cwd: root,
@@ -33,11 +34,21 @@ if (errors > 0 || warnings > 0) {
   process.exitCode = 1
 }
 
-// The stylesheet gate runs after ESLint, in the same process: every owned
+// The stylesheet gate runs after ESLint, in the same process: every gated
 // stylesheet is scanned for raw design values, and any finding fails the
-// run the way an ESLint error does. Both gates report in one run.
-const styleFindings = scanOwnedStyleSheets(root)
+// run the way an ESLint error does. All gates report in one run.
+const styleFindings = scanGatedStyleSheets(root)
 if (styleFindings.length > 0) {
   process.stdout.write(`${formatRawValueFindings(styleFindings)}\n`)
+  process.exitCode = 1
+}
+
+// The pointer gate runs after the stylesheet gate, in the same process:
+// every gated text file is scanned for pointers to local-only material, and
+// any finding fails the run the way an ESLint error does. All gates report
+// in one run.
+const pointerFindings = scanGatedFilesForPointers(root)
+if (pointerFindings.length > 0) {
+  process.stdout.write(`${formatPointerFindings(pointerFindings)}\n`)
   process.exitCode = 1
 }

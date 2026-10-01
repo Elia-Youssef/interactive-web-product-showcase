@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from 'react'
+import { asError } from '@lib/errors'
 
 type RendererErrorBoundaryProps = {
   readonly children: ReactNode
@@ -10,10 +11,6 @@ type RendererErrorBoundaryProps = {
 
 type RendererErrorBoundaryState = {
   readonly error: Error | null
-}
-
-function asError(error: unknown): Error {
-  return error instanceof Error ? error : new Error(String(error))
 }
 
 // React error boundaries need a class. This one exists so a renderer that
