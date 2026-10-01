@@ -2,7 +2,11 @@ import { useEffect } from 'react'
 import { selectProductStatus, selectRendererStatus, useAppStoreApi } from '@store/index'
 import type { FrameClock } from '../FrameClock'
 import type { StageProbes } from './StageProbes'
-import { createViewerAutomation, type ViewerCameraSource } from './viewerAutomation'
+import {
+  createViewerAutomation,
+  readViewerFinish,
+  type ViewerCameraSource,
+} from './viewerAutomation'
 
 type AutomationBridgeProps = {
   readonly clock: FrameClock
@@ -42,6 +46,7 @@ export function AutomationBridge({
       getToneMapping,
       getLook: () => probes.read('look'),
       getCamera,
+      getFinish: readViewerFinish,
     })
     window.__viewer = automation
     return () => {

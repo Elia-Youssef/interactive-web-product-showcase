@@ -7,12 +7,14 @@ import {
   type ProductLookBlock,
 } from '@lib/product'
 import { productManifests } from '@products/index'
-import { AppStoreProvider } from '@store/index'
+import { ProductFinishes, useFinishOffer } from '@features/variants'
+import { AppStoreProvider, useAppStore } from '@store/index'
 import { Stage } from '@viewer/Stage'
 import { StageAlert } from '@viewer/StageAlert'
 import { Product } from '@viewer/product/Product'
 import styles from './ProductHarnessPage.module.css'
 import { RendererMemoryProbe } from './RendererMemoryProbe'
+import { SceneGraphProbe } from './SceneGraphProbe'
 import { StageWarmup } from './StageWarmup'
 import { harnessLook } from './harnessLook'
 import { harnessSlug } from './harnessSlug'
@@ -106,7 +108,12 @@ function HarnessProduct({
     <>
       <RendererMemoryProbe />
       <StageWarmup />
-      {pageManifest !== undefined && mounted && <Product manifest={pageManifest} />}
+      {pageManifest !== undefined && mounted && (
+        <Product manifest={pageManifest}>
+          <SceneGraphProbe />
+          <ProductFinishes />
+        </Product>
+      )}
     </>
   )
 
@@ -128,16 +135,45 @@ function HarnessProduct({
         />
       )}
       {manifest !== undefined && (
-        <button
-          type="button"
-          className={styles.toggle}
-          data-testid="remount-product"
-          onClick={() => setMounted((current) => !current)}
-        >
-          {mounted ? 'Unmount the product' : 'Mount the product'}
-        </button>
+        <>
+          <HarnessFinishControls manifest={manifest} />
+          <button
+            type="button"
+            className={styles.toggle}
+            data-testid="remount-product"
+            onClick={() => setMounted((current) => !current)}
+          >
+            {mounted ? 'Unmount the product' : 'Mount the product'}
+          </button>
+        </>
       )}
     </>
+  )
+}
+
+// The dev-only finish controls the product e2e drives: one button per
+// manifest finish, selecting through the store's finish slice, and the one
+// offer hook that puts the manifest's finishes in the store. The offer sits
+// here so a selection lands even while the product is unmounted, and the
+// remount presents the store's selection, never a default.
+function HarnessFinishControls({ manifest }: { readonly manifest: ProductManifest }) {
+  const finishSelected = useAppStore((state) => state.finishSelected)
+
+  useFinishOffer(manifest)
+
+  return (
+    <div className={styles.finishes} data-testid="harness-finishes">
+      {manifest.finishes.map((finish) => (
+        <button
+          key={finish.variant}
+          type="button"
+          data-testid={`harness-finish-${finish.variant}`}
+          onClick={() => finishSelected(manifest.slug, finish.variant)}
+        >
+          {finish.label}
+        </button>
+      ))}
+    </div>
   )
 }
 

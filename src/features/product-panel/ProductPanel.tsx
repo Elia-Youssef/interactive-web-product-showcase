@@ -2,13 +2,14 @@
 // current product's words, all from its manifest, then the finish list. The
 // product arrives as a prop; the selected finish is the only state, and it
 // lives in the store's finish slice, which this component reads and writes
-// exclusively. Layout owns the panel container and its hairline; this is
-// the content inside it.
+// exclusively. The offer of the product's finishes is the variants
+// feature's one offer hook; layout owns the panel container and its
+// hairline, and this is the content inside it.
 
-import { useLayoutEffect } from 'react'
 import type { Product } from '@lib/product'
 import { siteCopy } from '@lib/copy/site'
 import { selectSelectedVariant, useAppStore } from '@store/index'
+import { useFinishOffer } from '@features/variants'
 import { Divider, Eyebrow, Readout, Swatch, Title } from '@ui/index'
 import { activeFinish } from './product-panel.logic'
 import styles from './ProductPanel.module.css'
@@ -18,21 +19,10 @@ export type ProductPanelProps = {
 }
 
 export function ProductPanel({ product }: ProductPanelProps) {
-  const finishOffered = useAppStore((state) => state.finishOffered)
   const finishSelected = useAppStore((state) => state.finishSelected)
   const selectedVariant = useAppStore((state) => selectSelectedVariant(state, product.slug))
 
-  // The store must know the current product's finishes to select within
-  // them, so the panel offers them under the product's slug, in a layout
-  // effect, so the painted first frame already shows the default finish as
-  // active. The offer names the product, so the first render of a switched
-  // product still reads its own default, never the last product's choice.
-  useLayoutEffect(() => {
-    finishOffered(
-      product.slug,
-      product.finishes.map((finish) => finish.variant),
-    )
-  }, [finishOffered, product])
+  useFinishOffer(product)
 
   const active = activeFinish(product, selectedVariant)
 

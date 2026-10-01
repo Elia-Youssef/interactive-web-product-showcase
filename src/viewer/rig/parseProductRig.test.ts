@@ -11,7 +11,7 @@ import {
   validTree,
   variantsJson,
 } from './fixtures'
-import { readVariantNames } from './gltfJson'
+import { readVariantNames } from '@lib/product'
 import { parseProductRig, type ProductSource } from './parseProductRig'
 import { ProductRigError } from './rigError'
 import { summarizeProductRig } from './summary'

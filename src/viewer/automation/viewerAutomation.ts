@@ -72,6 +72,51 @@ export type ViewerCameraAutomation = {
 // The live read of the stage camera, or null while there is none.
 export type ViewerCameraSource = () => ViewerCameraAutomation | null
 
+// The finish a product on the stage carries, as the variants controller
+// read it from the scene graph after the settle that applied it: the
+// applied variant name and, per mapped mesh primitive, the material name
+// the mesh carries. The record is keyed by the file's own tables
+// ('<mesh>:<primitive>'), the identity an e2e can derive from the shipped
+// model, not by the names the loader renames.
+export type ViewerFinish = {
+  readonly product: string
+  readonly applied: string
+  readonly materials: Readonly<Record<string, string>>
+}
+
+// The slot the variants controller publishes the applied-finish record to,
+// and the automation's finish source reads it from. The controller is the
+// one writer (per settled application, cleared when it unmounts), the
+// automation the one reader, and the read is the post-settle scene graph
+// itself, not the store selection that was supposed to cause it.
+export function publishViewerFinish(finish: ViewerFinish | null): void {
+  if (finish === null) {
+    delete window.__viewerFinish
+    return
+  }
+  window.__viewerFinish = finish
+}
+
+export function readViewerFinish(): ViewerFinish | null {
+  const carried: unknown = window.__viewerFinish
+  return isViewerFinish(carried) ? carried : null
+}
+
+function isViewerFinish(value: unknown): value is ViewerFinish {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+  const materials: unknown = Reflect.get(value, 'materials')
+  if (typeof materials !== 'object' || materials === null) {
+    return false
+  }
+  return (
+    typeof Reflect.get(value, 'product') === 'string' &&
+    typeof Reflect.get(value, 'applied') === 'string' &&
+    Object.values(materials).every((name) => typeof name === 'string')
+  )
+}
+
 export type ViewerAutomation = {
   readonly status: RendererStatus['kind']
   readonly backend: RendererBackend | null
@@ -97,6 +142,9 @@ export type ViewerAutomation = {
   readonly look: ViewerLook | null
   // The live stage camera, or null while there is none.
   readonly camera: ViewerCameraAutomation | null
+  // The finish the presented product carries, or null while nothing is
+  // applied.
+  readonly finish: ViewerFinish | null
 }
 
 export type ViewerAutomationSources = {
@@ -111,6 +159,8 @@ export type ViewerAutomationSources = {
   readonly getLook: () => ViewerLook | null
   // The live stage camera read, from the camera and the controls.
   readonly getCamera: ViewerCameraSource
+  // The applied finish exactly as the scene graph carries it right now.
+  readonly getFinish: () => ViewerFinish | null
 }
 
 export function createViewerAutomation(sources: ViewerAutomationSources): ViewerAutomation {
@@ -163,11 +213,18 @@ export function createViewerAutomation(sources: ViewerAutomationSources): Viewer
     get camera(): ViewerCameraAutomation | null {
       return sources.getCamera()
     },
+    get finish(): ViewerFinish | null {
+      return sources.getFinish()
+    },
   })
 }
 
 declare global {
   interface Window {
     __viewer?: ViewerAutomation
+    // The applied-finish slot between the variants controller and the
+    // automation's finish source, typed unknown and read through a guard,
+    // so a foreign or stale value reads as no finish instead of lying.
+    __viewerFinish?: unknown
   }
 }
