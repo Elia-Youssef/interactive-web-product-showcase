@@ -1,13 +1,17 @@
 import { expect, test } from 'vitest'
 import { renderToString } from 'react-dom/server'
 import { AnimationClip, Object3D } from 'three'
-import { parseProduct } from '@lib/product'
+import { parseProduct, readFinishPlan } from '@lib/product'
 import { sampleOneManifest } from '@lib/product/fixtures'
+import type { ProductFinishMaterials } from './finishMaterials'
 import { LoadedProductContext, useLoadedProduct, type LoadedProduct } from './loadedProduct'
 
 function SlugOfLoadedProduct() {
   return <>{useLoadedProduct().manifest.slug}</>
 }
+
+// A load whose file declares no finishes resolves an empty finish table.
+const noFinishes: ProductFinishMaterials = { plan: readFinishPlan({}), materials: new Map() }
 
 function loadedSample(): LoadedProduct {
   return {
@@ -26,6 +30,7 @@ function loadedSample(): LoadedProduct {
       associations: new Map(),
       getDependency: () => Promise.resolve(null),
     },
+    finishes: noFinishes,
   }
 }
 

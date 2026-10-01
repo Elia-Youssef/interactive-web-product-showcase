@@ -9,6 +9,7 @@ import { useStageHold } from '../stageHoldsContext'
 import { disposeProductScene } from './dispose'
 import { useProductKtx2Loader } from './DecoderProvider'
 import { LoadedProductContext, type LoadedProduct } from './loadedProduct'
+import { readFinishMaterials } from './finishMaterials'
 import { wireProductDecoders, type GltfLoaderLike } from './decoders'
 import { useProductPresentation } from './useProductPresentation'
 
@@ -52,9 +53,13 @@ export function ProductContent({ manifest, children }: ProductContentProps) {
     [gltf, manifest],
   )
   const summary = useMemo(() => summarizeProductRig(rig), [rig])
+  // The finish materials the load resolved with the model. Reading them is
+  // part of the render: a load that somehow skipped the resolver fails here,
+  // once, instead of leaving a switch to hit a half-loaded model.
+  const finishes = useMemo(() => readFinishMaterials(gltf.userData), [gltf.userData])
   const loaded = useMemo<LoadedProduct>(
-    () => ({ manifest, scene: gltf.scene, rig, parser: gltf.parser }),
-    [manifest, gltf, rig],
+    () => ({ manifest, scene: gltf.scene, rig, parser: gltf.parser, finishes }),
+    [manifest, gltf, rig, finishes],
   )
   // The frame is measured once per load: it centers the scene, feeds the
   // camera fit, and its counts ride with the ready status.
@@ -67,13 +72,13 @@ export function ProductContent({ manifest, children }: ProductContentProps) {
   const failure = useProductPresentation({ frame, report })
 
   // The loaded product's lifetime is this component's hold on it. Once the
-  // hold is gone for good, the scene is disposed and its suspense cache entry
-  // cleared, so the next mount loads fresh instead of reusing a released
-  // tree.
+  // hold is gone for good, the scene is disposed with every finish material
+  // the load resolved, and the suspense cache entry is cleared, so the next
+  // mount loads fresh instead of reusing a released tree.
   const releaseScene = useCallback(() => {
-    disposeProductScene(gltf.scene)
+    disposeProductScene(gltf.scene, finishes)
     useGLTF.clear(url)
-  }, [gltf.scene, url])
+  }, [gltf.scene, finishes, url])
   useStageHold(gltf.scene, releaseScene)
 
   // A failure is thrown to the boundary that owns the product's failures,
