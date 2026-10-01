@@ -26,6 +26,12 @@ for (const product of products) {
     await waitForStageWarm(page)
     const toggle = page.getByTestId('remount-product')
 
+    // The first presentation sets the model report every remount must bring
+    // back: the same slug and the same counts, measured from a fresh load.
+    await waitForProductReady(page)
+    const presented = await page.evaluate(() => window.__viewer?.model ?? null)
+    expect(presented?.slug).toBe(product.slug)
+
     // The page mounts the product to start with, so the first teardown brings
     // the stage to the empty state the baseline reads: its renderer-owned
     // textures (the tone-mapping framebuffer target and the IBL lookup
@@ -40,6 +46,7 @@ for (const product of products) {
       // suspense cache, and its resources sit on top of the empty baseline.
       await toggle.click()
       await waitForProductReady(page)
+      expect(await page.evaluate(() => window.__viewer?.model ?? null)).toEqual(presented)
       const mounted = await waitForSettledMemory(page, baseline)
       expect(mounted.geometries).toBeGreaterThan(baseline.geometries)
       expect(mounted.textures).toBeGreaterThan(baseline.textures)
@@ -50,6 +57,7 @@ for (const product of products) {
       // equality catches it.
       await toggle.click()
       await expectPoll(page, () => window.__viewer?.product).toBe('idle')
+      expect(await page.evaluate(() => window.__viewer?.model ?? null)).toBeNull()
       const afterTeardown = await waitForSettledMemory(page)
       expectToEqualBaseline(afterTeardown, baseline, cycle)
     }

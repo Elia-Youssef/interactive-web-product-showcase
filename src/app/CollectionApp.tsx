@@ -1,8 +1,8 @@
 import '@styles/global.css'
-import type { Product } from '@lib/product'
+import type { Product as ProductManifest } from '@lib/product'
 import { ProductIndexLabel, ProductPanel } from '@features/product-panel'
 import { AppStoreProvider } from '@store/index'
-import { ProductModel } from '@viewer/ProductModel'
+import { Product } from '@viewer/product/Product'
 import { Stage } from '@viewer/Stage'
 import { CollectionProvider } from './collection/CollectionProvider'
 import { AppLayout } from './layout/index'
@@ -28,14 +28,14 @@ export function CollectionApp({ manifests }: CollectionAppProps) {
 }
 
 // The layout with one product's words in its slots and the renderer in its
-// stage slot, showing the current product's model. The current product is
-// the collection's first until routing arrives.
-function ProductPage({ product }: { readonly product: Product }) {
+// stage slot, showing the current product through the product channel. The
+// current product is the collection's first until routing arrives.
+function ProductPage({ product }: { readonly product: ProductManifest }) {
   return (
     <AppLayout
       productIndex={<ProductIndexLabel number={product.number} category={product.category} />}
       panel={<ProductPanel product={product} />}
-      stage={<Stage content={<ProductModel product={product} />} />}
+      stage={<Stage content={<Product manifest={product} />} />}
     />
   )
 }

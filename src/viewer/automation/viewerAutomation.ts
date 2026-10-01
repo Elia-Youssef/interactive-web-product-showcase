@@ -1,4 +1,4 @@
-import type { ProductRigSummary } from '@lib/product'
+import type { ProductRigSummary, ProductModelCounts } from '@lib/product'
 import type { RendererBackend } from '@lib/renderer/backend'
 import { selectRendererBackend, type ProductStatus, type RendererStatus } from '@store/index'
 
@@ -8,12 +8,12 @@ import { selectRendererBackend, type ProductStatus, type RendererStatus } from '
 // field from the stage's frame clock, so the hook holds no copies that can
 // go stale.
 
-// The model a stage has loaded, exactly as the automation hook reports it.
-// The counts come from the loaded scene, computed once on load.
-export type ViewerModel = {
+// The model a stage has presented, exactly as the automation hook reports
+// it. Its source is the store's ready status, which carries the counts
+// measured once at load; a non-null model is a presented product, never one
+// whose render pipelines may still be pending.
+export type ViewerModel = ProductModelCounts & {
   readonly slug: string
-  readonly meshes: number
-  readonly triangles: number
 }
 
 export type ViewerAutomation = {
@@ -35,7 +35,7 @@ export type ViewerAutomation = {
   readonly renderedFrames: number
   // The live tone mapping of the renderer, or null while there is none.
   readonly toneMapping: number | null
-  // The model in the stage's scene, or null until one is in it.
+  // The product the stage has presented, or null while there is none.
   readonly model: ViewerModel | null
 }
 
@@ -46,7 +46,6 @@ export type ViewerAutomationSources = {
   readonly getProductStatus: () => ProductStatus
   readonly renderedFrames: () => number
   readonly getToneMapping: () => number | null
-  readonly getModel: () => ViewerModel | null
 }
 
 export function createViewerAutomation(sources: ViewerAutomationSources): ViewerAutomation {
@@ -88,7 +87,10 @@ export function createViewerAutomation(sources: ViewerAutomationSources): Viewer
       return sources.getToneMapping()
     },
     get model(): ViewerModel | null {
-      return sources.getModel()
+      const status = currentProduct()
+      return status.kind === 'ready'
+        ? { slug: status.slug, meshes: status.model.meshes, triangles: status.model.triangles }
+        : null
     },
   })
 }

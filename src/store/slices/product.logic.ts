@@ -1,17 +1,17 @@
-import type { ProductRigSummary } from '@lib/product'
+import type { ProductModelCounts, ProductRigSummary } from '@lib/product'
 
 // The product status is a union, not a flag pile: exactly one of these
-// shapes holds at any time. The rig summary rides with the ready status, so
-// the automation hook never recomputes it per access.
+// shapes holds at any time. The rig summary and the model counts ride with
+// the ready status, so the automation hook never recomputes them per access.
 export type ProductStatus =
   | { kind: 'idle' }
   | { kind: 'loading'; slug: string }
-  | { kind: 'ready'; slug: string; rig: ProductRigSummary }
+  | { kind: 'ready'; slug: string; rig: ProductRigSummary; model: ProductModelCounts }
   | { kind: 'failed'; slug: string; reason: string }
 
 export type ProductEvent =
   | { kind: 'load'; slug: string }
-  | { kind: 'ready'; slug: string; rig: ProductRigSummary }
+  | { kind: 'ready'; slug: string; rig: ProductRigSummary; model: ProductModelCounts }
   | { kind: 'failed'; slug: string; reason: string }
   | { kind: 'reset' }
 
@@ -32,7 +32,14 @@ export function applyProductEvent(status: ProductStatus, event: ProductEvent): P
     case 'load':
       return { kind: 'loading', slug: event.slug }
     case 'ready':
-      return status.kind === 'failed' ? status : { kind: 'ready', slug: event.slug, rig: event.rig }
+      return status.kind === 'failed'
+        ? status
+        : {
+            kind: 'ready',
+            slug: event.slug,
+            rig: event.rig,
+            model: event.model,
+          }
     case 'failed':
       return status.kind === 'failed'
         ? status

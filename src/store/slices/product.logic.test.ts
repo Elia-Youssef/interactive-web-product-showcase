@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import type { ProductRigSummary } from '@lib/product'
+import type { ProductModelCounts, ProductRigSummary } from '@lib/product'
 import { applyProductEvent, type ProductEvent, type ProductStatus } from './product.logic'
 
 // The transition table as test data: one row per cell, so a change to any
@@ -19,9 +19,18 @@ const summary: ProductRigSummary = {
   variants: ['sage'],
 }
 
+const counts: ProductModelCounts = { meshes: 4, triangles: 1200 }
+
 const otherSummary: ProductRigSummary = { ...summary, parts: [] }
 
 const failed = (slug: string, reason: string): ProductStatus => ({ kind: 'failed', slug, reason })
+
+const ready = (slug: string): ProductStatus => ({
+  kind: 'ready',
+  slug,
+  rig: summary,
+  model: counts,
+})
 
 const table: TransitionCase[] = [
   {
@@ -31,10 +40,10 @@ const table: TransitionCase[] = [
     expected: { kind: 'loading', slug: 'sample-one' },
   },
   {
-    name: 'loading + ready(slug, rig) becomes ready',
+    name: 'loading + ready(slug, rig, model) becomes ready',
     from: { kind: 'loading', slug: 'sample-one' },
-    event: { kind: 'ready', slug: 'sample-one', rig: summary },
-    expected: { kind: 'ready', slug: 'sample-one', rig: summary },
+    event: { kind: 'ready', slug: 'sample-one', rig: summary, model: counts },
+    expected: ready('sample-one'),
   },
   {
     name: 'loading + failed(slug, reason) becomes failed',
@@ -50,20 +59,25 @@ const table: TransitionCase[] = [
   },
   {
     name: 'ready + ready(slug, other rig) becomes ready with the new rig',
-    from: { kind: 'ready', slug: 'sample-one', rig: summary },
-    event: { kind: 'ready', slug: 'sample-one', rig: otherSummary },
-    expected: { kind: 'ready', slug: 'sample-one', rig: otherSummary },
+    from: ready('sample-one'),
+    event: {
+      kind: 'ready',
+      slug: 'sample-one',
+      rig: otherSummary,
+      model: counts,
+    },
+    expected: { kind: 'ready', slug: 'sample-one', rig: otherSummary, model: counts },
   },
   {
     name: 'ready + reset becomes idle',
-    from: { kind: 'ready', slug: 'sample-one', rig: summary },
+    from: ready('sample-one'),
     event: { kind: 'reset' },
     expected: { kind: 'idle' },
   },
   {
     name: 'failed + ready keeps the first failure',
     from: failed('sample-one', 'first cause'),
-    event: { kind: 'ready', slug: 'sample-one', rig: summary },
+    event: { kind: 'ready', slug: 'sample-one', rig: summary, model: counts },
     expected: failed('sample-one', 'first cause'),
   },
   {
@@ -93,8 +107,8 @@ test.each(table)('$name', ({ from, event, expected }) => {
 test('a failed status stays the same object on later ready and reset events', () => {
   const current = failed('sample-one', 'first cause')
 
-  expect(applyProductEvent(current, { kind: 'ready', slug: 'sample-one', rig: summary })).toBe(
-    current,
-  )
+  expect(
+    applyProductEvent(current, { kind: 'ready', slug: 'sample-one', rig: summary, model: counts }),
+  ).toBe(current)
   expect(applyProductEvent(current, { kind: 'reset' })).toBe(current)
 })

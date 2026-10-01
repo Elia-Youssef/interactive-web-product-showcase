@@ -23,7 +23,8 @@ export function expectPoll(page: Page, evaluate: () => unknown) {
 }
 
 // Waits until the page's product is ready, which is the store's word that
-// the model loaded and its rig parsed.
+// the product is on a recorded frame: the stage settle around the mounted,
+// centered and framed product has resolved.
 export async function waitForProductReady(page: Page): Promise<void> {
   await expectPoll(page, () => window.__viewer?.status).toBe('ready')
   await expectPoll(page, () => window.__viewer?.product).toBe('ready')

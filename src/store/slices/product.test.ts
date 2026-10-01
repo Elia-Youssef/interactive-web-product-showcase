@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import type { ProductRigSummary } from '@lib/product'
+import type { ProductModelCounts, ProductRigSummary } from '@lib/product'
 import { createProductSlice, selectProductStatus, type ProductSliceState } from './product'
 
 const summary: ProductRigSummary = {
@@ -9,6 +9,8 @@ const summary: ProductRigSummary = {
   clip: { name: 'Explode', durationSeconds: 2 },
   variants: [],
 }
+
+const counts: ProductModelCounts = { meshes: 4, triangles: 1200 }
 
 // A minimal set wired by hand, so the slice is tested on its own, without
 // the composition around it.
@@ -33,11 +35,12 @@ test('a product life goes load, ready and leaves its summary readable', () => {
   slice.productLoad('sample-one')
   expect(selectProductStatus(read())).toEqual({ kind: 'loading', slug: 'sample-one' })
 
-  slice.productReady('sample-one', summary)
+  slice.productReady('sample-one', summary, counts)
   expect(selectProductStatus(read())).toEqual({
     kind: 'ready',
     slug: 'sample-one',
     rig: summary,
+    model: counts,
   })
 })
 
@@ -58,7 +61,7 @@ test('a reset after a healthy product is idle, and a next load starts fresh', ()
   const { slice, read } = makeSlice()
 
   slice.productLoad('sample-one')
-  slice.productReady('sample-one', summary)
+  slice.productReady('sample-one', summary, counts)
   slice.productReset()
   expect(selectProductStatus(read())).toEqual({ kind: 'idle' })
 

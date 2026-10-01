@@ -1,4 +1,4 @@
-import type { ProductRigSummary } from '@lib/product'
+import type { ProductModelCounts, ProductRigSummary } from '@lib/product'
 import {
   applyProductEvent,
   initialProductStatus,
@@ -14,7 +14,7 @@ export type ProductSliceState = {
 
 export type ProductSlice = ProductSliceState & {
   productLoad: (slug: string) => void
-  productReady: (slug: string, rig: ProductRigSummary) => void
+  productReady: (slug: string, rig: ProductRigSummary, model: ProductModelCounts) => void
   productFailed: (slug: string, reason: string) => void
   productReset: () => void
 }
@@ -31,7 +31,7 @@ export function createProductSlice(set: SetProductState): ProductSlice {
   return {
     productStatus: initialProductStatus,
     productLoad: (slug) => apply({ kind: 'load', slug }),
-    productReady: (slug, rig) => apply({ kind: 'ready', slug, rig }),
+    productReady: (slug, rig, model) => apply({ kind: 'ready', slug, rig, model }),
     productFailed: (slug, reason) => apply({ kind: 'failed', slug, reason }),
     productReset: () => apply({ kind: 'reset' }),
   }
