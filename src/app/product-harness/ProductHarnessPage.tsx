@@ -103,20 +103,7 @@ function HarnessProduct({
   return (
     <>
       <Stage content={content} />
-      {slug === null && (
-        <StageAlert
-          testid="harness-alert"
-          reason="The product harness needs a slug parameter naming a product."
-        />
-      )}
-      {slug !== null && manifest === undefined && (
-        <StageAlert
-          testid="harness-alert"
-          reason={`No product '${slug}': the collection holds ${collection.products
-            .map((product) => product.slug)
-            .join(', ')}.`}
-        />
-      )}
+      <HarnessSlugAlerts slug={slug} manifest={manifest} collection={collection} />
       {manifest !== undefined && (
         <>
           <div className={styles.controls}>
@@ -132,6 +119,37 @@ function HarnessProduct({
             {mounted ? 'Unmount the product' : 'Mount the product'}
           </button>
         </>
+      )}
+    </>
+  )
+}
+
+// The alerts the slug state can raise: the missing slug parameter, and a
+// slug the collection does not hold.
+function HarnessSlugAlerts({
+  slug,
+  manifest,
+  collection,
+}: {
+  readonly slug: string | null
+  readonly manifest: ProductManifest | undefined
+  readonly collection: HarnessCollection['collection']
+}) {
+  return (
+    <>
+      {slug === null && (
+        <StageAlert
+          testid="harness-alert"
+          reason="The product harness needs a slug parameter naming a product."
+        />
+      )}
+      {slug !== null && manifest === undefined && (
+        <StageAlert
+          testid="harness-alert"
+          reason={`No product '${slug}': the collection holds ${collection.products
+            .map((product) => product.slug)
+            .join(', ')}.`}
+        />
       )}
     </>
   )
