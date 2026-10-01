@@ -1,4 +1,4 @@
-import { Suspense, useEffect } from 'react'
+import { Suspense, useEffect, type ReactNode } from 'react'
 import type { Product } from '@lib/product'
 import { useAppStore } from '@store/index'
 import { ProductBoundary } from './ProductBoundary'
@@ -6,6 +6,11 @@ import { ProductContent } from './ProductContent'
 
 type ProductProps = {
   readonly manifest: Product
+  // The features that extend the loaded product (finishes, hotspots, the
+  // exploded view): mounted with it and reading it through
+  // useLoadedProduct, so the composition decides which features a product
+  // has and the product path stays one.
+  readonly children?: ReactNode
 }
 
 // The product in the stage: it reports the product's life to the store
@@ -14,7 +19,7 @@ type ProductProps = {
 // loader yet. Around the content sits the product's own error boundary, so a
 // load failure or a rig that breaks the contract fails the product, never
 // the renderer.
-export function Product({ manifest }: ProductProps) {
+export function Product({ manifest, children }: ProductProps) {
   const slug = manifest.slug
   const productLoad = useAppStore((state) => state.productLoad)
   const productReset = useAppStore((state) => state.productReset)
@@ -27,7 +32,7 @@ export function Product({ manifest }: ProductProps) {
   return (
     <ProductBoundary slug={slug}>
       <Suspense fallback={null}>
-        <ProductContent manifest={manifest} />
+        <ProductContent manifest={manifest}>{children}</ProductContent>
       </Suspense>
     </ProductBoundary>
   )

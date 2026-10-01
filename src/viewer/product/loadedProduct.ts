@@ -1,0 +1,47 @@
+import { createContext, useContext } from 'react'
+import type { Object3D } from 'three'
+import type { Product } from '@lib/product'
+import type { ProductRig } from '../rig/productRig'
+
+// What the glTF loader recorded about one object it built: the index of the
+// glTF mesh, primitive or material the object came from. The loader records
+// the primitive index at runtime for every mesh primitive it builds.
+export type GltfAssociation = {
+  readonly meshes?: number
+  readonly primitives?: number
+  readonly materials?: number
+}
+
+// The surface of the loader's parser a product extension may read, kept
+// structural: Drei's useGLTF hands back its own parser type, which carries
+// this shape at runtime.
+export interface ProductGltfParser {
+  readonly json: unknown
+  readonly associations: ReadonlyMap<object, GltfAssociation>
+  getDependency(type: string, index: number): Promise<unknown>
+}
+
+// One loaded product as the features that extend it read it: the validated
+// manifest, the loaded scene, the rig parsed from it and the parser that
+// built both. The product owns every resource the loader created and
+// releases them with the scene; an extension releases only what it creates
+// itself, and mutates the scene only through the stage settle.
+export type LoadedProduct = {
+  readonly manifest: Product
+  readonly scene: Object3D
+  readonly rig: ProductRig
+  readonly parser: ProductGltfParser
+}
+
+export const LoadedProductContext = createContext<LoadedProduct | null>(null)
+
+// The loaded product around the calling component. An extension rendered
+// anywhere else is a composition error, so it fails loudly instead of
+// rendering against no product.
+export function useLoadedProduct(): LoadedProduct {
+  const loaded = useContext(LoadedProductContext)
+  if (loaded === null) {
+    throw new Error('a product extension renders outside a loaded product')
+  }
+  return loaded
+}
