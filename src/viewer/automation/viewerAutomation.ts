@@ -1,20 +1,28 @@
-import type { ProductRigSummary, ProductModelCounts } from '@lib/product'
+import type { ProductRigSummary } from '@lib/product'
 import type { RendererBackend } from '@lib/renderer/backend'
 import { selectRendererBackend, type ProductStatus, type RendererStatus } from '@store/index'
+import type { ViewerModel } from './viewerAutomation.logic'
+import {
+  productFailureOf,
+  productModelOf,
+  productRigOf,
+  productSlugOf,
+  rendererFailureOf,
+} from './viewerAutomation.logic'
 
 // The test contract of the viewer, installed as window.__viewer in every
 // build. Every field is a getter: the renderer fields are read from the
-// store at access time, the product fields the same way, and the frame
-// field from the stage's frame clock, so the hook holds no copies that can
-// go stale.
+// store at access time, the product fields the same way, the frame field
+// from the stage's frame clock, and the probe fields from the stage's
+// probes, so the hook holds no copies that can go stale.
 
 // The model a stage has presented, exactly as the automation hook reports
-// it. Its source is the store's ready status, which carries the counts
-// measured once at load; a non-null model is a presented product, never one
-// whose render pipelines may still be pending.
-export type ViewerModel = ProductModelCounts & {
-  readonly slug: string
-}
+// it: the slug plus the counts measured once at load, carried by the
+// store's ready status. A non-null model is a presented product, never one
+// whose render pipelines may still be pending. The type lives beside the
+// derivation that produces it and is re-exported here, where the contract
+// reads it.
+export type { ViewerModel } from './viewerAutomation.logic'
 
 // The applied state of the shadow material, read back from the material
 // itself: the opacity the look left on it and the flags its compositing
@@ -69,8 +77,16 @@ export type ViewerCameraAutomation = {
   readonly maxDistance: number
 }
 
-// The live read of the stage camera, or null while there is none.
-export type ViewerCameraSource = () => ViewerCameraAutomation | null
+// The probe keys of the stage and the value each answers with, one entry
+// per automation channel read from inside the canvas. A new channel adds
+// its key here; the automation's probe fields below are this
+// table as a mapped type, so the table and the fields cannot drift apart.
+export type StageProbeReads = {
+  look: ViewerLook
+  camera: ViewerCameraAutomation
+}
+
+export type StageProbeKey = keyof StageProbeReads
 
 // The finish a product on the stage carries, as the variants controller
 // read it from the scene graph after the settle that applied it: the
@@ -117,6 +133,18 @@ function isViewerFinish(value: unknown): value is ViewerFinish {
   )
 }
 
+// The probe-backed fields of the automation: one entry per stage probe key,
+// null while no component holds the key. The mapped type is derived from
+// StageProbeReads, so a key the stage gains appears here and in the
+// automation object below, or the typecheck fails.
+export type ViewerAutomationProbeFields = {
+  readonly [K in StageProbeKey]: StageProbeReads[K] | null
+}
+
+// The stage-owned and store-backed fields, plus the finish the finishes
+// controller publishes to its slot. The finish reads through its current
+// source here; moving it onto a probe key is that key's entry in
+// StageProbeReads, a registration in the controller, and nothing else.
 export type ViewerAutomation = {
   readonly status: RendererStatus['kind']
   readonly backend: RendererBackend | null
@@ -125,9 +153,7 @@ export type ViewerAutomation = {
   readonly ready: boolean
   readonly failure: string | null
   // The product channel: the status kind, the slug it is about, the reason
-  // when it failed, and the plain rig summary once it is ready. The rig
-  // summary was computed once at parse time and rides with the store's
-  // ready status; it is never recomputed per access.
+  // when it failed, and the plain rig summary once it is ready.
   readonly product: ProductStatus['kind']
   readonly productSlug: string | null
   readonly productFailure: string | null
@@ -138,62 +164,57 @@ export type ViewerAutomation = {
   readonly toneMapping: number | null
   // The product the stage has presented, or null while there is none.
   readonly model: ViewerModel | null
-  // The applied look of the stage, or null while no product has applied one.
-  readonly look: ViewerLook | null
-  // The live stage camera, or null while there is none.
-  readonly camera: ViewerCameraAutomation | null
   // The finish the presented product carries, or null while nothing is
   // applied.
   readonly finish: ViewerFinish | null
-}
+} & ViewerAutomationProbeFields
 
 export type ViewerAutomationSources = {
+  // The stage's probes, read at access time; the structural read is all
+  // the automation needs of the probes object.
+  readonly probes: {
+    readonly read: <K extends StageProbeKey>(key: K) => StageProbeReads[K] | null
+  }
   // The renderer status exactly as the store holds it right now.
   readonly getStatus: () => RendererStatus
   // The product status exactly as the store holds it right now.
   readonly getProductStatus: () => ProductStatus
   readonly renderedFrames: () => number
   readonly getToneMapping: () => number | null
-  // The applied look exactly as the renderer, the scene and the shadow
-  // material hold it right now.
-  readonly getLook: () => ViewerLook | null
-  // The live stage camera read, from the camera and the controls.
-  readonly getCamera: ViewerCameraSource
   // The applied finish exactly as the scene graph carries it right now.
   readonly getFinish: () => ViewerFinish | null
 }
 
 export function createViewerAutomation(sources: ViewerAutomationSources): ViewerAutomation {
-  const currentStatus = () => sources.getStatus()
-  const currentProduct = () => sources.getProductStatus()
+  const rendererStatus = () => sources.getStatus()
+  const productStatus = () => sources.getProductStatus()
   return Object.freeze({
     get status(): RendererStatus['kind'] {
-      return currentStatus().kind
+      return rendererStatus().kind
     },
     get backend(): RendererBackend | null {
-      return selectRendererBackend({ rendererStatus: currentStatus() })
+      return selectRendererBackend({ rendererStatus: rendererStatus() })
     },
     get ready(): boolean {
-      return currentStatus().kind === 'ready'
+      return rendererStatus().kind === 'ready'
     },
     get failure(): string | null {
-      const status = currentStatus()
-      return status.kind === 'failed' ? status.reason : null
+      return rendererFailureOf(rendererStatus())
     },
     get product(): ProductStatus['kind'] {
-      return currentProduct().kind
+      return productStatus().kind
     },
     get productSlug(): string | null {
-      const status = currentProduct()
-      return status.kind === 'idle' ? null : status.slug
+      return productSlugOf(productStatus())
     },
     get productFailure(): string | null {
-      const status = currentProduct()
-      return status.kind === 'failed' ? status.reason : null
+      return productFailureOf(productStatus())
     },
     get rig(): ProductRigSummary | null {
-      const status = currentProduct()
-      return status.kind === 'ready' ? status.rig : null
+      return productRigOf(productStatus())
+    },
+    get model(): ViewerModel | null {
+      return productModelOf(productStatus())
     },
     get renderedFrames(): number {
       return sources.renderedFrames()
@@ -201,17 +222,15 @@ export function createViewerAutomation(sources: ViewerAutomationSources): Viewer
     get toneMapping(): number | null {
       return sources.getToneMapping()
     },
+    // The probe-backed fields, one getter per key of StageProbeReads, each
+    // read live through the stage's probes. The type above is the mapped
+    // StageProbeReads, so the typecheck holds this object to the table: a
+    // key without a getter, or a getter without a key, fails the compile.
     get look(): ViewerLook | null {
-      return sources.getLook()
-    },
-    get model(): ViewerModel | null {
-      const status = currentProduct()
-      return status.kind === 'ready'
-        ? { slug: status.slug, meshes: status.model.meshes, triangles: status.model.triangles }
-        : null
+      return sources.probes.read('look')
     },
     get camera(): ViewerCameraAutomation | null {
-      return sources.getCamera()
+      return sources.probes.read('camera')
     },
     get finish(): ViewerFinish | null {
       return sources.getFinish()

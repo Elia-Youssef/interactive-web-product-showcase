@@ -2,21 +2,12 @@ import { expect, test } from './fixtures'
 import type { Locator, Page } from '@playwright/test'
 import { siteCopy } from '../../src/lib/copy/site'
 import { stageCameraConfig } from '../../src/viewer/camera/config'
+import { zoomReadoutText } from '../../src/features/stage-controls/stage-controls.logic'
 import { loadCollection } from './productList'
 import { readProductCameraFacts } from './productCamera'
 import { settledFrames, settledStage } from './stageSettle'
-import {
-  canvasCenter,
-  dragOnCanvas,
-  readCamera,
-  REST_THRESHOLD,
-  waitForProductReady,
-} from './stageCamera'
-// The full matrix runs six browsers against one GPU, and the heaviest wait
-// in every test here is the busy-matrix ready wait, so each test carries a
-// budget above the sum of its waits on the slowest backend.
-test.setTimeout(90_000)
-
+import { waitForProductReady } from './productSpecs'
+import { canvasCenter, dragOnCanvas, readCamera, REST_THRESHOLD } from './stageCamera'
 // The collection's first product, and its authored camera facts read from
 // the shipped `.glb`.
 const first = (await loadCollection()).first
@@ -213,18 +204,27 @@ test('the zoom buttons move the percentage by one step and clamp at 0 and 100', 
   test.slow()
   await readyStage(page, backendPath)
   const readout = page.locator('[data-corner="bottom-right"]')
+  // The percentages the readout steps through: the home percentage of the
+  // ratio limits, moved by one config step per press, clamped to the
+  // percent scale at both ends.
+  const step = stageCameraConfig.zoomStepPercent
+  const homePercent =
+    (100 * (stageCameraConfig.maxHomeDistanceRatio - 1)) /
+    (stageCameraConfig.maxHomeDistanceRatio - stageCameraConfig.minHomeDistanceRatio)
 
-  await expect(readout).toContainText('75%')
+  const expectReadout = (percent: number) => expect(readout).toContainText(zoomReadoutText(percent))
+
+  await expectReadout(homePercent)
   await zoomIn(page).click()
-  await expect(readout).toContainText('85%')
+  await expectReadout(homePercent + step)
   await zoomIn(page).click()
-  await expect(readout).toContainText('95%')
+  await expectReadout(homePercent + 2 * step)
   // The step clamps at 100: one more press holds the limit.
   await zoomIn(page).click()
-  await expect(readout).toContainText('100%')
+  await expectReadout(100)
   await zoomIn(page).click()
   await settledFrames(page)
-  await expect(readout).toContainText('100%')
+  await expectReadout(100)
   const fullest = await readCamera(page)
   if (fullest === null) {
     throw new Error('the live stage camera must be readable')
@@ -233,14 +233,14 @@ test('the zoom buttons move the percentage by one step and clamp at 0 and 100', 
 
   // Back down through the same steps to the other clamp.
   await zoomOut(page).click()
-  await expect(readout).toContainText('90%')
+  await expectReadout(100 - step)
   for (let press = 0; press < 10; press += 1) {
     await zoomOut(page).click()
   }
-  await expect(readout).toContainText('0%')
+  await expectReadout(0)
   await zoomOut(page).click()
   await settledFrames(page)
-  await expect(readout).toContainText('0%')
+  await expectReadout(0)
   const emptiest = await readCamera(page)
   if (emptiest === null) {
     throw new Error('the live stage camera must be readable')

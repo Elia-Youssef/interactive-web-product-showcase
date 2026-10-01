@@ -7,7 +7,6 @@ import { StageAlert } from './StageAlert'
 import { RendererErrorBoundary } from './RendererErrorBoundary'
 import { RendererRig } from './RendererRig'
 import { StageCamera } from './camera/StageCamera'
-import type { CameraSourceSlot } from './camera/cameraSource'
 import { ProductDecoderProvider } from './product/DecoderProvider'
 import { StageEnvironment } from './StageEnvironment'
 import { initFailureReason } from '@lib/renderer/initFailure'
@@ -22,9 +21,6 @@ type StageCanvasProps = {
   readonly onFirstFrame: () => void
   // Reports a renderer that could not start on either backend.
   readonly onInitError: (error: Error) => void
-  // The slot the stage camera registers its live read into, for the
-  // automation hook.
-  readonly cameraSlot: CameraSourceSlot
   // The scene content the stage shows: mounted after the rig and the frame
   // observer, under one null-fallback Suspense boundary and the decoder
   // provider, so an async load never crosses the canvas and every loader
@@ -41,7 +37,6 @@ export function StageCanvas({
   stageRenderer,
   onFirstFrame,
   onInitError,
-  cameraSlot,
   content,
 }: StageCanvasProps) {
   return (
@@ -52,7 +47,7 @@ export function StageCanvas({
       <Canvas gl={stageRenderer.factory} frameloop={stageConfig.frameloop} dpr={stageConfig.dpr}>
         <RendererRig />
         <FrameObserver clock={clock} onFirstFrame={onFirstFrame} />
-        <StageCamera cameraSlot={cameraSlot}>
+        <StageCamera>
           <Suspense fallback={null}>
             <StageEnvironment />
             <ProductDecoderProvider>{content}</ProductDecoderProvider>

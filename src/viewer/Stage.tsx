@@ -5,7 +5,6 @@ import { useAppStore, selectProductStatus } from '@store/index'
 import { StageProbes } from './automation/StageProbes'
 import { AutomationBridge } from './automation/AutomationBridge'
 import { StageProbesContext } from './automation/stageProbesContext'
-import { createCameraSourceSlot } from './camera/cameraSource'
 import { FrameClock } from './FrameClock'
 import { StageSettle } from './StageSettle'
 import { StageHoldsContext } from './stageHoldsContext'
@@ -46,9 +45,6 @@ export function Stage({ content }: StageProps = {}) {
   // in-canvas components that own live objects register their readers here,
   // and the automation bridge reads them at access time.
   const [probes] = useState(() => new StageProbes())
-  // The slot the stage camera registers its live read into, for the
-  // automation hook. One per stage, like the clock and the settle.
-  const [cameraSlot] = useState(createCameraSourceSlot)
   const [request] = useState(backendRequestFromLocation)
   const productStatus = useAppStore(selectProductStatus)
   const { stageRenderer, handleFirstFrame, handleInitError, getToneMapping } =
@@ -63,7 +59,6 @@ export function Stage({ content }: StageProps = {}) {
         stageRenderer={stageRenderer}
         onFirstFrame={handleFirstFrame}
         onInitError={handleInitError}
-        cameraSlot={cameraSlot}
         content={content}
       />
     )
@@ -73,12 +68,7 @@ export function Stage({ content }: StageProps = {}) {
       <StageSettleContext.Provider value={settle}>
         <StageProbesContext.Provider value={probes}>
           <StageHoldsContext.Provider value={holds}>
-            <AutomationBridge
-              clock={clock}
-              probes={probes}
-              getToneMapping={getToneMapping}
-              getCamera={() => cameraSlot.read()}
-            />
+            <AutomationBridge clock={clock} probes={probes} getToneMapping={getToneMapping} />
             {canvas}
             {productStatus.kind === 'failed' && (
               <StageAlert

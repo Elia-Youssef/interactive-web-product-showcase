@@ -1,5 +1,6 @@
 import { lookDefaults } from '../../src/viewer/look/config'
 import { expect, test } from './fixtures'
+import { testBudgetMs } from './budgets'
 import { expectPoll, harnessProducts } from './productSpecs'
 import { lookHarnessPath } from './lookHarness'
 import type { Product } from '../../src/lib/product'
@@ -31,7 +32,9 @@ const look = {
 }
 
 test('the look leaves with the product and reapplies on remount', async ({ page, backendPath }) => {
-  test.setTimeout(120_000)
+  // The first load and the remount's fresh load: the budget module's
+  // derivation for that count.
+  test.setTimeout(testBudgetMs({ productLoads: 2 }))
   await page.goto(lookHarnessPath(backendPath, first.slug, look))
   await expectPoll(page, () => window.__viewer?.product).toBe('ready')
   await expectPoll(page, () => {

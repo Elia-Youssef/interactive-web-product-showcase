@@ -1,14 +1,10 @@
 import { expect, test } from './fixtures'
 import { loadCollection } from './productList'
 import { readProductCameraFacts } from './productCamera'
-import { waitForProductReady } from './stageCamera'
+import { waitForProductReady } from './productSpecs'
 import { settledFrames, settledStage } from './stageSettle'
+import { stageCameraConfig } from '../../src/viewer/camera/config'
 import { containedScale, readCamera, REST_THRESHOLD, stageAspectOfCanvas } from './stageCamera'
-// The full matrix runs six browsers against one GPU, and the heaviest wait
-// in every test here is the busy-matrix ready wait, so each test carries a
-// budget above the sum of its waits on the slowest backend.
-test.setTimeout(90_000)
-
 // The collection's first product, and its authored camera facts read from
 // the shipped `.glb`.
 const first = (await loadCollection()).first
@@ -72,14 +68,23 @@ test('a resize across the tablet breakpoint keeps the zoom percentage and the az
   ).toBeLessThanOrEqual(REST_THRESHOLD * percentRange)
 
   // The limits rescaled by the aspect rule, from the same authored values
-  // this spec computes. The aspect in the rule comes from the canvas box,
-  // read twice: once by the renderer, once by this spec, whose fractional
-  // pixel rounding can differ, hence the precision.
+  // and the config ratios this spec imports. The aspect in the rule comes
+  // from the canvas box, read twice: once by the renderer, once by this
+  // spec, whose fractional pixel rounding can differ, hence the precision.
   const desktopScale = containedScale(facts.home.aspect, desktopAspect)
   const tabletScale = containedScale(facts.home.aspect, tabletAspect)
-  expect(tablet.minDistance).toBeCloseTo(facts.home.distance * 0.5 * tabletScale, 6)
-  expect(tablet.maxDistance).toBeCloseTo(facts.home.distance * 2.5 * tabletScale, 6)
-  expect(desktop.minDistance).toBeCloseTo(facts.home.distance * 0.5 * desktopScale, 6)
+  expect(tablet.minDistance).toBeCloseTo(
+    facts.home.distance * stageCameraConfig.minHomeDistanceRatio * tabletScale,
+    6,
+  )
+  expect(tablet.maxDistance).toBeCloseTo(
+    facts.home.distance * stageCameraConfig.maxHomeDistanceRatio * tabletScale,
+    6,
+  )
+  expect(desktop.minDistance).toBeCloseTo(
+    facts.home.distance * stageCameraConfig.minHomeDistanceRatio * desktopScale,
+    6,
+  )
 
   // The stage is at rest after the resize.
   expect(await settledFrames(page)).toBeGreaterThan(0)

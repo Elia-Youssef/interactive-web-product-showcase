@@ -1,11 +1,10 @@
 import { useEffect } from 'react'
 import type { CameraControlsImpl } from '@react-three/drei'
 import type { RefObject } from 'react'
-import { orbitAnglesOf } from '@lib/camera/view'
 import { distanceOfZoomPercent, zoomPercentOfDistance } from '@lib/camera/zoom'
 import type { DistanceRange } from '@lib/camera/limits'
 import type { CameraPlan } from './productPlan'
-import { readControlsEndState, scaledRangeOf } from './controls'
+import { readControlsEndOrbit, scaledRangeOf } from './controls'
 
 // The resize of the presented view: the distances rescale by the aspect
 // rule and the zoom percentage and both angles stay. The move is instant:
@@ -28,11 +27,7 @@ export function useCameraResize(
     if (plan === null || appliedRange === null) {
       return
     }
-    const end = readControlsEndState(controls)
-    const percent = zoomPercentOfDistance(
-      orbitAnglesOf(end.position, end.target).distance,
-      appliedRange,
-    )
+    const percent = zoomPercentOfDistance(readControlsEndOrbit(controls).distance, appliedRange)
     const range = scaledRangeOf(plan, size.width / size.height)
     controls.minDistance = range.min
     controls.maxDistance = range.max

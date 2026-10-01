@@ -46,7 +46,10 @@ export function ProductLook() {
     assertStageScene(scene)
 
     const shadowMaterial = shadowMaterialOf(loaded.rig.shadow)
-    probes.register('look', createLookReader(gl, scene, shadowMaterial, loaded.scene))
+    const releaseProbe = probes.register(
+      'look',
+      createLookReader(gl, scene, shadowMaterial, loaded.scene),
+    )
 
     // Exposure scales the whole frame's tone mapping; the environment
     // intensity and rotation feed the image based lighting of the lit
@@ -83,8 +86,9 @@ export function ProductLook() {
       // shadow material's opacity back to what the loader authored: a
       // restore of values, not a release of resources. The shadow material
       // belongs to the product's scene and goes with it; nothing here
-      // disposes.
-      probes.unregister('look')
+      // disposes. The probe release is this registration's own, so a stale
+      // cleanup cannot drop a reader a later effect run installed.
+      releaseProbe()
       gl.toneMappingExposure = lookDefaults.exposure
       scene.environmentIntensity = lookDefaults.environmentIntensity
       scene.environmentRotation.set(0, MathUtils.degToRad(lookDefaults.environmentRotationDeg), 0)

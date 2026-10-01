@@ -1,47 +1,52 @@
-import type { ViewerLook } from './viewerAutomation'
+import type { StageProbeKey, StageProbeReads } from './viewerAutomation'
 
 // The per-stage probes of the automation hook: one reader per key, held for
 // the lifetime of the component that registered it. An in-canvas component
-// that owns live objects (the product look, the camera or the finish state)
-// registers a reader under its key, and the automation hook reads the value
-// at access time, so the hook always reports the live object and never a
-// copy. The stage creates one instance per mount, like its settle and holds;
-// there is no module state and nothing to reset, because a new stage has new
-// probes.
+// that owns live objects (the product look, the stage camera) registers a
+// reader under its key, and the automation hook reads the value at access
+// time, so the hook always reports the live object and never a copy. The
+// stage creates one instance per mount, like its settle and holds; there is
+// no module state and nothing to reset, because a new stage has new probes.
 
-// The probe keys of the stage, one entry per automation channel a component
-// can expose. A new channel adds its key here, so a misspelled
-// key fails the typecheck and a read of an unregistered one returns null.
-export type StageProbeReads = {
-  look: ViewerLook
-}
-
-type StageProbeKey = keyof StageProbeReads
+// Releases one registration. Fails loudly when the calling registration is
+// no longer the key's holder, so a stale cleanup can never drop a reader a
+// later registration installed.
+export type StageProbeRelease = () => void
 
 type ProbeReader<K extends StageProbeKey> = {
-  read: () => StageProbeReads[K]
+  readonly read: () => StageProbeReads[K]
 }
 
 type ProbeReaders = { [K in StageProbeKey]: ProbeReader<K> | null }
 
 export class StageProbes {
-  private readonly readers: ProbeReaders = { look: null }
+  // One slot per probe key. The annotation is the completeness check: a key
+  // StageProbeReads gains without a slot here fails the typecheck. The
+  // record is replaced whole on each registration, never mutated in place,
+  // so a release can compare its reader against the current slot.
+  private readers: ProbeReaders = { look: null, camera: null }
 
   // Holds a reader for the key, for as long as the calling component's
-  // effects are live. A key is held by one component at a time: a second
-  // registration while one is held is a composition error and fails loudly,
-  // like a second owner of window.__viewer.
-  register<K extends StageProbeKey>(key: K, read: () => StageProbeReads[K]): void {
+  // effects are live, and returns the release of this one registration. A
+  // key is held by one component at a time: a second registration while one
+  // is held is a composition error and fails loudly, like a second owner of
+  // window.__viewer.
+  register<K extends StageProbeKey>(key: K, read: () => StageProbeReads[K]): StageProbeRelease {
     if (this.readers[key] !== null) {
       throw new Error(`the stage probe '${String(key)}' is already held`)
     }
-    const next: ProbeReaders[K] = { read }
-    this.readers[key] = next
-  }
-
-  // Drops the reader when the registering component's effect cleanup runs.
-  unregister(key: StageProbeKey): void {
-    this.readers[key] = null
+    const reader: ProbeReader<K> = { read }
+    // The registration lands as a fresh slots record, so the generic key
+    // and its reader travel together and the typecheck holds the pairing.
+    this.readers = { ...this.readers, [key]: reader }
+    return () => {
+      if (this.readers[key] !== reader) {
+        throw new Error(
+          `the release of the stage probe '${String(key)}' is stale: its registration no longer holds the key`,
+        )
+      }
+      this.readers = { ...this.readers, [key]: null }
+    }
   }
 
   // The probed value, read now, or null while no component holds the key.

@@ -1,5 +1,9 @@
 import { issuesFromZod } from '@lib/validation'
-import { productLookSchema, type ProductLookBlock } from '@lib/product'
+import {
+  productLookSchema,
+  type Product as ProductManifest,
+  type ProductLookBlock,
+} from '@lib/product'
 
 // What the look query parameter parses into: absent means the manifest's own
 // look block stands, a valid block overrides it, and an invalid parameter is
@@ -35,4 +39,18 @@ export function harnessLook(query: string): HarnessLook {
       .map((issue) => `${issue.path}: ${issue.message}`)
       .join('; ')}`,
   }
+}
+
+// The manifest the page hands the product: the collection's own, or the
+// look parameter's block riding on it, so the product path reads one look
+// source, its manifest. Undefined stays undefined, for the page's no-slug
+// state; undefined is never asked for an override.
+export function withLookOverride(
+  manifest: ProductManifest | undefined,
+  lookOverride: ProductLookBlock | null,
+): ProductManifest | undefined {
+  if (manifest === undefined) {
+    return undefined
+  }
+  return lookOverride === null ? manifest : { ...manifest, look: lookOverride }
 }

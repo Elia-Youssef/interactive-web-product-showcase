@@ -3,6 +3,7 @@ import { extensionGlob, sourceExtensions, specFileMarker } from './tooling/exten
 import { e2eBaseURL, e2eServer } from './tooling/devHost.ts'
 import { gateProofProject, matrixAssignments } from './tests/e2e/matrix.ts'
 import type { MatrixAssignment } from './tests/e2e/matrix.ts'
+import { testBudgetMs } from './tests/e2e/budgets.ts'
 import { resolveDevPort } from './tooling/devPort.ts'
 
 const port = resolveDevPort(process.env)
@@ -39,6 +40,10 @@ const E2E_WORKERS = 6
 export default defineConfig({
   testDir: './tests/e2e',
   testMatch: SPEC_GLOB,
+  // The per-test timeout derives from the suite's budget module: a
+  // single-load test's budget, which is what a test that needs more must
+  // derive its own limit against (tests/e2e/budgets.ts).
+  timeout: testBudgetMs({ productLoads: 1 }),
   // The browser matrix runs fully parallel within the worker cap. Only the
   // gate proofs pin the spec file load order, and their project alone drops
   // back to one worker.

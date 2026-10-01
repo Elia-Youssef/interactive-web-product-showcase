@@ -1,5 +1,6 @@
-import { expect, type Page } from '@playwright/test'
+import type { Page } from '@playwright/test'
 import type { ProductCameraFacts } from './productCamera'
+import { stageCameraConfig } from '../../src/viewer/camera/config'
 
 // The stage camera's expectations, computed in the test from the authored
 // facts: the aspect rule, the orbit position of the home view at one stage
@@ -7,21 +8,6 @@ import type { ProductCameraFacts } from './productCamera'
 // module restates the two design rules it checks (the aspect rule and the
 // spherical convention) instead of importing the viewer's math, so a viewer
 // regression cannot hide behind its own helpers.
-
-// The camera specs' ready wait, with the busy-matrix budget: the full
-// matrix runs six browsers against one GPU, and on the software-rendered
-// WebKit the product load alone can pass the five second default these
-// polls otherwise carry. The wait is the same contract as the shared
-// product ready helper, with the explicit budget the load waits of the
-// pixel specs use.
-export async function waitForProductReady(page: Page): Promise<void> {
-  await expect
-    .poll(() => page.evaluate(() => window.__viewer?.status), { timeout: 30_000 })
-    .toBe('ready')
-  await expect
-    .poll(() => page.evaluate(() => window.__viewer?.product), { timeout: 30_000 })
-    .toBe('ready')
-}
 
 export type CameraRead = {
   readonly position: { readonly x: number; readonly y: number; readonly z: number }
@@ -69,7 +55,10 @@ export function positionOfOrbit(
   }
 }
 
-// The home expectation of one product at one stage aspect.
+// The home expectation of one product at one stage aspect. The distance
+// limits are the camera config's ratios of the authored home distance,
+// scaled by the aspect rule; the zoom percentage is the same linear map
+// the readout applies, at the distance the home view keeps.
 export function homeExpectation(facts: ProductCameraFacts, stageAspect: number) {
   const scale = containedScale(facts.home.aspect, stageAspect)
   const distance = facts.home.distance * scale
@@ -78,13 +67,16 @@ export function homeExpectation(facts: ProductCameraFacts, stageAspect: number) 
     y: facts.home.target[1],
     z: facts.home.target[2],
   }
+  const minDistance = facts.home.distance * stageCameraConfig.minHomeDistanceRatio * scale
+  const maxDistance = facts.home.distance * stageCameraConfig.maxHomeDistanceRatio * scale
   return {
     position: positionOfOrbit(facts.home.azimuthDegrees, facts.home.polarDegrees, distance, target),
     target,
     fovY: facts.home.fovY,
     distance,
-    minDistance: facts.home.distance * 0.5 * scale,
-    maxDistance: facts.home.distance * 2.5 * scale,
+    minDistance,
+    maxDistance,
+    zoomPercent: ((maxDistance - distance) / (maxDistance - minDistance)) * 100,
   }
 }
 

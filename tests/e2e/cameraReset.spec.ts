@@ -1,9 +1,10 @@
 import { expect, test } from './fixtures'
 import type { Locator, Page } from '@playwright/test'
 import { siteCopy } from '../../src/lib/copy/site'
+import { zoomReadoutText } from '../../src/features/stage-controls/stage-controls.logic'
 import { loadCollection } from './productList'
 import { readProductCameraFacts } from './productCamera'
-import { waitForProductReady } from './stageCamera'
+import { waitForProductReady } from './productSpecs'
 import { settledFrames, settledStage } from './stageSettle'
 import {
   canvasCenter,
@@ -13,11 +14,6 @@ import {
   REST_THRESHOLD,
   stageAspectOfCanvas,
 } from './stageCamera'
-// The full matrix runs six browsers against one GPU, and the heaviest wait
-// in every test here is the busy-matrix ready wait, so each test carries a
-// budget above the sum of its waits on the slowest backend.
-test.setTimeout(90_000)
-
 // Reset and the chrome's controls contract: the eased return to the home
 // view, its instant form under reduced motion, and the phone's control set.
 // The interaction contract itself (drag, wheel, clamps, buttons) lives in
@@ -75,7 +71,9 @@ test('Reset eases back to the home view and the readouts show home', async ({
   expect(home.polar).toBeCloseTo((facts.home.polarDegrees * Math.PI) / 180, 2)
   expect(Math.abs(home.distance - expected.distance)).toBeLessThanOrEqual(REST_THRESHOLD)
   await expect(page.locator('[data-corner="top-right"]')).toHaveText('325 / 360')
-  await expect(page.locator('[data-corner="bottom-right"]')).toContainText('75%')
+  await expect(page.locator('[data-corner="bottom-right"]')).toContainText(
+    zoomReadoutText(expected.zoomPercent),
+  )
 })
 
 test('under reduced motion, Reset lands home on the next rendered frame', async ({

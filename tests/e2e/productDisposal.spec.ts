@@ -1,4 +1,5 @@
 import { expect, test } from './fixtures'
+import { testBudgetMs } from './budgets'
 import {
   expectPoll,
   harnessPath,
@@ -22,7 +23,9 @@ for (const product of products) {
     page,
     backendPath,
   }) => {
-    test.setTimeout(240_000)
+    // The first presentation plus three remount loads, and the memory
+    // settles between them: the budget module's derivation for that count.
+    test.setTimeout(testBudgetMs({ productLoads: 4 }))
     await page.goto(harnessPath(backendPath, product.slug))
 
     await waitForStageWarm(page)

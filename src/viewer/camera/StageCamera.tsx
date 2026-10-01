@@ -4,7 +4,6 @@ import { CameraControls, type CameraControlsImpl } from '@react-three/drei'
 import { PerspectiveCamera } from 'three'
 import type { DistanceRange } from '@lib/camera/limits'
 import { useAppStoreApi } from '@store/index'
-import type { CameraSourceSlot } from './cameraSource'
 import type { CameraPlan } from './productPlan'
 import { StageCameraContext, type StageCameraApi } from './StageCameraContext'
 import {
@@ -24,8 +23,6 @@ type StageCameraProps = {
   // The scene content the camera presents, which reaches the camera API
   // through the context below.
   readonly children?: ReactNode
-  // The slot the stage holds for the automation's live camera read.
-  readonly cameraSlot: CameraSourceSlot
 }
 
 // The stage camera: drei's CameraControls is the one owner of the stage
@@ -35,7 +32,7 @@ type StageCameraProps = {
 // the store, keeps the view through a resize, and reads itself into the
 // stage's automation slot. The wiring lives in the hooks beside this file;
 // the component only mounts the controls and hands the API out.
-export function StageCamera({ children, cameraSlot }: StageCameraProps) {
+export function StageCamera({ children }: StageCameraProps) {
   const [controls, setControls] = useState<CameraControlsImpl | null>(null)
   const camera = useThree((state) => state.camera)
   const size = useThree((state) => state.size)
@@ -45,16 +42,6 @@ export function StageCamera({ children, cameraSlot }: StageCameraProps) {
   const planRef = useRef<CameraPlan | null>(null)
   const appliedRangeRef = useRef<DistanceRange | null>(null)
   const stageAspect = useStageAspect()
-
-  useCameraControlsConfig(controls)
-  useCameraReadoutPublish(controls, store)
-  useCameraRequests(controls, camera, store, planRef, stageAspect, invalidate)
-  useCameraResize(controls, size, planRef, appliedRangeRef, invalidate)
-  useCameraAutomationSource(
-    controls,
-    camera instanceof PerspectiveCamera ? camera : null,
-    cameraSlot,
-  )
 
   const state = useMemo<StageCameraState>(
     () => ({
@@ -67,6 +54,12 @@ export function StageCamera({ children, cameraSlot }: StageCameraProps) {
     }),
     [controls, camera, stageAspect, invalidate],
   )
+
+  useCameraControlsConfig(controls)
+  useCameraReadoutPublish(controls, store)
+  useCameraRequests(controls, store, state)
+  useCameraResize(controls, size, planRef, appliedRangeRef, invalidate)
+  useCameraAutomationSource(controls, camera instanceof PerspectiveCamera ? camera : null)
   const api = useMemo<StageCameraApi>(
     () => ({
       present: (plan, viewId) => presentPlan(state, plan, viewId),
