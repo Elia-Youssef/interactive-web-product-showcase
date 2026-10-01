@@ -82,9 +82,9 @@ test(`clicking each swatch of ${product.slug} applies exactly that finish's mate
 // Headless Firefox and WebKit hold the previous present of an idle
 // on-demand canvas in their visible and captured output (the compositor
 // video and the empty-after-resize captures are the evidence), so no
-// capture there carries the applied finish reliably.
-// The direction proof runs where the capture is truthful, a declared
-// engine capability like the matrix's backend expectations.
+// capture there carries the applied finish reliably. The direction proof
+// runs where the capture is truthful, a declared engine capability like
+// the matrix's backend expectations.
 test('the finish change repaints the model in the manifest direction, past the noise of its own run', async ({
   page,
   browserName,
@@ -106,10 +106,11 @@ test('the finish change repaints the model in the manifest direction, past the n
 
   // Three captures: two back-to-back at the default finish, one after
   // switching to the other. The first two are this run's noise reference:
-  // same state, same run, so any differing pixel is capture jitter. When
-  // the switch pair differs, it holds both finishes - a capture that lags
-  // the state reads the default and pairs up identical, which this proof
-  // reports as unverifiable instead of guessing a direction.
+  // same state, same run, so any differing pixel is capture jitter, and a
+  // jittery run proves no direction. The switch pair must differ: a capture
+  // that lags the state reads the default and pairs up identical, which
+  // means the switch never reached the pixels, so it fails instead of
+  // passing a finish that did not paint.
   await settledFrames(page)
   // The dev HUD shows live timings, so it is masked: the captures pin the
   // stage, not a measurement.
@@ -129,15 +130,15 @@ test('the finish change repaints the model in the manifest direction, past the n
     throw new Error('the stage slot must have a bounding box')
   }
   const noise = await measureFinishChange(page, atDefault, atDefaultAgain, stageBox)
-  test.skip(
-    noise.changedPixels > 0,
-    'the captures jitter at the same state, so no pixel count is trustworthy',
-  )
+  expect(
+    noise.changedPixels,
+    'the captures jitter at the same state, so no pixel count of this run can prove a direction',
+  ).toBe(0)
   const change = await measureFinishChange(page, atDefault, atOther, stageBox)
-  test.skip(
-    change.changedPixels === 0,
-    'the capture holds the previous present, so the applied finish is not in it',
-  )
+  expect(
+    change.changedPixels,
+    'the capture after the switch holds the previous present, so the applied finish never reached the pixels',
+  ).toBeGreaterThan(0)
   // The repaint is measured against this run's own noise pair, not against
   // a tuned count: the switch must change strictly more than the
   // same-finish pair, which is pixel-exact.
