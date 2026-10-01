@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { selectProductStatus, selectRendererStatus, useAppStoreApi } from '@store/index'
 import type { FrameClock } from '../FrameClock'
-import { createViewerAutomation } from './viewerAutomation'
+import { createViewerAutomation, readViewerFinish } from './viewerAutomation'
 
 type AutomationBridgeProps = {
   readonly clock: FrameClock
@@ -28,6 +28,7 @@ export function AutomationBridge({ clock, getToneMapping }: AutomationBridgeProp
       getProductStatus: () => selectProductStatus(store.getState()),
       renderedFrames: () => clock.renderedFrames,
       getToneMapping,
+      getFinish: readViewerFinish,
     })
     window.__viewer = automation
     return () => {
