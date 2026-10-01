@@ -5,7 +5,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 import { runGit } from './gitCommand.ts'
-import { formatPointerFindings, scanOwnedFilesForPointers } from './pointerGate.ts'
+import { basisVendoredPrefix } from '../scripts/basisAssets.ts'
+import { formatPointerFindings, scanGatedFilesForPointers } from './pointerGate.ts'
 import { findPointerFindings } from './pointerRules.ts'
 import type { PointerFinding } from './pointerRules.ts'
 import { allPointerRows, plantedPath, taskIdNeedle } from './pointerRows.ts'
@@ -32,7 +33,7 @@ describe('the pointer rules', () => {
 
 describe('the pointer gate over the real repo', () => {
   test('every owned file passes', () => {
-    expect(scanOwnedFilesForPointers(repoRoot)).toEqual([])
+    expect(scanGatedFilesForPointers(repoRoot)).toEqual([])
   })
 })
 
@@ -62,14 +63,16 @@ describe('the scan of the owned files', () => {
       join(repoRoot, 'planted.bin'),
       Buffer.concat([Buffer.alloc(1, 0), Buffer.from(needleText, 'utf8')]),
     )
+    mkdirSync(join(repoRoot, basisVendoredPrefix), { recursive: true })
+    writeFileSync(join(repoRoot, basisVendoredPrefix, 'planted.js'), needleText)
   }, 30_000)
 
   afterAll(() => {
     rmSync(repoRoot, { recursive: true, force: true })
   })
 
-  test('a pointer is found in a text file and skipped in a binary one', () => {
-    const findings = scanOwnedFilesForPointers(repoRoot)
+  test('a pointer is found in an authored text file and skipped in binary and vendored ones', () => {
+    const findings = scanGatedFilesForPointers(repoRoot)
     expect(findings).toHaveLength(1)
     expect(findings[0]?.path).toEqual('planted.txt')
     expect(findings[0]?.line).toEqual(1)

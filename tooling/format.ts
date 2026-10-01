@@ -1,18 +1,15 @@
-// The format gate. It checks or rewrites every owned formattable file through
+// The format gate. It checks or rewrites every gated formattable file through
 // the Prettier Node API over the same git-backed list the lint gate uses.
 // Options come from .prettierrc.json alone; there is no second ignore list.
 import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { check as checkFormat, format as formatSource, resolveConfig } from 'prettier'
 import { formatExtensions, hasExtension } from './extensions.ts'
-import { listOwnedFiles } from './ownedFiles.ts'
-import { notVendored } from './vendoredFiles.ts'
+import { listGatedFiles } from './gatedFiles.ts'
 
 const root = resolve(import.meta.dirname, '..')
 const mode = process.argv[2] === '--write' ? 'write' : 'check'
-const files = listOwnedFiles(root)
-  .filter(notVendored)
-  .filter((file) => hasExtension(file, formatExtensions))
+const files = listGatedFiles(root).filter((file) => hasExtension(file, formatExtensions))
 
 let unformatted = 0
 for (const file of files) {

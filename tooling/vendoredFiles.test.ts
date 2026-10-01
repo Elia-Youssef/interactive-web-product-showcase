@@ -7,7 +7,7 @@ import {
   basisTargetDir,
   basisVendoredPrefix,
 } from '../scripts/basisAssets.ts'
-import { isVendoredFile, notVendored, vendoredFilePaths } from './vendoredFiles.ts'
+import { isVendoredFile, vendoredFilePaths } from './vendoredFiles.ts'
 
 test('the transcoder location is spelled once and derived everywhere else', () => {
   // The contract value: the transcoder lives under /basis/, served from
@@ -30,7 +30,7 @@ test('the vendored transcoder copies are excluded, whatever their extension', ()
 })
 
 test('owned sources are not vendored', () => {
-  expect(notVendored('src/viewer/Stage.tsx')).toBe(true)
-  expect(notVendored('scripts/basisAssets.ts')).toBe(true)
-  expect(notVendored('public/models/sample-one/model.glb')).toBe(true)
+  expect(isVendoredFile('src/viewer/Stage.tsx')).toBe(false)
+  expect(isVendoredFile('scripts/basisAssets.ts')).toBe(false)
+  expect(isVendoredFile('public/models/sample-one/model.glb')).toBe(false)
 })
