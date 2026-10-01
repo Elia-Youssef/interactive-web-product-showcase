@@ -4,3 +4,9 @@ export { useAppStore, useAppStoreApi } from './useAppStore'
 export { selectRendererBackend, selectRendererStatus, type RendererStatus } from './slices/renderer'
 export { selectFinishStatus, selectSelectedVariant, type FinishStatus } from './slices/finish'
 export { selectProductStatus, type ProductStatus } from './slices/product'
+export {
+  selectExplodeAttached,
+  selectExplodeOpen,
+  selectExplodeTarget,
+  type ExplodeStatus,
+} from './slices/explode'
