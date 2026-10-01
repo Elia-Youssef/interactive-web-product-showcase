@@ -4,7 +4,7 @@ import { parseProduct } from '@lib/product'
 import { createAppStore, selectSelectedVariant } from '@store/index'
 import { activeFinish, formatProductIndex } from './product-panel.logic'
 
-// Neutral fixture words, not the stand-in's: the logic renders whatever the
+// Neutral fixture words, never a real product's: the logic renders whatever the
 // manifest says, and the real words belong to src/products/.
 const sampleManifest = {
   slug: 'sample-one',

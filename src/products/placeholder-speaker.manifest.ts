@@ -2,20 +2,19 @@
 // public/models/placeholder-speaker/model.glb. The file holds data only and
 // its one import is a type, so the validate step loads it with plain Node.
 //
-// The speaker stands in for the collection's second slot until the first
-// launch product ships: the copy is deliberately neutral and names itself
-// as a sample.
+// The speaker holds the collection's slot until the first launch product
+// ships: the copy is deliberately neutral and names itself as a sample.
 import type { ProductInput } from '@lib/product'
 
 export const manifest = {
   slug: 'placeholder-speaker',
-  number: 2,
+  number: 1,
   category: 'Audio',
   brand: 'Sample',
   model: 'Speaker',
-  eyebrow: 'Compact speaker / 002',
+  eyebrow: 'Compact speaker / 001',
   tagline: 'A quiet box that fills the room.',
-  intro: ['Sample Speaker holds the second slot while the pipeline is proven.'],
+  intro: ['Sample Speaker holds the first slot while the pipeline is proven.'],
   finishes: [
     { variant: 'sage', label: 'Sage Green', swatch: '#9DB89D' },
     { variant: 'graphite', label: 'Graphite', swatch: '#2B2E2C' },

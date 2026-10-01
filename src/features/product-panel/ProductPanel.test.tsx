@@ -11,7 +11,7 @@ import { ProductPanel } from './ProductPanel'
 // of its reach. The store-driven behavior is covered by the slice tests,
 // the panel logic tests and the e2e spec on the harness page.
 
-// Neutral fixture words, not the stand-in's: the panel renders whatever the
+// Neutral fixture words, never a real product's: the panel renders whatever the
 // manifest says, and the real words belong to src/products/.
 const sampleManifest = {
   slug: 'sample-one',
