@@ -7,12 +7,14 @@ import {
   type ProductLookBlock,
 } from '@lib/product'
 import { productManifests } from '@products/index'
+import { HotspotMarkers } from '@features/hotspots'
 import { useFinishOffer } from '@features/variants'
 import { AppStoreProvider, useAppStore } from '@store/index'
 import { Stage } from '@viewer/Stage'
 import { StageAlert } from '@viewer/StageAlert'
 import styles from './ProductHarnessPage.module.css'
 import { HarnessProductContent } from './HarnessProductContent'
+import { HarnessProductControls } from './HarnessProductControls'
 import { harnessLook, withLookOverride } from './harnessLook'
 import { harnessSlug } from './harnessSlug'
 
@@ -77,7 +79,8 @@ type HarnessCollection = {
 }
 
 // The product side of the harness: the look-applied manifest, the mount
-// toggle, the finish controls, and the alerts the slug state can raise.
+// toggle, the finish controls, the part motion control, and the alerts the
+// slug state can raise.
 function HarnessProduct({
   slug,
   collection,
@@ -88,6 +91,7 @@ function HarnessProduct({
   readonly lookOverride: ProductLookBlock | null
 }) {
   const [mounted, setMounted] = useState(true)
+  const [moveToken, setMoveToken] = useState(0)
   const manifest = slug === null ? undefined : collection.bySlug(slug)
   // The override rides on the manifest, so the product path sees one look
   // source and no test plumbing. The memo keeps the manifest's identity
@@ -96,11 +100,46 @@ function HarnessProduct({
     () => withLookOverride(manifest, lookOverride),
     [manifest, lookOverride],
   )
-  const content = <HarnessProductContent manifest={pageManifest} mounted={mounted} />
+  const content = (
+    <HarnessProductContent manifest={pageManifest} mounted={mounted} moveToken={moveToken} />
+  )
 
   return (
     <>
-      <Stage content={content} />
+      <Stage
+        content={content}
+        // The markers of the hotspots feature, over the same product the
+        // content shows. The feature's DOM side renders nothing while the
+        // store's product status is not ready for it.
+        overlay={pageManifest !== undefined ? <HotspotMarkers product={pageManifest} /> : null}
+      />
+      <HarnessSlugAlerts slug={slug} collection={collection} />
+      {manifest !== undefined && (
+        <>
+          <HarnessFinishControls manifest={manifest} />
+          <HarnessProductControls
+            mounted={mounted}
+            onToggleMounted={() => setMounted((current) => !current)}
+            onMovePart={() => setMoveToken((current) => current + 1)}
+          />
+        </>
+      )}
+    </>
+  )
+}
+
+// The alerts the slug state can raise: a missing slug, or a slug the
+// collection does not hold. Both are dev-page errors and name their cause.
+function HarnessSlugAlerts({
+  slug,
+  collection,
+}: {
+  readonly slug: string | null
+  readonly collection: HarnessCollection['collection']
+}) {
+  const manifest = slug === null ? undefined : collection.bySlug(slug)
+  return (
+    <>
       {slug === null && (
         <StageAlert
           testid="harness-alert"
@@ -114,19 +153,6 @@ function HarnessProduct({
             .map((product) => product.slug)
             .join(', ')}.`}
         />
-      )}
-      {manifest !== undefined && (
-        <>
-          <HarnessFinishControls manifest={manifest} />
-          <button
-            type="button"
-            className={styles.toggle}
-            data-testid="remount-product"
-            onClick={() => setMounted((current) => !current)}
-          >
-            {mounted ? 'Unmount the product' : 'Mount the product'}
-          </button>
-        </>
       )}
     </>
   )
