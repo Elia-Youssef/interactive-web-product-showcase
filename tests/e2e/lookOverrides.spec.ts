@@ -9,7 +9,7 @@ import {
   countDifferingPixels,
   countDifferingPixelsByDirection,
 } from './lookPixels'
-import { testBudgetMs } from './budgets'
+import { testBodyBudgetMs, testBudgetMs } from './budgets'
 import { expectPoll, harnessProducts, waitForProductReady } from './productSpecs'
 import { settledStage } from './stageSettle'
 
@@ -67,18 +67,22 @@ for (const product of products) {
     )
     await waitForProductReady(page)
 
-    await expectPoll(page, () => {
-      const look = window.__viewer?.look ?? null
-      if (look === null) {
-        return null
-      }
-      return {
-        exposure: look.exposure,
-        environmentIntensity: look.environmentIntensity,
-        environmentRotationDeg: look.environmentRotationDeg,
-        shadow: look.shadow,
-      }
-    }).toEqual({
+    await expectPoll(
+      page,
+      () => {
+        const look = window.__viewer?.look ?? null
+        if (look === null) {
+          return null
+        }
+        return {
+          exposure: look.exposure,
+          environmentIntensity: look.environmentIntensity,
+          environmentRotationDeg: look.environmentRotationDeg,
+          shadow: look.shadow,
+        }
+      },
+      testBodyBudgetMs,
+    ).toEqual({
       exposure: 2,
       environmentIntensity: 0,
       environmentRotationDeg: 180,

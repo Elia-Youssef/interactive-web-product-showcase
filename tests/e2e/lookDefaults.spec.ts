@@ -1,6 +1,7 @@
 import { SRGBColorSpace } from 'three'
 import { lookDefaults } from '../../src/viewer/look/config'
 import { expect, test } from './fixtures'
+import { testBodyBudgetMs } from './budgets'
 import { lookHarnessPath } from './lookHarness'
 import { expectPoll, harnessProducts, waitForProductReady } from './productSpecs'
 
@@ -31,18 +32,22 @@ for (const product of products) {
     // the compositing flags (blend, no depth write). Tone mapping has no
     // per-material flag in the node renderer: the output pass tone maps the
     // whole frame once, and the shadow's baked black is a fixed point of it.
-    await expectPoll(page, () => {
-      const look = window.__viewer?.look ?? null
-      if (look === null) {
-        return null
-      }
-      return {
-        exposure: look.exposure,
-        environmentIntensity: look.environmentIntensity,
-        environmentRotationDeg: look.environmentRotationDeg,
-        shadow: look.shadow,
-      }
-    }).toEqual({
+    await expectPoll(
+      page,
+      () => {
+        const look = window.__viewer?.look ?? null
+        if (look === null) {
+          return null
+        }
+        return {
+          exposure: look.exposure,
+          environmentIntensity: look.environmentIntensity,
+          environmentRotationDeg: look.environmentRotationDeg,
+          shadow: look.shadow,
+        }
+      },
+      testBodyBudgetMs,
+    ).toEqual({
       exposure: lookDefaults.exposure,
       environmentIntensity: lookDefaults.environmentIntensity,
       environmentRotationDeg: lookDefaults.environmentRotationDeg,

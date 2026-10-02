@@ -140,3 +140,33 @@ export function hooksCases(): PlantedCase[] {
     },
   ]
 }
+
+// The renderer compile walk the frame path replaces. Both spellings of the
+// scene compile are banned in src; the compute compile is a different walk
+// over compute pipelines the stage never builds, so it stays allowed and
+// pins the selector to exact names.
+export function rendererCompileCases(): PlantedCase[] {
+  return [
+    {
+      title: 'a renderer compileAsync call',
+      tree: 'violations',
+      file: 'src/viewer/uses-compile-async.ts',
+      code: 'export function planted(renderer: { compileAsync(): Promise<void> }): Promise<void> {\n  return renderer.compileAsync()\n}\n',
+      expectedRuleIds: ['no-restricted-syntax'],
+    },
+    {
+      title: 'a renderer compile call, the installed alias of compileAsync',
+      tree: 'violations',
+      file: 'src/viewer/uses-compile-alias.ts',
+      code: 'export function planted(renderer: { compile(): Promise<void> }): Promise<void> {\n  return renderer.compile()\n}\n',
+      expectedRuleIds: ['no-restricted-syntax'],
+    },
+    {
+      title: 'a compute compile call is not the scene compile walk',
+      tree: 'clean',
+      file: 'src/viewer/uses-compute-compile.ts',
+      code: 'export function planted(renderer: { compileComputeAsync(): Promise<void> }): Promise<void> {\n  return renderer.compileComputeAsync()\n}\n',
+      expectedRuleIds: [],
+    },
+  ]
+}

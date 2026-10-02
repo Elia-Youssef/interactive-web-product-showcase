@@ -24,8 +24,8 @@ import { useStageSettle } from './stageSettleContext'
 //
 // Assigning the environment is a scene mutation: the lit materials rebuild
 // their render pipelines for it, so the assignment settles the stage, which
-// compiles the lit scene, presents it and holds the stage's settled promise
-// until that frame is recorded.
+// presents the lit scene twice and holds the stage's settled promise until
+// both frames are recorded.
 const environmentOptions = { files: stageConfig.environmentFile }
 
 export function StageEnvironment() {
