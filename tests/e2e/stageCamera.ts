@@ -30,11 +30,61 @@ export type Point = { readonly x: number; readonly y: number; readonly z: number
 // (camera-controls dist/camera-controls.module.js, `restThreshold = 0.01`.)
 export const REST_THRESHOLD = 0.01
 
+// The two sides of a product's authored camera aspect a stage can sit on.
+// The aspect rule scales every distance on the narrower side and leaves it
+// unscaled on the other, so a proof of the rule needs a stage on each side;
+// a stage on the wide side alone passes with a scale of exactly 1.
+export const ASPECT_SIDES = ['narrower', 'atLeastAsWide'] as const
+export type AspectSide = (typeof ASPECT_SIDES)[number]
+
+const aspectSideWording: Record<AspectSide, string> = {
+  narrower: 'narrower than',
+  atLeastAsWide: 'at least as wide as',
+}
+
+export function describeAspectSide(side: AspectSide): string {
+  return `stage ${aspectSideWording[side]} the authored camera aspect`
+}
+
+// The side of the authored aspect one stage aspect sits on.
+export function aspectSideOf(authoredAspect: number, stageAspect: number): AspectSide {
+  return stageAspect < authoredAspect ? 'narrower' : 'atLeastAsWide'
+}
+
+// The viewport for each side, either side of the tablet breakpoint. At the
+// shared authored camera aspect of every product (1600 x 1422, about 1.125)
+// the 1024 x 768 stage is about 0.904 wide per unit of height and the
+// 768 x 1024 stage about 1.25. Every proof asserts its side on the measured
+// stage through stageAspectOnSide, so a layout or authored aspect that moves
+// a stage across fails by name instead of proving one side twice.
+export const aspectSideViewports: Record<
+  AspectSide,
+  { readonly width: number; readonly height: number }
+> = {
+  narrower: { width: 1024, height: 768 },
+  atLeastAsWide: { width: 768, height: 1024 },
+}
+
+// The measured stage aspect, once it is asserted to sit on the side of the
+// authored aspect the proof needs.
+export async function stageAspectOnSide(
+  page: Page,
+  authoredAspect: number,
+  side: AspectSide,
+): Promise<number> {
+  const stageAspect = await stageAspectOfCanvas(page)
+  expect(
+    aspectSideOf(authoredAspect, stageAspect),
+    `this proof needs a ${describeAspectSide(side)} (stage ${stageAspect}, authored ${authoredAspect})`,
+  ).toBe(side)
+  return stageAspect
+}
+
 // The aspect rule of the stage camera: when the stage is narrower than the
 // authored aspect, every distance scales by authoredAspect over
 // stageAspect; otherwise it is 1.
 export function containedScale(authoredAspect: number, stageAspect: number): number {
-  return stageAspect < authoredAspect ? authoredAspect / stageAspect : 1
+  return aspectSideOf(authoredAspect, stageAspect) === 'narrower' ? authoredAspect / stageAspect : 1
 }
 
 // The camera position the home view names at one stage aspect: the authored
