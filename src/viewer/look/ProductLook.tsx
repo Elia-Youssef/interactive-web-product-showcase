@@ -67,11 +67,11 @@ export function ProductLook() {
     // the node renderer tone maps once in its full-frame output pass, and
     // the baked shadow's RGB is black, a fixed point of any tone curve and
     // of exposure, so the shadow's pixels cannot move with either. A flag
-    // change rebuilds the material's render pipelines, which is why this runs
-    // in a layout effect: React flushes every layout effect of a commit
-    // before any passive effect of that commit, and the presentation's mount
-    // settle starts in a passive effect, so the flags stand on the material
-    // before the settle compiles it.
+    // change rebuilds the material's render pipelines, which is why this
+    // runs in a layout effect: React flushes every layout effect of a
+    // commit before any passive effect of that commit, and the
+    // presentation's mount settle starts in a passive effect, so the flags
+    // stand on the material before the settle presents it.
     shadowMaterial.transparent = true
     shadowMaterial.depthWrite = false
     // The opacity the loader authored, read before the scale: the cleanup

@@ -1,6 +1,7 @@
 import { NeutralToneMapping } from 'three'
 import { backendLabels } from '../../src/lib/renderer/backendLabels'
 import { expect, test } from './fixtures'
+import { productLoadBudgetMs } from './budgets'
 
 test('the shell mounts its main landmark inside #root', async ({ page, backendPath }) => {
   await page.goto(backendPath)
@@ -18,10 +19,20 @@ test('the stage reaches ready on the expected backend with neutral tone mapping'
   // Ready implies the stage's start-up checks passed, among them the
   // one-three-instance check on the live scene and renderer, so this
   // assertion is the one-instance proof of the running app in every build.
-  await expect.poll(() => page.evaluate(() => window.__viewer?.status)).toBe('ready')
-  await expect.poll(() => page.evaluate(() => window.__viewer?.backend)).toBe(expectedBackend)
   await expect
-    .poll(() => page.evaluate(() => window.__viewer?.toneMapping))
+    .poll(() => page.evaluate(() => window.__viewer?.status), {
+      timeout: productLoadBudgetMs,
+    })
+    .toBe('ready')
+  await expect
+    .poll(() => page.evaluate(() => window.__viewer?.backend), {
+      timeout: productLoadBudgetMs,
+    })
+    .toBe(expectedBackend)
+  await expect
+    .poll(() => page.evaluate(() => window.__viewer?.toneMapping), {
+      timeout: productLoadBudgetMs,
+    })
     .toBe(NeutralToneMapping)
 
   // The HUD shows the same backend the hook reports, in its readable label.

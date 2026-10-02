@@ -1,6 +1,7 @@
 import type { Browser, Page } from '@playwright/test'
 import { expect, test } from './fixtures'
 import { createErrorLedger } from './errorLedger'
+import { testBodyBudgetMs } from './budgets'
 import { productLoadBudgetMs } from './productSpecs'
 
 // The stage's DPR contract at the display extremes: the drawing buffer is
@@ -42,7 +43,11 @@ for (const dprCase of dprClampCases) {
     try {
       await scaled.setViewportSize({ width: 1000, height: 700 })
       await scaled.goto(backendPath)
-      await expect.poll(() => scaled.evaluate(() => window.__viewer?.status)).toBe('ready')
+      await expect
+        .poll(() => scaled.evaluate(() => window.__viewer?.status), {
+          timeout: productLoadBudgetMs,
+        })
+        .toBe('ready')
 
       const canvasBox = await scaled.locator('[data-slot="stage"] canvas').boundingBox()
       if (canvasBox === null) {
@@ -98,7 +103,11 @@ test('a resize across a breakpoint renders again and fills the new slot', async 
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto(backendPath)
-  await expect.poll(() => page.evaluate(() => window.__viewer?.status)).toBe('ready')
+  await expect
+    .poll(() => page.evaluate(() => window.__viewer?.status), {
+      timeout: productLoadBudgetMs,
+    })
+    .toBe('ready')
 
   // The model's own post-load frame settles first, so the frame the resize
   // owes is provably the resize's, not the load's.
@@ -114,6 +123,7 @@ test('a resize across a breakpoint renders again and fills the new slot', async 
   await expect
     .poll(() => page.evaluate(() => window.__viewer?.renderedFrames ?? -1), {
       message: 'the resize must render at least one frame under demand mode',
+      timeout: testBodyBudgetMs,
     })
     .toBeGreaterThan(framesBefore)
 

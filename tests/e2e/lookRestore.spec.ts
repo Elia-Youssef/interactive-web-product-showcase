@@ -1,7 +1,7 @@
 import { lookDefaults } from '../../src/viewer/look/config'
 import { expect, test } from './fixtures'
-import { testBudgetMs } from './budgets'
-import { expectPoll, harnessProducts } from './productSpecs'
+import { productLoadBudgetMs, testBodyBudgetMs, testBudgetMs } from './budgets'
+import { expectPoll, harnessProducts, waitForProductReady } from './productSpecs'
 import { lookHarnessPath } from './lookHarness'
 import type { Product } from '../../src/lib/product'
 
@@ -36,19 +36,23 @@ test('the look leaves with the product and reapplies on remount', async ({ page,
   // derivation for that count.
   test.setTimeout(testBudgetMs({ productLoads: 2 }))
   await page.goto(lookHarnessPath(backendPath, first.slug, look))
-  await expectPoll(page, () => window.__viewer?.product).toBe('ready')
-  await expectPoll(page, () => {
-    const current = window.__viewer?.look ?? null
-    if (current === null) {
-      return null
-    }
-    return {
-      exposure: current.exposure,
-      environmentIntensity: current.environmentIntensity,
-      environmentRotationDeg: current.environmentRotationDeg,
-      shadowOpacity: current.shadow?.opacity ?? null,
-    }
-  }).toEqual({
+  await waitForProductReady(page)
+  await expectPoll(
+    page,
+    () => {
+      const current = window.__viewer?.look ?? null
+      if (current === null) {
+        return null
+      }
+      return {
+        exposure: current.exposure,
+        environmentIntensity: current.environmentIntensity,
+        environmentRotationDeg: current.environmentRotationDeg,
+        shadowOpacity: current.shadow?.opacity ?? null,
+      }
+    },
+    testBodyBudgetMs,
+  ).toEqual({
     exposure: look.exposure,
     environmentIntensity: look.environmentIntensity,
     environmentRotationDeg: look.environmentRotationDeg,
@@ -61,28 +65,36 @@ test('the look leaves with the product and reapplies on remount', async ({ page,
   // getter answers null - no stale look answers for a product that left,
   // and the values it would have read are the ones the cleanup restored.
   await toggle.click()
-  await expectPoll(page, () => window.__viewer?.product).toBe('idle')
-  await expectPoll(page, () => window.__viewer?.look ?? null).toEqual(null)
+  await expectPoll(page, () => window.__viewer?.product, productLoadBudgetMs).toBe('idle')
+  await expectPoll(page, () => window.__viewer?.look ?? null, testBodyBudgetMs).toEqual(null)
 
   // Remount: the look applies again, exact, on a fresh load of the product.
   // An application that compounded its own output would read a scaled
   // scale here, because StrictMode runs the application twice per mount.
   await toggle.click()
-  await expectPoll(page, () => window.__viewer?.product).toBe('ready')
-  await expectPoll(page, () => window.__viewer?.look?.exposure ?? null).toBe(look.exposure)
-  await expectPoll(page, () => window.__viewer?.look?.shadow?.opacity ?? null).toBe(
-    look.shadowOpacity,
+  await waitForProductReady(page)
+  await expectPoll(page, () => window.__viewer?.look?.exposure ?? null, testBodyBudgetMs).toBe(
+    look.exposure,
   )
+  await expectPoll(
+    page,
+    () => window.__viewer?.look?.shadow?.opacity ?? null,
+    testBodyBudgetMs,
+  ).toBe(look.shadowOpacity)
 
   // And the restored stage values are what the remount starts from: the
   // look's environment intensity lands exactly as authored, not on top of
   // whatever the leave left behind.
-  await expectPoll(page, () => window.__viewer?.look?.environmentIntensity ?? null).toBe(
-    look.environmentIntensity,
-  )
-  await expectPoll(page, () => window.__viewer?.look?.environmentRotationDeg ?? null).toBe(
-    look.environmentRotationDeg,
-  )
+  await expectPoll(
+    page,
+    () => window.__viewer?.look?.environmentIntensity ?? null,
+    testBodyBudgetMs,
+  ).toBe(look.environmentIntensity)
+  await expectPoll(
+    page,
+    () => window.__viewer?.look?.environmentRotationDeg ?? null,
+    testBodyBudgetMs,
+  ).toBe(look.environmentRotationDeg)
 })
 
 test('the look defaults stay the restore target', async () => {

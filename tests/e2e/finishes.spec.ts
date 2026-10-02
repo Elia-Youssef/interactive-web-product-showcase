@@ -3,6 +3,7 @@ import { loadCollection } from './productList'
 import { readFinishExpectations } from './finishModel'
 import { measureFinishChange } from './finishPixels'
 import { settledFrames } from './stageSettle'
+import { testBodyBudgetMs } from './budgets'
 import { waitForProductReady } from './productSpecs'
 import { canvasCenter } from './stageCamera'
 import { startTouchSweep } from './syntheticTouch'
@@ -84,7 +85,9 @@ test(`clicking each swatch of ${product.slug} applies exactly that finish's mate
 
     await page.getByRole('button', { name: finish.label }).click()
     await expect
-      .poll(() => page.evaluate(() => window.__viewer?.finish ?? null))
+      .poll(() => page.evaluate(() => window.__viewer?.finish ?? null), {
+        timeout: testBodyBudgetMs,
+      })
       .toEqual({
         product: product.slug,
         applied: finish.variant,
@@ -134,7 +137,9 @@ test('the finish change repaints the model in the manifest direction, past the n
   const atDefaultAgain = await capture()
   await page.getByRole('button', { name: otherFinish.label }).click()
   await expect
-    .poll(() => page.evaluate(() => window.__viewer?.finish?.applied ?? null))
+    .poll(() => page.evaluate(() => window.__viewer?.finish?.applied ?? null), {
+      timeout: testBodyBudgetMs,
+    })
     .toBe(otherFinish.variant)
   await settledFrames(page)
   const atOther = await capture()
