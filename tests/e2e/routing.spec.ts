@@ -91,6 +91,25 @@ test('an unknown slug shows the not-found screen with no renderer, and its link 
   await expect(page).toHaveTitle(productDocumentTitle(first, siteCopy.collectionName))
 })
 
+test('a modified click on an in-app link is left to the browser and the page stays', async ({
+  page,
+  backendPath,
+}) => {
+  await page.goto(routePath(backendPath, NOT_FOUND_PATH))
+  const heading = page.getByRole('heading', { name: siteCopy.notFoundHeading })
+  await expect(heading).toBeVisible()
+
+  // The open-in-a-new-tab gesture. Whether the engine opens a tab is the
+  // browser's business, and the test's context closes it; the contract is
+  // this page's: the click handler runs inside the click, so a link that
+  // took the click over would already have moved this page.
+  await page
+    .getByRole('link', { name: siteCopy.notFoundLink })
+    .click({ modifiers: ['ControlOrMeta'] })
+  expect(await page.evaluate(() => location.pathname)).toBe(NOT_FOUND_PATH)
+  await expect(heading).toBeVisible()
+})
+
 test('back and forward between the product and the not-found screen re-render each', async ({
   page,
   backendPath,

@@ -4,5 +4,7 @@
 
 export { navigate } from './browserRouter'
 export type { NavigationOptions } from './browserRouter'
+export { RouteLink } from './RouteLink'
+export type { RouteLinkProps } from './RouteLink'
 export { useDocumentTitle } from './useDocumentTitle'
 export { useRoutePath } from './useRoutePath'
