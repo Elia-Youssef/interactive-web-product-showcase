@@ -7,7 +7,7 @@ import {
   type ProductLookBlock,
 } from '@lib/product'
 import { productManifests } from '@products/index'
-import { ProductExplodeToggle } from '@features/product-panel'
+import { ProductExplodeScrub, ProductExplodeToggle } from '@features/product-panel'
 import { useFinishOffer } from '@features/variants'
 import { AppStoreProvider, useAppStore } from '@store/index'
 import { Stage } from '@viewer/Stage'
@@ -87,8 +87,8 @@ type HarnessCollection = {
 }
 
 // The product side of the harness: the look-applied manifest, the mount
-// toggle, the product controls (the finishes, then the explode toggle), and
-// the alerts the slug state can raise.
+// toggle, the product controls (the finishes, then the explode toggle and
+// its scrub), and the alerts the slug state can raise.
 function HarnessProduct({
   slug,
   collection,
@@ -118,6 +118,7 @@ function HarnessProduct({
           <div className={styles.controls}>
             <HarnessFinishControls manifest={manifest} />
             <ProductExplodeToggle product={manifest} />
+            <ProductExplodeScrub product={manifest} />
           </div>
           <button
             type="button"

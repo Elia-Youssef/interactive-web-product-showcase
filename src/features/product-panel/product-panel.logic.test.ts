@@ -3,7 +3,12 @@ import type { ProductInput } from '@lib/product'
 import { parseProduct } from '@lib/product'
 import { siteCopy } from '@lib/copy/site'
 import { createAppStore, selectSelectedVariant } from '@store/index'
-import { activeFinish, explodeToggleLabel, formatProductIndex } from './product-panel.logic'
+import {
+  activeFinish,
+  explodeToggleLabel,
+  formatExplodePercent,
+  formatProductIndex,
+} from './product-panel.logic'
 
 // Neutral fixture words, never a real product's: the logic renders whatever the
 // manifest says, and the real words belong to src/products/.
@@ -34,6 +39,20 @@ test.each([
   { number: 100, expected: '100' },
 ])('formatProductIndex($number) is $expected', ({ number, expected }) => {
   expect(formatProductIndex(number)).toBe(expected)
+})
+
+// The exploded view's whole-percent table: halves round away from a
+// misreading of the pose, so a value in the upper half of a percent reads
+// as the percent it is inside of, and 1 is exactly 100%.
+test.each([
+  { progress: 0, expected: '0%' },
+  { progress: 0.004, expected: '0%' },
+  { progress: 0.005, expected: '1%' },
+  { progress: 0.5, expected: '50%' },
+  { progress: 0.995, expected: '100%' },
+  { progress: 1, expected: '100%' },
+])('formatExplodePercent($progress) is $expected', ({ progress, expected }) => {
+  expect(formatExplodePercent(progress)).toBe(expected)
 })
 
 test('the active finish is the selected variant when the store holds one', () => {

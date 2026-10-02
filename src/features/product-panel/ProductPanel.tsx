@@ -11,6 +11,7 @@ import { siteCopy } from '@lib/copy/site'
 import { selectSelectedVariant, useAppStore } from '@store/index'
 import { useFinishOffer } from '@features/variants'
 import { Divider, Eyebrow, Readout, Swatch, Title } from '@ui/index'
+import { ProductExplodeScrub } from './ProductExplodeScrub'
 import { ProductExplodeToggle } from './ProductExplodeToggle'
 import { activeFinish } from './product-panel.logic'
 import styles from './ProductPanel.module.css'
@@ -62,6 +63,7 @@ export function ProductPanel({ product }: ProductPanelProps) {
         </div>
       </div>
       <ProductExplodeToggle product={product} />
+      <ProductExplodeScrub product={product} />
     </div>
   )
 }

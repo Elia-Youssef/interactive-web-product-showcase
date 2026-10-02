@@ -47,14 +47,7 @@ export type SliderProps = SliderBase & {
   onChange: (value: number) => void
 }
 
-export function Slider({
-  value,
-  step,
-  valueText,
-  className,
-  onChange,
-  ...rest
-}: SliderProps) {
+export function Slider({ value, step, valueText, className, onChange, ...rest }: SliderProps) {
   return (
     <input
       {...rest}
