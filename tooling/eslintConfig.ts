@@ -51,6 +51,23 @@ const doubleAssertionSelectors = [
   ),
 )
 
+const doubleAssertionEntries = doubleAssertionSelectors.map((selector) => ({
+  selector,
+  message:
+    'Double assertion through unknown or never breaks type safety. Narrow the value at its source instead.',
+}))
+
+// The renderer compile calls the frame path replaces, one selector per
+// spelling: compileAsync, and compile, which the installed renderer defines
+// as its own alias (three's src/renderers/common/Renderer.js:3982).
+const compileWalkNames = ['compileAsync', 'compile']
+
+const compileWalkEntries = compileWalkNames.map((name) => ({
+  selector: `CallExpression[callee.property.name='${name}']`,
+  message:
+    'Pipelines are built on the frame path; a compile walk yields to the frame scheduling of the engine and can park the settle chain on a frame that never comes.',
+}))
+
 function parserConfigs(): Linter.Config[] {
   return [
     {
@@ -104,14 +121,7 @@ function sharedRulesConfig(): Linter.Config {
         'error',
         { prefer: 'type-imports', disallowTypeAnnotations: true },
       ],
-      'no-restricted-syntax': [
-        'error',
-        ...doubleAssertionSelectors.map((selector) => ({
-          selector,
-          message:
-            'Double assertion through unknown or never breaks type safety. Narrow the value at its source instead.',
-        })),
-      ],
+      'no-restricted-syntax': ['error', ...doubleAssertionEntries],
       'no-console': ['error', { allow: ['warn', 'error'] }],
       'no-empty-pattern': 'error',
       'max-lines': ['error', { max: 250, skipBlankLines: true, skipComments: true }],
@@ -121,6 +131,10 @@ function sharedRulesConfig(): Linter.Config {
   }
 }
 
+// The source policy of src/, applied after the shared rules. A flat config
+// object replaces a rule wholesale for its files, so the restricted-syntax
+// entry here carries the shared selectors with it: src files keep the
+// double-assertion ban and gain the compile-walk ban on top.
 function srcPolicyConfig(): Linter.Config {
   return {
     files: [SRC_SCRIPT_GLOB],
@@ -142,6 +156,7 @@ function srcPolicyConfig(): Linter.Config {
         },
       ],
       'source-policy/known-source-extension': 'error',
+      'no-restricted-syntax': ['error', ...doubleAssertionEntries, ...compileWalkEntries],
     },
   }
 }

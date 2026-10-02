@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures'
-import { expectPoll, harnessPath, harnessProducts } from './productSpecs'
+import { harnessPath, harnessProducts, waitForProductReady } from './productSpecs'
 import type { Product } from '../../src/lib/product'
 
 // The harness look parameter is validated by the manifest schema's own look
@@ -52,5 +52,5 @@ test('a valid look parameter shows no alert and the product presents', async ({
 }) => {
   await page.goto(lookPath(backendPath, '{"exposure":2}'))
   await expect(page.getByTestId('harness-alert')).toHaveCount(0)
-  await expectPoll(page, () => window.__viewer?.product).toBe('ready')
+  await waitForProductReady(page)
 })

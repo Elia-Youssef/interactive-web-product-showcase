@@ -13,14 +13,14 @@ import { applyFinish } from './applyFinish'
 // materials and settles. The applier runs it as its first step, once per
 // load, so every load precompiles with its own first application.
 //
-// The proxies ride the product's own first settle instead of compiling on
-// a detached group through the renderer, and they cover only the
-// materials the scene does not carry, because the other shapes leak: on
-// the WebGPU backend, the textures a detached compile initializes, and
-// those a load-time compile initializes for materials the scene already
-// holds, stop clearing the renderer's accounting from the second load on
-// (a load cycle reads 5, 7, 7 textures at teardown instead of 5, 5, 5),
-// which breaks the product's exact teardown baseline.
+// The proxies ride the product's own first settle, whose presents build
+// every pipeline they draw on the frame path, and they cover only the
+// materials the scene does not carry: the load's own frames build and
+// upload the carried ones. Pipelines built outside the frame path leaked
+// instead: on the WebGPU backend, the textures a detached compile
+// initialized stopped clearing the renderer's accounting from the second
+// load on (a load cycle reads 5, 7, 7 textures at teardown instead of
+// 5, 5, 5), which breaks the product's exact teardown baseline.
 //
 // The timing of the first swap is not load-bearing for that baseline: a
 // frame that draws the load's own materials before the swap initializes

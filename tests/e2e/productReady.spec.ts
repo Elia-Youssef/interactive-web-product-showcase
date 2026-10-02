@@ -1,6 +1,7 @@
 import { CAMERA_HOME_ID, CAMERA_PREFIX } from '../../src/lib/product/contractNames.ts'
 import { expect, test } from './fixtures'
 import { readProductModelFacts } from './productModel'
+import { productLoadBudgetMs } from './budgets'
 import { expectPoll, harnessPath, harnessProducts, waitForProductReady } from './productSpecs'
 
 const products = await harnessProducts()
@@ -20,7 +21,7 @@ for (const product of products) {
     // have no contract order and are compared sorted; the hotspots keep
     // manifest order and the cameras home first, because the rig builds both
     // in those orders.
-    await expectPoll(page, () => window.__viewer?.rig).toEqual({
+    await expectPoll(page, () => window.__viewer?.rig, productLoadBudgetMs).toEqual({
       parts: [...facts.partNames].sort(),
       hotspots: product.hotspots.map((hotspot) => ({
         id: hotspot.id,

@@ -10,18 +10,16 @@ import type { StageSettle } from './StageSettle'
 
 export const StageSettleContext = createContext<StageSettle | null>(null)
 
-// The settle call of the stage the component renders in. It compiles the
-// scene as it stands with the live renderer, scene and camera, presents it,
-// and resolves once the chain around the call has drained and the frame is
-// recorded. A rejection reaches the caller: the product channel turns it into
-// the product's typed failure, and the environment leaves it loud on the
-// console. The call is stable for the life of the canvas, so an effect can settle without
+// The settle call of the stage the component renders in. It presents the
+// scene as it stands, twice, and resolves once the chain around the call
+// has drained and both frames are recorded. A rejection reaches the caller:
+// the product channel turns it into the product's typed failure, and the
+// environment leaves it loud on the console. The call is stable for the life
+// of the canvas, so an effect can settle without
 // rerunning on every render.
 export function useStageSettle(): () => Promise<void> {
   const settle = useContext(StageSettleContext)
   const gl = useThree((state) => state.gl)
-  const scene = useThree((state) => state.scene)
-  const camera = useThree((state) => state.camera)
   const invalidate = useThree((state) => state.invalidate)
   const settleScene = useCallback((): Promise<void> => {
     if (settle === null) {
@@ -30,7 +28,7 @@ export function useStageSettle(): () => Promise<void> {
       )
     }
     assertStageRenderer(gl)
-    return settle.settle({ gl, scene, camera, invalidate })
-  }, [settle, gl, scene, camera, invalidate])
+    return settle.settle({ invalidate })
+  }, [settle, gl, invalidate])
   return settleScene
 }

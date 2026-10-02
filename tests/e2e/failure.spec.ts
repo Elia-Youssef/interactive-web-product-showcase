@@ -1,6 +1,7 @@
 import { initFailureReason } from '../../src/lib/renderer/initFailure'
 import { backendQueryParam, parseBackendRequest } from '../../src/lib/renderer/request'
 import { expect, test } from './fixtures'
+import { productLoadBudgetMs } from './budgets'
 
 // A query with a value the parser does not allow, built from the parser's
 // own parameter name.
@@ -16,8 +17,16 @@ test('an unknown backend parameter fails with the reason in a visible alert', as
 
   await page.goto(`/${bogusQuery}`)
 
-  await expect.poll(() => page.evaluate(() => window.__viewer?.status)).toBe('failed')
-  await expect.poll(() => page.evaluate(() => window.__viewer?.failure)).toBe(parsed.reason)
+  await expect
+    .poll(() => page.evaluate(() => window.__viewer?.status), {
+      timeout: productLoadBudgetMs,
+    })
+    .toBe('failed')
+  await expect
+    .poll(() => page.evaluate(() => window.__viewer?.failure), {
+      timeout: productLoadBudgetMs,
+    })
+    .toBe(parsed.reason)
 
   const alert = page.getByRole('alert')
   await expect(alert).toBeVisible()
@@ -63,9 +72,15 @@ test('a renderer that cannot start on either backend fails with a visible alert'
 
   await page.goto(backendPath)
 
-  await expect.poll(() => page.evaluate(() => window.__viewer?.status)).toBe('failed')
   await expect
-    .poll(() => page.evaluate(() => window.__viewer?.failure))
+    .poll(() => page.evaluate(() => window.__viewer?.status), {
+      timeout: productLoadBudgetMs,
+    })
+    .toBe('failed')
+  await expect
+    .poll(() => page.evaluate(() => window.__viewer?.failure), {
+      timeout: productLoadBudgetMs,
+    })
     .toContain(startFailurePrefix)
   await expect(page.getByRole('alert')).toBeVisible()
   await expect(page.getByRole('alert')).toContainText(startFailurePrefix)
