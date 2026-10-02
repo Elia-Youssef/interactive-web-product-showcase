@@ -124,3 +124,82 @@ test('disposing the driver disposes the pose', () => {
 
   expect(pose.disposed).toBe(true)
 })
+
+test('a new subscriber is called at once with the current progress', () => {
+  const { driver } = started()
+  driver.retarget(1, 2000, false)
+  driver.step(2500)
+  const current = driver.appliedProgress()
+
+  const received: number[] = []
+  driver.subscribe((progress) => received.push(progress))
+
+  expect(received).toEqual([current])
+})
+
+test('a listener runs after every applied change, and only then', () => {
+  const { driver, pose } = started()
+  const received: number[] = []
+  driver.subscribe((progress) => received.push(progress))
+
+  // The subscribe-time call holds the assembled pose; the retarget itself
+  // applies nothing, so no listener call is owed by it.
+  expect(received).toEqual([0])
+
+  // A frame at rest applies nothing, owes nothing, and calls nobody.
+  expect(driver.step(2000)).toBe(false)
+  expect(received).toEqual([0])
+
+  // Every write of the pose calls the listener with what landed.
+  driver.retarget(1, 1500, false)
+  driver.step(2500)
+  expect(received.length).toBe(2)
+  expect(received[1]).toBe(driver.appliedProgress())
+  expect(received[1]).toBeGreaterThan(0)
+
+  // Under reduced motion the jump applies the target directly, and the
+  // listener runs with it, in the same synchronous call.
+  driver.retarget(0, 2600, true)
+  expect(received[received.length - 1]).toBe(0)
+  expect(pose.written[pose.written.length - 1]).toBe(0)
+})
+
+test('several listeners each run once per applied change', () => {
+  const { driver } = started()
+  const first: number[] = []
+  const second: number[] = []
+  driver.subscribe((progress) => first.push(progress))
+  driver.subscribe((progress) => second.push(progress))
+
+  driver.retarget(1, 2000, true)
+
+  expect(first).toEqual([0, 1])
+  expect(second).toEqual([0, 1])
+})
+
+test('a stale subscription release throws', () => {
+  const { driver } = started()
+  const received: number[] = []
+  const release = driver.subscribe((progress) => received.push(progress))
+
+  release()
+  driver.retarget(1, 2000, true)
+  // The released listener stayed silent through the jump.
+  expect(received).toEqual([0])
+
+  expect(() => release()).toThrow(/stale/)
+})
+
+test('a released listener stops running, and the others keep theirs', () => {
+  const { driver } = started()
+  const first: number[] = []
+  const second: number[] = []
+  const releaseFirst = driver.subscribe((progress) => first.push(progress))
+  driver.subscribe((progress) => second.push(progress))
+
+  releaseFirst()
+  driver.retarget(1, 2000, true)
+
+  expect(first).toEqual([0])
+  expect(second).toEqual([0, 1])
+})

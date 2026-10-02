@@ -35,6 +35,11 @@ function springAt(anchor: ExplodeAnchor, nowMs: number): SpringState {
   return { value: step.value, velocity: step.velocity }
 }
 
+// A listener of the applied progress. It runs synchronously after every
+// pose apply that moved the progress, with the progress that just landed,
+// and once at subscribe time with the progress the pose already holds.
+export type ExplodeProgressListener = (progress: number) => void
+
 export type ExplodeDriver = {
   // Re-anchors the motion toward the target. Under reduced motion the jump
   // is applied directly. Answers whether a frame is owed.
@@ -46,15 +51,47 @@ export type ExplodeDriver = {
   readonly appliedProgress: () => number
   // Whether the motion still owes frames.
   readonly moving: () => boolean
+  // Holds a listener for the caller's lifetime and calls it at once with the
+  // current applied progress. The returned release ends this subscription;
+  // a release that is no longer held fails loudly, like a stale stage probe
+  // release.
+  readonly subscribe: (listener: ExplodeProgressListener) => () => void
   // Disposes the pose. The motion holds nothing else.
   readonly dispose: () => void
+}
+
+// The applied progress's feed: the holders of the subscribed listeners, the
+// emit after every applied change, and the subscribe with its scoped
+// release, which fails loudly when it is no longer held.
+function createProgressFeed() {
+  const listeners = new Set<{ readonly receive: ExplodeProgressListener }>()
+  return {
+    emit(applied: number) {
+      for (const listener of listeners) {
+        listener.receive(applied)
+      }
+    },
+    subscribe(listener: ExplodeProgressListener): () => void {
+      const entry = { receive: listener }
+      listeners.add(entry)
+      return () => {
+        if (!listeners.delete(entry)) {
+          throw new Error(
+            'the release of an explode progress subscription is stale: its listener is no longer subscribed',
+          )
+        }
+      }
+    },
+  }
 }
 
 export function createExplodeDriver(pose: ExplodePose, nowMs: number): ExplodeDriver {
   let anchor: ExplodeAnchor = { base: { value: 0, velocity: 0 }, startedAtMs: nowMs, target: 0 }
   let applied = 0
   let owesFrames = false
+  const feed = createProgressFeed()
   pose.apply(applied)
+  feed.emit(applied)
 
   return {
     retarget(target, nowMs, reducedMotion) {
@@ -63,6 +100,7 @@ export function createExplodeDriver(pose: ExplodePose, nowMs: number): ExplodeDr
         if (applied !== target) {
           pose.apply(target)
           applied = target
+          feed.emit(applied)
         }
         owesFrames = true
         return owesFrames
@@ -89,12 +127,20 @@ export function createExplodeDriver(pose: ExplodePose, nowMs: number): ExplodeDr
       if (step.value !== applied) {
         pose.apply(step.value)
         applied = step.value
+        feed.emit(applied)
       }
       owesFrames = !step.atRest
       return owesFrames
     },
     appliedProgress: () => applied,
     moving: () => owesFrames,
+    subscribe(listener) {
+      const release = feed.subscribe(listener)
+      // A new subscriber is caught up at once, with the progress the pose
+      // already holds.
+      listener(applied)
+      return release
+    },
     dispose: () => pose.dispose(),
   }
 }
