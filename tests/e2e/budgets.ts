@@ -23,12 +23,28 @@ export const productLoadBudgetMs = 30_000
 // bodies and passed with this much room.
 export const testBodyBudgetMs = 60_000
 
+// The allowance for one drag-driven camera drive to a target view: a
+// calibration drag, then the correcting passes, each a drag and a frame
+// settle. Measured over the eight matrix projects with the hotspot suites
+// running at the matrix worker cap and nothing else beside them: 16 drive
+// tests of four drives each, the worst drive 9.8 s (the software-rendered
+// WebKit on its WebGL2 path, every hardware engine near 4 s). The allowance
+// is twice that worst drive, the load budget's own rule.
+export const cameraDriveBudgetMs = 20_000
+
 // The per-test timeout of a test that loads a product the given number of
-// times: one load budget per load, plus the body allowance. Every spec
+// times and drives the camera the given number of times: one load budget per
+// load, one drive allowance per drive, plus the body allowance. Every spec
 // derives its limit through this helper instead of typing a timeout; the
 // config's own default is the single-load budget.
-export function testBudgetMs({ productLoads }: { readonly productLoads: number }): number {
-  return productLoads * productLoadBudgetMs + testBodyBudgetMs
+export function testBudgetMs({
+  productLoads,
+  cameraDrives = 0,
+}: {
+  readonly productLoads: number
+  readonly cameraDrives?: number
+}): number {
+  return productLoads * productLoadBudgetMs + cameraDrives * cameraDriveBudgetMs + testBodyBudgetMs
 }
 
 // The drain of the dev HUD's rolling window: the HUD's fps value falls to

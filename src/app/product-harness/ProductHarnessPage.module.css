@@ -1,16 +1,19 @@
-/* The dev-only harness page: the stage fills the viewport, the remount
-   toggle sits over its top-left corner, and the dev finish buttons stack
-   below it. Values are tokens, which the page reaches through the global
-   stylesheet it imports. */
+/* The dev-only harness page: the stage fills the viewport, the product
+   controls share the top-left corner as one row, and the dev finish buttons
+   stack below them. Values are tokens, which the page reaches through the
+   global stylesheet it imports. */
 .frame {
   position: fixed;
   inset: 0;
 }
 
-.toggle {
+.controls {
   position: absolute;
   left: var(--space-4);
   top: var(--space-4);
+  display: flex;
+  gap: var(--space-2);
+  align-items: start;
 }
 
 .finishes {

@@ -25,7 +25,7 @@ export class StageProbes {
   // StageProbeReads gains without a slot here fails the typecheck. The
   // record is replaced whole on each registration, never mutated in place,
   // so a release can compare its reader against the current slot.
-  private readers: ProbeReaders = { look: null, camera: null, finish: null }
+  private readers: ProbeReaders = { look: null, camera: null, finish: null, hotspots: null }
 
   // Holds a reader for the key, for as long as the calling component's
   // effects are live, and returns the release of this one registration. A

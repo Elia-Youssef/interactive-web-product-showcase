@@ -11,7 +11,7 @@ import {
 } from './lookPixels'
 import { testBudgetMs } from './budgets'
 import { expectPoll, harnessProducts, waitForProductReady } from './productSpecs'
-import { settledStage } from './stageSettle'
+import { settledStage, settledStageAnimations } from './stageSettle'
 
 // The look overrides, driven through the harness look parameter and proven
 // with pixels on every matrix project. Every comparison is exact: no region
@@ -37,8 +37,11 @@ async function settledDecoded(
   // The ready report marks the settled frame; the settle wait then drains
   // every load-frame debt and the dev HUD's rolling window, so at rest
   // nothing renders after the wait and the masked HUD sits at its rest
-  // text: every capture of the run masks the same box.
+  // text: every capture of the run masks the same box. The one-time DOM
+  // animations, the markers' pulse among them, run on CSS time past the
+  // frame settle, so the wait covers them too.
   await settledStage(page)
+  await settledStageAnimations(page)
   const box = await harnessStageBox(page)
   const decoded = await decodeScreenshotRGBA(page, await captureStage(page))
   return { decoded, box }

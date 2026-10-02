@@ -2,7 +2,7 @@ import { expect, test } from './fixtures'
 import { loadCollection } from './productList'
 import { readFinishExpectations } from './finishModel'
 import { measureFinishChange } from './finishPixels'
-import { settledFrames } from './stageSettle'
+import { settledFrames, settledStageAnimations } from './stageSettle'
 import { waitForProductReady } from './productSpecs'
 import { canvasCenter } from './stageCamera'
 import { startTouchSweep } from './syntheticTouch'
@@ -126,6 +126,9 @@ test('the finish change repaints the model in the manifest direction, past the n
   // means the switch never reached the pixels, so it fails instead of
   // passing a finish that did not paint.
   await settledFrames(page)
+  // The markers' first-load pulse runs on CSS time, past the frame settle;
+  // the captures pin the stage at rest, so the wait covers it too.
+  await settledStageAnimations(page)
   // The dev HUD shows live timings, so it is masked: the captures pin the
   // stage, not a measurement.
   const capture = (): Promise<Uint8Array> =>

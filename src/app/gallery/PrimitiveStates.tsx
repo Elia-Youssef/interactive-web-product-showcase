@@ -14,6 +14,7 @@ import {
   Divider,
   Eyebrow,
   IconButton,
+  Marker,
   MinusIcon,
   PlusIcon,
   Readout,
@@ -161,6 +162,31 @@ const iconStates = (
   </>
 )
 
+const markerStates = (
+  <>
+    <State caption="default">
+      <div className={styles.markerCell}>
+        <Marker label="Ported chamber" />
+      </div>
+    </State>
+    <State caption="active">
+      <div className={styles.markerCell}>
+        <Marker label="Ported chamber" active />
+      </div>
+    </State>
+    <State caption="hover">
+      <div className={styles.markerCell}>
+        <Marker label="Ported chamber" data-force-hover />
+      </div>
+    </State>
+    <State caption="focus">
+      <div className={styles.markerCell}>
+        <Marker label="Ported chamber" className={styles.forceFocus} />
+      </div>
+    </State>
+  </>
+)
+
 const dividerStates = (
   <State caption="default">
     <div className={styles.ruleCell}>
@@ -183,6 +209,7 @@ const sections: Record<string, ReactNode> = {
   IconButton: iconButtonStates,
   Swatch: swatchStates,
   Icons: iconStates,
+  Marker: markerStates,
   Divider: dividerStates,
   Readout: readoutStates,
 }

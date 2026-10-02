@@ -85,9 +85,27 @@ export type StageProbeReads = {
   look: ViewerLook
   camera: ViewerCameraAutomation
   finish: ViewerFinish
+  hotspots: ViewerHotspotsAutomation
 }
 
 export type StageProbeKey = keyof StageProbeReads
+
+// One hotspot of the stage's product, as the automation reports it: the
+// manifest id and the world position of its anchor, read from the HS_ node
+// at access time, so it is wherever the node stands now, motion included.
+export type ViewerHotspotAutomation = {
+  readonly id: string
+  readonly position: ViewerVector3
+}
+
+// The hotspots of the product on the stage: the product slug and, per
+// hotspot in manifest order, its id and its anchor's live world position.
+// The DOM markers are the visible truth; this probe gives only what a test
+// cannot read from the page: where each anchor really stands in the scene.
+export type ViewerHotspotsAutomation = {
+  readonly product: string
+  readonly hotspots: readonly ViewerHotspotAutomation[]
+}
 
 // The finish a product on the stage carries: the applied variant name and,
 // per mapped mesh primitive, the material name the mesh carries. The
@@ -109,8 +127,9 @@ export type ViewerFinish = {
 
 // The probe-backed fields of the automation: one entry per stage probe key,
 // null while no component holds the key. The mapped type is derived from
-// StageProbeReads, so a key the stage gains appears here and in the
-// automation object below, or the typecheck fails.
+// StageProbeReads, so a key the stage gains appears here and as a getter in
+// the automation object below, or the typecheck fails: a key without a
+// getter, or a getter without a key, fails the compile.
 export type ViewerAutomationProbeFields = {
   readonly [K in StageProbeKey]: StageProbeReads[K] | null
 }
@@ -153,35 +172,33 @@ export type ViewerAutomationSources = {
 }
 
 export function createViewerAutomation(sources: ViewerAutomationSources): ViewerAutomation {
-  const rendererStatus = () => sources.getStatus()
-  const productStatus = () => sources.getProductStatus()
   return Object.freeze({
     get status(): RendererStatus['kind'] {
-      return rendererStatus().kind
+      return sources.getStatus().kind
     },
     get backend(): RendererBackend | null {
-      return selectRendererBackend({ rendererStatus: rendererStatus() })
+      return selectRendererBackend({ rendererStatus: sources.getStatus() })
     },
     get ready(): boolean {
-      return rendererStatus().kind === 'ready'
+      return sources.getStatus().kind === 'ready'
     },
     get failure(): string | null {
-      return rendererFailureOf(rendererStatus())
+      return rendererFailureOf(sources.getStatus())
     },
     get product(): ProductStatus['kind'] {
-      return productStatus().kind
+      return sources.getProductStatus().kind
     },
     get productSlug(): string | null {
-      return productSlugOf(productStatus())
+      return productSlugOf(sources.getProductStatus())
     },
     get productFailure(): string | null {
-      return productFailureOf(productStatus())
+      return productFailureOf(sources.getProductStatus())
     },
     get rig(): ProductRigSummary | null {
-      return productRigOf(productStatus())
+      return productRigOf(sources.getProductStatus())
     },
     get model(): ViewerModel | null {
-      return productModelOf(productStatus())
+      return productModelOf(sources.getProductStatus())
     },
     get renderedFrames(): number {
       return sources.renderedFrames()
@@ -189,10 +206,6 @@ export function createViewerAutomation(sources: ViewerAutomationSources): Viewer
     get toneMapping(): number | null {
       return sources.getToneMapping()
     },
-    // The probe-backed fields, one getter per key of StageProbeReads, each
-    // read live through the stage's probes. The type above is the mapped
-    // StageProbeReads, so the typecheck holds this object to the table: a
-    // key without a getter, or a getter without a key, fails the compile.
     get look(): ViewerLook | null {
       return sources.probes.read('look')
     },
@@ -201,6 +214,9 @@ export function createViewerAutomation(sources: ViewerAutomationSources): Viewer
     },
     get finish(): ViewerFinish | null {
       return sources.probes.read('finish')
+    },
+    get hotspots(): ViewerHotspotsAutomation | null {
+      return sources.probes.read('hotspots')
     },
   })
 }

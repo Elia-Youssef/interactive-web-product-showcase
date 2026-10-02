@@ -3,6 +3,7 @@ import { Canvas } from '@react-three/fiber'
 import type { ReactNode } from 'react'
 import type { FrameClock } from './FrameClock'
 import { FrameObserver } from './FrameObserver'
+import type { PresentedFrames } from './PresentedFrames'
 import { StageAlert } from './StageAlert'
 import { RendererErrorBoundary } from './RendererErrorBoundary'
 import { RendererRig } from './RendererRig'
@@ -15,6 +16,8 @@ import { stageConfig } from './config'
 
 type StageCanvasProps = {
   readonly clock: FrameClock
+  // The stage's presented-frame channel, fed by this canvas's frame observer.
+  readonly frames: PresentedFrames
   // The renderer start the stage's lifecycle hook memoized per request.
   readonly stageRenderer: StageRendererStart
   // Fires after the first frame actually rendered.
@@ -34,6 +37,7 @@ type StageCanvasProps = {
 // renderer's settings, the frame signal, the camera, and the content.
 export function StageCanvas({
   clock,
+  frames,
   stageRenderer,
   onFirstFrame,
   onInitError,
@@ -46,7 +50,7 @@ export function StageCanvas({
     >
       <Canvas gl={stageRenderer.factory} frameloop={stageConfig.frameloop} dpr={stageConfig.dpr}>
         <RendererRig />
-        <FrameObserver clock={clock} onFirstFrame={onFirstFrame} />
+        <FrameObserver clock={clock} frames={frames} onFirstFrame={onFirstFrame} />
         <StageCamera>
           <Suspense fallback={null}>
             <StageEnvironment />
