@@ -1,69 +1,66 @@
 import type { Page } from '@playwright/test'
 import type { Product } from '../../src/lib/product'
-import { readProductViewFacts, type ProductViewFacts } from './productCamera'
+import { readProductViewFacts, type AuthoredView, type ProductViewFacts } from './productCamera'
 import { readProductHotspotFacts, type ProductHotspotFacts } from './productHotspots'
 import { harnessProducts } from './productSpecs'
 import { resolvedDistanceRange, viewExpectation } from './stageCamera'
+import { selectFlowSubjects, type FlowSubject } from './flowSubjects'
 import { cardCloseButtonOf, markerOf } from './hotspotViews'
 
 // The per-product facts the flow specs read: every product's authored
 // camera views and hotspot facts, once per file, and the flow shape each
-// spec drives. The camera flow (open, switch, close) lives in
-// hotspotFlow.spec.ts, the card itself (follow, hide, leave, reduced
-// motion, rest) in hotspotCard.spec.ts, both over these facts.
+// spec drives. The subjects come from the product set per hotspot kind
+// (selectFlowSubjects, which fails at collection when the whole set
+// carries no close-up hotspot, no plain hotspot or no switch whose camera
+// moves), so each test runs for every product that has what it drives.
+// The camera flow (open, switch, close) lives in hotspotFlow.spec.ts, the
+// card itself (follow, hide, leave, reduced motion, rest) in
+// hotspotCard.spec.ts, both over these facts.
 
-// The page-level facts of one product's flow: the hotspot with a close-up,
-// the one without, and the expectations of the home and close-up views at
-// one stage aspect. The product set must carry both kinds, or the flow has
-// no contrast to prove.
+// The view expectations of one product's views at one stage aspect: the
+// home view, and any authored view the specs read a hotspot's close-up
+// through.
 export type HotspotFlow = {
-  readonly viewFacts: ProductViewFacts
-  readonly closeUp: Product['hotspots'][number]
-  readonly plain: Product['hotspots'][number]
+  readonly subject: FlowSubject
   readonly homeAt: (stageAspect: number) => ReturnType<typeof viewExpectation>
-  readonly closeUpAt: (stageAspect: number) => ReturnType<typeof viewExpectation>
+  readonly viewAt: (view: AuthoredView, stageAspect: number) => ReturnType<typeof viewExpectation>
 }
 
 export type FlowFacts = {
-  readonly products: readonly Product[]
-  readonly flowBySlug: ReadonlyMap<string, HotspotFlow>
+  readonly flows: readonly HotspotFlow[]
   readonly factsBySlug: ReadonlyMap<string, ProductHotspotFacts>
 }
 
 export async function flowFacts(): Promise<FlowFacts> {
   const products = await harnessProducts()
-  const flowBySlug = new Map<string, HotspotFlow>()
+  const viewFactsBySlug = new Map<string, ProductViewFacts>()
+  for (const product of products) {
+    viewFactsBySlug.set(product.slug, await readProductViewFacts(product.slug))
+  }
   const factsBySlug = new Map<string, ProductHotspotFacts>()
   for (const product of products) {
     factsBySlug.set(product.slug, await readProductHotspotFacts(product.slug, product))
-    flowBySlug.set(product.slug, flowOf(product, await readProductViewFacts(product.slug)))
   }
-  return { products, flowBySlug, factsBySlug }
+  return { flows: flowsOf(products, viewFactsBySlug), factsBySlug }
 }
 
-function flowOf(product: Product, viewFacts: ProductViewFacts): HotspotFlow {
-  const closeUp = product.hotspots.find((hotspot) => viewFacts.closeUps.has(hotspot.id))
-  const plain = product.hotspots.find((hotspot) => !viewFacts.closeUps.has(hotspot.id))
-  if (closeUp === undefined) {
-    throw new Error(`the flow proof needs a hotspot with a close-up in ${product.slug}`)
-  }
-  if (plain === undefined) {
-    throw new Error(`the flow proof needs a hotspot without a close-up in ${product.slug}`)
-  }
-  const closeUpView = viewFacts.closeUps.get(closeUp.id)
-  if (closeUpView === undefined) {
-    throw new Error(`no authored view facts for ${closeUp.id}`)
-  }
-  const range = resolvedDistanceRange(product, viewFacts.home.distance)
-  return {
-    viewFacts,
-    closeUp,
-    plain,
-    homeAt: (stageAspect: number) =>
-      viewExpectation(viewFacts.home, viewFacts.home.aspect, range, stageAspect),
-    closeUpAt: (stageAspect: number) =>
-      viewExpectation(closeUpView, viewFacts.home.aspect, range, stageAspect),
-  }
+// The view expectations of every selected subject, derived once per
+// product: both resolutions read the authored home aspect and the
+// product's resolved distance range.
+function flowsOf(
+  products: readonly Product[],
+  viewFactsBySlug: ReadonlyMap<string, ProductViewFacts>,
+): readonly HotspotFlow[] {
+  return selectFlowSubjects(products, viewFactsBySlug).map((subject) => {
+    const range = resolvedDistanceRange(subject.product, subject.viewFacts.home.distance)
+    return {
+      subject,
+      homeAt: (stageAspect: number) =>
+        viewExpectation(subject.viewFacts.home, subject.viewFacts.home.aspect, range, stageAspect),
+      viewAt: (view: AuthoredView, stageAspect: number) =>
+        viewExpectation(view, subject.viewFacts.home.aspect, range, stageAspect),
+    }
+  })
 }
 
 // The three ways to close, all through the same slice: each entry is the
