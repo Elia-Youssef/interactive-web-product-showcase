@@ -12,6 +12,8 @@ import { useFinishOffer } from '@features/variants'
 import { AppStoreProvider, useAppStore } from '@store/index'
 import { Stage } from '@viewer/Stage'
 import { StageAlert } from '@viewer/StageAlert'
+import { createStageSurface } from '@viewer/stageSurface'
+import { StageSurfaceContext, useStageSurfaceElement } from '@viewer/stageSurfaceContext'
 import styles from './ProductHarnessPage.module.css'
 import { HarnessProductContent } from './HarnessProductContent'
 import { harnessLook, withLookOverride } from './harnessLook'
@@ -25,11 +27,18 @@ import { harnessSlug } from './harnessSlug'
 // page at the data level. An invalid parameter shows the harness alert.
 // The production build never emits this page: its only input is index.html.
 export function ProductHarnessPage() {
+  // The stage surface, bound to the frame element that hosts the stage, so
+  // the exploded view's grid reaction has its element on this page too.
+  const [surface] = useState(createStageSurface)
+  const bindSurface = useStageSurfaceElement(surface)
+
   return (
     <AppStoreProvider>
-      <main className={styles.frame}>
-        <HarnessStage />
-      </main>
+      <StageSurfaceContext.Provider value={surface}>
+        <main className={styles.frame} ref={bindSurface}>
+          <HarnessStage />
+        </main>
+      </StageSurfaceContext.Provider>
     </AppStoreProvider>
   )
 }

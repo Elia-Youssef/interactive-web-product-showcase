@@ -141,21 +141,38 @@ their minimum below it, switched by the breakpoints at the end of this file.
   --duration-hover: calc(150ms * var(--motion-scale));
 
   /*
-  Stage backdrop. The grid line is --white-rgb
-  at --backdrop-grid-alpha. The exploded view animates that alpha up to about
-  .05 on the backdrop element, so the grid color is composed in the backdrop
-  rule itself: a color pre-composed here would resolve once, on :root, and
+  Stage backdrop. The grid line is --white-rgb at the grid alpha the
+  backdrop applies: the rest alpha plus the emphasis input times the step
+  to the exploded alpha. The emphasis is the backdrop's own input, its
+  default here is rest, and whatever drives it writes a plain number onto
+  an ancestor element, so the value that reaches this sheet is the exact
+  one that was written. The grid color is composed in the backdrop rule
+  itself: a color pre-composed here would resolve once, on :root, and
   never see the change.
   */
   --backdrop-grid-cell: 64px;
   --backdrop-grid-line: 1px;
   --backdrop-grid-alpha: 0.025;
+  --backdrop-grid-alpha-exploded: 0.05;
+  --backdrop-grid-emphasis: 0;
   --backdrop-vignette-shape: 120% 90% at 50% 42%;
   --backdrop-vignette-inner: rgb(var(--bg-rgb) / 0);
   --backdrop-vignette-inner-stop: 35%;
   --backdrop-vignette-outer-stop: 100%;
   --backdrop-vignette-outer-alpha: 0.85;
   --backdrop-vignette-outer: rgb(var(--black-rgb) / var(--backdrop-vignette-outer-alpha));
+}
+
+/*
+The grid alpha the backdrop applies, registered as a number so its computed
+value resolves the backdrop's formula and reads back as the number it is.
+The backdrop rule declares it on itself always, so the initial value is only
+the fallback of a substitution failure, where no grid shows at all.
+*/
+@property --backdrop-grid-alpha-applied {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
