@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures'
-import { testBudgetMs } from './budgets'
+import { testBodyBudgetMs, testBudgetMs } from './budgets'
 import { harnessPath, harnessProducts, waitForProductReady } from './productSpecs'
 import { readProductHotspotFacts } from './productHotspots'
 import type { ProductHotspotFacts } from './productHotspots'
@@ -88,7 +88,7 @@ for (const product of products) {
           markerOf(page, first.title).evaluate(
             (element) => getComputedStyle(element, '::after').backgroundColor,
           ),
-        'the pressed marker dot must be the red token',
+        { message: 'the pressed marker dot must be the red token', timeout: testBodyBudgetMs },
       )
       .toBe(redAsRgb)
 
@@ -114,7 +114,7 @@ for (const product of products) {
           markerOf(page, first.title).evaluate(
             (element) => getComputedStyle(element, '::after').backgroundColor,
           ),
-        'the cleared marker dot must not stay red',
+        { message: 'the cleared marker dot must not stay red', timeout: testBodyBudgetMs },
       )
       .not.toBe(redAsRgb)
   })

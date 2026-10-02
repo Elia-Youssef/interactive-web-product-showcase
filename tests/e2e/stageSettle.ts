@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test'
-import { hudDrainBudgetMs } from './budgets'
+import { hudDrainBudgetMs, testBodyBudgetMs } from './budgets'
 
 // Waits until the stage's frame count holds still across a settle window:
 // every load-frame debt (the model, the camera fit) is paid, and the stage
@@ -40,11 +40,14 @@ export async function settledStage(page: Page): Promise<void> {
 // They run once per load, so the wait falls through in one poll afterwards.
 export async function settledStageAnimations(page: Page): Promise<void> {
   await expect
-    .poll(() =>
-      page.evaluate(
-        () =>
-          document.getAnimations().filter((animation) => animation.playState === 'running').length,
-      ),
+    .poll(
+      () =>
+        page.evaluate(
+          () =>
+            document.getAnimations().filter((animation) => animation.playState === 'running')
+              .length,
+        ),
+      { timeout: testBodyBudgetMs },
     )
     .toBe(0)
 }

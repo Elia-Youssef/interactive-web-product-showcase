@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures'
-import { testBudgetMs } from './budgets'
+import { productLoadBudgetMs, testBudgetMs } from './budgets'
 import { expectPoll, harnessPath, harnessProducts, waitForProductReady } from './productSpecs'
 import { readProductHotspotFacts } from './productHotspots'
 import type { ProductHotspotFacts } from './productHotspots'
@@ -165,7 +165,7 @@ for (const product of products) {
     // mount, and the markers must show once the product is ready, placed at
     // the projection.
     await page.getByTestId('remount-product').click()
-    await expectPoll(page, () => window.__viewer?.product ?? null).toBe('idle')
+    await expectPoll(page, () => window.__viewer?.product ?? null, productLoadBudgetMs).toBe('idle')
     await settledFrames(page)
     for (const hotspot of product.hotspots) {
       await expect(markerOf(page, hotspot.title)).toHaveCount(0)
