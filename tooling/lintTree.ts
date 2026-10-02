@@ -3,7 +3,15 @@
 // rules the lint gate runs. Each run gets its own unique tree, and the trees
 // never touch the real src/.
 import { spawnSync } from 'node:child_process'
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -28,6 +36,8 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const scratchRoot = join(repoRoot, 'scratch')
 const eslintBin = join(repoRoot, 'node_modules', 'eslint', 'bin', 'eslint.js')
 const lintTimeoutMs = 240_000
+// The folders of a planted tree the lint runs over, when present.
+const lintedRoots = ['src', 'tests']
 
 // The alias table comes from the repo tsconfig: the planted trees resolve the
 // same aliases as the real code, with no second hand-written table.
@@ -79,19 +89,21 @@ export function plantProject(name: string): PlantedProject {
       writeFileSync(file, content.endsWith('\n') ? content : `${content}\n`)
     },
     lint({ cwd = root }: { readonly cwd?: string } = {}): LintReport {
-      // The tree's src is passed absolutely, so the invocation works from a
-      // subdirectory too: there the config is still discovered at the root,
-      // while the process working directory differs from it.
-      const run = spawnSync(
-        process.execPath,
-        [eslintBin, toPosix(join(root, 'src')), '--format', 'json'],
-        {
-          cwd,
-          encoding: 'utf8',
-          maxBuffer: 32 * 1024 * 1024,
-          timeout: lintTimeoutMs,
-        },
-      )
+      // The tree's planted roots are passed absolutely, so the invocation
+      // works from a subdirectory too: there the config is still discovered
+      // at the root, while the process working directory differs from it.
+      // The roots are src and, when a case planted there, tests, so rules
+      // scoped to the tests folder are proven the same way.
+      const roots = lintedRoots
+        .map((folder) => join(root, folder))
+        .filter(existsSync)
+        .map(toPosix)
+      const run = spawnSync(process.execPath, [eslintBin, ...roots, '--format', 'json'], {
+        cwd,
+        encoding: 'utf8',
+        maxBuffer: 32 * 1024 * 1024,
+        timeout: lintTimeoutMs,
+      })
       // A failed spawn and a timed out one both land in error, so it is
       // checked before the exit status can be read.
       if (run.error !== undefined) {
