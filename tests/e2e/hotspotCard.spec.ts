@@ -1,7 +1,7 @@
 import { expect, test } from './fixtures'
 import type { Page } from '@playwright/test'
 import { expectPoll, harnessPath, waitForProductReady } from './productSpecs'
-import { testBudgetMs } from './budgets'
+import { productLoadBudgetMs, testBudgetMs } from './budgets'
 import { dragOnCanvas } from './stageCamera'
 import { settledFrames } from './stageSettle'
 import {
@@ -181,7 +181,7 @@ for (const product of products) {
     await expect(cardHeadingOf(page, flow.plain.title)).toBeVisible()
 
     await page.getByTestId('remount-product').click()
-    await expectPoll(page, () => window.__viewer?.product ?? null).toBe('idle')
+    await expectPoll(page, () => window.__viewer?.product ?? null, productLoadBudgetMs).toBe('idle')
     await expect(
       cardHeadingOf(page, flow.plain.title),
       'the card must be gone while the product is away',

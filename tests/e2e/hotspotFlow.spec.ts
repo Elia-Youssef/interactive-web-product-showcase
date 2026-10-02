@@ -1,3 +1,4 @@
+import { productLoadBudgetMs } from './budgets'
 import { expect, test } from './fixtures'
 import { harnessPath, expectPoll, waitForProductReady } from './productSpecs'
 import { dragOnCanvas, expectOrbitAtRest, renderedFrames } from './stageCamera'
@@ -182,7 +183,7 @@ for (const product of products) {
     // stale dispatch: a request without a presented plan is a console
     // error).
     await page.getByTestId('remount-product').click()
-    await expectPoll(page, () => window.__viewer?.product ?? null).toBe('idle')
+    await expectPoll(page, () => window.__viewer?.product ?? null, productLoadBudgetMs).toBe('idle')
     await page.keyboard.press('Escape')
     await page.getByTestId('remount-product').click()
     await waitForProductReady(page)

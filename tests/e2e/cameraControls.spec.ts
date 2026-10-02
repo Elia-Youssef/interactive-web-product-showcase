@@ -1,3 +1,4 @@
+import { testBodyBudgetMs } from './budgets'
 import { expect, test } from './fixtures'
 import type { Locator, Page } from '@playwright/test'
 import { siteCopy } from '../../src/lib/copy/site'
@@ -251,7 +252,10 @@ test('the zoom buttons move the percentage by one step and clamp at 0 and 100', 
   }
   const expectShownPercent = (percent: number, why: string) => {
     return expect
-      .poll(async () => Math.abs((await shownPercent()) - percent), why)
+      .poll(async () => Math.abs((await shownPercent()) - percent), {
+        message: why,
+        timeout: testBodyBudgetMs,
+      })
       .toBeLessThanOrEqual(Math.ceil(restPercentPoints))
   }
 
