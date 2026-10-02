@@ -2,8 +2,9 @@ import { Raycaster, Vector3 } from 'three'
 import type { Camera, Intersection, Mesh } from 'three'
 import { isInsideStageBox, projectToStage, type StageBox } from '@lib/hotspots/projection'
 import { isMarkerVisible, isOccluded } from '@lib/hotspots/visibility'
-import type { LoadedProduct } from '@viewer/product/loadedProduct'
+import type { ProductHotspot } from '@viewer/rig/productRig'
 import type { OverlayPlacement } from '@viewer/overlay/StageOverlay'
+import { aimRay } from './aimRay'
 import { overlayKey } from './hotspotKeys'
 
 // Per presented frame, per hotspot, the marker's placement: one projection
@@ -19,22 +20,21 @@ export class HotspotPlacer {
   private readonly raycaster = new Raycaster()
   private readonly anchorWorld = new Vector3()
   private readonly cameraPosition = new Vector3()
-  private readonly toAnchor = new Vector3()
   private readonly hits: Intersection[] = []
 
-  // Places every hotspot of the loaded product, in manifest order. The
-  // camera's matrices are the ones the presented frame used: the placer runs
-  // after the render, which updated the scene's and the camera's world
-  // matrices before drawing.
+  // Places the given rig hotspots, in their given order. The camera's
+  // matrices are the ones the presented frame used: the placer runs after
+  // the render, which updated the scene's and the camera's world matrices
+  // before drawing.
   place(
-    loaded: LoadedProduct,
+    hotspots: readonly ProductHotspot[],
     occluders: Mesh[],
     camera: Camera,
     stage: StageBox,
     write: (key: string, placement: OverlayPlacement) => void,
   ): void {
     camera.getWorldPosition(this.cameraPosition)
-    for (const hotspot of loaded.rig.hotspots) {
+    for (const hotspot of hotspots) {
       hotspot.node.getWorldPosition(this.anchorWorld)
       const projection = projectToStage(
         { x: this.anchorWorld.x, y: this.anchorWorld.y, z: this.anchorWorld.z },
@@ -49,12 +49,9 @@ export class HotspotPlacer {
         continue
       }
 
-      this.toAnchor.subVectors(this.anchorWorld, this.cameraPosition)
-      const anchorDistance = this.toAnchor.length()
-      this.raycaster.set(this.cameraPosition, this.toAnchor)
       // The ray stops at the anchor: any hit it returns is at or in front of
       // the anchor, and the visibility rule decides with no epsilon.
-      this.raycaster.far = anchorDistance
+      const anchorDistance = aimRay(this.raycaster, this.cameraPosition, this.anchorWorld)
       this.hits.length = 0
       this.raycaster.intersectObjects(occluders, false, this.hits)
       const nearest = this.hits[0]
