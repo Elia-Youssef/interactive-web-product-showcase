@@ -1,5 +1,11 @@
 import { AnimationClip, Group, Mesh, MeshStandardMaterial, type Material } from 'three'
-import { parseProduct, readFinishPlan, type FinishPlan } from '@lib/product'
+import {
+  finishDerivedKey,
+  parseProduct,
+  precompilePairs,
+  readFinishPlan,
+  type FinishPlan,
+} from '@lib/product'
 import { sampleOneManifest } from '@lib/product/fixtures'
 import type { LoadedProduct } from '@viewer/product/loadedProduct'
 import type { GltfAssociation } from '@viewer/product/mappedSceneNodes'
@@ -62,7 +68,11 @@ export function plan(): FinishPlan {
 }
 
 // One fake load: three mapped meshes on a scene, the associations the
-// loader would record, and the plan's materials resolved.
+// loader would record, and the finish tables the load resolves. The fake
+// meshes stand for a file whose meshes derive to their raw materials (they
+// carry a tangent, normals and no colors), so the derived table maps every
+// primitive and index pair to the raw material itself; the derivation's
+// real clone behavior is the resolver test's subject, with the real loader.
 export function fakeLoad(): {
   loaded: LoadedProduct
   shell: Mesh
@@ -98,7 +108,8 @@ export function fakeLoad(): {
       },
       finishes: {
         plan: plan(),
-        materials: new Map(materials.map((material, index) => [index, material])),
+        materials: derivedTable(plan(), materials),
+        rawMaterials: new Map(materials.map((material, index) => [index, material])),
         // What the parse would have recorded: the three materials the fake
         // scene's meshes carry.
         sceneMaterials: new Set([materials[0], materials[2], materials[3]]),
@@ -109,6 +120,23 @@ export function fakeLoad(): {
     trim: scene.trim,
     materials,
   }
+}
+
+// The derived table of the fake load: one entry per precompile pair, each
+// the raw material itself.
+function derivedTable(
+  plan: FinishPlan,
+  materials: readonly [Material, Material, Material, Material, Material],
+): Map<string, Material> {
+  const table = new Map<string, Material>()
+  for (const { mesh, primitive, materialIndex } of precompilePairs(plan)) {
+    const material = materials[materialIndex]
+    if (material === undefined) {
+      throw new Error(`the fake load carries no material for the index ${materialIndex}`)
+    }
+    table.set(finishDerivedKey(mesh, primitive, materialIndex), material)
+  }
+  return table
 }
 
 // The fake scene: the mapped meshes dressed in the plan's defaults, with

@@ -64,21 +64,15 @@ export async function applyFirstFinish(target: FirstFinishApplication): Promise<
   }
 }
 
-// One proxy per precompile pair: the pair's material on the geometry of
-// the mesh the plan maps it to. A pipeline is keyed by the geometry's
-// attributes as well as the material, so a material compiled on one
-// mesh's geometry is not the pipeline another mesh's switch uses. The
-// proxies reference the product's own geometry and materials, so the
-// group owns nothing and nothing is disposed with it. Pairs whose
-// material the scene already carries are skipped: the load's own render
-// compiled and uploaded those.
+// One proxy per precompile pair: the pair's derived material on the
+// geometry of the mesh the plan maps it to. A pipeline is keyed by the
+// geometry's attributes as well as the material, so a material compiled on
+// one mesh's geometry is not the pipeline another mesh's switch uses. The
+// proxies reference the product's own geometry and derived materials, so
+// the group owns nothing and nothing is disposed with it. Pairs whose
+// derived material the scene already carries are skipped: the load's own
+// render compiled and uploaded those.
 function buildProxyGroup(loaded: LoadedProduct, mapped: readonly MappedSceneNode[]): Group {
-  const carried = new Set<Material>()
-  loaded.scene.traverse((node) => {
-    if (node instanceof Mesh && !Array.isArray(node.material)) {
-      carried.add(node.material)
-    }
-  })
   const group = new Group()
   group.name = 'FINISH_precompile'
   for (const pair of precompilePairs(loaded.finishes.plan)) {
@@ -86,8 +80,8 @@ function buildProxyGroup(loaded: LoadedProduct, mapped: readonly MappedSceneNode
       (candidate) =>
         candidate.entry.mesh === pair.mesh && candidate.entry.primitive === pair.primitive,
     )) {
-      const material = resolvedMaterial(loaded, pair.materialIndex)
-      if (carried.has(material)) {
+      const material = resolvedMaterial(loaded, mappedMesh.entry, pair.materialIndex)
+      if (mappedMesh.mesh.material === material) {
         continue
       }
       group.add(buildProxy(mappedMesh.mesh.geometry, material))

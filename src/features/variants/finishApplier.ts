@@ -132,7 +132,11 @@ function appliedVariantOf(
       if (!prescribesMaterial(entry, variantIndex)) {
         continue variantLoop
       }
-      const expected = resolvedMaterial(loaded, finishMaterialIndex(entry, variantIndex)).name
+      const expected = resolvedMaterial(
+        loaded,
+        entry,
+        finishMaterialIndex(entry, variantIndex),
+      ).name
       if (materials[finishPrimitiveKey(entry.mesh, entry.primitive)] !== expected) {
         continue variantLoop
       }
