@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures'
-import { testBudgetMs } from './budgets'
+import { testBodyBudgetMs, testBudgetMs } from './budgets'
 import { siteCopy } from '../../src/lib/copy/site'
 import {
   formatProductPath,
@@ -34,7 +34,9 @@ test('a deep link to a product slug presents it and the title names it', async (
   await page.goto(routePath(backendPath, formatProductPath(first.slug)))
 
   await waitForProductReady(page)
-  await expect.poll(() => page.evaluate(() => window.__viewer?.productSlug)).toBe(first.slug)
+  await expect
+    .poll(() => page.evaluate(() => window.__viewer?.productSlug), { timeout: testBodyBudgetMs })
+    .toBe(first.slug)
   await expect(page).toHaveTitle(productDocumentTitle(first, siteCopy.collectionName))
 })
 
@@ -47,7 +49,7 @@ test('the root replaces itself with the first product path and presents it', asy
   await page.goto(backendPath)
   await waitForProductReady(page)
   await expect
-    .poll(() => page.evaluate(() => location.pathname))
+    .poll(() => page.evaluate(() => location.pathname), { timeout: testBodyBudgetMs })
     .toBe(formatProductPath(first.slug))
   // The backend query is state every view needs, so the replace carried it.
   await expect(page).toHaveURL(`${formatProductPath(first.slug)}${modeSearch}`)
@@ -59,7 +61,7 @@ test('the root replaces itself with the first product path and presents it', asy
   await page.goto(backendPath)
   await waitForProductReady(page)
   await expect
-    .poll(() => page.evaluate(() => location.pathname))
+    .poll(() => page.evaluate(() => location.pathname), { timeout: testBodyBudgetMs })
     .toBe(formatProductPath(first.slug))
   expect(await page.evaluate(() => window.history.length)).toBe(lengthAfterFirstVisit + 1)
 })
@@ -84,9 +86,11 @@ test('an unknown slug shows the not-found screen with no renderer, and its link 
 
   await page.getByRole('link', { name: siteCopy.notFoundLink }).click()
   await waitForProductReady(page)
-  await expect.poll(() => page.evaluate(() => window.__viewer?.productSlug)).toBe(first.slug)
   await expect
-    .poll(() => page.evaluate(() => location.pathname))
+    .poll(() => page.evaluate(() => window.__viewer?.productSlug), { timeout: testBodyBudgetMs })
+    .toBe(first.slug)
+  await expect
+    .poll(() => page.evaluate(() => location.pathname), { timeout: testBodyBudgetMs })
     .toBe(formatProductPath(first.slug))
   await expect(page).toHaveTitle(productDocumentTitle(first, siteCopy.collectionName))
 })
@@ -127,6 +131,8 @@ test('back and forward between the product and the not-found screen re-render ea
 
   await page.goForward()
   await waitForProductReady(page)
-  await expect.poll(() => page.evaluate(() => window.__viewer?.productSlug)).toBe(first.slug)
+  await expect
+    .poll(() => page.evaluate(() => window.__viewer?.productSlug), { timeout: testBodyBudgetMs })
+    .toBe(first.slug)
   await expect(page).toHaveTitle(productDocumentTitle(first, siteCopy.collectionName))
 })
