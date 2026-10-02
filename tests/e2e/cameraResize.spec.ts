@@ -4,16 +4,28 @@ import { readProductCameraFacts } from './productCamera'
 import { waitForProductReady } from './productSpecs'
 import { settledFrames, settledStage } from './stageSettle'
 import {
-  containedScale,
+  aspectSideViewports,
+  type CameraRead,
+  homeExpectation,
   readCamera,
-  resolvedDistanceRange,
   REST_THRESHOLD,
-  stageAspectOfCanvas,
+  stageAspectOnSide,
 } from './stageCamera'
 // The collection's first product, and its authored camera facts read from
 // the shipped `.glb`.
 const first = (await loadCollection()).first
 const facts = await readProductCameraFacts(first.slug)
+
+// Both distance limits of the live camera are the product's resolved
+// limits, the same resolution the plan builds from the manifest, scaled by
+// the aspect rule at the measured stage aspect. The aspect in the rule comes
+// from the canvas box, read twice: once by the renderer, once by this spec,
+// whose fractional pixel rounding can differ, hence the precision.
+function expectLimitsAtAspect(camera: CameraRead, stageAspect: number): void {
+  const expected = homeExpectation(facts, first, stageAspect)
+  expect(camera.minDistance).toBeCloseTo(expected.minDistance, 6)
+  expect(camera.maxDistance).toBeCloseTo(expected.maxDistance, 6)
+}
 
 test('a resize across the tablet breakpoint keeps the zoom percentage and the azimuth', async ({
   page,
@@ -22,16 +34,19 @@ test('a resize across the tablet breakpoint keeps the zoom percentage and the az
   // The eased moves' damping tails run long on the software-rendered
   // backends under the full matrix, so this test takes the slow budget.
   test.slow()
-  await page.setViewportSize({ width: 1440, height: 900 })
+  // The resize crosses the authored aspect: from a stage the rule scales to
+  // one it leaves unscaled, so the limits must change by the rule.
+  await page.setViewportSize(aspectSideViewports.narrower)
   await page.goto(backendPath)
   await waitForProductReady(page)
   await settledStage(page)
 
-  const desktopAspect = await stageAspectOfCanvas(page)
+  const desktopAspect = await stageAspectOnSide(page, facts.home.aspect, 'narrower')
   const desktop = await readCamera(page)
   if (desktop === null) {
     throw new Error('the live stage camera must be readable')
   }
+  expectLimitsAtAspect(desktop, desktopAspect)
   // Zoom in a step so the percentage is not the home default the resize
   // could keep by accident.
   await page.getByRole('button', { name: 'Zoom in' }).click()
@@ -45,18 +60,15 @@ test('a resize across the tablet breakpoint keeps the zoom percentage and the az
 
   // The tablet breakpoint reflows the layout: the stage box, and with it
   // the aspect the distances scale by, both change.
-  await page.setViewportSize({ width: 768, height: 1024 })
+  await page.setViewportSize(aspectSideViewports.atLeastAsWide)
   await settledFrames(page)
 
-  const tabletAspect = await stageAspectOfCanvas(page)
-  expect(tabletAspect, 'the reflow must change the stage aspect for this proof').not.toBeCloseTo(
-    desktopAspect,
-    3,
-  )
+  const tabletAspect = await stageAspectOnSide(page, facts.home.aspect, 'atLeastAsWide')
   const tablet = await readCamera(page)
   if (tablet === null) {
     throw new Error('the live stage camera must be readable')
   }
+  expectLimitsAtAspect(tablet, tabletAspect)
 
   // The angles are untouched by a resize.
   expect(tablet.azimuth).toBeCloseTo(moved.azimuth, 6)
@@ -71,18 +83,6 @@ test('a resize across the tablet breakpoint keeps the zoom percentage and the az
     Math.abs(tabletPercent - desktopPercent),
     'the zoom percentage must survive the resize',
   ).toBeLessThanOrEqual(REST_THRESHOLD * percentRange)
-
-  // The limits rescaled by the aspect rule, from the product's resolved
-  // distance limits, the same resolution the plan builds from the manifest.
-  // The aspect in the rule comes from the canvas box, read twice: once by
-  // the renderer, once by this spec, whose fractional pixel rounding can
-  // differ, hence the precision.
-  const range = resolvedDistanceRange(first, facts.home.distance)
-  const desktopScale = containedScale(facts.home.aspect, desktopAspect)
-  const tabletScale = containedScale(facts.home.aspect, tabletAspect)
-  expect(tablet.minDistance).toBeCloseTo(range.min * tabletScale, 6)
-  expect(tablet.maxDistance).toBeCloseTo(range.max * tabletScale, 6)
-  expect(desktop.minDistance).toBeCloseTo(range.min * desktopScale, 6)
 
   // The stage is at rest after the resize.
   expect(await settledFrames(page)).toBeGreaterThan(0)

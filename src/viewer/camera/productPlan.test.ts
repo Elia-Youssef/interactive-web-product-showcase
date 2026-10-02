@@ -1,66 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import type { Camera } from 'three'
-import { AnimationClip, Group, Object3D, OrthographicCamera, PerspectiveCamera } from 'three'
-import { parseProduct } from '@lib/product'
-import { sampleOneManifest } from '@lib/product/fixtures'
-import { CameraLimitsError } from '@lib/camera/errors'
-import type { ModelFrame } from '../modelFrame'
+import { AnimationClip, Object3D, OrthographicCamera, PerspectiveCamera } from 'three'
 import type { ProductRig } from '../rig/productRig'
 import { stageCameraConfig } from './config'
 import { buildCameraPlan } from './productPlan'
+import {
+  centeredFrame,
+  manifestWith,
+  mountedTree,
+  raisedFrame,
+  rigWith,
+} from './productPlanFixtures'
 
-// The parsed manifest the plan builds against, with the camera block each
-// case overrides, so the builder reads the real schema output.
-function manifestWith(camera: { minDistance?: number; maxDistance?: number } | undefined) {
-  return parseProduct({ ...sampleOneManifest, camera }, 'sample-one.test')
-}
-
-// Rig fixtures for the builder: only its cameras enter the plan, so the
-// rest holds minimal stand-ins.
-function rigWith(cameras: readonly PerspectiveCamera[]): ProductRig {
-  return {
-    parts: new Map(),
-    hotspots: [],
-    cameras: new Map(cameras.map((camera) => [camera.name.slice('CAM_'.length), camera])),
-    shadow: new Object3D(),
-    clip: new AnimationClip('Explode', 1, []),
-    variants: [],
-  }
-}
-
-// The measured frame of the fixture model: its center rides 0.1 above the
-// floor, which the centering group offsets.
-const frame: ModelFrame = {
-  centerX: 0,
-  centerY: 0.1,
-  centerZ: 0,
-  radius: 0.4,
-  meshes: 1,
-  triangles: 12,
-}
-
-// A centered frame: no centering offset, a small radius.
-const centeredFrame: ModelFrame = {
-  centerX: 0,
-  centerY: 0,
-  centerZ: 0,
-  radius: 0.05,
-  meshes: 1,
-  triangles: 12,
-}
-
-// Mounts the cameras under a centering group offset, the way the loaded
-// product's tree is centered on the origin.
-function mountedTree(cameras: readonly PerspectiveCamera[], offset: ModelFrame = frame): Group {
-  const group = new Group()
-  group.position.set(-offset.centerX, -offset.centerY, -offset.centerZ)
-  const scene = new Object3D()
-  for (const camera of cameras) {
-    scene.add(camera)
-  }
-  group.add(scene)
-  return group
-}
+// The plan the builder makes from a well-formed rig: its views, its lens,
+// its clip range and its limits. The limit rules every view is held to live
+// in productPlanLimits.test.ts.
 
 describe('buildCameraPlan', () => {
   it('builds a view per rig camera from the centered world transforms', () => {
@@ -73,7 +27,7 @@ describe('buildCameraPlan', () => {
     closeUp.lookAt(0, 0.1, 0)
     mountedTree([home, closeUp])
 
-    const plan = buildCameraPlan(rigWith([home, closeUp]), manifestWith(undefined), frame)
+    const plan = buildCameraPlan(rigWith([home, closeUp]), manifestWith(undefined), raisedFrame)
 
     expect([...plan.views.keys()]).toEqual(['home', 'driver'])
     const homeView = plan.views.get('home')
@@ -88,6 +42,43 @@ describe('buildCameraPlan', () => {
     expect(homeView.fovY).toBeCloseTo((30 * Math.PI) / 180, 15)
     expect(homeView.near).toBe(0.05)
     expect(homeView.far).toBe(25)
+  })
+
+  it('carries the home lens as the plan base for the zoom channel', () => {
+    const home = new PerspectiveCamera(30, 1.6, 0.05, 25)
+    home.name = 'CAM_home'
+    home.position.set(0, 0, 1.2)
+    const closeUp = new PerspectiveCamera(45, 1.6, 0.05, 25)
+    closeUp.name = 'CAM_driver'
+    closeUp.position.set(0.3, 0.3, 0.8)
+    closeUp.lookAt(0, 0.1, 0)
+    mountedTree([home, closeUp], centeredFrame)
+
+    const plan = buildCameraPlan(rigWith([home, closeUp]), manifestWith(undefined), centeredFrame)
+
+    const homeView = plan.views.get('home')
+    if (homeView === undefined) {
+      throw new Error('the home view must be in the plan')
+    }
+    // The base is the home view's own lens, the one value the zoom math
+    // turns into every view's lens.
+    expect(plan.baseFovY).toBe(homeView.fovY)
+    expect(plan.baseFovY).toBeCloseTo((30 * Math.PI) / 180, 15)
+  })
+
+  it('carries one clip range across the views: the smallest near and the largest far', () => {
+    const home = new PerspectiveCamera(30, 1.6, 0.2, 25)
+    home.name = 'CAM_home'
+    home.position.set(0, 0, 1.2)
+    const closeUp = new PerspectiveCamera(45, 1.6, 0.05, 40)
+    closeUp.name = 'CAM_driver'
+    closeUp.position.set(0.3, 0.3, 0.8)
+    closeUp.lookAt(0, 0.1, 0)
+    mountedTree([home, closeUp], centeredFrame)
+
+    const plan = buildCameraPlan(rigWith([home, closeUp]), manifestWith(undefined), centeredFrame)
+
+    expect(plan.clipRange).toEqual({ near: 0.05, far: 40 })
   })
 
   it('projects the target onto an angled view ray closest to the origin', () => {
@@ -147,111 +138,6 @@ describe('buildCameraPlan', () => {
     )
 
     expect(plan.distanceRange).toEqual({ min: 0.9, max: 3 })
-  })
-
-  it('fails with every broken rule named when the home sits outside the limits', () => {
-    const home = new PerspectiveCamera(30, 1.6, 0.05, 25)
-    home.name = 'CAM_home'
-    home.position.set(0, 0, 1.2)
-    mountedTree([home])
-
-    // The authored maximum pulls the home distance 1.2 outside [0.4, 1.1],
-    // and the authored minimum only reaches the model's radius of 0.4,
-    // which the minimum must exceed.
-    try {
-      buildCameraPlan(rigWith([home]), manifestWith({ minDistance: 0.4, maxDistance: 1.1 }), frame)
-      throw new Error('the broken limits must fail the plan')
-    } catch (error) {
-      if (!(error instanceof CameraLimitsError)) {
-        throw error
-      }
-      expect(error.subject).toBe('sample-one')
-      expect(error.problems.map((problem) => problem.rule)).toEqual([
-        'view-within-distance-limits',
-        'minimum-clears-the-model',
-      ])
-      expect(error.problems[0]?.message).toContain('CAM_home')
-    }
-  })
-
-  it('fails when the minimum does not clear the model radius', () => {
-    const home = new PerspectiveCamera(30, 1.6, 0.05, 25)
-    home.name = 'CAM_home'
-    home.position.set(0, 0, 1.2)
-    mountedTree([home])
-
-    expect(() =>
-      buildCameraPlan(rigWith([home]), manifestWith({ minDistance: 0.35 }), frame),
-    ).toThrow(/minimum distance 0.35 does not exceed the model radius 0.4/)
-  })
-
-  it('fails when a close-up orbit distance sits below the minimum, naming the view', () => {
-    const home = new PerspectiveCamera(30, 1.6, 0.05, 25)
-    home.name = 'CAM_home'
-    home.position.set(0, 0, 1.2)
-    const closeUp = new PerspectiveCamera(45, 1.6, 0.05, 25)
-    closeUp.name = 'CAM_driver'
-    closeUp.position.set(0, 0, 0.3)
-    mountedTree([home, closeUp], centeredFrame)
-
-    // The authored minimum 0.5 clears the model radius but sits above the
-    // close-up's 0.3 orbit distance, so the controls would clamp the
-    // close-up back out; the plan fails on it instead.
-    try {
-      buildCameraPlan(rigWith([home, closeUp]), manifestWith({ minDistance: 0.5 }), centeredFrame)
-      throw new Error('the clamped close-up must fail the plan')
-    } catch (error) {
-      if (!(error instanceof CameraLimitsError)) {
-        throw error
-      }
-      expect(error.problems.map((problem) => problem.rule)).toEqual(['view-within-distance-limits'])
-      expect(error.problems[0]?.message).toContain('CAM_driver')
-      expect(error.problems[0]?.message).toContain('0.3')
-    }
-  })
-
-  it('passes when a close-up orbit distance sits inside the limits', () => {
-    const home = new PerspectiveCamera(30, 1.6, 0.05, 25)
-    home.name = 'CAM_home'
-    home.position.set(0, 0, 1.2)
-    const closeUp = new PerspectiveCamera(45, 1.6, 0.05, 25)
-    closeUp.name = 'CAM_driver'
-    closeUp.position.set(0, 0, 0.6)
-    mountedTree([home, closeUp], centeredFrame)
-
-    const plan = buildCameraPlan(
-      rigWith([home, closeUp]),
-      manifestWith({ minDistance: 0.4 }),
-      centeredFrame,
-    )
-
-    expect([...plan.views.keys()]).toEqual(['home', 'driver'])
-  })
-
-  it('fails when a close-up polar angle sits outside the configured limits, naming the view', () => {
-    // The home view is level with the model (polar 90 degrees, inside the
-    // configured limits); the close-up hangs above the model at a distance
-    // the limits allow and is aimed straight down, whose polar angle is
-    // nearly 0, below the configured minimum.
-    const home = new PerspectiveCamera(30, 1.6, 0.05, 25)
-    home.name = 'CAM_home'
-    home.position.set(0, 0, 1.2)
-    const closeUp = new PerspectiveCamera(45, 1.6, 0.05, 25)
-    closeUp.name = 'CAM_driver'
-    closeUp.position.set(0, 2, 0)
-    closeUp.lookAt(0, 0, 0)
-    mountedTree([home, closeUp], centeredFrame)
-
-    try {
-      buildCameraPlan(rigWith([home, closeUp]), manifestWith(undefined), centeredFrame)
-      throw new Error('the unreachable close-up must fail the plan')
-    } catch (error) {
-      if (!(error instanceof CameraLimitsError)) {
-        throw error
-      }
-      expect(error.problems.map((problem) => problem.rule)).toEqual(['view-within-polar-limits'])
-      expect(error.problems[0]?.message).toContain('CAM_driver')
-    }
   })
 
   it('fails when an authored camera is not perspective', () => {

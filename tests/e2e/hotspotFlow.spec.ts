@@ -1,7 +1,7 @@
 import { productLoadBudgetMs } from './budgets'
 import { expect, test } from './fixtures'
 import { harnessPath, expectPoll, waitForProductReady } from './productSpecs'
-import { dragOnCanvas, expectOrbitAtRest, renderedFrames } from './stageCamera'
+import { dragOnCanvas, expectLensAtRest, expectOrbitAtRest, renderedFrames } from './stageCamera'
 import { settledFrames } from './stageSettle'
 import {
   cardCloseButtonOf,
@@ -54,11 +54,17 @@ for (const flow of flows) {
       await expect(cardCloseButtonOf(page)).toBeVisible()
 
       // The camera comes to rest at the authored close-up view, its lens
-      // included, within the controls' rest threshold.
+      // included, within the controls' rest threshold: the lens eases on the
+      // zoom channel through the plan's base lens, the home view's.
       await settledFrames(page)
       const camera = await requireCamera(page)
       const expected = flow.viewAt(closeUp.view, await harnessStageAspect(page))
-      expect(camera.fovY, 'the close-up applies the authored lens').toBeCloseTo(expected.fovY, 12)
+      expectLensAtRest(
+        camera,
+        flow.subject.viewFacts.home.fovY,
+        expected.fovY,
+        'the close-up applies the authored lens',
+      )
       expectOrbitAtRest(camera, expected, 'the close-up press')
       expect(camera.position.x).toBeCloseTo(expected.position.x, 2)
       expect(camera.position.y).toBeCloseTo(expected.position.y, 2)
