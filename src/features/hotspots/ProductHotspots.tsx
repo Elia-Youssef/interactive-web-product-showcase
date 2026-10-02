@@ -32,7 +32,7 @@ export function ProductHotspots() {
   const placer = useMemo(() => new HotspotPlacer(), [])
   const place = useCallback(
     () =>
-      placer.place(loaded, occluders, camera, size, (key, placement) =>
+      placer.place(loaded.rig.hotspots, occluders, camera, size, (key, placement) =>
         overlay.place(key, placement),
       ),
     [placer, loaded, occluders, camera, size, overlay],
