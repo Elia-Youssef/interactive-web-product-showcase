@@ -1,42 +1,40 @@
 import type { Product } from '@lib/product'
-import { selectProductStatus, selectSelectedHotspot, useAppStore } from '@store/index'
 import { useStageOverlay } from '@viewer/overlay/stageOverlayContext'
-import { Marker } from '@ui/index'
-import { overlayKey } from './hotspotKeys'
+import { HotspotAnchor } from './HotspotAnchor'
+import { useHotspotFlow } from './useHotspotFlow'
+import { useHotspotSelectionEffects } from './useHotspotSelectionEffects'
 
-// The DOM side of the hotspots: one marker per manifest hotspot, in manifest
+// The DOM side of the hotspots: one anchor per manifest hotspot, in manifest
 // order, rendered in the stage overlay while the store's product status is
-// ready for this product. The stage's overlay channel owns each marker's
-// placement, so this side never positions anything itself: it mounts the
-// elements under the feature's keys, names each marker with its hotspot's
-// title, and hands presses to the store's hotspot slice. The canvas side of
-// the feature, mounted beside the same product, writes the placements.
+// ready for this product. The store wiring lives in the flow hook beside
+// this file; the anchor's own structure is the presentational
+// HotspotAnchor. The selection's Escape and clear-on-leave effects live in
+// their own hook, so no side of the feature moves the camera except the
+// store's camera request channel.
 export function HotspotMarkers({ product }: { readonly product: Product }) {
   const overlay = useStageOverlay()
-  const productStatus = useAppStore(selectProductStatus)
-  const selected = useAppStore((state) => selectSelectedHotspot(state, product.slug))
-  const hotspotToggled = useAppStore((state) => state.hotspotToggled)
+  const flow = useHotspotFlow(product)
+  useHotspotSelectionEffects({
+    presented: flow.presented,
+    slug: product.slug,
+    selected: flow.selected,
+    close: flow.close,
+  })
 
-  if (productStatus.kind !== 'ready' || productStatus.slug !== product.slug) {
+  if (!flow.presented) {
     return null
   }
 
   return (
     <>
       {product.hotspots.map((hotspot) => (
-        <Marker
+        <HotspotAnchor
           key={hotspot.id}
-          ref={(element) => {
-            // React 19 takes a ref cleanup in place of the null call: the
-            // release is the mount's own, so a stale one would fail loudly.
-            if (element === null) {
-              return undefined
-            }
-            return overlay.mount(overlayKey(hotspot.id), element)
-          }}
-          label={hotspot.title}
-          active={selected === hotspot.id}
-          onClick={() => hotspotToggled(product.slug, hotspot.id)}
+          overlay={overlay}
+          hotspot={hotspot}
+          selected={flow.selected === hotspot.id}
+          onToggle={() => flow.toggle(hotspot.id)}
+          onClose={flow.close}
         />
       ))}
     </>

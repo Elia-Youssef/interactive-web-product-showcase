@@ -37,14 +37,6 @@ export function scaledRangeOf(plan: CameraPlan, stageAspect: number): DistanceRa
   }
 }
 
-export function viewOfPlan(plan: CameraPlan, viewId: string): CameraView {
-  const view = plan.views.get(viewId)
-  if (view === undefined) {
-    throw new Error(`the presented camera plan holds no view '${viewId}'`)
-  }
-  return view
-}
-
 // The authored lens of the view: Blender owns camera views, so the stage
 // camera takes the authored vertical fov and near and far planes.
 export function applyLens(camera: PerspectiveCamera, view: CameraView): void {

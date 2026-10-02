@@ -41,7 +41,7 @@ test('Reset eases back to the home view and the readouts show home', async ({
   test.slow()
   await readyStage(page, backendPath)
   const center = await canvasCenter(page)
-  const expected = homeExpectation(facts, await stageAspectOfCanvas(page))
+  const expected = homeExpectation(facts, first, await stageAspectOfCanvas(page))
   const homeAzimuth = (facts.home.azimuthDegrees * Math.PI) / 180
 
   await dragOnCanvas(page, center, { x: center.x + 240, y: center.y - 160 })
@@ -83,7 +83,7 @@ test('under reduced motion, Reset lands home on the next rendered frame', async 
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await readyStage(page, backendPath)
   const center = await canvasCenter(page)
-  const expected = homeExpectation(facts, await stageAspectOfCanvas(page))
+  const expected = homeExpectation(facts, first, await stageAspectOfCanvas(page))
 
   await dragOnCanvas(page, center, { x: center.x + 240, y: center.y - 160 })
   await settledFrames(page)

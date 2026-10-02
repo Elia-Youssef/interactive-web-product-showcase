@@ -21,7 +21,7 @@ test('the stage camera starts at the home view the model authors', async ({
   await settledStage(page)
 
   const stageAspect = await stageAspectOfCanvas(page)
-  const expected = homeExpectation(facts, stageAspect)
+  const expected = homeExpectation(facts, first, stageAspect)
   const camera = await readCamera(page)
   if (camera === null) {
     throw new Error('the automation must carry the live stage camera once a view is presented')
@@ -63,7 +63,7 @@ test('the chrome readouts read the live camera at home', async ({ page, backendP
   await settledStage(page)
 
   const stageAspect = await stageAspectOfCanvas(page)
-  const expected = homeExpectation(facts, stageAspect)
+  const expected = homeExpectation(facts, first, stageAspect)
 
   // The angle readout normalizes the accumulated azimuth into [0, 360): the
   // authored home azimuth is -35 degrees, which reads as 325.

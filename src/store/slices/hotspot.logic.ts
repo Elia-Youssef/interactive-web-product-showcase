@@ -44,6 +44,19 @@ function toggle(status: HotspotStatus, product: string, hotspot: string): Hotspo
   return { kind: 'selected', product, hotspot }
 }
 
+// The selection a toggle press lands on, without applying it: the hotspot
+// feature owes the camera the change between the selection before its press
+// and this one. The same rule applyHotspotEvent applies, asked as a
+// question so the flow never restates it.
+export function selectionAfterToggle(
+  status: HotspotStatus,
+  product: string,
+  hotspot: string,
+): string | null {
+  const next = applyHotspotEvent(status, { kind: 'toggled', product, hotspot })
+  return next.kind === 'selected' && next.product === product ? next.hotspot : null
+}
+
 // Clearing the selection of the product that holds it leaves the status at
 // rest; another product's clear is a no-op, because the selector already
 // answers null for it.

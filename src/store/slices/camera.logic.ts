@@ -93,3 +93,45 @@ export function hasUnhandledCameraRequest(
 ): boolean {
   return channel.request !== null && channel.sequence > executedSequence
 }
+
+// The reason a camera request was rejected: one of the two synchronous
+// failures of the stage camera's move API. No presented plan to move with,
+// or a view id the presented plan does not hold.
+export type CameraRequestRejectionReason = 'no-plan' | 'unknown-view'
+
+// The outcome of one camera request: the move came to rest, or the request
+// was rejected before any move began.
+export type CameraRequestOutcome =
+  | { readonly kind: 'arrived' }
+  | { readonly kind: 'rejected'; readonly reason: CameraRequestRejectionReason }
+
+// The outcomes of the requests the camera has executed, keyed by the
+// request's sequence. One sequence holds one outcome: its move either comes
+// to rest or is rejected, never both.
+export type CameraOutcomes = ReadonlyMap<number, CameraRequestOutcome>
+
+export type CameraOutcomeEvent =
+  | { readonly kind: 'arrived'; readonly sequence: number }
+  | {
+      readonly kind: 'rejected'
+      readonly sequence: number
+      readonly reason: CameraRequestRejectionReason
+    }
+
+export const initialCameraOutcomes: CameraOutcomes = new Map()
+
+// Pure transition from (outcomes, event) to the next outcomes. The bridge
+// records one event per request, so a sequence is written once; a repeated
+// write for a sequence replaces its outcome, and the newest value is the
+// one a reader sees.
+export function applyCameraOutcomeEvent(
+  outcomes: CameraOutcomes,
+  event: CameraOutcomeEvent,
+): CameraOutcomes {
+  const next = new Map(outcomes)
+  next.set(
+    event.sequence,
+    event.kind === 'arrived' ? { kind: 'arrived' } : { kind: 'rejected', reason: event.reason },
+  )
+  return next
+}

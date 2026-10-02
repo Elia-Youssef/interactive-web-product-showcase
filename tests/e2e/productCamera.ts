@@ -16,10 +16,10 @@ import { createModelIO } from '../../scripts/modelIo.ts'
 export type ProductCameraFacts = {
   // The center of the scene's bounding box, in the model's own space.
   readonly center: vec3
-  readonly home: AuthoredHomeView
+  readonly home: AuthoredView
 }
 
-export type AuthoredHomeView = {
+export type AuthoredView = {
   // The camera position in stage space, where the centered model sits on
   // the origin.
   readonly position: vec3
@@ -36,7 +36,16 @@ export type AuthoredHomeView = {
   readonly distance: number
 }
 
+// The authored camera facts of a product's hotspot close-ups: the home view
+// beside every per-hotspot view the model carries, keyed by the hotspot id
+// after the CAM_ prefix. A hotspot without a close-up has no entry.
+export type ProductViewFacts = {
+  readonly home: AuthoredView
+  readonly closeUps: ReadonlyMap<string, AuthoredView>
+}
+
 const HOME_CAMERA_NAME = 'CAM_home'
+const CAMERA_NODE_PREFIX = 'CAM_'
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url))
 
@@ -65,14 +74,59 @@ export async function readProductCameraFacts(slug: string): Promise<ProductCamer
   if (camera === null || camera.getType() !== 'perspective') {
     throw new Error(`${HOME_CAMERA_NAME} in ${modelPath} carries no perspective camera`)
   }
-  return { center, home: authoredHomeViewOf(homeNode, camera, center) }
+  return { center, home: authoredViewOf(homeNode, camera, center) }
 }
 
-// The home view of one authored camera node, in stage space: the centered
+// The home view and every hotspot close-up of a product, one read of the
+// shipped `.glb`.
+export async function readProductViewFacts(slug: string): Promise<ProductViewFacts> {
+  const io = await createModelIO()
+  const modelPath = path.join(ROOT, 'public', 'models', slug, 'model.glb')
+  const doc = await io.read(modelPath)
+  const root = doc.getRoot()
+
+  const scene = root.listScenes()[0]
+  if (scene === undefined) {
+    throw new Error(`no scene in ${modelPath}`)
+  }
+  const bounds = getBounds(scene)
+  const center: vec3 = [
+    (bounds.min[0] + bounds.max[0]) / 2,
+    (bounds.min[1] + bounds.max[1]) / 2,
+    (bounds.min[2] + bounds.max[2]) / 2,
+  ]
+
+  const home = new Map<string, AuthoredView>()
+  const closeUps = new Map<string, AuthoredView>()
+  for (const node of root.listNodes()) {
+    const name = node.getName()
+    if (!name.startsWith(CAMERA_NODE_PREFIX)) {
+      continue
+    }
+    const camera = node.getCamera()
+    if (camera === null || camera.getType() !== 'perspective') {
+      throw new Error(`${name} in ${modelPath} carries no perspective camera`)
+    }
+    const id = name.slice(CAMERA_NODE_PREFIX.length)
+    const view = authoredViewOf(node, camera, center)
+    if (id === HOME_CAMERA_NAME.slice(CAMERA_NODE_PREFIX.length)) {
+      home.set(id, view)
+    } else {
+      closeUps.set(id, view)
+    }
+  }
+  const homeView = home.get(HOME_CAMERA_NAME.slice(CAMERA_NODE_PREFIX.length))
+  if (homeView === undefined) {
+    throw new Error(`no ${HOME_CAMERA_NAME} node in ${modelPath}`)
+  }
+  return { home: homeView, closeUps }
+}
+
+// The view of one authored camera node, in stage space: the centered
 // position, the orbit target the view ray's closest point to the model
 // center is, the authored lens, and the orbit numbers.
-function authoredHomeViewOf(homeNode: GltfNode, camera: Camera, center: vec3): AuthoredHomeView {
-  const world = homeNode.getWorldMatrix()
+function authoredViewOf(node: GltfNode, camera: Camera, center: vec3): AuthoredView {
+  const world = node.getWorldMatrix()
   const position = transformPoint(world, [0, 0, 0])
   // A glTF camera looks down its local -Z, so the forward is that column
   // of the world rotation, normalized.

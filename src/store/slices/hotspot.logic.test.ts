@@ -1,8 +1,26 @@
 import { describe, expect, it } from 'vitest'
 import type { HotspotStatus } from './hotspot.logic'
-import { applyHotspotEvent, initialHotspotStatus } from './hotspot.logic'
+import { applyHotspotEvent, initialHotspotStatus, selectionAfterToggle } from './hotspot.logic'
 
 const selected: HotspotStatus = { kind: 'selected', product: 'forma-one', hotspot: 'driver' }
+
+describe('selectionAfterToggle', () => {
+  it('answers the pressed hotspot from idle', () => {
+    expect(selectionAfterToggle(initialHotspotStatus, 'forma-one', 'driver')).toBe('driver')
+  })
+
+  it('answers null when the press is the active hotspot of the product', () => {
+    expect(selectionAfterToggle(selected, 'forma-one', 'driver')).toBeNull()
+  })
+
+  it('answers the other hotspot when the press moves the selection', () => {
+    expect(selectionAfterToggle(selected, 'forma-one', 'knob')).toBe('knob')
+  })
+
+  it('answers the pressed hotspot of another product, which replaces the stale selection', () => {
+    expect(selectionAfterToggle(selected, 'forma-two', 'knob')).toBe('knob')
+  })
+})
 
 describe('applyHotspotEvent', () => {
   it('selects a hotspot from idle', () => {

@@ -167,9 +167,10 @@ describe('buildCameraPlan', () => {
       }
       expect(error.subject).toBe('sample-one')
       expect(error.problems.map((problem) => problem.rule)).toEqual([
-        'home-within-distance-limits',
+        'view-within-distance-limits',
         'minimum-clears-the-model',
       ])
+      expect(error.problems[0]?.message).toContain('CAM_home')
     }
   })
 
@@ -184,19 +185,73 @@ describe('buildCameraPlan', () => {
     ).toThrow(/minimum distance 0.35 does not exceed the model radius 0.4/)
   })
 
-  it('fails when the home polar angle sits outside the configured limits', () => {
-    // A camera aimed straight down from above the model: its polar angle
-    // is nearly 0, below the configured minimum, while the distances stay
-    // inside their limits.
+  it('fails when a close-up orbit distance sits below the minimum, naming the view', () => {
     const home = new PerspectiveCamera(30, 1.6, 0.05, 25)
     home.name = 'CAM_home'
-    home.position.set(0, 5, 0)
-    home.lookAt(0, 0, 0)
-    mountedTree([home], centeredFrame)
+    home.position.set(0, 0, 1.2)
+    const closeUp = new PerspectiveCamera(45, 1.6, 0.05, 25)
+    closeUp.name = 'CAM_driver'
+    closeUp.position.set(0, 0, 0.3)
+    mountedTree([home, closeUp], centeredFrame)
 
-    expect(() => buildCameraPlan(rigWith([home]), manifestWith(undefined), centeredFrame)).toThrow(
-      /home polar angle/,
+    // The authored minimum 0.5 clears the model radius but sits above the
+    // close-up's 0.3 orbit distance, so the controls would clamp the
+    // close-up back out; the plan fails on it instead.
+    try {
+      buildCameraPlan(rigWith([home, closeUp]), manifestWith({ minDistance: 0.5 }), centeredFrame)
+      throw new Error('the clamped close-up must fail the plan')
+    } catch (error) {
+      if (!(error instanceof CameraLimitsError)) {
+        throw error
+      }
+      expect(error.problems.map((problem) => problem.rule)).toEqual(['view-within-distance-limits'])
+      expect(error.problems[0]?.message).toContain('CAM_driver')
+      expect(error.problems[0]?.message).toContain('0.3')
+    }
+  })
+
+  it('passes when a close-up orbit distance sits inside the limits', () => {
+    const home = new PerspectiveCamera(30, 1.6, 0.05, 25)
+    home.name = 'CAM_home'
+    home.position.set(0, 0, 1.2)
+    const closeUp = new PerspectiveCamera(45, 1.6, 0.05, 25)
+    closeUp.name = 'CAM_driver'
+    closeUp.position.set(0, 0, 0.6)
+    mountedTree([home, closeUp], centeredFrame)
+
+    const plan = buildCameraPlan(
+      rigWith([home, closeUp]),
+      manifestWith({ minDistance: 0.4 }),
+      centeredFrame,
     )
+
+    expect([...plan.views.keys()]).toEqual(['home', 'driver'])
+  })
+
+  it('fails when a close-up polar angle sits outside the configured limits, naming the view', () => {
+    // The home view is level with the model (polar 90 degrees, inside the
+    // configured limits); the close-up hangs above the model at a distance
+    // the limits allow and is aimed straight down, whose polar angle is
+    // nearly 0, below the configured minimum.
+    const home = new PerspectiveCamera(30, 1.6, 0.05, 25)
+    home.name = 'CAM_home'
+    home.position.set(0, 0, 1.2)
+    const closeUp = new PerspectiveCamera(45, 1.6, 0.05, 25)
+    closeUp.name = 'CAM_driver'
+    closeUp.position.set(0, 2, 0)
+    closeUp.lookAt(0, 0, 0)
+    mountedTree([home, closeUp], centeredFrame)
+
+    try {
+      buildCameraPlan(rigWith([home, closeUp]), manifestWith(undefined), centeredFrame)
+      throw new Error('the unreachable close-up must fail the plan')
+    } catch (error) {
+      if (!(error instanceof CameraLimitsError)) {
+        throw error
+      }
+      expect(error.problems.map((problem) => problem.rule)).toEqual(['view-within-polar-limits'])
+      expect(error.problems[0]?.message).toContain('CAM_driver')
+    }
   })
 
   it('fails when an authored camera is not perspective', () => {

@@ -36,9 +36,16 @@ for (const product of products) {
       'the settled stage must render no frame for the markers',
     ).toBe(framesAfterDrag)
 
+    // The zoom steps wheel out, not in: wheeling in from home can reach a
+    // view where the product genuinely occludes an anchor (measured on the
+    // placeholder speaker: the steps clamp at the authored minimum distance
+    // and the body hides the knob anchor there), and which markers survive
+    // that view is the occlusion contract's proof, not this one. Moving
+    // away can only clear an occlusion, so every marker's expectation stays
+    // well defined for any product.
     await page.mouse.move(center.x, center.y)
     for (let step = 0; step < 3; step += 1) {
-      await page.mouse.wheel(0, -240)
+      await page.mouse.wheel(0, 240)
     }
     const framesAfterZoom = await settledFrames(page)
     await expectMarkersAtProjection(page, product.hotspots, 'after a zoom step')

@@ -81,3 +81,18 @@ test('clearing returns the product to no selection', () => {
 
   expect(selectSelectedHotspot(read(), PRODUCT)).toBeNull()
 })
+
+test('clearing on leave drops the leaving product selection and clears nothing else', () => {
+  const { slice, read } = makeSlice()
+
+  // Product A holds a selection when its feature leaves; product B has
+  // never held one. The leave clears A's selection, and B stays idle: a
+  // return to A never reopens the stale card, and no other product's page
+  // can clear anything.
+  slice.hotspotToggled(PRODUCT, 'driver')
+  slice.hotspotCleared(PRODUCT)
+  slice.hotspotCleared(OTHER_PRODUCT)
+
+  expect(selectSelectedHotspot(read(), PRODUCT)).toBeNull()
+  expect(selectHotspotStatus(read())).toEqual({ kind: 'idle' })
+})

@@ -6,7 +6,7 @@ import {
   polarLimitProblems,
   resolvedDistanceLimits,
 } from '@lib/camera/limits'
-import type { CameraLimitProblem } from '@lib/camera/limits'
+import type { CameraLimitProblem, ViewOrbit } from '@lib/camera/limits'
 import type { DistanceRange, PolarRange } from '@lib/camera/limits'
 import { orbitAnglesOf, orbitViewOfAuthoredCamera } from '@lib/camera/view'
 import type { Vec3 } from '@lib/camera/view'
@@ -65,9 +65,15 @@ export function buildCameraPlan(rig: ProductRig, manifest: Product, frame: Model
     min: MathUtils.degToRad(stageCameraConfig.minPolarAngleDegrees),
     max: MathUtils.degToRad(stageCameraConfig.maxPolarAngleDegrees),
   }
+  // Every view obeys the limit rules, the home view included: a close-up
+  // the limits would clamp away is as broken as a home that fails them.
+  const viewOrbits: ViewOrbit[] = [...views].map(([id, view]) => {
+    const angles = orbitAnglesOf(view.position, view.target)
+    return { id, distance: angles.distance, polar: angles.polar }
+  })
   problems.push(
-    ...distanceLimitProblems(distanceRange, homeAngles.distance, frame.radius),
-    ...polarLimitProblems(polarRange, homeAngles.polar),
+    ...distanceLimitProblems(distanceRange, viewOrbits, frame.radius),
+    ...polarLimitProblems(polarRange, viewOrbits),
   )
 
   if (problems.length > 0) {

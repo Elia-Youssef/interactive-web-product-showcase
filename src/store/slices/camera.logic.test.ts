@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import {
+  applyCameraOutcomeEvent,
   applyCameraReadoutEvent,
   hasUnhandledCameraRequest,
+  initialCameraOutcomes,
   initialCameraReadout,
   initialCameraRequestChannel,
   nextCameraRequest,
+  type CameraOutcomeEvent,
+  type CameraOutcomes,
   type CameraReadout,
   type CameraReadoutEvent,
+  type CameraRequestOutcome,
 } from './camera.logic'
 
 const live = (
@@ -108,5 +113,92 @@ describe('hasUnhandledCameraRequest', () => {
 
   it('reports nothing on an empty channel', () => {
     expect(hasUnhandledCameraRequest(initialCameraRequestChannel, 0)).toBe(false)
+  })
+})
+
+describe('applyCameraOutcomeEvent', () => {
+  // The outcomes the row's `from` state is seeded with, in order.
+  const arrived = (sequences: readonly number[]): CameraOutcomes => {
+    let outcomes = initialCameraOutcomes
+    for (const sequence of sequences) {
+      outcomes = applyCameraOutcomeEvent(outcomes, { kind: 'arrived', sequence })
+    }
+    return outcomes
+  }
+
+  const table: readonly {
+    name: string
+    seed: readonly number[]
+    event: CameraOutcomeEvent
+    expected: ReadonlyMap<number, CameraRequestOutcome>
+  }[] = [
+    {
+      name: 'an arrived request is recorded by its sequence',
+      seed: [],
+      event: { kind: 'arrived', sequence: 3 },
+      expected: new Map([[3, { kind: 'arrived' }]]),
+    },
+    {
+      name: 'a no-plan rejection is recorded with its reason',
+      seed: [],
+      event: { kind: 'rejected', sequence: 1, reason: 'no-plan' },
+      expected: new Map([[1, { kind: 'rejected', reason: 'no-plan' }]]),
+    },
+    {
+      name: 'an unknown-view rejection is recorded with its reason',
+      seed: [],
+      event: { kind: 'rejected', sequence: 2, reason: 'unknown-view' },
+      expected: new Map([[2, { kind: 'rejected', reason: 'unknown-view' }]]),
+    },
+    {
+      name: 'two overlapping requests record one outcome each, both arrived at the final rest',
+      seed: [1],
+      event: { kind: 'arrived', sequence: 2 },
+      expected: new Map([
+        [1, { kind: 'arrived' }],
+        [2, { kind: 'arrived' }],
+      ]),
+    },
+  ]
+
+  for (const row of table) {
+    it(row.name, () => {
+      const next = applyCameraOutcomeEvent(arrived(row.seed), row.event)
+
+      expect(next).toEqual(row.expected)
+    })
+  }
+
+  it('keeps the outcomes of earlier sequences', () => {
+    const withFirst = applyCameraOutcomeEvent(initialCameraOutcomes, {
+      kind: 'arrived',
+      sequence: 1,
+    })
+    const next = applyCameraOutcomeEvent(withFirst, { kind: 'arrived', sequence: 2 })
+
+    expect(next.get(1)).toEqual({ kind: 'arrived' })
+    expect(next.get(2)).toEqual({ kind: 'arrived' })
+  })
+
+  it('keeps the input outcomes untouched', () => {
+    const from = applyCameraOutcomeEvent(initialCameraOutcomes, { kind: 'arrived', sequence: 1 })
+    applyCameraOutcomeEvent(from, { kind: 'rejected', sequence: 2, reason: 'no-plan' })
+
+    expect(from.size).toBe(1)
+    expect(from.get(2)).toBeUndefined()
+  })
+
+  it('replaces the outcome of a sequence written again', () => {
+    const withArrived = applyCameraOutcomeEvent(initialCameraOutcomes, {
+      kind: 'arrived',
+      sequence: 1,
+    })
+    const next = applyCameraOutcomeEvent(withArrived, {
+      kind: 'rejected',
+      sequence: 1,
+      reason: 'no-plan',
+    })
+
+    expect(next.get(1)).toEqual({ kind: 'rejected', reason: 'no-plan' })
   })
 })

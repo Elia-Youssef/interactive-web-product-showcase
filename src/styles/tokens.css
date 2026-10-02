@@ -90,6 +90,13 @@ their minimum below it, switched by the breakpoints at the end of this file.
   --size-hotspot-ring: 28px;
   --size-hotspot-hit: var(--size-hit-min);
   /*
+  The gap between a hotspot marker and the card floating beside it, and the
+  stacking of the selected hotspot's anchor above the other markers, whose
+  placed elements tie in DOM order.
+  */
+  --offset-hotspot-card: var(--space-2);
+  --z-hotspot-card: 1;
+  /*
   The keyboard focus ring. global.css owns the one
   :focus-visible rule and draws it from --focus-ring; a component that needs
   the ring further out sets --focus-ring-offset on itself, with --focus-offset
