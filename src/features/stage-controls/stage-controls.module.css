@@ -1,0 +1,28 @@
+@import '../../styles/tokens.css';
+
+/*
+The stage controls pill: one surface behind the zoom cluster and Reset.
+Values are tokens. Under 640px the pinch zooms, so the zoom cluster drops
+and Reset stays.
+*/
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius);
+  background-color: var(--surface);
+}
+
+.zoom {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+@media (--vp-phone) {
+  .zoom {
+    display: none;
+  }
+}

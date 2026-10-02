@@ -7,6 +7,10 @@ import {
   HOTSPOT_BULLETS_MIN,
   HOTSPOT_ID_PATTERN,
   INTRO_MAX_LINES,
+  LOOK_ENVIRONMENT_INTENSITY_MAX,
+  LOOK_ENVIRONMENT_ROTATION_DEG_MAX,
+  LOOK_EXPOSURE_MAX,
+  LOOK_SHADOW_OPACITY_MAX,
   RESERVED_HOTSPOT_IDS,
   SINGLE_LINE_PATTERN,
   SLUG_PATTERN,
@@ -129,6 +133,38 @@ const hotspotsSchema = z
   )
   .superRefine(rejectReservedHotspotIds)
 
+// The per-product look: what the author wrote, with no defaults filled in.
+// Every field is optional and the block is strict, so the resolution layer
+// owns the fallbacks and a typo never passes silently.
+export const productLookSchema = z.strictObject({
+  exposure: z
+    .number()
+    .positive({ error: 'expected a number greater than 0' })
+    .max(LOOK_EXPOSURE_MAX, { error: `expected a number at most ${LOOK_EXPOSURE_MAX}` })
+    .optional(),
+  environmentIntensity: z
+    .number()
+    .min(0, { error: 'expected a number of at least 0' })
+    .max(LOOK_ENVIRONMENT_INTENSITY_MAX, {
+      error: `expected a number at most ${LOOK_ENVIRONMENT_INTENSITY_MAX}`,
+    })
+    .optional(),
+  environmentRotationDeg: z
+    .number()
+    .min(0, { error: 'expected a number of at least 0' })
+    .lt(LOOK_ENVIRONMENT_ROTATION_DEG_MAX, {
+      error: `expected a number below ${LOOK_ENVIRONMENT_ROTATION_DEG_MAX}`,
+    })
+    .optional(),
+  shadowOpacity: z
+    .number()
+    .min(0, { error: 'expected a number of at least 0' })
+    .max(LOOK_SHADOW_OPACITY_MAX, { error: `expected a number at most ${LOOK_SHADOW_OPACITY_MAX}` })
+    .optional(),
+})
+
+export type ProductLookBlock = z.output<typeof productLookSchema>
+
 // The single source of truth for what a product manifest is. Every object is
 // strict, so an unknown key is an error and a typo never passes silently.
 export const productManifestSchema = z.strictObject({
@@ -149,6 +185,10 @@ export const productManifestSchema = z.strictObject({
   // name without repeating the default. The input keeps the block optional.
   explode: explodeSchema.prefault({}),
   camera: cameraSchema.optional(),
+  // Unlike explode, the look block keeps what the author wrote: the
+  // resolution layer fills the defaults, because its own defaults are
+  // viewer config, not schema data.
+  look: productLookSchema.optional(),
 })
 
 export type ProductInput = z.input<typeof productManifestSchema>

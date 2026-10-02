@@ -1,0 +1,83 @@
+import { expect, test } from './fixtures'
+import { loadCollection } from './productList'
+import { readProductCameraFacts } from './productCamera'
+import { waitForProductReady } from './productSpecs'
+import { settledStage } from './stageSettle'
+import { homeExpectation, readCamera, stageAspectOfCanvas } from './stageCamera'
+import { zoomReadoutText } from '../../src/features/stage-controls/stage-controls.logic'
+// The collection's first product, as the app builds it from the manifests.
+const first = (await loadCollection()).first
+
+// The authored facts of that product, read once per spec from the shipped
+// `.glb`, without the viewer's own math.
+const facts = await readProductCameraFacts(first.slug)
+
+test('the stage camera starts at the home view the model authors', async ({
+  page,
+  backendPath,
+}) => {
+  await page.goto(backendPath)
+  await waitForProductReady(page)
+  await settledStage(page)
+
+  const stageAspect = await stageAspectOfCanvas(page)
+  const expected = homeExpectation(facts, stageAspect)
+  const camera = await readCamera(page)
+  if (camera === null) {
+    throw new Error('the automation must carry the live stage camera once a view is presented')
+  }
+
+  // The lens is the authored one: Blender owns camera views.
+  expect(camera.fovY).toBeCloseTo(expected.fovY, 12)
+
+  // The orbit target is the authored one, computed in this spec from the
+  // `.glb`. The viewer and this spec decompose the authored camera through
+  // two quaternion paths, which agree to float rounding.
+  expect(camera.target.x).toBeCloseTo(expected.target.x, 7)
+  expect(camera.target.y).toBeCloseTo(expected.target.y, 7)
+  expect(camera.target.z).toBeCloseTo(expected.target.z, 7)
+
+  // The live position sits within the controls' rest threshold of the
+  // authored home position (see stageCamera.ts for the threshold's source).
+  expect(camera.position.x).toBeCloseTo(expected.position.x, 2)
+  expect(camera.position.y).toBeCloseTo(expected.position.y, 2)
+  expect(camera.position.z).toBeCloseTo(expected.position.z, 2)
+
+  // The distance limits are the config ratios of the authored home
+  // distance, scaled by the aspect rule. The aspect in the rule is the
+  // canvas box, read once by the renderer and once by this spec, whose
+  // fractional pixel rounding can differ, hence the precision.
+  expect(camera.minDistance).toBeCloseTo(expected.minDistance, 6)
+  expect(camera.maxDistance).toBeCloseTo(expected.maxDistance, 6)
+  const percent =
+    ((camera.maxDistance - camera.distance) / (camera.maxDistance - camera.minDistance)) * 100
+  expect(percent, 'the home view sits at the ratio limits home percentage').toBeCloseTo(
+    expected.zoomPercent,
+    6,
+  )
+})
+
+test('the chrome readouts read the live camera at home', async ({ page, backendPath }) => {
+  await page.goto(backendPath)
+  await waitForProductReady(page)
+  await settledStage(page)
+
+  const stageAspect = await stageAspectOfCanvas(page)
+  const expected = homeExpectation(facts, stageAspect)
+
+  // The angle readout normalizes the accumulated azimuth into [0, 360): the
+  // authored home azimuth is -35 degrees, which reads as 325.
+  const azimuthDegrees =
+    (Math.atan2(expected.position.x - expected.target.x, expected.position.z - expected.target.z) *
+      180) /
+    Math.PI
+  const normalized = azimuthDegrees - 360 * Math.floor(azimuthDegrees / 360)
+  const angle = page.locator('[data-corner="top-right"]')
+  await expect(angle).toHaveText(`${Math.round(normalized) % 360} / 360`)
+
+  // The zoom readout is the exact linear map of the live distance between
+  // the limits, formatted as the chrome formats it: at home, the ratio
+  // limits put the product at the home percentage.
+  const zoom = page.locator('[data-corner="bottom-right"]')
+  await expect(zoom).toContainText(zoomReadoutText(expected.zoomPercent))
+})

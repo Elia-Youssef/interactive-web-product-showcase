@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures'
-import { expectPoll, harnessPath, harnessProducts } from './productSpecs'
+import { harnessPath, harnessProducts, productLoadBudgetMs } from './productSpecs'
 
 const products = await harnessProducts()
 
@@ -25,17 +25,26 @@ for (const product of products) {
 
     await page.goto(harnessPath(backendPath, product.slug))
 
-    await expectPoll(page, () => ({
-      product: window.__viewer?.product,
-      productSlug: window.__viewer?.productSlug,
-      failure: window.__viewer?.productFailure,
-      status: window.__viewer?.status,
-    })).toEqual({
-      product: 'failed',
-      productSlug: product.slug,
-      failure: expect.stringContaining('Could not load'),
-      status: 'ready',
-    })
+    // The failed terminal state rides the same budget as ready: the channel
+    // cannot report a failure before the stage has started and the product
+    // has mounted, and that start stretches under the matrix's load.
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() => ({
+            product: window.__viewer?.product,
+            productSlug: window.__viewer?.productSlug,
+            failure: window.__viewer?.productFailure,
+            status: window.__viewer?.status,
+          })),
+        { timeout: productLoadBudgetMs },
+      )
+      .toEqual({
+        product: 'failed',
+        productSlug: product.slug,
+        failure: expect.stringContaining('Could not load'),
+        status: 'ready',
+      })
 
     // The alert is a DOM element outside the Canvas and names the product.
     const alert = page.getByTestId('product-alert')

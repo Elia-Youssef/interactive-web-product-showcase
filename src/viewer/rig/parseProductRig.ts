@@ -5,9 +5,10 @@ import {
   HOTSPOT_PREFIX,
   PART_PREFIX,
   SHADOW_NODE_NAME,
+  readVariantNames,
   type Product,
 } from '@lib/product'
-import { jsonNodeNames, readVariantNames } from './gltfJson'
+import { jsonNodeNames } from './gltfJson'
 import type { ProductRig, ProductHotspot } from './productRig'
 import { ProductRigError, type RigProblem } from './rigError'
 

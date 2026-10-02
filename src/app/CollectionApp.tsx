@@ -1,7 +1,9 @@
 import '@styles/global.css'
 import type { Product as ProductManifest } from '@lib/product'
+import { StageAngleReadout, StageZoomControls } from '@features/stage-controls'
 import { ProductExplode } from '@features/explode'
 import { ProductIndexLabel, ProductPanel } from '@features/product-panel'
+import { ProductFinishes } from '@features/variants'
 import { AppStoreProvider } from '@store/index'
 import { Product } from '@viewer/product/Product'
 import { Stage } from '@viewer/Stage'
@@ -30,7 +32,10 @@ export function CollectionApp({ manifests }: CollectionAppProps) {
 
 // The layout with one product's words in its slots and the renderer in its
 // stage slot, showing the current product through the product channel. The
-// current product is the collection's first until routing arrives.
+// stage chrome's angle slot and controls slot carry the stage controls
+// feature, which reads the camera through the store. The finishes and the
+// exploded view extend the product on the stage. The current product is the
+// collection's first until routing arrives.
 function ProductPage({ product }: { readonly product: ProductManifest }) {
   return (
     <AppLayout
@@ -40,11 +45,14 @@ function ProductPage({ product }: { readonly product: ProductManifest }) {
         <Stage
           content={
             <Product manifest={product}>
+              <ProductFinishes />
               <ProductExplode />
             </Product>
           }
         />
       }
+      angleReadout={<StageAngleReadout />}
+      stageControls={<StageZoomControls />}
     />
   )
 }

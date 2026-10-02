@@ -1,6 +1,9 @@
 import { expect, type Page } from '@playwright/test'
 import type { Product } from '../../src/lib/product'
+import { productLoadBudgetMs } from './budgets'
 import { loadCollection } from './productList'
+
+export { productLoadBudgetMs }
 
 // The products under test: every shipped product, as the collection's own
 // validation parsed them, so the explode block is normalized exactly as the
@@ -26,15 +29,30 @@ export function expectPoll(page: Page, evaluate: () => unknown) {
 // the product is on a recorded frame: the stage settle around the mounted,
 // centered and framed product has resolved.
 export async function waitForProductReady(page: Page): Promise<void> {
-  await expectPoll(page, () => window.__viewer?.status).toBe('ready')
-  await expectPoll(page, () => window.__viewer?.product).toBe('ready')
+  await expect
+    .poll(() => page.evaluate(() => window.__viewer?.status), {
+      timeout: productLoadBudgetMs,
+    })
+    .toBe('ready')
+  await expect
+    .poll(() => page.evaluate(() => window.__viewer?.product), {
+      timeout: productLoadBudgetMs,
+    })
+    .toBe('ready')
 }
 
 // Waits until the page's stage warm-up has drawn its one-frame physical
 // material and removed it, so the renderer's lazily created internals all
-// exist and the memory baseline is the settled empty stage.
+// exist and the memory baseline is the settled empty stage. The flag only
+// lands after the renderer has started, which on the software-rendered
+// WebKit build stretches past the expect default under the matrix's own
+// load, so it rides the same budget as the product it precedes.
 export async function waitForStageWarm(page: Page): Promise<void> {
-  await expectPoll(page, () => window.__harnessStageWarm).toBe(true)
+  await expect
+    .poll(() => page.evaluate(() => window.__harnessStageWarm), {
+      timeout: productLoadBudgetMs,
+    })
+    .toBe(true)
 }
 
 export type RendererMemory = { readonly geometries: number; readonly textures: number }
@@ -76,7 +94,7 @@ export async function waitForSettledMemory(
       },
       // A fresh mount re-uploads everything, which is slow on the WebKit
       // builds, so the settle wait gets room of its own.
-      { timeout: 30_000 },
+      { timeout: productLoadBudgetMs },
     )
     .toBe(true)
   const settled = await page.evaluate(() => window.__harnessRendererMemory?.())

@@ -5,6 +5,13 @@ export { selectRendererBackend, selectRendererStatus, type RendererStatus } from
 export { selectFinishStatus, selectSelectedVariant, type FinishStatus } from './slices/finish'
 export { selectProductStatus, type ProductStatus } from './slices/product'
 export {
+  selectCameraReadout,
+  selectCameraRequestChannel,
+  hasUnhandledCameraRequest,
+  type CameraReadout,
+  type CameraRequest,
+} from './slices/camera'
+export {
   selectExplodeAttached,
   selectExplodeOpen,
   selectExplodeTarget,

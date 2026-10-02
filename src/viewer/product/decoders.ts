@@ -8,6 +8,7 @@ import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.j
 import { basisTranscoderPath } from '@lib/product'
 import type { WebGLRenderer } from 'three'
 import type { WebGPURenderer } from 'three/webgpu'
+import { registerFinishMaterialsResolver, type FinishParserLike } from './finishMaterials'
 
 // The transcoder path the wiring points the loader at, carried from its one
 // module so this surface states what it configures.
@@ -24,17 +25,22 @@ export function createProductKtx2Loader(renderer: WebGLRenderer | WebGPURenderer
 
 // The loader surface the product wiring configures, kept structural: Drei
 // hands the extendLoader callback its own GLTFLoader, whose setters match
-// these signatures at runtime while carrying its own loader types.
+// these signatures at runtime while carrying its own loader types. register
+// collects the plugin factories a parse constructs its plugin instances
+// from; GLTFLoader dedupes the factories by identity.
 export interface GltfLoaderLike {
   setKTX2Loader(ktx2Loader: unknown): unknown
   setMeshoptDecoder(decoder: unknown): unknown
+  register(factory: (parser: FinishParserLike) => unknown): unknown
 }
 
-// Wires both decoders into one loader instance: the renderer's KTX2 loader
-// and three's bundled Meshopt decoder. Drei's own draco and meshopt paths
-// stay off (useGLTF's false, false), so these two calls are the whole
-// decoding setup and none of it is a CDN default.
+// Wires the loader setup a product load needs: the renderer's KTX2 loader,
+// three's bundled Meshopt decoder, and the plugin that loads every finish
+// material with the model instead of on the first switch. Drei's own draco
+// and meshopt paths stay off (useGLTF's false, false), so these calls are
+// the whole setup and none of it is a CDN default.
 export function wireProductDecoders(loader: GltfLoaderLike, ktx2: KTX2Loader): void {
   loader.setKTX2Loader(ktx2)
   loader.setMeshoptDecoder(MeshoptDecoder)
+  registerFinishMaterialsResolver(loader)
 }
