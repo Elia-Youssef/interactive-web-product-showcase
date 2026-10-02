@@ -5,7 +5,7 @@
 import { expect, test } from './fixtures'
 import { siteCopy } from '../../src/lib/copy/site'
 import { productLoadBudgetMs } from './productSpecs'
-import { settledStage } from './stageSettle'
+import { settledStage, settledStageAnimations } from './stageSettle'
 
 type CornerName = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 
@@ -282,6 +282,9 @@ for (const spec of viewportContracts) {
       })
       .not.toBeNull()
     await settledStage(page)
+    // The markers' first-load pulse runs on CSS time, past the frame
+    // settle; a baseline pins the stage at rest, so the wait covers it.
+    await settledStageAnimations(page)
 
     // The dev HUD shows live timings and exists only in dev builds, so it is
     // masked: the baseline pins the design, not a measurement. The capture is
