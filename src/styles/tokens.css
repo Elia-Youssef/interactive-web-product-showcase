@@ -83,6 +83,15 @@ their minimum below it, switched by the breakpoints at the end of this file.
   */
   --size-hit-min: 44px;
   --size-swatch: 22px;
+  /*
+  The slider thumb of a scrub control. Its track is the hairline and its
+  hit area the touch minimum; the filled fraction arrives as --slider-fill,
+  written on the input by the component the way the backdrop's emphasis is
+  written on the stage, and the value here is the empty fill it falls back
+  to.
+  */
+  --size-slider-thumb: 10px;
+  --slider-fill: 0%;
   --offset-swatch-ring: 3px;
   --size-bullet-dot: 6px;
   --size-icon-button: var(--size-hit-min);

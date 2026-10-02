@@ -60,6 +60,12 @@ content joins it in step 8 and wins through DOM order. */
   inline-size: var(--space-12);
 }
 
+/* The slider states at the row width the panel's control line gives them,
+so the review shows the control at its working width. */
+.sliderCell {
+  inline-size: var(--panel-width-min);
+}
+
 /*
 The forced focus state of the gallery demos. It reuses the same two
 declarations as the global :focus-visible recipe, which owns the ring; no

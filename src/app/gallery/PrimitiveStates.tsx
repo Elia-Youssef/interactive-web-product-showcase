@@ -18,13 +18,15 @@ import {
   PlusIcon,
   Readout,
   ResetIcon,
+  Slider,
   Swatch,
   TextButton,
   Title,
 } from '@ui/index'
 import styles from './gallery.module.css'
 
-// The gallery is a static look review: closing a card has nothing to do.
+// The gallery is a static look review: closing a card and moving a slider
+// have nothing to do here.
 const noOp = () => {}
 
 const cardProps = {
@@ -33,6 +35,14 @@ const cardProps = {
   bullets: ['Two-way crossover', 'Passive radiator', 'Front-firing port'],
   onClose: noOp,
   closeLabel: 'Close',
+}
+
+const sliderProps = {
+  'aria-label': 'Sample amount',
+  value: 0.5,
+  step: 0.01,
+  valueText: '50%',
+  onChange: noOp,
 }
 
 function StatesSection({ name, children }: { name: string; children: ReactNode }) {
@@ -175,6 +185,31 @@ const readoutStates = (
   </State>
 )
 
+const sliderStates = (
+  <>
+    <State caption="default">
+      <div className={styles.sliderCell}>
+        <Slider {...sliderProps} />
+      </div>
+    </State>
+    <State caption="hover">
+      <div className={styles.sliderCell}>
+        <Slider {...sliderProps} data-force-hover />
+      </div>
+    </State>
+    <State caption="focus">
+      <div className={styles.sliderCell}>
+        <Slider {...sliderProps} className={styles.forceFocus} />
+      </div>
+    </State>
+    <State caption="disabled">
+      <div className={styles.sliderCell}>
+        <Slider {...sliderProps} disabled />
+      </div>
+    </State>
+  </>
+)
+
 const sections: Record<string, ReactNode> = {
   Eyebrow: eyebrowStates,
   Title: titleStates,
@@ -185,6 +220,7 @@ const sections: Record<string, ReactNode> = {
   Icons: iconStates,
   Divider: dividerStates,
   Readout: readoutStates,
+  Slider: sliderStates,
 }
 
 export function PrimitiveStates() {
