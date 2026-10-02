@@ -3,7 +3,7 @@ import { productModelUrl } from '../../src/lib/product'
 import { stageConfig } from '../../src/viewer/config'
 import { expect, test } from './fixtures'
 import { loadCollection } from './productList'
-import { productLoadBudgetMs } from './productSpecs'
+import { productLoadBudgetMs, waitForProductReady } from './productSpecs'
 import { countRegionPixelsBrighterThan, type BrightPixels } from './stagePixels'
 import { settledFrames, settledStage } from './stageSettle'
 
@@ -117,11 +117,7 @@ test('the stage loads its environment and the product model once each', async ({
   })
 
   await page.goto(backendPath)
-  await expect
-    .poll(() => page.evaluate(() => window.__viewer?.product), {
-      timeout: productLoadBudgetMs,
-    })
-    .toBe('ready')
+  await waitForProductReady(page)
   await settledFrames(page)
 
   expect(Object.fromEntries(fetches)).toEqual(Object.fromEntries(watched.map((path) => [path, 1])))
