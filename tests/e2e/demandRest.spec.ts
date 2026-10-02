@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from './fixtures'
-import { productLoadBudgetMs } from './productSpecs'
+import { productLoadBudgetMs, testBodyBudgetMs } from './budgets'
 
 function renderedFrames(page: Page): Promise<number> {
   return page.evaluate(() => window.__viewer?.renderedFrames ?? -1)
@@ -30,8 +30,16 @@ test('the stage stands still at rest and renders again on a resize', async ({
   backendPath,
 }) => {
   await page.goto(backendPath)
-  await expect.poll(() => page.evaluate(() => window.__viewer?.status)).toBe('ready')
-  await expect.poll(() => page.evaluate(() => window.__viewer?.ready)).toBe(true)
+  await expect
+    .poll(() => page.evaluate(() => window.__viewer?.status), {
+      timeout: productLoadBudgetMs,
+    })
+    .toBe('ready')
+  await expect
+    .poll(() => page.evaluate(() => window.__viewer?.ready), {
+      timeout: productLoadBudgetMs,
+    })
+    .toBe(true)
 
   // The stage's load work (model, camera fit, renderer compile) owes frames
   // of its own after ready; the at-rest measurement starts once it is in,
@@ -53,6 +61,9 @@ test('the stage stands still at rest and renders again on a resize', async ({
   // A viewport resize owes a frame, and the renderer renders it.
   await page.setViewportSize({ width: 900, height: 600 })
   await expect
-    .poll(() => renderedFrames(page), 'the resize must render at least one frame')
+    .poll(() => renderedFrames(page), {
+      message: 'the resize must render at least one frame',
+      timeout: testBodyBudgetMs,
+    })
     .toBeGreaterThan(framesAtRest)
 })

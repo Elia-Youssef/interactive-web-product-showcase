@@ -1,4 +1,5 @@
 import { expect, type Page } from '@playwright/test'
+import { testBodyBudgetMs } from './budgets'
 import type { ProductCameraFacts } from './productCamera'
 import { stageCameraConfig } from '../../src/viewer/camera/config'
 
@@ -131,7 +132,10 @@ export async function dragOnCanvas(
       from.y + ((to.y - from.y) * step) / DRAG_STEPS,
     )
     await expect
-      .poll(() => renderedFrames(page), 'every drag step must present the frame it owes')
+      .poll(() => renderedFrames(page), {
+        message: 'every drag step must present the frame it owes',
+        timeout: testBodyBudgetMs,
+      })
       .toBeGreaterThan(framesBeforeStep)
   }
   await page.mouse.up()

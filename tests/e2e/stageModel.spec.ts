@@ -46,7 +46,11 @@ test('the stage reports the collection first product as its model', async ({
   backendPath,
 }) => {
   await page.goto(backendPath)
-  await expect.poll(() => page.evaluate(() => window.__viewer?.status)).toBe('ready')
+  await expect
+    .poll(() => page.evaluate(() => window.__viewer?.status), {
+      timeout: productLoadBudgetMs,
+    })
+    .toBe('ready')
 
   // The model field is the contract: null until the product is presented,
   // then the counts the loaded scene measured, read from the store's ready
@@ -72,7 +76,11 @@ test('the stage renders the model: its pixels rise above the bare backdrop', asy
   backendPath,
 }) => {
   await page.goto(backendPath)
-  await expect.poll(() => page.evaluate(() => window.__viewer?.status)).toBe('ready')
+  await expect
+    .poll(() => page.evaluate(() => window.__viewer?.status), {
+      timeout: productLoadBudgetMs,
+    })
+    .toBe('ready')
   await expect
     .poll(() => page.evaluate(() => window.__viewer?.model ?? null), {
       timeout: productLoadBudgetMs,

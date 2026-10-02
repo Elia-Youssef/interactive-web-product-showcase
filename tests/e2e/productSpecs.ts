@@ -21,8 +21,12 @@ export function harnessPath(backendPath: string, slug: string): string {
   return `/product-harness.html?${params.toString()}`
 }
 
-export function expectPoll(page: Page, evaluate: () => unknown) {
-  return expect.poll(() => page.evaluate(evaluate))
+// Polls the page until the evaluate agrees with the expectation. The budget
+// is a required argument, so no poll in the suite rides the runner's
+// implicit 5 s default: a poll names the allowance it needs, from the
+// budget module, the way every other wait in the suite does.
+export function expectPoll(page: Page, evaluate: () => unknown, budgetMs: number) {
+  return expect.poll(() => page.evaluate(evaluate), { timeout: budgetMs })
 }
 
 // Waits until the page's product is ready, which is the store's word that

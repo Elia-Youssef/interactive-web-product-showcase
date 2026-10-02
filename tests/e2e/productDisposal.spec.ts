@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures'
-import { testBudgetMs } from './budgets'
+import { productLoadBudgetMs, testBodyBudgetMs, testBudgetMs } from './budgets'
 import {
   expectPoll,
   harnessPath,
@@ -43,7 +43,7 @@ for (const product of products) {
     // three's node system keeps for the renderer's lifetime) exist and never
     // leave, so this is the one baseline every cycle must return to, exactly.
     await toggle.click()
-    await expectPoll(page, () => window.__viewer?.product).toBe('idle')
+    await expectPoll(page, () => window.__viewer?.product, productLoadBudgetMs).toBe('idle')
     const baseline = await waitForSettledMemory(page)
 
     for (let cycle = 1; cycle <= 3; cycle += 1) {
@@ -62,7 +62,11 @@ for (const product of products) {
       // must simply be on the product the teardown then releases.
       for (const finish of product.finishes) {
         await page.getByTestId(`harness-finish-${finish.variant}`).click()
-        await expectPoll(page, () => window.__viewer?.finish?.applied ?? null).toBe(finish.variant)
+        await expectPoll(
+          page,
+          () => window.__viewer?.finish?.applied ?? null,
+          testBodyBudgetMs,
+        ).toBe(finish.variant)
       }
 
       // Teardown: every geometry, texture and finish material the product
@@ -70,7 +74,7 @@ for (const product of products) {
       // allowed to lag: one leaked texture per cycle is the smallest leak
       // there is, and the equality catches it.
       await toggle.click()
-      await expectPoll(page, () => window.__viewer?.product).toBe('idle')
+      await expectPoll(page, () => window.__viewer?.product, productLoadBudgetMs).toBe('idle')
       expect(await page.evaluate(() => window.__viewer?.model ?? null)).toBeNull()
       expect(await page.evaluate(() => window.__viewer?.finish ?? null)).toBeNull()
       const afterTeardown = await waitForSettledMemory(page)
