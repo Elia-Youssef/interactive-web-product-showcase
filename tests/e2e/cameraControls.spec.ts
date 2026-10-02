@@ -57,6 +57,23 @@ test('a drag rotates the camera around the product and comes to rest', async ({
     after.azimuth,
     `dragging right must decrease the azimuth (before ${before.azimuth}, after ${after.azimuth})`,
   ).toBeLessThan(before.azimuth)
+  // The size: the drag turns the camera by its whole pointer travel, on every
+  // engine and under any load, by the controls' own rule of a full turn per
+  // stage height of travel at the default rotate speed of 1
+  // (camera-controls dist/camera-controls.module.js, `_rotateInternal`:
+  // theta = PI_2 * azimuthRotateSpeed * deltaX / elementRect.height). At rest
+  // the controls snap the eased angle onto its end (`update`: approxZero
+  // sets theta to the end theta), so the only inexactness is the float sum
+  // of the drag's steps, a few ulps of the angle.
+  const canvasBox = await page.locator('[data-slot="stage"] canvas').boundingBox()
+  if (canvasBox === null) {
+    throw new Error('the stage canvas must have a bounding box')
+  }
+  const travelTurn = (2 * Math.PI * 240) / canvasBox.height
+  expect(
+    Math.abs(before.azimuth - after.azimuth - travelTurn),
+    `the drag must turn the camera by its whole travel (${travelTurn} rad), turned ${before.azimuth - after.azimuth}`,
+  ).toBeLessThanOrEqual(1e-9)
   // A horizontal drag turns without lifting: the polar angle stays.
   expect(after.polar).toBeCloseTo(before.polar, 1)
   // The orbit target never moves: a drag is a turn, not a pan.
