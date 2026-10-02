@@ -30,6 +30,25 @@ export type Point = { readonly x: number; readonly y: number; readonly z: number
 // (camera-controls dist/camera-controls.module.js, `restThreshold = 0.01`.)
 export const REST_THRESHOLD = 0.01
 
+// The lens a zoom presents through a base lens, the tangent half-angle
+// rule the view lens rides the controls' zoom channel by. Restated here
+// like the orbit math above, so a viewer regression cannot hide behind its
+// own helper.
+export function lensOfZoom(baseFovY: number, zoom: number): number {
+  return 2 * Math.atan(Math.tan(baseFovY / 2) / zoom)
+}
+
+// The lens band the rest threshold maps to at a base lens: at rest the
+// zoom sits within REST_THRESHOLD of its end, and this is the fov span
+// that zoom error turns into. The eased lens checks compare against this
+// band, derived from the library's threshold, never a tuned number.
+export function lensBandAtRest(baseFovY: number): number {
+  return Math.max(
+    Math.abs(lensOfZoom(baseFovY, 1 + REST_THRESHOLD) - baseFovY),
+    Math.abs(lensOfZoom(baseFovY, 1 - REST_THRESHOLD) - baseFovY),
+  )
+}
+
 // The aspect rule of the stage camera: when the stage is narrower than the
 // authored aspect, every distance scales by authoredAspect over
 // stageAspect; otherwise it is 1.
