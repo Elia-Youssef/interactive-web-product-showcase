@@ -27,6 +27,34 @@ export type ShadowOpacityOwner = {
   readonly restore: () => void
 }
 
+// One claimed fade factor's own lifecycle: the released guard and the loud
+// failures, calling back into the owner for the factor changes it guards.
+function createFadeClaim(
+  isClosed: () => boolean,
+  onSet: (factor: number) => void,
+  onRelease: () => void,
+): ShadowFadeClaim {
+  let released = false
+  return {
+    set(factor) {
+      if (released) {
+        throw new Error('a released shadow fade claim cannot set a factor')
+      }
+      if (isClosed()) {
+        throw new Error('a shadow fade claim cannot set a factor after the product left')
+      }
+      onSet(factor)
+    },
+    release() {
+      if (released) {
+        throw new Error('the release of the shadow fade claim is stale')
+      }
+      released = true
+      onRelease()
+    },
+  }
+}
+
 export function createShadowOpacityOwner(material: Material): ShadowOpacityOwner {
   // The opacity the loader authored, read before any factor is applied: the
   // restore returns it, so a later presentation starts from the authored
@@ -61,28 +89,18 @@ export function createShadowOpacityOwner(material: Material): ShadowOpacityOwner
         throw new Error('the shadow fade factor is claimed after the product left')
       }
       claimed = true
-      let released = false
-      return {
-        set(factor) {
-          if (released) {
-            throw new Error('a released shadow fade claim cannot set a factor')
-          }
-          if (restored) {
-            throw new Error('a shadow fade claim cannot set a factor after the product left')
-          }
+      return createFadeClaim(
+        () => restored,
+        (factor) => {
           fadeFactor = factor
           write()
         },
-        release() {
-          if (released) {
-            throw new Error('the release of the shadow fade claim is stale')
-          }
-          released = true
+        () => {
           claimed = false
           fadeFactor = 1
           write()
         },
-      }
+      )
     },
     restore() {
       restored = true
