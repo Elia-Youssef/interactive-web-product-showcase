@@ -41,7 +41,7 @@ test('the stage stands still at rest and renders again on a resize', async ({
     })
     .toBe(true)
 
-  // The stage's load work (model, camera fit, renderer compile) owes frames
+  // The stage's load work (model, camera fit, the settle's presents) owes frames
   // of its own after ready; the at-rest measurement starts once it is in,
   // so the settle window below measures rest, not a late load frame.
   await expect

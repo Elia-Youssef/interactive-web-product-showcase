@@ -27,22 +27,21 @@ function swatchLuminance(swatch: string): number {
 }
 
 // How long the drag keeps waiting for the mid-drag settle, and why it is
-// this long: the settle under test is one compile pass, measured at about
-// 0.2 s on the software-rendered WebKit build where it is slowest, and the
-// drag must hold past two of them (one per switch) with the clicks inside.
-// An older settle design, which recompiled while any frame raced its
-// compile, never finished inside a drag on that build at all; this budget
-// is an order of magnitude above the two compiles and far below that
-// design's own drag length, so a regression fails here on the budget
-// instead of on the test's timeout.
+// this long: the settle under test is two presented frames, the slowest
+// build renders about every 31 ms (below), and the drag must hold past two
+// settles (one per switch) with the clicks inside. An older settle design,
+// which recompiled while any frame raced its compile, never finished inside
+// a drag on that build at all; this budget is far above two settles and far
+// below that design's own drag length, so a regression fails here on the
+// budget instead of on the test's timeout.
 const midDragSettleBudgetMs = 9_000
 
 // The consecutive liveness reads in which neither the sweep moved nor a
 // frame was recorded before the drag counts as dead. One read is two page
 // round trips, and the slowest build renders about every 31 ms, so a live
 // drag shows motion within a few reads; the margin leaves room for one long
-// compile pass starving the main thread, which the replaced settle design
-// did back to back and never recovered from.
+// frame that builds new pipelines on the main thread, where an older settle
+// design ran compile passes back to back and never recovered.
 const deadDragReads = 12
 
 test('the product is on its default finish at ready, read in one snapshot', async ({
