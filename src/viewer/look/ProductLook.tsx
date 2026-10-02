@@ -7,6 +7,8 @@ import { useLoadedProduct } from '../product/loadedProduct'
 import { assertStageRenderer, assertStageScene } from '../stageIdentity'
 import { lookDefaults } from './config'
 import { createLookReader } from './lookReader'
+import { createShadowOpacityOwner } from './shadowOpacityOwner'
+import { useShadowOpacityHolder } from './shadowOpacityContext'
 
 // The material the SHADOW mesh carries, narrowed from the rig's node: a
 // single material on a mesh, or the model breaks the shadow contract. The
@@ -33,6 +35,7 @@ export function ProductLook() {
   const gl = useThree((state) => state.gl)
   const scene = useThree((state) => state.scene)
   const probes = useStageProbes()
+  const holder = useShadowOpacityHolder()
 
   const look = useMemo(
     () => resolveProductLook(loaded.manifest.look, lookDefaults),
@@ -74,11 +77,18 @@ export function ProductLook() {
     // before the settle compiles it.
     shadowMaterial.transparent = true
     shadowMaterial.depthWrite = false
-    // The opacity the loader authored, read before the scale: the cleanup
-    // restores it, so every effect run starts from the authored value, under
-    // StrictMode and on a look change alike.
-    const authored = shadowMaterial.opacity
-    shadowMaterial.opacity = authored * look.shadowOpacity
+
+    // The opacity is the one owner's composition, never a direct write: the
+    // owner reads the authored value once, this look sets its factor, and
+    // the exploded view's fade claims its own factor beside it, so the two
+    // writers cannot fight. The cleanup restores the authored value for when
+    // the product leaves. The opacity itself is a uniform in the node
+    // system, refreshed per rendered frame from the material property, so
+    // neither this write nor a fade frame needs a pipeline rebuild or a
+    // settle.
+    const owner = createShadowOpacityOwner(shadowMaterial)
+    const releaseOwner = holder.install(owner)
+    owner.setLookFactor(look.shadowOpacity)
 
     return () => {
       // The renderer and scene values are the stage's shared state, so they
@@ -89,12 +99,13 @@ export function ProductLook() {
       // disposes. The probe release is this registration's own, so a stale
       // cleanup cannot drop a reader a later effect run installed.
       releaseProbe()
+      releaseOwner()
+      owner.restore()
       gl.toneMappingExposure = lookDefaults.exposure
       scene.environmentIntensity = lookDefaults.environmentIntensity
       scene.environmentRotation.set(0, MathUtils.degToRad(lookDefaults.environmentRotationDeg), 0)
-      shadowMaterial.opacity = authored
     }
-  }, [gl, scene, probes, loaded.rig.shadow, loaded.scene, look])
+  }, [gl, scene, probes, holder, loaded.rig.shadow, loaded.scene, look])
 
   return null
 }

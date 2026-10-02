@@ -1,16 +1,19 @@
-import { useCallback, useMemo, type ReactNode } from 'react'
+import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { useGLTF } from '@react-three/drei'
+import type { Object3D } from 'three'
 import { productModelUrl, type Product } from '@lib/product'
 import { useAppStore } from '@store/index'
 import { measureModelFrame } from '../modelFrame'
 import { ProductLook } from '../look/ProductLook'
+import { ShadowOpacityContext } from '../look/shadowOpacityContext'
+import { createShadowOpacityHolder } from '../look/shadowOpacityOwner'
 import { parseProductRig } from '../rig/parseProductRig'
 import { summarizeProductRig } from '../rig/summary'
 import { useStageHold } from '../stageHoldsContext'
 import { disposeProductScene } from './dispose'
 import { useProductKtx2Loader } from './DecoderProvider'
 import { LoadedProductContext, type LoadedProduct } from './loadedProduct'
-import { readFinishMaterials } from './finishMaterials'
+import { readFinishMaterials, type ProductFinishMaterials } from './finishMaterials'
 import { wireProductDecoders, type GltfLoaderLike } from './decoders'
 import { useProductPresentation } from './useProductPresentation'
 
@@ -28,11 +31,27 @@ type ProductContentProps = {
 // Suspends while the model loads, so it mounts only under the Suspense
 // boundary its Product provides; a load failure, a contract-breaking model
 // or a settle failure propagates to the product boundary.
+// The loaded product's hold on its own resources: once the hold is gone for
+// good, the scene is disposed with every finish material the load resolved,
+// and the suspense cache entry is cleared, so the next mount loads fresh
+// instead of reusing a released tree.
+function useSceneRelease(url: string, scene: Object3D, finishes: ProductFinishMaterials): void {
+  const releaseScene = useCallback(() => {
+    disposeProductScene(scene, finishes)
+    useGLTF.clear(url)
+  }, [scene, finishes, url])
+  useStageHold(scene, releaseScene)
+}
+
 export function ProductContent({ manifest, children }: ProductContentProps) {
   const slug = manifest.slug
   const url = productModelUrl(slug)
   const ktx2 = useProductKtx2Loader()
   const productReady = useAppStore((state) => state.productReady)
+  // The shadow opacity's per-product slot, one per presented product like
+  // the loaded product itself: the look installs its owner into it and the
+  // features that fade the shadow claim their factor through it.
+  const [shadowOpacity] = useState(createShadowOpacityHolder)
 
   const extendLoader = useCallback(
     (loader: GltfLoaderLike) => wireProductDecoders(loader, ktx2),
@@ -72,15 +91,7 @@ export function ProductContent({ manifest, children }: ProductContentProps) {
 
   const failure = useProductPresentation({ rig, manifest, frame, report })
 
-  // The loaded product's lifetime is this component's hold on it. Once the
-  // hold is gone for good, the scene is disposed with every finish material
-  // the load resolved, and the suspense cache entry is cleared, so the next
-  // mount loads fresh instead of reusing a released tree.
-  const releaseScene = useCallback(() => {
-    disposeProductScene(gltf.scene, finishes)
-    useGLTF.clear(url)
-  }, [gltf.scene, finishes, url])
-  useStageHold(gltf.scene, releaseScene)
+  useSceneRelease(url, gltf.scene, finishes)
 
   // A failure is thrown to the boundary that owns the product's failures,
   // never reported as a presented product and never only logged. The throw
@@ -98,8 +109,10 @@ export function ProductContent({ manifest, children }: ProductContentProps) {
         <primitive object={gltf.scene} />
       </group>
       <LoadedProductContext.Provider value={loaded}>
-        <ProductLook />
-        {children}
+        <ShadowOpacityContext.Provider value={shadowOpacity}>
+          <ProductLook />
+          {children}
+        </ShadowOpacityContext.Provider>
       </LoadedProductContext.Provider>
     </>
   )
