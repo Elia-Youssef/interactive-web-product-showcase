@@ -4,8 +4,10 @@ import type { ExplodeDriver } from './explodeDriver'
 
 // One reaction to the applied progress, built by a factory so its inputs
 // are claimed inside the registration's own effect and restored by that
-// effect's cleanup, which runs before the driver's cleanup releases the
-// pose. The factory runs once per registration, never per frame.
+// effect's cleanup. The release touches only the reaction's own inputs,
+// never the pose, so it holds whichever of the component's layout cleanups
+// React runs first. The factory runs once per registration, never per
+// frame.
 
 export type ExplodeReaction = {
   // Applies the reaction at the progress the pose just applied. Runs inside
@@ -26,6 +28,11 @@ export function useExplodeReaction(
   factory: ExplodeReactionFactory,
 ): void {
   const loaded = useLoadedProduct()
+  // The registration lives exactly as long as the load, like the driver it
+  // subscribes to and the shadow opacity owner its claim comes from: both
+  // are rebuilt for every new load, so a registration keyed on anything
+  // narrower would stay subscribed to a disposed driver and hold a claim on
+  // an owner that stood down.
   useLayoutEffect(() => {
     const driver = driverRef.current
     // The driver is created by the load's layout effect, which runs before
@@ -40,5 +47,5 @@ export function useExplodeReaction(
       releaseSubscription()
       reaction.release()
     }
-  }, [driverRef, factory, loaded.manifest.slug])
+  }, [driverRef, factory, loaded])
 }
