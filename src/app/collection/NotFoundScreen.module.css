@@ -1,0 +1,39 @@
+/* The not-found screen, in the panel slot of the app layout: one heading,
+one line, one way out. The link repeats the text button's label recipe.
+Every value is a token. */
+
+.screen {
+  display: grid;
+  justify-items: start;
+  row-gap: var(--space-5);
+}
+
+.heading {
+  font-size: var(--fs-tagline);
+  font-weight: var(--weight-tagline);
+  color: var(--off);
+}
+
+.line {
+  font-size: var(--fs-body);
+  font-weight: var(--weight-body);
+  color: var(--muted);
+}
+
+.link {
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: var(--fs-eyebrow);
+  font-weight: var(--weight-eyebrow);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--label);
+  transition: color var(--duration-hover);
+}
+
+.link:hover {
+  color: var(--white);
+}
