@@ -9,13 +9,15 @@ import {
   dragToAzimuth,
   dragToPolarAtMost,
   driveToHidingView,
+  oppositeAzimuthOf,
+} from './hotspotDrives'
+import {
   expectHiddenEverywhere,
   expectMarkerAtProjection,
   expectMarkersAtProjection,
   factsBoundsOf,
   markerOf,
   occludableFact,
-  oppositeAzimuthOf,
   requireCamera,
   requireHotspots,
   titleOf,
