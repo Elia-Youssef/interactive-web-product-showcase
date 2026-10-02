@@ -107,17 +107,25 @@ export async function stageAspectOfCanvas(page: Page): Promise<number> {
 const DRAG_STEPS = 8
 
 // One drag of the pointer across the canvas: press, move in steps, release,
-// with every step delivered after the frame the previous step owed, the way
-// a real pointer moves over time. camera-controls applies a drag at most
-// once per frame (its update re-arms the drag) and, at the release, drops
-// every move since the last applied one (camera-controls
-// dist/camera-controls.module.js, `update`: `_dragNeedsUpdate = true`, and
-// `endDragging`). A script that moves faster than the stage presents would
-// turn the camera by however many frames happened to land inside the drag,
-// which differs by engine and by machine load. An applied step dispatches the
-// controls' control event, which invalidates the stage, so each step owes
-// exactly the one frame the next step waits for, and the drag turns the
-// camera by its whole travel on every engine.
+// with every step delivered after a frame that followed the previous step,
+// the way a real pointer moves over time. camera-controls applies a pointer
+// move only while its update has re-armed the drag since the last applied
+// move, and, at the release, drops the movement since the last applied one
+// (camera-controls dist/camera-controls.module.js: the `dragging` handler
+// returns early unless `_dragNeedsUpdate`, `update` sets it, `endDragging`
+// clears it). A step that arrives before the next update is skipped, and if
+// it is the last one the release drops it, so the drag turns the camera by
+// less than its travel.
+//
+// The frame each step waits for must therefore come after the step was
+// handled, not merely after the step was sent: a frame the camera's own
+// damping rendered between a read and the move would satisfy a count read
+// before the move. So the count is recorded inside the page, by a
+// capture-phase listener on the step's own pointermove, which runs in the
+// same dispatch just before the controls' handler. The step's frame is any
+// frame after that record: an applied step invalidates the stage through
+// the controls' control event, so that frame always comes, and its update
+// re-arms the drag before the next step is sent.
 export async function dragOnCanvas(
   page: Page,
   from: { readonly x: number; readonly y: number },
@@ -126,19 +134,39 @@ export async function dragOnCanvas(
   await page.mouse.move(from.x, from.y)
   await page.mouse.down()
   for (let step = 1; step <= DRAG_STEPS; step += 1) {
-    const framesBeforeStep = await renderedFrames(page)
+    const framesAtStep = await recordFramesAtNextPointerMove(page)
     await page.mouse.move(
       from.x + ((to.x - from.x) * step) / DRAG_STEPS,
       from.y + ((to.y - from.y) * step) / DRAG_STEPS,
     )
+    const handledAt = await framesAtStep.evaluate((record) => record.frames)
+    await framesAtStep.dispose()
     await expect
       .poll(() => renderedFrames(page), {
-        message: 'every drag step must present the frame it owes',
+        message: 'every drag step must present a frame after it was handled',
         timeout: testBodyBudgetMs,
       })
-      .toBeGreaterThan(framesBeforeStep)
+      .toBeGreaterThan(handledAt)
   }
   await page.mouse.up()
+}
+
+// Installs a one-shot capture listener for the page's next pointermove and
+// hands back the recorded frame count as a promise inside a handle. The
+// handle resolves only after the listener is installed, so the step that
+// follows cannot be dispatched ahead of it.
+function recordFramesAtNextPointerMove(page: Page) {
+  return page.evaluateHandle(() => ({
+    frames: new Promise<number>((resolve) => {
+      window.addEventListener(
+        'pointermove',
+        () => {
+          resolve(window.__viewer?.renderedFrames ?? -1)
+        },
+        { capture: true, once: true },
+      )
+    }),
+  }))
 }
 
 // The center of the stage canvas, in page coordinates.
