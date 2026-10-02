@@ -5,6 +5,7 @@ import {
   type HotspotStatus,
 } from './hotspot.logic'
 
+export { selectionAfterToggle } from './hotspot.logic'
 export type { HotspotStatus } from './hotspot.logic'
 
 export type HotspotSliceState = {

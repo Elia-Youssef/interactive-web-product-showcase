@@ -1,0 +1,34 @@
+/* The anchor of one hotspot marker: the element the stage overlay places,
+   sized by the marker's own hit area, holding the marker and, while that
+   hotspot is selected, its card. The overlay's hidden state is a visibility
+   on this element, so the card hides whenever the marker hides; nothing
+   inside the anchor sets visibility. Values are tokens. */
+
+.anchor {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  inline-size: var(--size-hotspot-hit);
+  block-size: var(--size-hotspot-hit);
+}
+
+/* The selected anchor stacks above every other marker: the overlay places
+   each anchor as its own stacking context, and ties resolve in DOM order,
+   so the selected one lifts by its own z-index. */
+.anchorSelected {
+  z-index: var(--z-hotspot-card);
+}
+
+/* The card floats beside its marker: to its right, vertically centered on
+   it. Absolute positioning and the anchor's own height keep the card out
+   of the anchor's size, so the marker stays centered on its projection. */
+.cardAnchor {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: calc(var(--size-hotspot-hit) + var(--offset-hotspot-card));
+  display: flex;
+  align-items: center;
+  /* The overlay box passes pointer events through; the card takes them
+     where it covers, like the marker does. */
+  pointer-events: auto;
+}

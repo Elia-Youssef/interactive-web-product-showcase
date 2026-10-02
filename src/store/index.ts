@@ -6,6 +6,7 @@ export { selectFinishStatus, selectSelectedVariant, type FinishStatus } from './
 export {
   selectHotspotStatus,
   selectSelectedHotspot,
+  selectionAfterToggle,
   type HotspotStatus,
 } from './slices/hotspot'
 export { selectProductStatus, type ProductStatus } from './slices/product'
