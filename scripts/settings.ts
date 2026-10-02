@@ -57,6 +57,12 @@ const textureSize = z
 const uastcLevel = z.literal(4)
 const uastcRdo = z.literal(true)
 const uastcRdoLambda = z.literal(4)
+// RDO multithreading trades determinism for a slight compression gain:
+// KTX-Software's own help for --uastc-rdo-m says disabling it gives
+// "slightly higher compression, deterministic", and gltf-transform 4.5.1
+// leaves it on by default unless this flag is passed. The optimize step
+// must give the same bytes for the same input, so off is the only value.
+const uastcRdoMultithreading = z.literal(false)
 const etc1sQuality = z.literal(255)
 
 // The full settings of one optimize run. Every field is required: the
@@ -71,6 +77,7 @@ export const optimizeSettingsSchema = z.strictObject({
   textureFormat: z.literal('ktx2'),
   uastcLevel,
   uastcRdo,
+  uastcRdoMultithreading,
   uastcRdoLambda,
   etc1sQuality,
   textureMaxSize: textureSize,
@@ -125,6 +132,7 @@ const FIXED_DEFAULTS = {
   textureFormat: 'ktx2',
   uastcLevel: 4,
   uastcRdo: true,
+  uastcRdoMultithreading: false,
   uastcRdoLambda: 4,
   etc1sQuality: 255,
 } satisfies Partial<OptimizeSettings>

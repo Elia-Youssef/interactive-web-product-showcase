@@ -58,6 +58,9 @@ export function buildUastcStageArgs(
     `--level=${settings.uastcLevel}`,
     `--rdo=${settings.uastcRdo}`,
     `--rdo-lambda=${settings.uastcRdoLambda}`,
+    // The CLI leaves RDO multithreading on unless this flag is passed, and
+    // KTX-Software documents that path as non-deterministic.
+    `--rdo-multithreading=${settings.uastcRdoMultithreading}`,
   ]
 }
 
