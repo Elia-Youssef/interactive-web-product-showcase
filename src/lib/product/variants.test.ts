@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { FinishPlanError, readFinishPlan } from './variants'
+import { FinishPlanError, finishEntryMaterialIndexes, readFinishPlan } from './variants'
 
 // The glTF JSON fixtures stand in for the parser JSON a load hands over:
 // the tables are plain objects, so the plan's guards are exercised exactly
@@ -108,6 +108,25 @@ test('a partial mapping covers only the variants it names', () => {
   const plan = readFinishPlan(jsonWith([meshWith(0, [mapping(1, [1])])]))
 
   expect(plan.primitives[0]?.variantMaterials).toEqual(new Map([[1, 1]]))
+})
+
+test('an entry can carry its default and every mapping material, each once', () => {
+  const plan = readFinishPlan(jsonWith([meshWith(4, [mapping(4, [0, 1])])]))
+  const entry = plan.primitives[0]
+  if (entry === undefined) {
+    throw new Error('the fixture plan must carry an entry')
+  }
+
+  expect(finishEntryMaterialIndexes(entry)).toEqual([4])
+  expect(
+    finishEntryMaterialIndexes({
+      ...entry,
+      variantMaterials: new Map([
+        [0, 5],
+        [1, 4],
+      ]),
+    }),
+  ).toEqual([4, 5])
 })
 
 test('a file without meshes plans the declared variants and nothing else', () => {

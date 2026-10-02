@@ -15,8 +15,15 @@ export const unitTestMarker = 'test'
 export const specFileMarker = 'spec'
 export const testFileMarkers = [unitTestMarker, specFileMarker] as const
 
-// A glob over the test markers, for the test-file category of the layer
-// gate, the lint exemption globs and the vitest include.
+// The base-name marker that makes a file a fixture module: test support that
+// lives beside the code it stands in for, may import the dev packages like a
+// test file, is never collected by a test runner, and is never imported by
+// production code. The marker is its own file kind, not a test marker: a
+// fixture module carries no tests, so importing one must not register any.
+export const fixtureMarker = 'fixtures'
+
+// A glob over the file markers, for the test and fixture file categories of
+// the layer gate, the lint exemption globs and the vitest include.
 export function testFileGlob(markers: readonly string[], extensions: readonly string[]): string {
   return `**/*.${globAlternation(markers)}.${extensionGlob(extensions)}`
 }

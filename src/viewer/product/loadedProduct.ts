@@ -2,16 +2,8 @@ import { createContext, useContext } from 'react'
 import type { Object3D } from 'three'
 import type { Product } from '@lib/product'
 import type { ProductFinishMaterials } from './finishMaterials'
+import type { GltfAssociation } from './mappedSceneNodes'
 import type { ProductRig } from '../rig/productRig'
-
-// What the glTF loader recorded about one object it built: the index of the
-// glTF mesh, primitive or material the object came from. The loader records
-// the primitive index at runtime for every mesh primitive it builds.
-export type GltfAssociation = {
-  readonly meshes?: number
-  readonly primitives?: number
-  readonly materials?: number
-}
 
 // The surface of the loader's parser a product extension may read, kept
 // structural: Drei's useGLTF hands back its own parser type, which carries
