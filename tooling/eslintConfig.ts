@@ -12,6 +12,7 @@ import { createTypeScriptImportResolver } from 'eslint-import-resolver-typescrip
 import type { Linter } from 'eslint'
 import {
   extensionGlob,
+  fixtureMarker,
   jsxExtensions,
   scriptExtensions,
   sourceExtensions,
@@ -25,6 +26,7 @@ const SCRIPT_GLOB = `**/*.${extensionGlob(scriptExtensions)}`
 const SRC_SCRIPT_GLOB = `src/**/*.${extensionGlob(scriptExtensions)}`
 const JSX_GLOB = `**/*.${extensionGlob(jsxExtensions)}`
 const TEST_GLOB = testFileGlob(testFileMarkers, sourceExtensions)
+const FIXTURE_GLOB = testFileGlob([fixtureMarker], sourceExtensions)
 
 // The extensions the import-x cycle rule must parse with the TypeScript
 // parser: every source extension the gate accepts, derived, so a new source
@@ -148,10 +150,17 @@ function sharedRulesConfig(): Linter.Config {
   }
 }
 
+// The import specifier of a fixture module, extensionless or fully
+// extensioned: the one shape the production restriction below matches.
+const fixtureImportPattern = '\\.fixtures(\\.[cm]?[jt]sx?)?$'
+
 // The source policy of src/, applied after the shared rules. A flat config
 // object replaces a rule wholesale for its files, so the restricted-syntax
 // entry here carries the shared selectors with it: src files keep the
-// double-assertion ban and gain the compile-walk ban on top.
+// double-assertion ban and gain the compile-walk ban on top. The restricted
+// imports entry is the fixture rule: fixture modules are test support, so
+// production code never imports them; the test and fixture exemption below
+// switches the rule off where fixtures are legal.
 function srcPolicyConfig(): Linter.Config {
   return {
     files: [SRC_SCRIPT_GLOB],
@@ -173,6 +182,18 @@ function srcPolicyConfig(): Linter.Config {
         },
       ],
       'source-policy/known-source-extension': 'error',
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              regex: fixtureImportPattern,
+              message:
+                'Fixture modules are test support: only test files and other fixture modules import them (tooling/eslintLayers.ts).',
+            },
+          ],
+        },
+      ],
       'no-restricted-syntax': ['error', ...doubleAssertionEntries, ...compileWalkEntries],
     },
   }
@@ -184,6 +205,18 @@ function testExemptionConfig(): Linter.Config {
   return {
     files: [TEST_GLOB],
     rules: { 'max-lines-per-function': 'off' },
+  }
+}
+
+// Test files and fixture modules are the two importers the fixture rule
+// allows. A flat config object replaces a rule wholesale for its files, so
+// this entry switches the whole restricted-imports rule off for them: a
+// fixture module importing another fixture module is the module's own
+// purpose, and no src production config applies outside src/ anyway.
+function fixtureExemptionConfig(): Linter.Config {
+  return {
+    files: [TEST_GLOB, FIXTURE_GLOB],
+    rules: { 'no-restricted-imports': 'off' },
   }
 }
 
@@ -211,6 +244,7 @@ export function createConfig({ root }: { root: string }) {
     sharedRulesConfig(),
     srcPolicyConfig(),
     testExemptionConfig(),
+    fixtureExemptionConfig(),
     testsFolderConfig(),
     ...layerConfigs(root),
     // Formatting belongs to Prettier: every stylistic ESLint rule goes off.

@@ -23,6 +23,7 @@ import {
   extensionCases,
   externalsCases,
   foreignScriptCases,
+  fixtureCases,
   stylesCases,
 } from './plantedImportRules.ts'
 import {
@@ -52,6 +53,7 @@ export function buildPlantedCases(): readonly PlantedCase[] {
     ...escapeCases(),
     ...extensionCases(),
     ...bannedPackageCases(),
+    ...fixtureCases(),
     ...sizeCases(),
     ...consoleCases(),
     ...hooksCases(),
@@ -85,6 +87,13 @@ function plantSupportFiles(project: PlantedProject): void {
   project.add('src/lib/cycle-b.ts', valueImport('./cycle-a'))
   project.add('src/ui/cycle-tsx-b.tsx', valueImport('./cycle-tsx-a'))
   project.add('src/lib/one-way-b.ts', "export const layerTarget = 'one-way'\n")
+  // The fixture module the fixture cases import: planted into both trees,
+  // so the importing cases resolve their specifier and the fixture itself
+  // lints clean in each tree under the fixture category.
+  project.add(
+    'src/lib/planted-target.fixtures.ts',
+    "import { layerTarget } from './target'\nexport const plantedFixtureTarget = layerTarget\n",
+  )
 }
 
 export type PlantedSuite = {
