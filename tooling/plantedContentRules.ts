@@ -170,3 +170,53 @@ export function rendererCompileCases(): PlantedCase[] {
     },
   ]
 }
+
+// A stand-in for the runner's poll, declared in the planted file, so the
+// cases need no installed test runner in the planted tree.
+const pollStandIn =
+  'declare const expect: { poll(read: () => unknown, options?: unknown): { toBe(value: unknown): Promise<void> } }\n'
+
+function pollCase(
+  title: string,
+  tree: 'violations' | 'clean',
+  name: string,
+  call: string,
+): PlantedCase {
+  return {
+    title,
+    tree,
+    file: `tests/e2e/${name}.spec.ts`,
+    code: `${pollStandIn}export async function planted(): Promise<void> {\n  await ${call}.toBe(1)\n}\n`,
+    expectedRuleIds: tree === 'violations' ? ['no-restricted-syntax'] : [],
+  }
+}
+
+export function pollBudgetCases(): PlantedCase[] {
+  return [
+    pollCase('a poll with no options', 'violations', 'poll-bare', 'expect.poll(() => 1)'),
+    pollCase(
+      'a poll with a message where its options belong',
+      'violations',
+      'poll-message',
+      "expect.poll(() => 1, 'the value arrives')",
+    ),
+    pollCase(
+      'a poll whose options name no timeout',
+      'violations',
+      'poll-no-timeout',
+      "expect.poll(() => 1, { message: 'the value arrives' })",
+    ),
+    pollCase(
+      'a poll with a timeout',
+      'clean',
+      'poll-timeout',
+      'expect.poll(() => 1, { timeout: 5 })',
+    ),
+    pollCase(
+      'a poll with a message and a timeout',
+      'clean',
+      'poll-message-timeout',
+      "expect.poll(() => 1, { message: 'the value arrives', timeout: 5 })",
+    ),
+  ]
+}
