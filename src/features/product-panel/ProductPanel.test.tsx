@@ -90,6 +90,33 @@ test('the explode toggle sits after the swatches, named by the manifest, disable
   expect(html).toContain('See inside</button>')
 })
 
+test('the scrub control sits under the toggle, named by the same word, disabled while detached', () => {
+  const html = renderToString(
+    <AppStoreProvider>
+      <ProductPanel
+        product={parseProduct(
+          { ...sampleManifest, explode: { label: 'See inside' } },
+          'sample-one',
+        )}
+      />
+    </AppStoreProvider>,
+  )
+
+  // The slider follows the toggle and takes its accessible name from the
+  // same manifest word. The static render runs no effects, so nothing is
+  // attached and nothing publishes: the slider is disabled at the assembled
+  // rest and the readout shows 0%.
+  expect(html).toContain('type="range"')
+  expect(html.indexOf('See inside</button>')).toBeLessThan(html.indexOf('type="range"'))
+  expect(html).toContain('aria-label="See inside"')
+  expect(html).toContain('value="0"')
+  expect(html).toContain('aria-valuetext="0%"')
+  expect(html).toContain('data-explode-readout')
+  expect(html.match(/aria-valuetext/g)).toHaveLength(1)
+  const slider = html.slice(html.indexOf('<input'))
+  expect(slider).toContain('disabled')
+})
+
 test('a manifest without an explode label names the toggle by the site word', () => {
   const html = renderPanel()
 

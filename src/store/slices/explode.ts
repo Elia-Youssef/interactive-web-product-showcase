@@ -1,15 +1,20 @@
 import {
   applyExplodeEvent,
+  applyExplodeReadoutEvent,
+  initialExplodeReadout,
   initialExplodeStatus,
   type ExplodeEvent,
+  type ExplodeReadout,
+  type ExplodeReadoutEvent,
   type ExplodeStatus,
 } from './explode.logic'
 
-export type { ExplodeStatus } from './explode.logic'
+export type { ExplodeReadout, ExplodeReadoutEvent, ExplodeStatus } from './explode.logic'
 export { initialExplodeStatus } from './explode.logic'
 
 export type ExplodeSliceState = {
   explodeStatus: ExplodeStatus
+  explodeReadout: ExplodeReadout
 }
 
 export type ExplodeSlice = ExplodeSliceState & {
@@ -17,6 +22,7 @@ export type ExplodeSlice = ExplodeSliceState & {
   explodeDetach: (product: string) => void
   explodeToggle: (product: string) => void
   explodeScrub: (product: string, target: number) => void
+  explodePublishReadout: (event: ExplodeReadoutEvent) => void
 }
 
 // The slice only ever writes its own fields, so it asks for a set narrowed
@@ -30,10 +36,14 @@ export function createExplodeSlice(set: SetExplodeState): ExplodeSlice {
 
   return {
     explodeStatus: initialExplodeStatus,
+    explodeReadout: initialExplodeReadout,
     explodeAttach: (product) => apply({ kind: 'attached', product }),
     explodeDetach: (product) => apply({ kind: 'detached', product }),
     explodeToggle: (product) => apply({ kind: 'toggled', product }),
     explodeScrub: (product, target) => apply({ kind: 'scrubbed', product, target }),
+    explodePublishReadout: (event) => {
+      set((state) => ({ explodeReadout: applyExplodeReadoutEvent(state.explodeReadout, event) }))
+    },
   }
 }
 
@@ -67,4 +77,13 @@ export function selectExplodeTarget(state: ExplodeSliceState, product: string): 
 export function selectExplodeOpen(state: ExplodeSliceState, product: string): boolean {
   const status = state.explodeStatus
   return status.kind === 'active' && status.product === product ? status.open : false
+}
+
+// The applied progress one product's view publishes, or null while it
+// publishes none: another product's live readout answers null, so a
+// switched product renders its own pose, never the last one's. A caller
+// with nothing to show formats null as the assembled rest.
+export function selectExplodeReadout(state: ExplodeSliceState, product: string): number | null {
+  const readout = state.explodeReadout
+  return readout.kind === 'live' && readout.product === product ? readout.progress : null
 }

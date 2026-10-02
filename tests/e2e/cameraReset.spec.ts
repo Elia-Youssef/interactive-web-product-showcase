@@ -115,9 +115,11 @@ test('under 640px the zoom cluster drops and Reset stays', async ({ page, backen
   await readyStage(page, backendPath)
 
   // The pill keeps Reset; the zoom buttons and the percentage readout are
-  // display-none, not merely off-screen.
+  // display-none, not merely off-screen. The readout is named inside its
+  // own corner: the page carries other percent texts, such as the panel's
+  // exploded view readout, which this check is not about.
   await expect(zoomIn(page)).toBeHidden()
   await expect(zoomOut(page)).toBeHidden()
-  await expect(page.getByText('%')).toBeHidden()
+  await expect(page.locator('[data-corner="bottom-right"]').getByText('%')).toBeHidden()
   await expect(reset(page)).toBeVisible()
 })

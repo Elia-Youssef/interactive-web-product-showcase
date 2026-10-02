@@ -1,0 +1,65 @@
+/*
+The range slider: a hairline track with the filled part and a round thumb
+riding it. The states compose through the three color inputs the paint
+rules read, so each state redefines values instead of repeating paint; the
+filled fraction arrives as --slider-fill, which the component writes on the
+input, and the token is the empty fill it falls back to. Values are tokens.
+*/
+
+.slider {
+  --slider-fill-color: var(--hairline-hover);
+  --slider-track-color: var(--hairline);
+  --slider-thumb-color: var(--off);
+
+  -webkit-appearance: none;
+  appearance: none;
+  inline-size: var(--size-fill);
+  block-size: var(--size-hit-min);
+  margin: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.slider:hover,
+.slider[data-force-hover] {
+  --slider-thumb-color: var(--white);
+}
+
+/* Disabled: the control waits for the state it acts on. Fill and thumb
+mute against the track that keeps its hairline, and no hover applies. */
+.slider:disabled {
+  --slider-fill-color: var(--muted);
+  --slider-thumb-color: var(--muted);
+  cursor: default;
+}
+
+/* The track, both engines: the hairline line, filled from the start to
+--slider-fill by the one hard-stop gradient both engines paint. */
+.slider::-webkit-slider-runnable-track,
+.slider::-moz-range-track {
+  block-size: var(--hairline-width);
+  background-color: var(--slider-track-color);
+  background-image: linear-gradient(
+    to right,
+    var(--slider-fill-color) var(--slider-fill),
+    transparent var(--slider-fill)
+  );
+  background-repeat: no-repeat;
+}
+
+/* The thumb, both engines: the brand dot, centered on the track. The webkit
+thumb alone carries the offset its runnable track's box model implies. */
+.slider::-webkit-slider-thumb,
+.slider::-moz-range-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  inline-size: var(--size-slider-thumb);
+  block-size: var(--size-slider-thumb);
+  border: none;
+  border-radius: var(--radius-circle);
+  background-color: var(--slider-thumb-color);
+}
+
+.slider::-webkit-slider-thumb {
+  margin-top: calc((var(--hairline-width) - var(--size-slider-thumb)) / 2);
+}

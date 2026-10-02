@@ -4,10 +4,11 @@ import {
   createExplodeSlice,
   selectExplodeAttached,
   selectExplodeOpen,
+  selectExplodeReadout,
   selectExplodeTarget,
   type ExplodeSliceState,
 } from './explode'
-import { initialExplodeStatus } from './explode.logic'
+import { initialExplodeReadout, initialExplodeStatus } from './explode.logic'
 
 const PRODUCT = 'sample-one'
 const OTHER_PRODUCT = 'sample-two'
@@ -15,7 +16,10 @@ const OTHER_PRODUCT = 'sample-two'
 // A minimal set wired by hand, so the slice is tested on its own, without
 // the composition around it.
 function makeSlice() {
-  let state: ExplodeSliceState = { explodeStatus: initialExplodeStatus }
+  let state: ExplodeSliceState = {
+    explodeStatus: initialExplodeStatus,
+    explodeReadout: initialExplodeReadout,
+  }
   const slice = createExplodeSlice((updater) => {
     state = { ...state, ...updater(state) }
   })
@@ -135,4 +139,57 @@ test('a detach for another product leaves the view alone', () => {
   slice.explodeDetach(OTHER_PRODUCT)
 
   expect(selectExplodeTarget(read(), PRODUCT)).toBe(1)
+})
+
+// The published applied progress, the display state the chrome's readout
+// renders: live with the pose's progress, idle again on the release, and
+// null for every product than the one publishing.
+test('a fresh slice publishes nothing', () => {
+  const { read } = makeSlice()
+
+  expect(selectExplodeReadout(read(), PRODUCT)).toBeNull()
+})
+
+test('a live publish carries the product and its applied progress', () => {
+  const { slice, read } = makeSlice()
+
+  slice.explodePublishReadout({ kind: 'live', product: PRODUCT, progress: 0.42 })
+
+  expect(selectExplodeReadout(read(), PRODUCT)).toBe(0.42)
+})
+
+test('a publish for another product than the one asked about answers null', () => {
+  const { slice, read } = makeSlice()
+
+  slice.explodePublishReadout({ kind: 'live', product: PRODUCT, progress: 0.42 })
+
+  expect(selectExplodeReadout(read(), OTHER_PRODUCT)).toBeNull()
+})
+
+test('the release returns the publishing product to idle', () => {
+  const { slice, read } = makeSlice()
+
+  slice.explodePublishReadout({ kind: 'live', product: PRODUCT, progress: 0.42 })
+  slice.explodePublishReadout({ kind: 'idle', product: PRODUCT })
+
+  expect(selectExplodeReadout(read(), PRODUCT)).toBeNull()
+})
+
+test('a stale release for another product leaves the live readout alone', () => {
+  const { slice, read } = makeSlice()
+
+  slice.explodePublishReadout({ kind: 'live', product: PRODUCT, progress: 0.42 })
+  slice.explodePublishReadout({ kind: 'idle', product: OTHER_PRODUCT })
+
+  expect(selectExplodeReadout(read(), PRODUCT)).toBe(0.42)
+})
+
+test('a publish of the same progress keeps the readout identity', () => {
+  const { slice, read } = makeSlice()
+
+  slice.explodePublishReadout({ kind: 'live', product: PRODUCT, progress: 0.42 })
+  const first = read().explodeReadout
+  slice.explodePublishReadout({ kind: 'live', product: PRODUCT, progress: 0.42 })
+
+  expect(read().explodeReadout).toBe(first)
 })

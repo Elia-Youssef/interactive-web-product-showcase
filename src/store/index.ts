@@ -14,6 +14,9 @@ export {
 export {
   selectExplodeAttached,
   selectExplodeOpen,
+  selectExplodeReadout,
   selectExplodeTarget,
+  type ExplodeReadout,
+  type ExplodeReadoutEvent,
   type ExplodeStatus,
 } from './slices/explode'

@@ -1,0 +1,13 @@
+/* The scrub control's one line: the slider fills the row, the mono readout
+sits at its end. Values are tokens. */
+
+.scrub {
+  justify-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.readoutCell {
+  flex: none;
+}
