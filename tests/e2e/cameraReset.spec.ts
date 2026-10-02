@@ -14,6 +14,7 @@ import {
   describeAspectSide,
   dragOnCanvas,
   homeExpectation,
+  lensBandAtRest,
   readCamera,
   REST_THRESHOLD,
   stageAspectOnSide,
@@ -89,6 +90,9 @@ for (const side of ASPECT_SIDES) {
     expect(home.azimuth).toBeCloseTo(homeAzimuth, 2)
     expect(home.polar).toBeCloseTo((facts.home.polarDegrees * Math.PI) / 180, 2)
     expect(Math.abs(home.distance - expected.distance)).toBeLessThanOrEqual(REST_THRESHOLD)
+    // The lens rode the same eased move and is home again: within the lens
+    // band the controls' rest threshold maps to at the home lens.
+    expect(Math.abs(home.fovY - expected.fovY)).toBeLessThanOrEqual(lensBandAtRest(expected.fovY))
     await expect(page.locator('[data-corner="top-right"]')).toHaveText('325 / 360')
     await expect(page.locator('[data-corner="bottom-right"]')).toContainText(
       zoomReadoutText(expected.zoomPercent),
@@ -127,6 +131,10 @@ for (const side of ASPECT_SIDES) {
     expect(landed.position.x).toBeCloseTo(expected.position.x, 6)
     expect(landed.position.y).toBeCloseTo(expected.position.y, 6)
     expect(landed.position.z).toBeCloseTo(expected.position.z, 6)
+    // The lens arrived with the pose, at once: the zoom landed at its end on
+    // the same frame, so the effective fov is the authored home lens to the
+    // precision of the degree round trips the fov API makes.
+    expect(landed.fovY).toBeCloseTo(expected.fovY, 12)
   })
 }
 

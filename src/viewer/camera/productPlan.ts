@@ -10,6 +10,8 @@ import type { CameraLimitProblem } from '@lib/camera/limits'
 import type { DistanceRange, PolarRange } from '@lib/camera/limits'
 import { orbitAnglesOf, orbitViewOfAuthoredCamera } from '@lib/camera/view'
 import type { Vec3 } from '@lib/camera/view'
+import { clipRangeOf } from '@lib/camera/lens'
+import type { ClipRange } from '@lib/camera/lens'
 import type { ModelFrame } from '../modelFrame'
 import type { ProductRig } from '../rig/productRig'
 import { stageCameraConfig } from './config'
@@ -26,15 +28,24 @@ export type CameraView = {
 }
 
 // The camera plan of one product: its views by id, the distance limits and
-// the polar limits the controls enforce, all at the authored aspect, and
-// the authored aspect itself for the stage's distance scale. Everything the
-// controls need to own the stage camera comes from here, computed once per
-// load from the rig and the measured frame.
+// the polar limits the controls enforce, all at the authored aspect, the
+// authored aspect itself for the stage's distance scale, the home lens the
+// views present through, and the one clip range every view shares.
+// Everything the controls need to own the stage camera comes from here,
+// computed once per load from the rig and the measured frame.
 export type CameraPlan = {
   readonly views: ReadonlyMap<string, CameraView>
   readonly distanceRange: DistanceRange
   readonly polarRange: PolarRange
   readonly authoredAspect: number
+  // The base lens of the plan, the home view's fov: every view rides the
+  // controls' zoom channel as the zoom that turns this lens into the
+  // view's.
+  readonly baseFovY: number
+  // The smallest authored near and the largest authored far of the views,
+  // set on the stage camera once per plan, so an eased move between views
+  // never clips mid-way.
+  readonly clipRange: ClipRange
 }
 
 // The product presentation centers the model on the origin, so the model
@@ -73,7 +84,14 @@ export function buildCameraPlan(rig: ProductRig, manifest: Product, frame: Model
   if (problems.length > 0) {
     throw new CameraLimitsError(manifest.slug, problems)
   }
-  return { views, distanceRange, polarRange, authoredAspect }
+  return {
+    views,
+    distanceRange,
+    polarRange,
+    authoredAspect,
+    baseFovY: home.fovY,
+    clipRange: clipRangeOf([...views.values()]),
+  }
 }
 
 type CollectedViews = {

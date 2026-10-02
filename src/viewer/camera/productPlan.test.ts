@@ -90,6 +90,43 @@ describe('buildCameraPlan', () => {
     expect(homeView.far).toBe(25)
   })
 
+  it('carries the home lens as the plan base for the zoom channel', () => {
+    const home = new PerspectiveCamera(30, 1.6, 0.05, 25)
+    home.name = 'CAM_home'
+    home.position.set(0, 0, 1.2)
+    const closeUp = new PerspectiveCamera(45, 1.6, 0.05, 25)
+    closeUp.name = 'CAM_driver'
+    closeUp.position.set(0.3, 0.3, 0.8)
+    closeUp.lookAt(0, 0.1, 0)
+    mountedTree([home, closeUp], centeredFrame)
+
+    const plan = buildCameraPlan(rigWith([home, closeUp]), manifestWith(undefined), centeredFrame)
+
+    const homeView = plan.views.get('home')
+    if (homeView === undefined) {
+      throw new Error('the home view must be in the plan')
+    }
+    // The base is the home view's own lens, the one value the zoom math
+    // turns into every view's lens.
+    expect(plan.baseFovY).toBe(homeView.fovY)
+    expect(plan.baseFovY).toBeCloseTo((30 * Math.PI) / 180, 15)
+  })
+
+  it('carries one clip range across the views: the smallest near and the largest far', () => {
+    const home = new PerspectiveCamera(30, 1.6, 0.2, 25)
+    home.name = 'CAM_home'
+    home.position.set(0, 0, 1.2)
+    const closeUp = new PerspectiveCamera(45, 1.6, 0.05, 40)
+    closeUp.name = 'CAM_driver'
+    closeUp.position.set(0.3, 0.3, 0.8)
+    closeUp.lookAt(0, 0.1, 0)
+    mountedTree([home, closeUp], centeredFrame)
+
+    const plan = buildCameraPlan(rigWith([home, closeUp]), manifestWith(undefined), centeredFrame)
+
+    expect(plan.clipRange).toEqual({ near: 0.05, far: 40 })
+  })
+
   it('projects the target onto an angled view ray closest to the origin', () => {
     const home = new PerspectiveCamera(25, 1.6, 0.05, 25)
     home.name = 'CAM_home'

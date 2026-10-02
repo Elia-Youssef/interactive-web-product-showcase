@@ -3,7 +3,7 @@ import type { RefObject } from 'react'
 import { PerspectiveCamera, type Camera } from 'three'
 import type { DistanceRange } from '@lib/camera/limits'
 import type { CameraPlan } from './productPlan'
-import { applyView, scaledRangeOf, stepZoom, viewOfPlan } from './controls'
+import { applyLens, applyView, scaledRangeOf, stepZoom, viewOfPlan } from './controls'
 import { prefersReducedMotion } from './prefersReducedMotion'
 
 // The four camera operations the context API hands out, as plain functions
@@ -51,8 +51,10 @@ function requirePlan(state: StageCameraState): CameraPlan {
 
 // Registers the plan and shows one of its views at once, with no
 // transition: the product presentation calls this before ready, so the
-// first presented frame is already the home view. The view id is resolved
-// before anything changes, so a wrong id changes nothing.
+// first presented frame is already the home view. The plan's base lens and
+// clip range go on the camera once here, and the home view itself presents
+// at the zoom 1 its lens maps to. The view id is resolved before anything
+// changes, so a wrong id changes nothing.
 export function presentPlan(state: StageCameraState, plan: CameraPlan, viewId: string): void {
   const view = viewOfPlan(plan, viewId)
   const controls = requireControls(state)
@@ -60,7 +62,8 @@ export function presentPlan(state: StageCameraState, plan: CameraPlan, viewId: s
   state.planRef.current = plan
   state.appliedRangeRef.current = scaledRangeOf(plan, state.stageAspect())
   controls.enabled = true
-  void applyView(controls, perspectiveCamera, plan, view, state.stageAspect(), false)
+  applyLens(perspectiveCamera, plan)
+  void applyView(controls, plan, view, state.stageAspect(), false)
   state.invalidate()
 }
 
@@ -70,7 +73,6 @@ export function transitionToView(state: StageCameraState, viewId: string): Promi
   const plan = requirePlan(state)
   return applyView(
     requireControls(state),
-    requirePerspectiveCamera(state),
     plan,
     viewOfPlan(plan, viewId),
     state.stageAspect(),
