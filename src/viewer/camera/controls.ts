@@ -1,6 +1,7 @@
 import type { CameraControlsImpl } from '@react-three/drei'
 import { MathUtils, Vector3, type PerspectiveCamera } from 'three'
 import { containedDistanceScale } from '@lib/camera/aspect'
+import { zoomOfLens } from '@lib/camera/lens'
 import { orbitAnglesOf, positionOfOrbitAngles } from '@lib/camera/view'
 import type { OrbitAngles } from '@lib/camera/view'
 import { distanceOfZoomPercent, steppedZoomPercent, zoomPercentOfDistance } from '@lib/camera/zoom'
@@ -45,27 +46,31 @@ export function viewOfPlan(plan: CameraPlan, viewId: string): CameraView {
   return view
 }
 
-// The authored lens of the view: Blender owns camera views, so the stage
-// camera takes the authored vertical fov and near and far planes.
-export function applyLens(camera: PerspectiveCamera, view: CameraView): void {
-  camera.fov = MathUtils.radToDeg(view.fovY)
-  camera.near = view.near
-  camera.far = view.far
+// The lens the plan presents once, when it is presented: the plan's base
+// lens and the one clip range of all its views. The views themselves never
+// touch the lens: each rides the controls' zoom channel (see applyView), so
+// the lens eases with the pose under one damping instead of jumping on the
+// first frame.
+export function applyLens(camera: PerspectiveCamera, plan: CameraPlan): void {
+  camera.fov = MathUtils.radToDeg(plan.baseFovY)
+  camera.near = plan.clipRange.near
+  camera.far = plan.clipRange.far
   camera.updateProjectionMatrix()
 }
 
 // Puts the controls' limits in place and moves the camera onto the view at
-// the stage's aspect scale. With a transition the controls ease there and
-// the promise resolves at rest; without one they arrive at once.
+// the stage's aspect scale, the view's lens riding the controls' own zoom
+// channel as the zoom that turns the plan's base lens into the view's. With
+// a transition both ease there under the same smooth time and the promise
+// resolves when both have arrived, which is the same rest; without one they
+// arrive at once.
 export function applyView(
   controls: CameraControlsImpl,
-  camera: PerspectiveCamera,
   plan: CameraPlan,
   view: CameraView,
   stageAspect: number,
   enableTransition: boolean,
 ): Promise<void> {
-  applyLens(camera, view)
   const range = scaledRangeOf(plan, stageAspect)
   controls.minDistance = range.min
   controls.maxDistance = range.max
@@ -79,7 +84,7 @@ export function applyView(
     angles.distance * scale,
     view.target,
   )
-  return controls.setLookAt(
+  const pose = controls.setLookAt(
     position[0],
     position[1],
     position[2],
@@ -88,6 +93,8 @@ export function applyView(
     view.target[2],
     enableTransition,
   )
+  const lens = controls.zoomTo(zoomOfLens(plan.baseFovY, view.fovY), enableTransition)
+  return Promise.all([pose, lens]).then(() => undefined)
 }
 
 // One zoom button step from the end distance, clamped by the percentage
