@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test'
 import { resolveProductLook } from '../../src/lib/product'
 import { lookDefaults } from '../../src/viewer/look/config'
 import { expect, test } from './fixtures'
-import { restWindowBudgetMs } from './budgets'
+import { productLoadBudgetMs, restWindowBudgetMs, testBodyBudgetMs } from './budgets'
 import { loadCollection } from './productList'
 import { expectPoll, harnessPath, waitForProductReady } from './productSpecs'
 import { readShadowAuthoredOpacity } from './shadowModelFacts'
@@ -122,8 +122,8 @@ test('the toggle opens the view onto the exploded grid and no shadow', async ({ 
   await waitForExplodeMounted(page)
 
   await page.getByRole('button', { name: toggleLabel }).click()
-  await expectPoll(page, () => window.__viewer?.explode?.moving).toBe(false)
-  await expectPoll(page, () => window.__viewer?.explode?.t).toBe(1)
+  await expectPoll(page, () => window.__viewer?.explode?.moving, testBodyBudgetMs).toBe(false)
+  await expectPoll(page, () => window.__viewer?.explode?.t, testBodyBudgetMs).toBe(1)
 
   const reads = await completeReads(page, 'at the exploded rest')
   expect(reads.moving).toBe(false)
@@ -147,10 +147,10 @@ test('the toggle closes the view back onto the rest grid and shadow', async ({ p
   await waitForExplodeMounted(page)
 
   await page.getByRole('button', { name: toggleLabel }).click()
-  await expectPoll(page, () => window.__viewer?.explode?.moving).toBe(false)
+  await expectPoll(page, () => window.__viewer?.explode?.moving, testBodyBudgetMs).toBe(false)
   await page.getByRole('button', { name: toggleLabel }).click()
-  await expectPoll(page, () => window.__viewer?.explode?.moving).toBe(false)
-  await expectPoll(page, () => window.__viewer?.explode?.t).toBe(0)
+  await expectPoll(page, () => window.__viewer?.explode?.moving, testBodyBudgetMs).toBe(false)
+  await expectPoll(page, () => window.__viewer?.explode?.t, testBodyBudgetMs).toBe(0)
 
   const reads = await completeReads(page, 'at the closed rest')
 
@@ -173,13 +173,16 @@ test('mid-motion the shadow and the grid follow the applied progress', async ({ 
   // last sample inside the move is the one the assertions hold.
   const sampled: { reads: CompleteStageReads | null } = { reads: null }
   await expect
-    .poll(async () => {
-      const reads = await readStage(page)
-      if (complete(reads) && reads.t > 0 && reads.t < 1) {
-        sampled.reads = reads
-      }
-      return sampled.reads !== null
-    })
+    .poll(
+      async () => {
+        const reads = await readStage(page)
+        if (complete(reads) && reads.t > 0 && reads.t < 1) {
+          sampled.reads = reads
+        }
+        return sampled.reads !== null
+      },
+      { timeout: testBodyBudgetMs },
+    )
     .toBe(true)
   const sample = sampled.reads
   if (sample === null) {
@@ -201,7 +204,10 @@ test('under reduced motion the grid and the shadow jump in the toggle frame', as
   // The jump applies the far pose itself and owes exactly the one frame its
   // invalidation presents; the reads after it hold the jumped values.
   await expect
-    .poll(() => renderedFramesOf(page), 'the toggle must render its one frame')
+    .poll(() => renderedFramesOf(page), {
+      message: 'the toggle must render its one frame',
+      timeout: testBodyBudgetMs,
+    })
     .toBe(before + 1)
 
   const reads = await completeReads(page, 'at the jumped rest')
@@ -217,21 +223,21 @@ test('remounting the open view from the harness returns the grid and shadow to r
 }) => {
   await page.goto(harnessPath(backendPath, product.slug))
   await waitForProductReady(page)
-  await expectPoll(page, () => window.__viewer?.explode !== null).toBe(true)
+  await expectPoll(page, () => window.__viewer?.explode !== null, testBodyBudgetMs).toBe(true)
 
   const explodeToggle = page.getByRole('button', { name: toggleLabel })
   const remount = page.getByTestId('remount-product')
 
   await explodeToggle.click()
-  await expectPoll(page, () => window.__viewer?.explode?.moving).toBe(false)
-  await expectPoll(page, () => window.__viewer?.explode?.t).toBe(1)
+  await expectPoll(page, () => window.__viewer?.explode?.moving, testBodyBudgetMs).toBe(false)
+  await expectPoll(page, () => window.__viewer?.explode?.t, testBodyBudgetMs).toBe(1)
 
   // Unmount from the open state: the reaction's release restores its inputs,
   // so the emphasis property is gone from the stage element whatever the
   // progress was.
   await remount.click()
-  await expectPoll(page, () => window.__viewer?.product).toBe('idle')
-  await expectPoll(page, () => window.__viewer?.explode ?? null).toBeNull()
+  await expectPoll(page, () => window.__viewer?.product, productLoadBudgetMs).toBe('idle')
+  await expectPoll(page, () => window.__viewer?.explode ?? null, testBodyBudgetMs).toBeNull()
   const idle = await readHarnessStage(page)
   expect(idle.emphasis).toBe('')
   expect(idle.computedEmphasis).toBe('0')
@@ -240,7 +246,7 @@ test('remounting the open view from the harness returns the grid and shadow to r
   // and the grid emphasis back at the rest default.
   await remount.click()
   await waitForProductReady(page)
-  await expectPoll(page, () => window.__viewer?.explode?.t).toBe(0)
+  await expectPoll(page, () => window.__viewer?.explode?.t, testBodyBudgetMs).toBe(0)
   const reads = await readHarnessStage(page)
   expect(reads.opacity).toBe(authoredOpacity * lookOpacity)
   expect(reads.emphasis).toBe('0')
@@ -250,8 +256,8 @@ test('remounting the open view from the harness returns the grid and shadow to r
 // reading exists and holds the assembled pose.
 async function waitForExplodeMounted(page: Page): Promise<void> {
   await waitForProductReady(page)
-  await expectPoll(page, () => window.__viewer?.explode !== null).toBe(true)
-  await expectPoll(page, () => window.__viewer?.explode?.t).toBe(0)
+  await expectPoll(page, () => window.__viewer?.explode !== null, testBodyBudgetMs).toBe(true)
+  await expectPoll(page, () => window.__viewer?.explode?.t, testBodyBudgetMs).toBe(0)
 }
 
 // The harness stage element the surface channel writes on, with the

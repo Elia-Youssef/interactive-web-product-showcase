@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from './fixtures'
-import { restWindowBudgetMs } from './budgets'
+import { restWindowBudgetMs, testBodyBudgetMs } from './budgets'
 import { readExplodeModelFacts } from './explodeModelFacts'
 import { loadCollection } from './productList'
 import { expectPoll, waitForProductReady } from './productSpecs'
@@ -39,15 +39,15 @@ test('the toggle opens the exploded view and the stage comes to rest', async ({ 
     'aria-pressed',
     'true',
   )
-  await expectPoll(page, () => window.__viewer?.explode?.target).toBe(1)
+  await expectPoll(page, () => window.__viewer?.explode?.target, testBodyBudgetMs).toBe(1)
 
   // The spring moves: frames render while it runs, and the move's frame
   // count is the browser's frame budget, not the spring's. The move goes
   // through no settle, because a clip-time change rebuilds no pipeline; the
   // contract is that the move rendered and the rest that follows renders
   // nothing.
-  await expectPoll(page, () => window.__viewer?.explode?.moving).toBe(true)
-  await expectPoll(page, () => window.__viewer?.explode?.moving).toBe(false)
+  await expectPoll(page, () => window.__viewer?.explode?.moving, testBodyBudgetMs).toBe(true)
+  await expectPoll(page, () => window.__viewer?.explode?.moving, testBodyBudgetMs).toBe(false)
   const afterMove = await settledFrames(page)
   expect(afterMove).toBeGreaterThan(atRest)
 
@@ -59,7 +59,7 @@ test('the toggle opens the exploded view and the stage comes to rest', async ({ 
   // node sits exactly at the clip's last keyframe. The progress is asserted
   // first: it is what the pose last applied, so a skipped pose write fails
   // here before the parts can diffuse the cause.
-  await expectPoll(page, () => window.__viewer?.explode?.t).toBe(1)
+  await expectPoll(page, () => window.__viewer?.explode?.t, testBodyBudgetMs).toBe(1)
   await expectPose(page, facts.lastPose)
 })
 
@@ -68,15 +68,15 @@ test('the toggle closes the view back onto the assembled pose', async ({ page })
   await waitForExplodeMounted(page)
 
   await page.getByRole('button', { name: toggleLabel }).click()
-  await expectPoll(page, () => window.__viewer?.explode?.moving).toBe(false)
+  await expectPoll(page, () => window.__viewer?.explode?.moving, testBodyBudgetMs).toBe(false)
   await page.getByRole('button', { name: toggleLabel }).click()
 
   await expect(page.getByRole('button', { name: toggleLabel })).toHaveAttribute(
     'aria-pressed',
     'false',
   )
-  await expectPoll(page, () => window.__viewer?.explode?.t).toBe(0)
-  await expectPoll(page, () => window.__viewer?.explode?.moving).toBe(false)
+  await expectPoll(page, () => window.__viewer?.explode?.t, testBodyBudgetMs).toBe(0)
+  await expectPoll(page, () => window.__viewer?.explode?.moving, testBodyBudgetMs).toBe(false)
 
   const atRest = await settledFrames(page)
   await page.waitForTimeout(restWindowBudgetMs)
@@ -98,7 +98,10 @@ test('under reduced motion the toggle jumps to the target in one frame', async (
   // goes through no settle, so the stage's double-present settle adds
   // nothing to the count.
   await expect
-    .poll(() => renderedFrames(page), 'the toggle must render its one frame')
+    .poll(() => renderedFrames(page), {
+      message: 'the toggle must render its one frame',
+      timeout: testBodyBudgetMs,
+    })
     .toBe(before + 1)
   const reading = await explodeOf(page)
   expect(reading?.t).toBe(1)
@@ -116,8 +119,8 @@ test('under reduced motion the toggle jumps to the target in one frame', async (
 // reading exists and holds the assembled pose.
 async function waitForExplodeMounted(page: Page): Promise<void> {
   await waitForProductReady(page)
-  await expectPoll(page, () => window.__viewer?.explode !== null).toBe(true)
-  await expectPoll(page, () => window.__viewer?.explode?.t).toBe(0)
+  await expectPoll(page, () => window.__viewer?.explode !== null, testBodyBudgetMs).toBe(true)
+  await expectPoll(page, () => window.__viewer?.explode?.t, testBodyBudgetMs).toBe(0)
   await settledFrames(page)
 }
 
@@ -136,7 +139,9 @@ async function expectPose(
     // window's own empty string. Each part is awaited, so the pose is
     // asserted before the test moves on.
     await expect
-      .poll(() => page.evaluate((partName) => window.__viewer?.explode?.parts[partName], name))
+      .poll(() => page.evaluate((partName) => window.__viewer?.explode?.parts[partName], name), {
+        timeout: testBodyBudgetMs,
+      })
       .toEqual({ x, y, z })
   }
 }
