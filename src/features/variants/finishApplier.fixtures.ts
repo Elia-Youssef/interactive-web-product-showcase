@@ -1,7 +1,8 @@
 import { AnimationClip, Group, Mesh, MeshStandardMaterial, type Material } from 'three'
 import { parseProduct, readFinishPlan, type FinishPlan } from '@lib/product'
 import { sampleOneManifest } from '@lib/product/fixtures'
-import type { GltfAssociation, LoadedProduct } from '@viewer/product/loadedProduct'
+import type { LoadedProduct } from '@viewer/product/loadedProduct'
+import type { GltfAssociation } from '@viewer/product/mappedSceneNodes'
 import type { FinishApplierOwner } from './finishApplier'
 
 // The fake world the applier's tests drive: a loaded product with three

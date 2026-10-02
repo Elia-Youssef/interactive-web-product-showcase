@@ -1,8 +1,8 @@
 import type { Material } from 'three'
+import { finishMaterialIndex } from '@lib/product'
 import type { LoadedProduct } from '@viewer/product/loadedProduct'
-import type { MappedMesh } from './mappedMeshes'
+import type { MappedSceneNode } from '@viewer/product/mappedSceneNodes'
 import { mappedSceneMeshes } from './mappedMeshes'
-import { finishMaterialIndex } from './variants.logic'
 
 // One application of a finish to a loaded product: it swaps every mapped
 // mesh's material to what the plan prescribes for the variant and settles
@@ -35,7 +35,7 @@ export async function applyFinish(application: FinishApplication): Promise<void>
 
 function applyVariantMaterials(
   loaded: LoadedProduct,
-  mapped: readonly MappedMesh[],
+  mapped: readonly MappedSceneNode[],
   variantIndex: number,
 ): void {
   for (const { mesh, entry } of mapped) {
@@ -57,7 +57,7 @@ export function resolvedMaterial(loaded: LoadedProduct, index: number): Material
   return material
 }
 
-function assertSingleMaterial(mesh: MappedMesh['mesh']): void {
+function assertSingleMaterial(mesh: MappedSceneNode['mesh']): void {
   if (Array.isArray(mesh.material)) {
     throw new Error(
       `the mapped mesh '${mesh.name}' carries a material array, the plan maps one material per primitive`,

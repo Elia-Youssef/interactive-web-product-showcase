@@ -1,6 +1,7 @@
 import { Line, Material, Mesh, Points } from 'three'
 import type { Object3D } from 'three'
 import { readFinishPlan, type FinishPlan } from '@lib/product'
+import type { GltfAssociation } from './mappedSceneNodes'
 
 // The loader plugin that loads every finish material as part of the model.
 // GLTFLoader builds only the materials a scene's primitives name as their
@@ -30,6 +31,7 @@ export type ProductFinishMaterials = {
 // its own parser, which carries this shape at runtime.
 export interface FinishParserLike {
   readonly json: unknown
+  readonly associations: ReadonlyMap<object, GltfAssociation>
   getDependency(type: string, index: number): Promise<unknown>
 }
 

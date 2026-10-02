@@ -1,9 +1,9 @@
 import { Group, Mesh, type Material } from 'three'
-import { precompilePairs } from './variants.logic'
+import { precompilePairs } from '@lib/product'
 import type { LoadedProduct } from '@viewer/product/loadedProduct'
-import type { MappedMesh } from './mappedMeshes'
+import type { MappedSceneNode } from '@viewer/product/mappedSceneNodes'
 import { mappedSceneMeshes } from './mappedMeshes'
-import { applyFinish } from './applyFinish'
+import { applyFinish, resolvedMaterial } from './applyFinish'
 
 // The first application of a finish, which carries the load-time
 // precompile: it swaps every mapped mesh's material to the selected
@@ -72,7 +72,7 @@ export async function applyFirstFinish(target: FirstFinishApplication): Promise<
 // group owns nothing and nothing is disposed with it. Pairs whose
 // material the scene already carries are skipped: the load's own render
 // compiled and uploaded those.
-function buildProxyGroup(loaded: LoadedProduct, mapped: readonly MappedMesh[]): Group {
+function buildProxyGroup(loaded: LoadedProduct, mapped: readonly MappedSceneNode[]): Group {
   const carried = new Set<Material>()
   loaded.scene.traverse((node) => {
     if (node instanceof Mesh && !Array.isArray(node.material)) {
@@ -81,32 +81,25 @@ function buildProxyGroup(loaded: LoadedProduct, mapped: readonly MappedMesh[]): 
   })
   const group = new Group()
   group.name = 'FINISH_precompile'
-  for (const { mesh, materialIndex } of precompilePairs(loaded.finishes.plan)) {
-    const material = resolvedMaterial(loaded, materialIndex)
-    if (carried.has(material)) {
-      continue
-    }
-    for (const mappedMesh of mapped.filter((candidate) => candidate.entry.mesh === mesh)) {
+  for (const pair of precompilePairs(loaded.finishes.plan)) {
+    for (const mappedMesh of mapped.filter(
+      (candidate) =>
+        candidate.entry.mesh === pair.mesh && candidate.entry.primitive === pair.primitive,
+    )) {
+      const material = resolvedMaterial(loaded, pair.materialIndex)
+      if (carried.has(material)) {
+        continue
+      }
       group.add(buildProxy(mappedMesh.mesh.geometry, material))
     }
   }
   return group
 }
 
-function buildProxy(geometry: MappedMesh['mesh']['geometry'], material: Material): Mesh {
+function buildProxy(geometry: MappedSceneNode['mesh']['geometry'], material: Material): Mesh {
   const proxy = new Mesh(geometry, material)
   proxy.visible = true
   proxy.frustumCulled = false
   proxy.scale.setScalar(0)
   return proxy
-}
-
-function resolvedMaterial(loaded: LoadedProduct, index: number): Material {
-  const material = loaded.finishes.materials.get(index)
-  if (material === undefined) {
-    throw new Error(
-      `the loaded product '${loaded.manifest.slug}' resolved no material for the index ${index}`,
-    )
-  }
-  return material
 }

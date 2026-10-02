@@ -22,5 +22,19 @@ export { productModelUrl } from './modelUrl'
 export type { ProductModelCounts } from './modelCounts'
 export { basisTranscoderPath } from './transcoderPath'
 export type { ProductClipSummary, ProductHotspotSummary, ProductRigSummary } from './rigSummary'
-export { FinishPlanError, readFinishPlan, readJsonKey, readVariantNames } from './variants'
+export {
+  FinishPlanError,
+  finishEntryMaterialIndexes,
+  readFinishPlan,
+  readJsonKey,
+  readVariantNames,
+} from './variants'
 export type { FinishPlan, FinishPrimitivePlan, FinishProblem } from './variants'
+export {
+  finishDerivedKey,
+  finishMaterialIndex,
+  finishPrimitiveKey,
+  mappedFinishEntries,
+  prescribesMaterial,
+  precompilePairs,
+} from './finishPlanQueries'

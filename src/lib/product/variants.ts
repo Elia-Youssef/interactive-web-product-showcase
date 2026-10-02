@@ -82,6 +82,20 @@ export type FinishPlan = {
   readonly materialIndexes: ReadonlySet<number>
 }
 
+// The material indexes one plan entry can ever carry: its default first,
+// then every mapping's material, each once. The plan reader collects a
+// load's material set with it and the finish queries iterate a mapped
+// entry's derivations with it, so both read one rule.
+export function finishEntryMaterialIndexes(entry: FinishPrimitivePlan): readonly number[] {
+  const indexes = entry.defaultMaterial === null ? [] : [entry.defaultMaterial]
+  for (const materialIndex of entry.variantMaterials.values()) {
+    if (!indexes.includes(materialIndex)) {
+      indexes.push(materialIndex)
+    }
+  }
+  return indexes
+}
+
 // Reads the finish plan from a parser JSON, or fails with one
 // FinishPlanError listing every mapping problem the file has. The class of
 // files it covers: a file without the extension (no variants, every
@@ -186,18 +200,16 @@ function readPrimitivePlan(
   if (defaultMaterial === null && variantMaterials.size === 0) {
     return
   }
-  if (defaultMaterial !== null) {
-    output.materialIndexes.add(defaultMaterial)
-  }
-  for (const materialIndex of variantMaterials.values()) {
-    output.materialIndexes.add(materialIndex)
-  }
-  output.primitives.push({
+  const entry: FinishPrimitivePlan = {
     mesh: meshIndex,
     primitive: primitiveIndex,
     defaultMaterial,
     variantMaterials,
-  })
+  }
+  for (const materialIndex of finishEntryMaterialIndexes(entry)) {
+    output.materialIndexes.add(materialIndex)
+  }
+  output.primitives.push(entry)
 }
 
 // The mapping table of one primitive, read into its variant table: each
