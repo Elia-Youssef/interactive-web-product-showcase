@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures'
-import { productLoadBudgetMs } from './productSpecs'
+import { waitForProductReady } from './productSpecs'
 
 // The e2e server serves the dev client entry with a client of its own that
 // has no HMR WebSocket: an e2e run never hot-updates anything, and the live
@@ -21,11 +21,7 @@ test('an e2e page opens no HMR WebSocket', async ({ page, backendPath }) => {
   })
 
   await page.goto(backendPath)
-  await expect
-    .poll(() => page.evaluate(() => window.__viewer?.product), {
-      timeout: productLoadBudgetMs,
-    })
-    .toBe('ready')
+  await waitForProductReady(page)
 
   expect(
     clientEntryStatus,

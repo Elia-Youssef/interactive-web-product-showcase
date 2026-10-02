@@ -22,12 +22,13 @@ type ProductPresentationProps = {
 }
 
 // The stage life of a loaded product: the stage camera presents the home
-// view at once, the stage's settle chain compiles, presents and records a
-// frame around the centered product, and only that settle's resolution
-// reports the product ready. The store's ready status therefore means a
-// presented product at its home view, never one whose render pipelines may
-// still be pending. Camera rules the authored data breaks (limits, lens)
-// fail here, as the rig parse fails a contract-breaking model.
+// view at once, the stage's settle chain presents the settled state twice
+// and records both frames around the centered product, and only that
+// settle's resolution reports the product ready. The store's ready status
+// therefore means a presented product at its home view, never one whose
+// render pipelines may still be pending. Camera rules the authored data
+// breaks (limits, lens) fail here, as the rig parse fails a
+// contract-breaking model.
 //
 // Both failure channels of the life report here: the camera plan's broken
 // rules and the settle's rejections. The first one is kept, the hook

@@ -1,5 +1,6 @@
 import { expect, test } from './fixtures'
 import { readFinishExpectations } from './finishModel'
+import { productLoadBudgetMs, testBodyBudgetMs } from './budgets'
 import {
   expectPoll,
   harnessPath,
@@ -30,7 +31,9 @@ for (const product of products) {
 
     for (const finish of product.finishes) {
       await page.getByTestId(`harness-finish-${finish.variant}`).click()
-      await expectPoll(page, () => window.__viewer?.finish?.applied ?? null).toBe(finish.variant)
+      await expectPoll(page, () => window.__viewer?.finish?.applied ?? null, testBodyBudgetMs).toBe(
+        finish.variant,
+      )
     }
 
     expect(
@@ -54,7 +57,9 @@ for (const product of products) {
 
     for (const finish of product.finishes) {
       await page.getByTestId(`harness-finish-${finish.variant}`).click()
-      await expectPoll(page, () => window.__viewer?.finish?.applied ?? null).toBe(finish.variant)
+      await expectPoll(page, () => window.__viewer?.finish?.applied ?? null, testBodyBudgetMs).toBe(
+        finish.variant,
+      )
       expect(await page.evaluate(() => window.__harnessSceneMeshes?.() ?? null)).toBe(ownMeshes)
     }
   })
@@ -77,12 +82,14 @@ for (const product of products) {
       throw new Error('a product without a finish has no selection to carry over a remount')
     }
     await page.getByTestId(`harness-finish-${selected}`).click()
-    await expectPoll(page, () => window.__viewer?.finish?.applied ?? null).toBe(selected)
+    await expectPoll(page, () => window.__viewer?.finish?.applied ?? null, testBodyBudgetMs).toBe(
+      selected,
+    )
 
     const toggle = page.getByTestId('remount-product')
     await toggle.click()
-    await expectPoll(page, () => window.__viewer?.product).toBe('idle')
-    await expectPoll(page, () => window.__viewer?.finish ?? null).toBeNull()
+    await expectPoll(page, () => window.__viewer?.product, productLoadBudgetMs).toBe('idle')
+    await expectPoll(page, () => window.__viewer?.finish ?? null, testBodyBudgetMs).toBeNull()
 
     // Remount: a fresh load, driven straight to the selection the store
     // kept. The full record the finish channel reports names the fresh
@@ -120,7 +127,11 @@ for (const product of products) {
       let count = await waitForSettledMemory(page)
       for (const finish of product.finishes) {
         await page.getByTestId(`harness-finish-${finish.variant}`).click()
-        await expectPoll(page, () => window.__viewer?.finish?.applied ?? null).toBe(finish.variant)
+        await expectPoll(
+          page,
+          () => window.__viewer?.finish?.applied ?? null,
+          testBodyBudgetMs,
+        ).toBe(finish.variant)
         const afterSwitch = await waitForSettledMemory(page)
         count = {
           geometries: Math.max(count.geometries, afterSwitch.geometries),
@@ -131,7 +142,9 @@ for (const product of products) {
     })()
     for (const finish of product.finishes) {
       await page.getByTestId(`harness-finish-${finish.variant}`).click()
-      await expectPoll(page, () => window.__viewer?.finish?.applied ?? null).toBe(finish.variant)
+      await expectPoll(page, () => window.__viewer?.finish?.applied ?? null, testBodyBudgetMs).toBe(
+        finish.variant,
+      )
       const afterSwitch = await waitForSettledMemory(page)
       expect(afterSwitch.geometries, `geometries after switching to '${finish.variant}'`).toBe(
         warm.geometries,
@@ -156,7 +169,9 @@ for (const product of products) {
       throw new Error('a product without a finish has no switch to measure')
     }
     await page.getByTestId(`harness-finish-${selected}`).click()
-    await expectPoll(page, () => window.__viewer?.finish?.applied ?? null).toBe(selected)
+    await expectPoll(page, () => window.__viewer?.finish?.applied ?? null, testBodyBudgetMs).toBe(
+      selected,
+    )
     const afterSwitch = await waitForSettledMemory(page)
     expect(afterSwitch.geometries, 'geometries after the first switch').toBe(atReady.geometries)
     expect(afterSwitch.textures, 'textures after the first switch').toBe(atReady.textures)

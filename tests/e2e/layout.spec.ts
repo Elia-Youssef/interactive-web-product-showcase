@@ -141,7 +141,11 @@ for (const spec of viewportContracts) {
     // 6. Static text corners pass pointer events through to the canvas. The
     // canvas takes its size when the renderer is ready, so the check waits
     // for that: before it there is nothing to drag.
-    await expect.poll(() => page.evaluate(() => window.__viewer?.status)).toBe('ready')
+    await expect
+      .poll(() => page.evaluate(() => window.__viewer?.status), {
+        timeout: productLoadBudgetMs,
+      })
+      .toBe('ready')
     if (spec.visibleCorners.includes('bottom-left')) {
       const hint = page.locator('[data-corner="bottom-left"]')
       const hintBox = await hint.boundingBox()
@@ -199,7 +203,11 @@ for (const spec of viewportContracts) {
   }) => {
     await page.setViewportSize({ width: spec.width, height: spec.height })
     await page.goto(backendPath)
-    await expect.poll(() => page.evaluate(() => window.__viewer?.status)).toBe('ready')
+    await expect
+      .poll(() => page.evaluate(() => window.__viewer?.status), {
+        timeout: productLoadBudgetMs,
+      })
+      .toBe('ready')
 
     const slot = page.locator('[data-slot="stage"]')
     const canvas = page.locator('[data-slot="stage"] canvas')
@@ -270,7 +278,11 @@ for (const spec of viewportContracts) {
 
     await page.setViewportSize({ width: spec.width, height: spec.height })
     await page.goto(backendPath)
-    await expect.poll(() => page.evaluate(() => window.__viewer?.status)).toBe('ready')
+    await expect
+      .poll(() => page.evaluate(() => window.__viewer?.status), {
+        timeout: productLoadBudgetMs,
+      })
+      .toBe('ready')
 
     // The baselines show the stage with the collection's product in it.
     // Ready alone would race the product load and shoot the empty stage, so

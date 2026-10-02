@@ -3,7 +3,7 @@ import { productModelUrl } from '../../src/lib/product'
 import { stageConfig } from '../../src/viewer/config'
 import { expect, test } from './fixtures'
 import { loadCollection } from './productList'
-import { productLoadBudgetMs } from './productSpecs'
+import { productLoadBudgetMs, waitForProductReady } from './productSpecs'
 import { countRegionPixelsBrighterThan, type BrightPixels } from './stagePixels'
 import { settledFrames, settledStage } from './stageSettle'
 
@@ -46,7 +46,11 @@ test('the stage reports the collection first product as its model', async ({
   backendPath,
 }) => {
   await page.goto(backendPath)
-  await expect.poll(() => page.evaluate(() => window.__viewer?.status)).toBe('ready')
+  await expect
+    .poll(() => page.evaluate(() => window.__viewer?.status), {
+      timeout: productLoadBudgetMs,
+    })
+    .toBe('ready')
 
   // The model field is the contract: null until the product is presented,
   // then the counts the loaded scene measured, read from the store's ready
@@ -72,7 +76,11 @@ test('the stage renders the model: its pixels rise above the bare backdrop', asy
   backendPath,
 }) => {
   await page.goto(backendPath)
-  await expect.poll(() => page.evaluate(() => window.__viewer?.status)).toBe('ready')
+  await expect
+    .poll(() => page.evaluate(() => window.__viewer?.status), {
+      timeout: productLoadBudgetMs,
+    })
+    .toBe('ready')
   await expect
     .poll(() => page.evaluate(() => window.__viewer?.model ?? null), {
       timeout: productLoadBudgetMs,
@@ -109,11 +117,7 @@ test('the stage loads its environment and the product model once each', async ({
   })
 
   await page.goto(backendPath)
-  await expect
-    .poll(() => page.evaluate(() => window.__viewer?.product), {
-      timeout: productLoadBudgetMs,
-    })
-    .toBe('ready')
+  await waitForProductReady(page)
   await settledFrames(page)
 
   expect(Object.fromEntries(fetches)).toEqual(Object.fromEntries(watched.map((path) => [path, 1])))
