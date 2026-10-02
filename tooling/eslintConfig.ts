@@ -68,6 +68,23 @@ const compileWalkEntries = compileWalkNames.map((name) => ({
     'Pipelines are built on the frame path; a compile walk yields to the frame scheduling of the engine and can park the settle chain on a frame that never comes.',
 }))
 
+// The e2e polls that would ride the runner's implicit timeout, one selector
+// per shape, so each poll is reported once: no second argument, a message
+// string where the options belong, and an options object with no timeout.
+// A poll that waits on a product load under load needs the load budget, and
+// the implicit default is far shorter, so every poll names its budget.
+const pollBudgetSelectors = [
+  `CallExpression[callee.property.name='poll'][arguments.length<2]`,
+  `CallExpression[callee.property.name='poll'][arguments.length=2][arguments.1.type!='ObjectExpression']`,
+  `CallExpression[callee.property.name='poll'][arguments.length=2] > ObjectExpression.arguments:not(:has(> Property[key.name='timeout']))`,
+]
+
+const pollBudgetEntries = pollBudgetSelectors.map((selector) => ({
+  selector,
+  message:
+    'A poll names its budget: pass a timeout from the budget module, never the runner default.',
+}))
+
 function parserConfigs(): Linter.Config[] {
   return [
     {
@@ -173,11 +190,16 @@ function testExemptionConfig(): Linter.Config {
 // Fixture functions in the tests folder that deliberately take no fixtures
 // still destructure an object: the test-runner convention for an empty
 // dependency set. The relaxation stays in the folder, so production code
-// keeps the plain rule above.
+// keeps the plain rule above. The folder's restricted syntax carries the
+// shared selectors with it, since a flat config object replaces a rule
+// wholesale, and adds the poll budget rule on top.
 function testsFolderConfig(): Linter.Config {
   return {
     files: ['tests/**'],
-    rules: { 'no-empty-pattern': ['error', { allowObjectPatternsAsParameters: true }] },
+    rules: {
+      'no-empty-pattern': ['error', { allowObjectPatternsAsParameters: true }],
+      'no-restricted-syntax': ['error', ...doubleAssertionEntries, ...pollBudgetEntries],
+    },
   }
 }
 

@@ -25,7 +25,13 @@ import {
   foreignScriptCases,
   stylesCases,
 } from './plantedImportRules.ts'
-import { consoleCases, hooksCases, rendererCompileCases, sizeCases } from './plantedContentRules.ts'
+import {
+  consoleCases,
+  hooksCases,
+  pollBudgetCases,
+  rendererCompileCases,
+  sizeCases,
+} from './plantedContentRules.ts'
 
 export type { PlantedCase } from './plantedShapes.ts'
 export { LAYERS_RULE } from './plantedShapes.ts'
@@ -50,6 +56,7 @@ export function buildPlantedCases(): readonly PlantedCase[] {
     ...consoleCases(),
     ...hooksCases(),
     ...rendererCompileCases(),
+    ...pollBudgetCases(),
   ]
 }
 
