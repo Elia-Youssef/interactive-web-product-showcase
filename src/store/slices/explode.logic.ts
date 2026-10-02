@@ -26,6 +26,54 @@ export type ExplodeStatus = IdleExplodeStatus | ActiveExplodeStatus
 
 export const initialExplodeStatus: ExplodeStatus = { kind: 'idle' }
 
+// The published applied progress of one product's exploded view, as the
+// chrome displays it: idle while nothing publishes, live with the progress
+// the pose last applied, for the one product whose view presents. It is
+// display state, the same split the camera readout keeps: what was asked
+// for is the status's target, this is where the pose is, and nothing
+// drives the scene from it.
+export type ExplodeReadout =
+  | { readonly kind: 'idle' }
+  | { readonly kind: 'live'; readonly product: string; readonly progress: number }
+
+// The events the pose publishes: the applied progress of its product, and,
+// on its release, that product's return to idle. A live event names its
+// product, so the store can hold the newest pose; the idle event names its
+// product, so a stale release cannot clear a newer view's readout.
+export type ExplodeReadoutEvent =
+  | { readonly kind: 'live'; readonly product: string; readonly progress: number }
+  | { readonly kind: 'idle'; readonly product: string }
+
+export const initialExplodeReadout: ExplodeReadout = { kind: 'idle' }
+
+// Pure transition from (readout, event) to the next readout. A live event
+// whose values equal the current ones returns the same readout object, so
+// the store keeps its identity and subscribers see no change. An idle event
+// for another product than the one publishing leaves the readout alone.
+export function applyExplodeReadoutEvent(
+  readout: ExplodeReadout,
+  event: ExplodeReadoutEvent,
+): ExplodeReadout {
+  switch (event.kind) {
+    case 'live': {
+      const live: ExplodeReadout = {
+        kind: 'live',
+        product: event.product,
+        progress: event.progress,
+      }
+      return sameLiveReadout(readout, live) ? readout : live
+    }
+    case 'idle':
+      return readout.kind === 'live' && readout.product === event.product
+        ? initialExplodeReadout
+        : readout
+  }
+}
+
+function sameLiveReadout(a: ExplodeReadout, b: Extract<ExplodeReadout, { kind: 'live' }>): boolean {
+  return a.kind === 'live' && a.product === b.product && a.progress === b.progress
+}
+
 export type ExplodeEvent =
   | { kind: 'attached'; product: string }
   | { kind: 'detached'; product: string }
