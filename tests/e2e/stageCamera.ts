@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test'
+import { expect, type Page } from '@playwright/test'
 import type { ProductCameraFacts } from './productCamera'
 import { stageCameraConfig } from '../../src/viewer/camera/config'
 
@@ -101,8 +101,22 @@ export async function stageAspectOfCanvas(page: Page): Promise<number> {
   return box.width / box.height
 }
 
-// One drag of the pointer across the canvas: press, move in steps, release.
-// The steps let the controls see a drag, not a click.
+// The steps one drag moves in: enough that the controls see a drag, not a
+// click.
+const DRAG_STEPS = 8
+
+// One drag of the pointer across the canvas: press, move in steps, release,
+// with every step delivered after the frame the previous step owed, the way
+// a real pointer moves over time. camera-controls applies a drag at most
+// once per frame (its update re-arms the drag) and, at the release, drops
+// every move since the last applied one (camera-controls
+// dist/camera-controls.module.js, `update`: `_dragNeedsUpdate = true`, and
+// `endDragging`). A script that moves faster than the stage presents would
+// turn the camera by however many frames happened to land inside the drag,
+// which differs by engine and by machine load. An applied step dispatches the
+// controls' control event, which invalidates the stage, so each step owes
+// exactly the one frame the next step waits for, and the drag turns the
+// camera by its whole travel on every engine.
 export async function dragOnCanvas(
   page: Page,
   from: { readonly x: number; readonly y: number },
@@ -110,11 +124,15 @@ export async function dragOnCanvas(
 ): Promise<void> {
   await page.mouse.move(from.x, from.y)
   await page.mouse.down()
-  for (let step = 1; step <= 8; step += 1) {
+  for (let step = 1; step <= DRAG_STEPS; step += 1) {
+    const framesBeforeStep = await renderedFrames(page)
     await page.mouse.move(
-      from.x + ((to.x - from.x) * step) / 8,
-      from.y + ((to.y - from.y) * step) / 8,
+      from.x + ((to.x - from.x) * step) / DRAG_STEPS,
+      from.y + ((to.y - from.y) * step) / DRAG_STEPS,
     )
+    await expect
+      .poll(() => renderedFrames(page), 'every drag step must present the frame it owes')
+      .toBeGreaterThan(framesBeforeStep)
   }
   await page.mouse.up()
 }
