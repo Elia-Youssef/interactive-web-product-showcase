@@ -1,5 +1,6 @@
-// How the pipeline reaches a product's manifest across the src boundary.
-// Two loaders, each for one side of the convention:
+// How the pipeline reaches a product's manifest and the product domain
+// across the src boundary. Three loaders, each for one side of the
+// convention:
 //
 // - readManifestFile loads the manifest .ts itself. The file is plain data
 //   whose only import is a type, so Node 24 runs it directly and the type
@@ -8,13 +9,20 @@
 //   module resolves its own imports without extensions for the browser
 //   bundle, which plain Node cannot execute, so it goes through jiti, the
 //   TypeScript loader the tooling already carries.
+// - loadCameraContract loads the camera contract's rule assembly the same
+//   way: it is the one camera module whose import tree carries
+//   extensionless imports. The camera modules with no such import (the
+//   authored data, the frame function) the scripts import natively, so no
+//   module loads two ways in one run.
 //
-// Both read their export through one boundary guard: the module's shape is
-// never trusted, so a module of the wrong shape fails here, with the module
-// and the export named, and not later at the value's point of use.
+// The jiti loaders read their export through one boundary guard: the
+// module's shape is never trusted, so a module of the wrong shape fails
+// here, with the module and the export named, and not later at the value's
+// point of use.
 import { pathToFileURL } from 'node:url'
 import { createJiti } from 'jiti'
 import type { parseProduct } from '../src/lib/product/index.ts'
+import type { cameraContractProblems } from '../src/lib/camera/contract.ts'
 import { isMissingFileError } from './fsErrors.ts'
 
 export type ParseProduct = typeof parseProduct
@@ -99,4 +107,48 @@ export async function loadParseProduct(): Promise<ParseProduct> {
     throw new Error(`expected a 'parseProduct' function export in ${domainFile}`)
   }
   return parse.value
+}
+
+// The camera contract's rule assembly, as the type of the module it
+// loads. The module tree carries extensionless imports (the src convention
+// for the browser bundle), so it crosses the src boundary through this
+// jiti bridge, the way the product domain does. The camera modules that
+// import nothing at runtime (the authored data, the frame function) the
+// scripts import natively instead.
+export type CameraContract = {
+  readonly cameraContractProblems: typeof cameraContractProblems
+}
+
+// The boundary guard kind: a function. The narrowed signature is the camera
+// domain module's own contract, pinned by its unit tests.
+function isContractProblemsFunction(
+  value: unknown,
+): value is CameraContract['cameraContractProblems'] {
+  return typeof value === 'function'
+}
+
+function contractExport<T>(
+  module: unknown,
+  exportName: string,
+  isKind: (value: unknown) => value is T,
+): T {
+  const value = namedExport(module, exportName, isKind)
+  if (value.kind === 'absent') {
+    throw new Error(`expected a '${exportName}' export in the camera contract module`)
+  }
+  return value.value
+}
+
+// Loads the camera contract's rule assembly from its own module.
+export async function loadCameraContract(): Promise<CameraContract> {
+  const jiti = createJiti(import.meta.url)
+  const cameraFile = '../src/lib/camera/contract.ts'
+  const module: unknown = await jiti.import(cameraFile)
+  return {
+    cameraContractProblems: contractExport(
+      module,
+      'cameraContractProblems',
+      isContractProblemsFunction,
+    ),
+  }
 }

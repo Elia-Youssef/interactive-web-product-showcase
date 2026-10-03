@@ -1,20 +1,16 @@
 import { MathUtils, PerspectiveCamera, Vector3 } from 'three'
 import { CAMERA_HOME_ID, type Product } from '@lib/product'
 import { CameraLimitsError } from '@lib/camera/errors'
-import {
-  distanceLimitProblems,
-  polarLimitProblems,
-  resolvedDistanceLimits,
-} from '@lib/camera/limits'
 import type { CameraLimitProblem } from '@lib/camera/limits'
+import { cameraContractProblems } from '@lib/camera/contract'
+import { cameraLimitConfig } from '@lib/camera/config'
 import type { DistanceRange, PolarRange } from '@lib/camera/limits'
-import { orbitAnglesOf, orbitViewOfAuthoredCamera } from '@lib/camera/view'
-import type { Vec3 } from '@lib/camera/view'
+import { orbitViewOfAuthoredCamera } from '@lib/camera/view'
+import type { AuthoredCameraRay, Vec3 } from '@lib/camera/view'
 import { clipRangeOf } from '@lib/camera/lens'
 import type { ClipRange } from '@lib/camera/lens'
 import type { ModelFrame } from '../modelFrame'
 import type { ProductRig } from '../rig/productRig'
-import { stageCameraConfig } from './config'
 
 // One presented view of the product: the orbit position and target in stage
 // space at the authored aspect, the vertical fov in radians the view keeps,
@@ -49,17 +45,23 @@ export type CameraPlan = {
 }
 
 // The product presentation centers the model on the origin, so the model
-// center the views orbit is the stage-space origin.
+// center the views orbit is the stage-space origin. The rays read below are
+// stage-space too, so one space holds the whole check: the center the
+// assembly projects onto and the rays it projects are the model's own.
 const MODEL_CENTER_IN_STAGE: Vec3 = [0, 0, 0]
 
 // Builds the camera plan of a loaded product, or fails with a
 // CameraLimitsError naming every rule the authored camera data breaks. The
-// same rules as the build-time validate step, at runtime, against the
-// loaded data. Call it after the centering group's position is committed:
-// the view positions are read from the cameras' world transforms.
+// rules are the one contract assembly the build-time validate step runs,
+// here against the loaded data, and the limits the plan presents are the
+// limits that assembly resolved, so what was checked is what is presented.
+// A camera aspect validate could not check (a missing one, which validate
+// rejects) never reaches this point, because the loader defaults it outside
+// our code. Call it after the centering group's position is committed: the
+// view positions are read from the cameras' world transforms.
 export function buildCameraPlan(rig: ProductRig, manifest: Product, frame: ModelFrame): CameraPlan {
   const problems: CameraLimitProblem[] = []
-  const { views, home, authoredAspect } = collectViews(rig, problems)
+  const { views, rays, home } = collectViews(rig, problems)
   if (home === null) {
     // The rig parse fails a product without CAM_home, so reaching this
     // point without a home view is a caller contract break, not authored
@@ -67,37 +69,43 @@ export function buildCameraPlan(rig: ProductRig, manifest: Product, frame: Model
     throw new Error('internal error: the rig holds no home camera but the parse reported none')
   }
 
-  const homeAngles = orbitAnglesOf(home.position, home.target)
-  const distanceRange = resolvedDistanceLimits(manifest.camera ?? {}, homeAngles.distance, {
-    minRatio: stageCameraConfig.minHomeDistanceRatio,
-    maxRatio: stageCameraConfig.maxHomeDistanceRatio,
+  const check = cameraContractProblems({
+    views: rays,
+    home: home.ray,
+    frame: { center: MODEL_CENTER_IN_STAGE, radius: frame.radius },
+    authoredDistanceLimits: manifest.camera ?? {},
+    limits: cameraLimitConfig,
   })
-  const polarRange: PolarRange = {
-    min: MathUtils.degToRad(stageCameraConfig.minPolarAngleDegrees),
-    max: MathUtils.degToRad(stageCameraConfig.maxPolarAngleDegrees),
-  }
-  problems.push(
-    ...distanceLimitProblems(distanceRange, homeAngles.distance, frame.radius),
-    ...polarLimitProblems(polarRange, homeAngles.polar),
-  )
+  problems.push(...check.problems)
 
   if (problems.length > 0) {
     throw new CameraLimitsError(manifest.slug, problems)
   }
   return {
     views,
-    distanceRange,
-    polarRange,
-    authoredAspect,
-    baseFovY: home.fovY,
+    distanceRange: check.distanceRange,
+    polarRange: check.polarRange,
+    authoredAspect: home.aspect,
+    baseFovY: home.view.fovY,
     clipRange: clipRangeOf([...views.values()]),
   }
 }
 
+// The home camera's facts, carried out of the rig walk together: the view
+// the controls present, the ray the contract assembly reads, and the
+// authored aspect the stage's distance scale rides on.
+type CollectedHome = {
+  readonly view: CameraView
+  readonly ray: AuthoredCameraRay
+  readonly aspect: number
+}
+
 type CollectedViews = {
   readonly views: Map<string, CameraView>
-  readonly home: CameraView | null
-  readonly authoredAspect: number
+  // Every perspective camera's authored ray, in rig order: the list the
+  // contract assembly holds for the rules that check every view.
+  readonly rays: AuthoredCameraRay[]
+  readonly home: CollectedHome | null
 }
 
 // One orbit view per rig camera, read from the camera's world transform.
@@ -105,8 +113,8 @@ type CollectedViews = {
 // and its authored aspect are carried out for the limit rules.
 function collectViews(rig: ProductRig, problems: CameraLimitProblem[]): CollectedViews {
   const views = new Map<string, CameraView>()
-  let home: CameraView | null = null
-  let authoredAspect = 1
+  const rays: AuthoredCameraRay[] = []
+  let home: CollectedHome | null = null
 
   for (const [id, camera] of rig.cameras) {
     if (!(camera instanceof PerspectiveCamera)) {
@@ -121,23 +129,21 @@ function collectViews(rig: ProductRig, problems: CameraLimitProblem[]): Collecte
     // centering offset is included though nothing has rendered yet.
     const position = camera.getWorldPosition(new Vector3())
     const forward = camera.getWorldDirection(new Vector3())
+    const ray: AuthoredCameraRay = {
+      position: [position.x, position.y, position.z],
+      forward: [forward.x, forward.y, forward.z],
+      fovY: MathUtils.degToRad(camera.fov),
+    }
     const view: CameraView = {
-      ...orbitViewOfAuthoredCamera(
-        {
-          position: [position.x, position.y, position.z],
-          forward: [forward.x, forward.y, forward.z],
-          fovY: MathUtils.degToRad(camera.fov),
-        },
-        MODEL_CENTER_IN_STAGE,
-      ),
+      ...orbitViewOfAuthoredCamera(ray, MODEL_CENTER_IN_STAGE),
       near: camera.near,
       far: camera.far,
     }
     views.set(id, view)
+    rays.push(ray)
     if (id === CAMERA_HOME_ID) {
-      home = view
-      authoredAspect = camera.aspect
+      home = { view, ray, aspect: camera.aspect }
     }
   }
-  return { views, home, authoredAspect }
+  return { views, rays, home }
 }
