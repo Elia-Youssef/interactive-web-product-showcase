@@ -1,14 +1,17 @@
 import { SRGBColorSpace } from 'three'
+import { resolveProductLook } from '../../src/lib/product'
 import { lookDefaults } from '../../src/viewer/look/config'
 import { expect, test } from './fixtures'
 import { testBodyBudgetMs } from './budgets'
 import { lookHarnessPath } from './lookHarness'
 import { expectPoll, harnessProducts, waitForProductReady } from './productSpecs'
 
-// The look defaults at ready, on every matrix project: a product without a
-// look block reports ready with the config defaults applied, read back from
-// the renderer, the scene and the shadow material, and every loaded texture's
-// color space matches its glTF slot.
+// The product's look at ready, on every matrix project: every product
+// reports ready with its manifest's look block applied as authored and the
+// config defaults filling every field the block leaves out (all of them
+// for a product without a block), read back from the renderer, the scene
+// and the shadow material, and every loaded texture's color space matches
+// its glTF slot.
 const products = await harnessProducts()
 
 // The glTF slots the spec samples as color, so the loader leaves them sRGB.
@@ -20,7 +23,9 @@ const products = await harnessProducts()
 const srgbSlots = new Set(['map', 'emissiveMap', 'sheenColorMap', 'specularColorMap'])
 
 for (const product of products) {
-  test(`the ${product.slug} look defaults are applied when it reports ready`, async ({
+  const look = resolveProductLook(product.look, lookDefaults)
+
+  test(`the ${product.slug} look, its manifest block over the defaults, is applied when it reports ready`, async ({
     page,
     backendPath,
   }) => {
@@ -28,7 +33,7 @@ for (const product of products) {
     await waitForProductReady(page)
 
     // The applied look, read from the live renderer, scene and material:
-    // the values are the config defaults, and the shadow material carries
+    // the values are the resolved look, and the shadow material carries
     // the compositing flags (blend, no depth write). Tone mapping has no
     // per-material flag in the node renderer: the output pass tone maps the
     // whole frame once, and the shadow's baked black is a fixed point of it.
@@ -48,11 +53,11 @@ for (const product of products) {
       },
       testBodyBudgetMs,
     ).toEqual({
-      exposure: lookDefaults.exposure,
-      environmentIntensity: lookDefaults.environmentIntensity,
-      environmentRotationDeg: lookDefaults.environmentRotationDeg,
+      exposure: look.exposure,
+      environmentIntensity: look.environmentIntensity,
+      environmentRotationDeg: look.environmentRotationDeg,
       shadow: {
-        opacity: lookDefaults.shadowOpacity,
+        opacity: look.shadowOpacity,
         transparent: true,
         depthWrite: false,
       },
