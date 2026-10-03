@@ -1,8 +1,8 @@
 // The camera contract check: the names rule (CAM_home required, hotspot
-// cameras), the aspect rule, and the home view's limit rules through the
-// one shared assembly the runtime plan runs. Its scope is the contract's
-// own: the cameras the naming contract names (CAM_), the set the runtime
-// rig walks.
+// cameras), the aspect rule, and every view's geometry plus the home view's
+// limit rules through the one shared assembly the runtime plan runs. Its
+// scope is the contract's own: the cameras the naming contract names
+// (CAM_), the set the runtime rig walks.
 import type { Product } from '../src/lib/product/index.ts'
 import { CAMERA_HOME_NAME, CAMERA_PREFIX } from '../src/lib/product/contractNames.ts'
 import {
@@ -81,9 +81,11 @@ function cameraAspectViolations(structure: ProductStructure): string[] {
   return violations
 }
 
-// The limit rules over the home view, through the one shared rule
-// assembly: the home distance within the limits, the minimum outside the
-// model, the home polar angle within the polar limits.
+// The view rules through the one shared rule assembly: every view's
+// geometry, then the home distance within the limits, the minimum outside
+// the model, the home polar angle within the polar limits. Each problem
+// message names what it is about (the camera, or the home view), so the
+// violation is the message itself.
 function homeLimitViolations(
   manifest: Product,
   structure: ProductStructure,
@@ -97,7 +99,9 @@ function homeLimitViolations(
   if (structure.meshBoxes.length === 0) {
     return ['the model holds no meshes to frame, the home view has nothing to orbit']
   }
-  const views = contractFacts.flatMap((fact) => (fact.ray === null ? [] : [fact.ray]))
+  const views = contractFacts.flatMap((fact) =>
+    fact.ray === null ? [] : [{ id: fact.name.slice(CAMERA_PREFIX.length), ray: fact.ray }],
+  )
   const check = contract.cameraContractProblems({
     views,
     home: home.ray,
@@ -105,7 +109,7 @@ function homeLimitViolations(
     authoredDistanceLimits: manifest.camera ?? {},
     limits: cameraLimitConfig,
   })
-  return check.problems.map((problem) => `camera ${CAMERA_HOME_NAME}: ${problem.message}`)
+  return check.problems.map((problem) => problem.message)
 }
 
 // The contract's cameras: the CAM_-named facts, the set the runtime rig

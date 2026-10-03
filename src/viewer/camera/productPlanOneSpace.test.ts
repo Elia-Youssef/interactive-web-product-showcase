@@ -8,7 +8,6 @@ import { describe, expect, it } from 'vitest'
 import { AnimationClip, Object3D, PerspectiveCamera, Vector3 } from 'three'
 import { parseProduct } from '@lib/product'
 import { sampleOneManifest } from '@lib/product/fixtures'
-import { CameraLimitsError } from '@lib/camera/errors'
 import { cameraContractProblems } from '@lib/camera/contract'
 import { cameraLimitConfig } from '@lib/camera/config'
 import type { ModelFrame } from '../modelFrame'
@@ -46,21 +45,17 @@ function frameAt(center: [number, number, number]): ModelFrame {
   }
 }
 
-// The problems the plan throws for the given manifest camera block.
+// The problems the plan build reports for the given manifest camera block.
 function planProblems(
   rig: ProductRig,
   modelFrame: ModelFrame,
   camera: { minDistance?: number; maxDistance?: number },
 ) {
-  try {
-    buildCameraPlan(rig, manifestWith(camera), modelFrame)
-  } catch (error) {
-    if (error instanceof CameraLimitsError) {
-      return error.problems
-    }
-    throw error
+  const build = buildCameraPlan(rig, manifestWith(camera), modelFrame)
+  if (build.kind === 'planned') {
+    throw new Error('the broken limits must be reported as a broken build')
   }
-  throw new Error('the broken limits must fail the plan')
+  return build.problems
 }
 
 // Mounts the cameras under a centering group offset, the way the loaded
@@ -114,7 +109,7 @@ describe('the plan checks one space', () => {
         fovY: (30 * Math.PI) / 180,
       }
       const modelSpace = cameraContractProblems({
-        views: [ray],
+        views: [{ id: 'home', ray }],
         home: ray,
         frame: { center, radius: modelFrame.radius },
         authoredDistanceLimits: cameraBlock,

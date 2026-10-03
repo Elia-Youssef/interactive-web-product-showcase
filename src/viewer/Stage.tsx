@@ -10,6 +10,7 @@ import { StageSettle } from './StageSettle'
 import { StageHoldsContext } from './stageHoldsContext'
 import { StageSettleContext } from './stageSettleContext'
 import { DevHud } from './hud/DevHud'
+import { productFailureMessage } from './product/failureMessage'
 import { StageAlert } from './StageAlert'
 import { StageCanvas } from './StageCanvas'
 import { backendRequestFromLocation } from './backendRequest'
@@ -73,7 +74,7 @@ export function Stage({ content }: StageProps = {}) {
             {productStatus.kind === 'failed' && (
               <StageAlert
                 testid="product-alert"
-                reason={`${productStatus.slug}: ${productStatus.reason}`}
+                reason={`${productStatus.slug}: ${productFailureMessage(productStatus.failure)}`}
               />
             )}
             {import.meta.env.DEV && <DevHud clock={clock} />}

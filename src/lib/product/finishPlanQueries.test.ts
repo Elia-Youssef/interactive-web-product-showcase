@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest'
-import { readFinishPlan, type FinishPlan } from './variants'
+import type { FinishPlan } from './variants'
+import { plannedFinish } from './finishPlan.fixtures'
 import {
   finishDerivedKey,
   finishMaterialIndex,
@@ -15,7 +16,7 @@ import {
 // unmapped mesh.
 
 function speakerPlan(): FinishPlan {
-  return readFinishPlan({
+  return plannedFinish({
     extensions: { KHR_materials_variants: { variants: [{ name: 'sage' }, { name: 'graphite' }] } },
     materials: Array.from({ length: 7 }, (_, index) => ({ name: `MAT_${index}` })),
     meshes: [
@@ -89,7 +90,7 @@ test('a shared material entry carries the same index under every variant', () =>
 })
 
 test('a variant a mapping omits keeps the primitive default', () => {
-  const plan = readFinishPlan({
+  const plan = plannedFinish({
     extensions: { KHR_materials_variants: { variants: [{ name: 'sage' }, { name: 'graphite' }] } },
     materials: [{ name: 'A' }, { name: 'B' }],
     meshes: [
@@ -114,7 +115,7 @@ test('a variant a mapping omits keeps the primitive default', () => {
 })
 
 test('a mapped entry without a default and without the variant fails instead of guessing', () => {
-  const plan = readFinishPlan({
+  const plan = plannedFinish({
     extensions: { KHR_materials_variants: { variants: [{ name: 'sage' }, { name: 'graphite' }] } },
     materials: [{ name: 'B' }],
     meshes: [
@@ -156,7 +157,7 @@ test('an entry prescribes the variants its mapping names and those its default c
 })
 
 test('an entry without the mapping and without a default prescribes nothing', () => {
-  const plan = readFinishPlan({
+  const plan = plannedFinish({
     extensions: { KHR_materials_variants: { variants: [{ name: 'sage' }, { name: 'graphite' }] } },
     materials: [{ name: 'B' }],
     meshes: [

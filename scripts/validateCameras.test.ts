@@ -127,7 +127,7 @@ describe('the camera contract check', () => {
     const structure = readProductStructure(buildFixtureDocument())
     const result = checkCameras(manifest, structure, cameraContract)
     expect(result.violations).toEqual([
-      'camera CAM_home: the home distance 4 lies outside the distance limits [4.5, 9]',
+      'the home distance 4 lies outside the distance limits [4.5, 9]',
     ])
   })
 
@@ -136,7 +136,7 @@ describe('the camera contract check', () => {
     const structure = readProductStructure(buildFixtureDocument())
     const result = checkCameras(manifest, structure, cameraContract)
     expect(result.violations).toEqual([
-      'camera CAM_home: the minimum distance 1 does not exceed the model radius 1.4142135623730951',
+      'the minimum distance 1 does not exceed the model radius 1.4142135623730951',
     ])
   })
 
@@ -155,8 +155,21 @@ describe('the camera contract check', () => {
     )
     const result = checkCameras(fixture, structure, cameraContract)
     expect(result.violations).toEqual([
-      'camera CAM_home: the home polar angle 0 lies outside the polar limits ' +
+      'the home polar angle 0 lies outside the polar limits ' +
         `[${(15 * Math.PI) / 180}, ${(165 * Math.PI) / 180}]`,
     ])
+  })
+
+  it('reports a camera whose field of view is degenerate, through the one assembly', () => {
+    const structure = readProductStructure(
+      buildFixtureDocument({ cameraPose: poseWith({ fovYDegrees: 0 }) }),
+    )
+    const result = checkCameras(fixture, structure, cameraContract)
+    expect(result.violations).toEqual(
+      ['CAM_home', 'CAM_driver'].map(
+        (name) =>
+          `the camera ${name} has a field of view of 0 rad, outside the open range (0, ${Math.PI})`,
+      ),
+    )
   })
 })

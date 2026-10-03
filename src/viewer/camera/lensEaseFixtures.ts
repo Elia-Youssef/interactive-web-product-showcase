@@ -127,11 +127,15 @@ function planOf(): CameraPlan {
   const midView = new PerspectiveCamera(14, STAGE_ASPECT, 0.3, 40)
   midView.name = 'CAM_shell'
   midView.position.set(0, 0, 0.96)
-  return buildCameraPlan(
+  const build = buildCameraPlan(
     rigWith([home, closeUp, midView]),
     parseProduct(sampleOneManifest, 'sample-one.test'),
     frame,
   )
+  if (build.kind === 'broken') {
+    throw new Error(`the staged plan must build, it broke with: ${JSON.stringify(build.problems)}`)
+  }
+  return build.plan
 }
 
 // The staged plan on real controls, presented at its home view through the

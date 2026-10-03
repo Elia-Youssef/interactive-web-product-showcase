@@ -3,7 +3,7 @@ export { AppStoreProvider } from './AppStoreProvider'
 export { useAppStore, useAppStoreApi } from './useAppStore'
 export { selectRendererBackend, selectRendererStatus, type RendererStatus } from './slices/renderer'
 export { selectFinishStatus, selectSelectedVariant, type FinishStatus } from './slices/finish'
-export { selectProductStatus, type ProductStatus } from './slices/product'
+export { selectProductFailed, selectProductStatus, type ProductStatus } from './slices/product'
 export {
   selectCameraReadout,
   selectCameraRequestChannel,

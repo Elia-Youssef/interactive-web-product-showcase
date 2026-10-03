@@ -41,27 +41,6 @@ export type FinishProblem = {
   readonly message: string
 }
 
-function formatProblemLine(problem: FinishProblem): string {
-  const at =
-    problem.mesh === null
-      ? ''
-      : `mesh ${problem.mesh}${problem.primitive === null ? '' : ` primitive ${problem.primitive}`}: `
-  return `- ${at}${problem.message}`
-}
-
-// The typed error of the finish plan, modeled on ProductRigError: a file
-// whose mappings cannot be read fails with every problem listed at once,
-// each named by its mesh and primitive.
-export class FinishPlanError extends Error {
-  readonly problems: readonly FinishProblem[]
-
-  constructor(problems: readonly FinishProblem[]) {
-    super(`Invalid finish plan:\n${problems.map(formatProblemLine).join('\n')}`)
-    this.name = 'FinishPlanError'
-    this.problems = problems
-  }
-}
-
 // What one mesh primitive carries across the finishes: the material the
 // file gives it as its default, and the material each mapped variant
 // replaces it with. A variant the mapping omits keeps the default.
@@ -96,22 +75,29 @@ export function finishEntryMaterialIndexes(entry: FinishPrimitivePlan): readonly
   return indexes
 }
 
-// Reads the finish plan from a parser JSON, or fails with one
-// FinishPlanError listing every mapping problem the file has. The class of
-// files it covers: a file without the extension (no variants, every
-// primitive keeps its default), a primitive without a mapping (every
-// variant keeps its default), a mapping per variant, and one material
-// shared by all the variants of a primitive.
-export function readFinishPlan(json: unknown): FinishPlan {
+// The outcome of a plan read: the plan, or every mapping problem the file
+// has, listed at once, each named by its mesh and primitive. A file whose
+// mappings cannot be read is an outcome the product path anticipates, so
+// it is a value the caller routes, never a throw.
+export type FinishPlanRead =
+  | { readonly kind: 'read'; readonly plan: FinishPlan }
+  | { readonly kind: 'broken'; readonly problems: readonly FinishProblem[] }
+
+// Reads the finish plan from a parser JSON, or reports every mapping
+// problem the file has. The class of files it covers: a file without the
+// extension (no variants, every primitive keeps its default), a primitive
+// without a mapping (every variant keeps its default), a mapping per
+// variant, and one material shared by all the variants of a primitive.
+export function readFinishPlan(json: unknown): FinishPlanRead {
   const problems: FinishProblem[] = []
   validateVariantsTable(json, problems)
   if (problems.length > 0) {
-    throw new FinishPlanError(problems)
+    return { kind: 'broken', problems }
   }
   const variants = readVariantNames(json)
   const meshes = readJsonKey(json, 'meshes')
   if (!Array.isArray(meshes)) {
-    return { variants, primitives: [], materialIndexes: new Set() }
+    return { kind: 'read', plan: { variants, primitives: [], materialIndexes: new Set() } }
   }
 
   const materials = readJsonKey(json, 'materials')
@@ -132,9 +118,9 @@ export function readFinishPlan(json: unknown): FinishPlan {
     })
   })
   if (problems.length > 0) {
-    throw new FinishPlanError(problems)
+    return { kind: 'broken', problems }
   }
-  return { variants, primitives, materialIndexes }
+  return { kind: 'read', plan: { variants, primitives, materialIndexes } }
 }
 
 // The variants table must be readable as a whole before any name is used:

@@ -6,6 +6,7 @@ import {
   mappedFinishEntries,
   readFinishPlan,
   type FinishPlan,
+  type FinishProblem,
 } from '@lib/product'
 import { mappedSceneNodes, type GltfAssociation } from './mappedSceneNodes'
 
@@ -72,24 +73,45 @@ export interface FinishParserLike {
 // below is the resolver's; nothing else writes it.
 export interface GltfResultLike {
   readonly scene: Object3D
-  readonly userData: { finishMaterials?: ProductFinishMaterials }
+  readonly userData: { finishMaterials?: FinishResolution }
 }
 
-// The one key the resolver's table lives under on the result's userData.
+// What the resolver leaves on a load: the resolved finish materials, or
+// every problem of a file whose finish mappings cannot be read. A broken
+// mapping is a property of the file the product path anticipates, so the
+// resolver records it as the load's outcome instead of failing the parse,
+// and the product reports it as a contract failure with its problems.
+export type FinishResolution =
+  | { readonly kind: 'resolved'; readonly finishes: ProductFinishMaterials }
+  | { readonly kind: 'broken'; readonly problems: readonly FinishProblem[] }
+
+// The one key the resolver's outcome lives under on the result's userData.
 const FINISH_MATERIALS_KEY = 'finishMaterials'
 
-// Reads the finish materials a loaded product carries. A parser without
-// them means the resolver never ran, which is a wiring error of the product
+// Reads the finish outcome a loaded product carries. A load without one
+// means the resolver never ran, which is a wiring error of the product
 // path, not a property of the file: it fails loudly instead of letting a
 // switch hit a half-loaded model.
-export function readFinishMaterials(userData: object): ProductFinishMaterials {
+export function readFinishResolution(userData: object): FinishResolution {
   const carried: unknown = Reflect.get(userData, FINISH_MATERIALS_KEY)
-  if (!isFinishMaterials(carried)) {
-    throw new Error(
-      'the loaded product carries no finish materials: the finish resolver did not run',
-    )
+  if (!isFinishResolution(carried)) {
+    throw new Error('the loaded product carries no finish outcome: the finish resolver did not run')
   }
   return carried
+}
+
+function isFinishResolution(value: unknown): value is FinishResolution {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+  switch (Reflect.get(value, 'kind')) {
+    case 'resolved':
+      return isFinishMaterials(Reflect.get(value, 'finishes'))
+    case 'broken':
+      return Array.isArray(Reflect.get(value, 'problems'))
+    default:
+      return false
+  }
 }
 
 function isFinishMaterials(value: unknown): value is ProductFinishMaterials {
@@ -186,9 +208,15 @@ class FinishMaterialsResolver {
 
   async afterRoot(result: GltfResultLike): Promise<void> {
     // The plan read validates the file's mappings: a mapping that names an
-    // unknown variant or material fails the load here, with every problem
-    // named by its mesh and primitive, instead of failing a switch later.
-    const plan = readFinishPlan(this.parser.json)
+    // unknown variant or material is recorded as the load's broken outcome,
+    // with every problem named by its mesh and primitive, so the product
+    // fails on it before any switch could hit it.
+    const read = readFinishPlan(this.parser.json)
+    if (read.kind === 'broken') {
+      result.userData[FINISH_MATERIALS_KEY] = read
+      return
+    }
+    const { plan } = read
     const rawMaterials = new Map<number, Material>()
     for (const index of plan.materialIndexes) {
       const dependency: unknown = await this.parser.getDependency('material', index)
@@ -198,10 +226,13 @@ class FinishMaterialsResolver {
       rawMaterials.set(index, dependency)
     }
     result.userData[FINISH_MATERIALS_KEY] = {
-      plan,
-      materials: deriveFinishMaterials(result.scene, plan, rawMaterials, this.parser),
-      rawMaterials,
-      sceneMaterials: collectSceneMaterials(result.scene),
+      kind: 'resolved',
+      finishes: {
+        plan,
+        materials: deriveFinishMaterials(result.scene, plan, rawMaterials, this.parser),
+        rawMaterials,
+        sceneMaterials: collectSceneMaterials(result.scene),
+      },
     }
   }
 }
