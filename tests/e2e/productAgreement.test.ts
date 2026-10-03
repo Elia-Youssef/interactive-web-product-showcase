@@ -25,7 +25,8 @@ import { cameraLimitConfig } from '../../src/lib/camera/config.ts'
 import { checkCameras } from '../../scripts/validateCameras.ts'
 import { readProductStructure } from '../../scripts/structure.ts'
 import { cameraContract } from '../../scripts/validateFixtures.ts'
-import type { CameraLimitsError } from '@lib/camera/errors'
+import type { CameraLimitProblem } from '../../src/lib/camera/limits.ts'
+import type { CameraPlan } from '../../src/viewer/camera/productPlan'
 import type { ModelFrame } from '../../src/viewer/modelFrame'
 import type { ProductRig } from '../../src/viewer/rig/productRig'
 
@@ -80,27 +81,34 @@ function centeredRig(
   const group = new Object3D()
   group.position.set(-frame.centerX, -frame.centerY, -frame.centerZ)
   group.add(parsed.scene)
-  return parseProductRig(
+  const parse = parseProductRig(
     { scene: group, animations: parsed.animations, json: parsed.json },
     manifest,
   )
+  if (parse.kind === 'broken') {
+    throw new Error(`the shipped rig must parse, it broke with: ${JSON.stringify(parse.problems)}`)
+  }
+  return parse.rig
 }
 
-// The CameraLimitsError a plan build throws for the given camera block.
-function planError(
+// The plan the runtime builds for a manifest the case expects to hold.
+function plannedCamera(rig: ProductRig, manifest: Product, frame: ModelFrame): CameraPlan {
+  const build = buildCameraPlan(rig, manifest, frame)
+  if (build.kind === 'broken') {
+    throw new Error(`the shipped plan must build, it broke with: ${JSON.stringify(build.problems)}`)
+  }
+  return build.plan
+}
+
+// The problems a plan build reports for the given camera block, or null
+// when the plan builds.
+function planProblems(
   rig: ProductRig,
   manifest: Product,
   frame: ModelFrame,
-): CameraLimitsError | null {
-  try {
-    buildCameraPlan(rig, manifest, frame)
-    return null
-  } catch (error) {
-    if ((error as { name?: string }).name === 'CameraLimitsError') {
-      return error as CameraLimitsError
-    }
-    throw error
-  }
+): readonly CameraLimitProblem[] | null {
+  const build = buildCameraPlan(rig, manifest, frame)
+  return build.kind === 'broken' ? build.problems : null
 }
 
 // The document of a shipped model, and the frame its mesh boxes span.
@@ -150,7 +158,7 @@ describe('the document facts agree with the real loader on every shipped product
     // facts: the stage's origin as the center, the stage-space rays.
     const frame = planFrame(documentFrame)
     const rig = centeredRig(parsed, manifest, frame)
-    const plan = buildCameraPlan(rig, manifest, frame)
+    const plan = plannedCamera(rig, manifest, frame)
     const homeView = plan.views.get('home')
     if (homeView === undefined) {
       throw new Error(`the plan of ${slug} holds no home view`)
@@ -196,17 +204,15 @@ describe('the document facts agree with the real loader on every shipped product
         structure,
         cameraContract,
       ).violations
-      const error = planError(rig, manifestWithCamera(block), frame)
-      if (error === null) {
+      const problems = planProblems(rig, manifestWithCamera(block), frame)
+      if (problems === null) {
         throw new Error('the bracketed plan built, the mixed-space bug is back')
       }
-      expect(validateViolations).toEqual(
-        error.problems.map((problem) => `camera CAM_home: ${problem.message}`),
-      )
+      expect(validateViolations).toEqual(problems.map((problem) => problem.message))
     }
 
     // The unblocked manifest still holds on both sides.
     expect(checkCameras(manifest, structure, cameraContract).violations).toEqual([])
-    expect(() => buildCameraPlan(rig, manifest, frame)).not.toThrow()
+    expect(planProblems(rig, manifest, frame)).toBeNull()
   })
 })

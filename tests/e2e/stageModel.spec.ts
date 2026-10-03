@@ -5,17 +5,11 @@ import { expect, test } from './fixtures'
 import { presentedStageCapture } from './stageCapture'
 import { loadCollection } from './productList'
 import { productLoadBudgetMs, waitForProductReady } from './productSpecs'
-import { countRegionPixelsBrighterThan, type BrightPixels } from './stagePixels'
+import { backdropCeiling, countRegionPixelsBrighterThan, type BrightPixels } from './stagePixels'
 import { settledFrames } from './stageSettle'
 
 // The collection's first product, as the app builds it from the manifests.
 const first = (await loadCollection()).first
-
-// The brightest pixel the CSS backdrop can produce: the background channels
-// at 16/18/18 plus a white grid line at 0.025 alpha is about 22 per channel,
-// and the vignette only darkens it. The ceiling sits far above that and far
-// below the model's mid tones, so only model pixels can pass it.
-const backdropCeiling = 60
 
 // Captures the viewport at the instant of the call and counts the stage
 // pixels the product paints. The capture goes through the suite's instant

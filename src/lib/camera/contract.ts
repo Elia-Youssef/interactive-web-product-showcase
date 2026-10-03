@@ -23,18 +23,18 @@ import type {
 } from './limits'
 import type { CameraLimitConfig } from './config'
 import type { FrameSpan } from './frame'
+import { viewGeometryProblems } from './geometry'
 import { orbitAnglesOf, orbitViewOfAuthoredCamera } from './view'
-import type { AuthoredCameraRay } from './view'
+import type { AuthoredCameraRay, NamedCameraRay } from './view'
 
 // The facts one contract check reads: the home view as a camera ray in the
-// space the frame is measured in, every authored camera ray beside it in
-// the same space, the frame of the model the views look at, the distance
-// limits the manifest authors, and the limit configuration of the project.
-// The rules below check the home view; the ray list is the input the
-// every-view rules widen when they join, so their merge adds rules without
-// reshaping the input.
+// space the frame is measured in, every authored view beside it in the same
+// space, named by its view id, the frame of the model the views look at,
+// the distance limits the manifest authors, and the limit configuration of
+// the project. The geometry rule checks every view; the limit rules check
+// the home view.
 export type CameraContractInput = {
-  readonly views: readonly AuthoredCameraRay[]
+  readonly views: readonly NamedCameraRay[]
   readonly home: AuthoredCameraRay
   readonly frame: FrameSpan
   readonly authoredDistanceLimits: AuthoredDistanceLimits
@@ -50,23 +50,39 @@ export type CameraContractCheck = {
   readonly polarRange: PolarRange
 }
 
-// Checks the authored home view against the distance and polar limits: the
-// home view outside the distance limits, the minimum distance inside the
-// model, the home view outside the polar limits.
+// Checks every authored view's geometry, then the authored home view
+// against the distance and polar limits: the home view outside the distance
+// limits, the minimum distance inside the model, the home view outside the
+// polar limits. A home view whose geometry is broken has no orbit to hold
+// to the limits, so its limit rules are not run on it; its geometry
+// problems already fail the contract.
 export function cameraContractProblems(input: CameraContractInput): CameraContractCheck {
-  const view = orbitViewOfAuthoredCamera(input.home, input.frame.center)
+  const center = input.frame.center
+  const geometry = input.views.flatMap((view) => viewGeometryProblems(view, center))
+  const view = orbitViewOfAuthoredCamera(input.home, center)
   const angles = orbitAnglesOf(view.position, view.target)
   const distanceRange = resolvedDistanceLimits(input.authoredDistanceLimits, angles.distance, {
     minRatio: input.limits.minHomeDistanceRatio,
     maxRatio: input.limits.maxHomeDistanceRatio,
   })
   const polarRange = resolvedPolarRange(input.limits)
+  const homeSound = viewGeometryProblems(homeView(input.home), center).length === 0
   return {
     problems: [
-      ...distanceLimitProblems(distanceRange, angles.distance, input.frame.radius),
-      ...polarLimitProblems(polarRange, angles.polar),
+      ...geometry,
+      ...(homeSound
+        ? [
+            ...distanceLimitProblems(distanceRange, angles.distance, input.frame.radius),
+            ...polarLimitProblems(polarRange, angles.polar),
+          ]
+        : []),
     ],
     distanceRange,
     polarRange,
   }
+}
+
+// The home ray as a named view, for the geometry rule's verdict on it.
+function homeView(ray: AuthoredCameraRay): NamedCameraRay {
+  return { id: 'home', ray }
 }

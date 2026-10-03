@@ -20,11 +20,14 @@ export function devHudMask(page: Page): readonly Locator[] {
 // the call site names the extension, this module owns the locators. The
 // chrome corners carry bright content of their own over the stage, so a
 // count that reads stage pixels masks all of them beside the HUD, and only
-// the product can answer.
-export type StageCaptureExtension = 'chromeCorners'
+// the product can answer. The product harness lays its dev controls over
+// the stage the same way, so a count on the harness masks those.
+export type StageCaptureExtension = 'chromeCorners' | 'harnessControls'
 
 const maskExtensions: Readonly<Record<StageCaptureExtension, (page: Page) => Locator>> = {
   chromeCorners: (page) => page.locator('[data-corner]'),
+  harnessControls: (page) =>
+    page.locator('[data-testid="remount-product"], [data-testid="harness-finishes"]'),
 }
 
 // The standard mask plus the named extensions, painted black over the whole

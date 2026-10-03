@@ -3,10 +3,11 @@ import { useThree } from '@react-three/fiber'
 import { assertStageRenderer } from './stageIdentity'
 import type { StageSettle } from './StageSettle'
 
-// The context that hands the stage's scene settle to its content. R3F
-// bridges outer context into the canvas, so a mutation component that
-// arrives as the stage's opaque content node can settle through the stage's
-// own chain.
+// The context that hands the canvas's scene settle to its content. The
+// stage's frames provide it inside the Canvas, one chain per canvas mount,
+// since a settle step presents through its canvas: a step pending on a
+// canvas that was replaced belongs to that canvas, never to the chain the
+// fresh canvas's content settles through.
 
 export const StageSettleContext = createContext<StageSettle | null>(null)
 

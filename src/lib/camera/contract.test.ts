@@ -1,7 +1,7 @@
 // The one camera contract assembly, over a table: the home view inside and
 // outside each limit, the minimum inside the model, and the fixed problem
-// order. The runtime plan throws these problems as a CameraLimitsError;
-// the validate step reports them as violations. The exact rule wording is
+// order. The runtime plan reports these problems as its broken build; the
+// validate step reports them as violations. The exact rule wording is
 // part of the contract.
 import { describe, expect, it } from 'vitest'
 import { cameraContractProblems } from './contract'
@@ -23,7 +23,7 @@ const FRONT_HOME = {
 describe('cameraContractProblems', () => {
   it('returns no problems and the resolved limits when the home view holds the contract', () => {
     const check = cameraContractProblems({
-      views: [FRONT_HOME],
+      views: [{ id: 'home', ray: FRONT_HOME }],
       home: FRONT_HOME,
       frame: FRAME,
       authoredDistanceLimits: {},
@@ -43,7 +43,7 @@ describe('cameraContractProblems', () => {
     // holds it; the fallback minimum at a close home still has to clear
     // the model.
     const check = cameraContractProblems({
-      views: [{ position: [0, 0, 1.5], forward: [0, 0, -1], fovY: 0.5 }],
+      views: [{ id: 'home', ray: { position: [0, 0, 1.5], forward: [0, 0, -1], fovY: 0.5 } }],
       home: { position: [0, 0, 1.5], forward: [0, 0, -1], fovY: 0.5 },
       frame: FRAME,
       authoredDistanceLimits: {},
@@ -59,7 +59,7 @@ describe('cameraContractProblems', () => {
 
   it('reports a home outside the authored distance limits', () => {
     const check = cameraContractProblems({
-      views: [FRONT_HOME],
+      views: [{ id: 'home', ray: FRONT_HOME }],
       home: FRONT_HOME,
       frame: FRAME,
       authoredDistanceLimits: { minDistance: 5, maxDistance: 8 },
@@ -75,7 +75,7 @@ describe('cameraContractProblems', () => {
 
   it('reports an authored minimum that does not clear the model radius', () => {
     const check = cameraContractProblems({
-      views: [FRONT_HOME],
+      views: [{ id: 'home', ray: FRONT_HOME }],
       home: FRONT_HOME,
       frame: FRAME,
       authoredDistanceLimits: { minDistance: 1 },
@@ -93,7 +93,7 @@ describe('cameraContractProblems', () => {
     // Straight above the model, looking down: the polar angle 0 is below
     // the configured minimum.
     const check = cameraContractProblems({
-      views: [{ position: [0, 4, 0], forward: [0, -1, 0], fovY: 0.5 }],
+      views: [{ id: 'home', ray: { position: [0, 4, 0], forward: [0, -1, 0], fovY: 0.5 } }],
       home: { position: [0, 4, 0], forward: [0, -1, 0], fovY: 0.5 },
       frame: FRAME,
       authoredDistanceLimits: {},
@@ -111,7 +111,7 @@ describe('cameraContractProblems', () => {
 
   it('reports the distance problems before the polar problem', () => {
     const check = cameraContractProblems({
-      views: [{ position: [0, 4, 0], forward: [0, -1, 0], fovY: 0.5 }],
+      views: [{ id: 'home', ray: { position: [0, 4, 0], forward: [0, -1, 0], fovY: 0.5 } }],
       home: { position: [0, 4, 0], forward: [0, -1, 0], fovY: 0.5 },
       frame: FRAME,
       authoredDistanceLimits: { minDistance: 1 },
@@ -120,6 +120,40 @@ describe('cameraContractProblems', () => {
     expect(check.problems.map((problem) => problem.rule)).toEqual([
       'minimum-clears-the-model',
       'home-within-polar-limits',
+    ])
+  })
+
+  it('reports a broken view by its geometry and runs no limit rule on a broken home', () => {
+    const sideways = { position: [0, 0, 4] as const, forward: [1, 0, 0] as const, fovY: 0.5 }
+    const check = cameraContractProblems({
+      views: [
+        { id: 'home', ray: sideways },
+        { id: 'driver', ray: { ...FRONT_HOME, fovY: 0 } },
+      ],
+      home: sideways,
+      frame: FRAME,
+      authoredDistanceLimits: { minDistance: 1 },
+      limits: cameraLimitConfig,
+    })
+    expect(check.problems.map((problem) => problem.rule)).toEqual([
+      'view-orbit-distance',
+      'view-field-of-view',
+    ])
+  })
+
+  it('checks every view, a broken close-up beside a sound home included', () => {
+    const check = cameraContractProblems({
+      views: [
+        { id: 'home', ray: FRONT_HOME },
+        { id: 'driver', ray: { ...FRONT_HOME, position: [0, 0, Number.NaN] } },
+      ],
+      home: FRONT_HOME,
+      frame: FRAME,
+      authoredDistanceLimits: {},
+      limits: cameraLimitConfig,
+    })
+    expect(check.problems).toEqual([
+      { rule: 'finite-views', message: 'the camera CAM_driver has a non-finite position' },
     ])
   })
 })

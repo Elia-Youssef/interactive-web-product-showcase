@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from 'react'
-import { useFrame, useThree } from '@react-three/fiber'
+import { useThree } from '@react-three/fiber'
 import { CameraControlsImpl } from '@react-three/drei'
 import {
   Box3,
@@ -13,6 +13,7 @@ import {
   Vector3,
   Vector4,
 } from 'three'
+import { useStageFrame } from '../stageFrameContext'
 import { ControlsFrameClock } from './controlsFrameClock'
 
 // The stage's controls mount: the same camera-controls instance drei's
@@ -52,12 +53,19 @@ export function useStageControls(): CameraControlsImpl {
   // One clock per mount, one frame step per frame at the priority drei's
   // component updates the controls at: ahead of the scene's own frame work.
   // The update's own return value, whether it moved anything, goes back
-  // into the clock as the asleep signal the next step reads.
+  // into the clock as the asleep signal the next step reads. The step runs
+  // on the stage's frame path, like every frame callback of the stage: an
+  // update that throws halts the frames and reaches the owner of the frames
+  // instead of escaping the engine's frame loop.
   const frameClock = useMemo(() => new ControlsFrameClock(), [])
-  useFrame(() => {
-    const step = frameClock.stepSeconds(performance.now())
-    frameClock.recordUpdate(controls.update(step))
-  }, -1)
+  useStageFrame(
+    'stage',
+    () => {
+      const step = frameClock.stepSeconds(performance.now())
+      frameClock.recordUpdate(controls.update(step))
+    },
+    -1,
+  )
 
   // The controls listen on the canvas element drei connects to, and let go
   // of it with the mount.

@@ -2,6 +2,7 @@
 // extensions allowed under src/, the styles row, and the two ways an import
 // used to escape the gate: a target outside the layer graph, and an
 // alias-shaped specifier that resolves to nothing.
+import { namespaceImportRestricted } from './frameLoopRule.ts'
 import { layerByName, layers } from './layers.ts'
 import {
   LAYERS_RULE,
@@ -176,7 +177,11 @@ export function bannedPackageCases(): PlantedCase[] {
         tree: 'violations',
         file: `${caseDirectory(layer)}/uses-${slug(ban.sample)}.ts`,
         code: `import * as planted from '${ban.sample}'\nexport const usesPlanted = planted\n`,
-        expectedRuleIds: [LAYERS_RULE],
+        // A namespace reaches every name of the package, so a package src
+        // restricts names of reports the namespace import on top of the ban.
+        expectedRuleIds: namespaceImportRestricted(ban.sample)
+          ? [LAYERS_RULE, 'no-restricted-imports']
+          : [LAYERS_RULE],
       })
     }
   }

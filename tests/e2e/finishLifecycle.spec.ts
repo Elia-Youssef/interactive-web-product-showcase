@@ -74,8 +74,8 @@ for (const product of products) {
     await waitForProductReady(page)
 
     // Select the last finish, the one furthest from the file's default,
-    // then unmount: the scene release disposes the model and clears the
-    // suspense cache, so nothing of the mounted load survives.
+    // then unmount: the scene release disposes the model and forgets the
+    // stage's load of it, so nothing of the mounted load survives.
     const variants = product.finishes.map((finish) => finish.variant)
     const selected = variants[variants.length - 1]
     if (selected === undefined) {
