@@ -23,7 +23,10 @@ type StageLifeProps = {
 // it. No stale marker can outlive the canvas it was measured on, whatever
 // the order the fresh content mounts in. The life registers the stage's
 // overlay probe for as long as it is mounted, so the automation reads the
-// channel of the canvas on the stage now.
+// channel of the canvas on the stage now. The overlay box carries the
+// stage overlay mark: everything inside it is the product's own content
+// laid over the canvas, apart from whatever a page lays over the stage
+// beside it.
 export function StageLife({ canvas, overlay }: StageLifeProps) {
   const [channel] = useState(() => new StageOverlay())
   const probes = useStageProbes()
@@ -36,7 +39,11 @@ export function StageLife({ canvas, overlay }: StageLifeProps) {
   return (
     <StageOverlayContext.Provider value={channel}>
       {canvas}
-      {overlay !== undefined && <div className={styles.overlay}>{overlay}</div>}
+      {overlay !== undefined && (
+        <div className={styles.overlay} data-stage-overlay>
+          {overlay}
+        </div>
+      )}
     </StageOverlayContext.Provider>
   )
 }

@@ -1,3 +1,4 @@
+import type { Locator, Page } from '@playwright/test'
 import { expect, test } from './fixtures'
 import { testBodyBudgetMs } from './budgets'
 import { countDifferingPixels } from './lookPixels'
@@ -107,11 +108,10 @@ test('a harness capture masks every control the harness lays over the stage', as
   // The oracle is the page's own controls, found by their roles rather than
   // by the mark the mask reads: every button and slider the harness shows
   // must come out of the capture as the mask color, so a control the
-  // harness gains without the mark fails here.
-  const controls = [
-    ...(await page.getByRole('button').all()),
-    ...(await page.getByRole('slider').all()),
-  ]
+  // harness gains without the mark fails here. The product's own controls
+  // (its hotspot markers, an open card) live in the stage overlay; they are
+  // the product's content, which the capture shows, not the harness's.
+  const controls = await harnessOwnedControls(page)
   expect(controls.length, 'the harness must show its controls').toBeGreaterThan(0)
   for (const control of controls) {
     const box = await control.boundingBox()
@@ -123,3 +123,22 @@ test('a harness capture masks every control the harness lays over the stage', as
     expect(unmasked.count, `the harness control '${name}' must be masked`).toBe(0)
   }
 })
+
+// Every button and slider on the page outside the stage overlay: the
+// controls the page itself lays over the stage, whatever mark they carry.
+async function harnessOwnedControls(page: Page): Promise<readonly Locator[]> {
+  const candidates = [
+    ...(await page.getByRole('button').all()),
+    ...(await page.getByRole('slider').all()),
+  ]
+  const owned: Locator[] = []
+  for (const candidate of candidates) {
+    const inOverlay = await candidate.evaluate(
+      (element) => element.closest('[data-stage-overlay]') !== null,
+    )
+    if (!inOverlay) {
+      owned.push(candidate)
+    }
+  }
+  return owned
+}
