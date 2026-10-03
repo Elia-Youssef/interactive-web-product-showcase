@@ -10,7 +10,7 @@ import {
 import { harnessPath, harnessProducts, waitForProductReady } from './productSpecs'
 import {
   frameFaultMessage,
-  harnessFrameFaultPlaces,
+  harnessScopedFaultPlaces,
 } from '../../src/app/product-harness/frameFaultQuery.ts'
 
 // A frame that throws is owned by the stage's frame path, never by the
@@ -27,7 +27,7 @@ function faultPath(backendPath: string, slug: string, place: string, scope: stri
 }
 
 for (const product of products) {
-  for (const place of harnessFrameFaultPlaces) {
+  for (const place of harnessScopedFaultPlaces) {
     test(`a ${place} fault under the presented ${product.slug} fails it with the render kind, and the next product paints the canvas like a clean mount`, async ({
       page,
       backendPath,
@@ -85,4 +85,25 @@ for (const product of products) {
       await expect(alert).toBeVisible()
     })
   }
+
+  test(`a stage camera fault while ${product.slug} is presented fails the stage, never the product`, async ({
+    page,
+    backendPath,
+  }) => {
+    // The camera's frame step is the stage's code: the fault arms once the
+    // product is presented, and the throw must reach the stage's owner,
+    // never the presented product's.
+    await page.goto(faultPath(backendPath, product.slug, 'camera', 'stage'))
+
+    await pollProductChannel(page).toEqual({
+      status: 'failed',
+      product: 'idle',
+      productSlug: null,
+      failure: null,
+    })
+    const alert = page.getByTestId('renderer-alert')
+    await expect(alert).toBeVisible()
+    await expect(alert).toContainText(frameFaultMessage('camera'))
+    await expect(page.getByTestId('product-alert')).toHaveCount(0)
+  })
 }

@@ -1,4 +1,7 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect } from 'react'
+import { useThree } from '@react-three/fiber'
+import { CameraControlsImpl } from '@react-three/drei'
+import { useAppStore } from '@store/index'
 import { useStageFrame } from '@viewer/stageFrameContext'
 import type { FrameOwnerScope } from '@viewer/StageFramePath'
 import {
@@ -28,7 +31,43 @@ export function HarnessFrameFault({ fault }: { readonly fault: Fault }) {
       return <PresentFault />
     case 'callback':
       return <CallbackFault scope={faultFrameScopes[fault.scope]} />
+    case 'camera':
+      return <CameraFault />
   }
+}
+
+// Throws from the stage camera's own frame step: once the product is
+// presented, the controls' update throws on every frame. The stage camera's
+// controls are its own instance, reached by no other code, so the fault
+// replaces the update on the controls class for as long as it is mounted
+// and puts it back on unmount; the camera is the only user of the class on
+// the harness page. Dev-only, like the harness.
+function CameraFault() {
+  const presented = useAppStore((state) => state.productStatus.kind === 'ready')
+  const invalidate = useThree((state) => state.invalidate)
+
+  useEffect(() => {
+    if (!presented) {
+      return
+    }
+    const { prototype } = CameraControlsImpl
+    const update = Object.getOwnPropertyDescriptor(prototype, 'update')
+    if (update === undefined) {
+      throw new Error('the camera controls class carries no update to fault')
+    }
+    Object.defineProperty(prototype, 'update', {
+      ...update,
+      value: () => {
+        throw new Error(frameFaultMessage('camera'))
+      },
+    })
+    invalidate()
+    return () => {
+      Object.defineProperty(prototype, 'update', update)
+    }
+  }, [presented, invalidate])
+
+  return null
 }
 
 // Throws from the mesh's own render hook, which the renderer calls for

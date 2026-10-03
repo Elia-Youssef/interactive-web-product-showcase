@@ -3,6 +3,7 @@ import {
   harnessFrameFault,
   harnessFrameFaultPlaces,
   harnessFrameFaultScopes,
+  harnessScopedFaultPlaces,
 } from './frameFaultQuery'
 
 function invalidReason(query: string): string {
@@ -19,7 +20,7 @@ describe('harnessFrameFault', () => {
     expect(harnessFrameFault('?frameFault=')).toEqual({ kind: 'none' })
   })
 
-  it.each(harnessFrameFaultPlaces)(
+  it.each(harnessScopedFaultPlaces)(
     'parses the %s place in the product scope by default',
     (place) => {
       expect(harnessFrameFault(`?frameFault=${place}`)).toEqual({
@@ -50,5 +51,22 @@ describe('harnessFrameFault', () => {
     for (const scope of harnessFrameFaultScopes) {
       expect(reason).toContain(scope)
     }
+  })
+
+  it('parses the camera fault in the stage scope, whose code the camera is', () => {
+    expect(harnessFrameFault('?frameFault=camera')).toEqual({
+      kind: 'fault',
+      fault: { place: 'camera', scope: 'stage' },
+    })
+    expect(harnessFrameFault('?frameFault=camera&frameFaultScope=stage')).toEqual({
+      kind: 'fault',
+      fault: { place: 'camera', scope: 'stage' },
+    })
+  })
+
+  it('names a camera fault in the product scope as invalid', () => {
+    const reason = invalidReason('?frameFault=camera&frameFaultScope=product')
+    expect(reason).toContain('product')
+    expect(reason).toContain('stage')
   })
 })
