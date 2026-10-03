@@ -4,6 +4,14 @@
 // the stage's canvas content writes a placement for the key per presented
 // frame. A placement is written straight to the element's style, so a frame
 // allocates no React state and re-renders nothing.
+//
+// The canvas side writes one presented frame's placements as one pass, in
+// the overlay box that frame used. Once every placement of the pass is
+// written, the pass listeners run: overlay content that positions itself
+// against the placed elements (the open hotspot card) decides there, over
+// the complete set of the frame, with no frame of its own. The last pass's
+// box and every key's last placement stay readable, so such content can
+// also decide between frames, when its own size changes.
 
 // The surface the channel writes: exactly the two style properties a
 // placement moves. A real element's style satisfies it, and so does a test
@@ -20,12 +28,44 @@ export type OverlayPlacement =
 
 export type OverlayMountRelease = () => void
 
+// Which point of a mounted element a placement puts at the stage position:
+// its center (a marker sits centered on its projection) or its top-left
+// corner (a box placed by its own edges). The center is a translate by half
+// the element's own size, which WebKit resolves against the element's
+// pixel-snapped box, so an element of fractional size lands up to half a
+// pixel off; an element whose placer computes its edges exactly mounts by
+// its top-left corner and takes no percentage translate.
+export type OverlayOrigin = 'center' | 'top-left'
+
+type OverlayMount = {
+  readonly element: OverlayElement
+  readonly origin: OverlayOrigin
+}
+
+// The box the placements are measured in: the stage's canvas box in CSS
+// pixels, which the overlay box covers exactly.
+export type OverlayBox = {
+  readonly width: number
+  readonly height: number
+}
+
+export type OverlayPlace = (key: string, placement: OverlayPlacement) => void
+
+export type OverlayPassListener = () => void
+
+export type OverlayPassRelease = () => void
+
 export class StageOverlay {
-  private elements = new Map<string, OverlayElement>()
+  private mounts = new Map<string, OverlayMount>()
   // The last placement written per key, so a write that lands before its
   // element registers is not lost, and a remounted element re-enters at the
   // key's current placement.
   private placements = new Map<string, OverlayPlacement>()
+  private passListeners = new Set<OverlayPassListener>()
+  private passBox: OverlayBox | null = null
+  // The one write function a pass hands its writer, bound once, so a frame's
+  // pass allocates no closure.
+  private readonly placeInPass: OverlayPlace = (key, placement) => this.place(key, placement)
 
   // Holds the element under the key for as long as the caller keeps it and
   // returns the release of this one mount. A second mount under a held key
@@ -36,43 +76,78 @@ export class StageOverlay {
   // about the key, and a remounted element, React's double mount included,
   // re-enters at the key's current placement instead of flashing hidden
   // until a frame that a resting stage may never render.
-  mount(key: string, element: OverlayElement): OverlayMountRelease {
-    if (this.elements.has(key)) {
+  mount(key: string, element: OverlayElement, origin: OverlayOrigin): OverlayMountRelease {
+    if (this.mounts.has(key)) {
       throw new Error(`the overlay key '${key}' is already held`)
     }
-    this.elements.set(key, element)
-    this.apply(key, element)
+    const mount = { element, origin }
+    this.mounts.set(key, mount)
+    this.apply(key, mount)
     return () => {
-      if (this.elements.get(key) !== element) {
+      if (this.mounts.get(key) !== mount) {
         throw new Error(
           `the release of the overlay key '${key}' is stale: its mount no longer holds the key`,
         )
       }
-      this.elements.delete(key)
+      this.mounts.delete(key)
     }
   }
 
-  // Writes the placement of the key: a placed element sits centered on the
-  // stage position, a hidden one is invisible, unclickable, unfocusable and
-  // out of the accessibility tree. Hidden is `visibility`, never `display`,
-  // so hiding and showing never restarts the element's CSS animations. An
-  // element is hidden until its first placement, so it never flashes at the
-  // box's corner.
+  // Writes the placement of the key: a placed element puts its mount's
+  // origin on the stage position, a hidden one is invisible, unclickable,
+  // unfocusable and out of the accessibility tree. Hidden is `visibility`,
+  // never `display`, so hiding and showing never restarts the element's CSS
+  // animations. An element is hidden until its first placement, so it never
+  // flashes at the box's corner.
   place(key: string, placement: OverlayPlacement): void {
     this.placements.set(key, placement)
-    const element = this.elements.get(key)
-    if (element !== undefined) {
-      this.apply(key, element)
+    const mount = this.mounts.get(key)
+    if (mount !== undefined) {
+      this.apply(key, mount)
     }
   }
 
-  private apply(key: string, element: OverlayElement): void {
+  // Writes one presented frame's placements as one pass in the given box:
+  // the writer places every key of the frame, then each pass listener runs
+  // once, in subscription order, with the whole set written.
+  pass(box: OverlayBox, writeAll: (place: OverlayPlace) => void): void {
+    this.passBox = box
+    writeAll(this.placeInPass)
+    for (const listener of this.passListeners) {
+      listener()
+    }
+  }
+
+  // Holds the listener for as long as the caller keeps it and returns the
+  // release of this one subscription. A release that no longer holds its
+  // listener fails loudly, like a stale mount release.
+  onPass(listener: OverlayPassListener): OverlayPassRelease {
+    this.passListeners.add(listener)
+    return () => {
+      if (!this.passListeners.delete(listener)) {
+        throw new Error('the release of an overlay pass listener is stale')
+      }
+    }
+  }
+
+  // The box of the last pass, or null before the first.
+  lastPassBox(): OverlayBox | null {
+    return this.passBox
+  }
+
+  // The last placement written for the key, or null when none was.
+  placementOf(key: string): OverlayPlacement | null {
+    return this.placements.get(key) ?? null
+  }
+
+  private apply(key: string, { element, origin }: OverlayMount): void {
     const placement = this.placements.get(key)
     if (placement === undefined || placement.kind === 'hidden') {
       element.style.visibility = 'hidden'
       return
     }
     element.style.visibility = 'visible'
-    element.style.transform = `translate(${placement.x}px, ${placement.y}px) translate(-50%, -50%)`
+    const to = `translate(${placement.x}px, ${placement.y}px)`
+    element.style.transform = origin === 'center' ? `${to} translate(-50%, -50%)` : to
   }
 }

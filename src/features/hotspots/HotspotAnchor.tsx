@@ -37,7 +37,7 @@ export function HotspotAnchor({
         if (element === null) {
           return undefined
         }
-        return overlay.mount(overlayKey(hotspot.id), element)
+        return overlay.mount(overlayKey(hotspot.id), element, 'center')
       }}
       className={selected ? `${styles.anchor} ${styles.anchorSelected}` : styles.anchor}
     >

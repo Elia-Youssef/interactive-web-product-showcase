@@ -14,8 +14,9 @@ import { HotspotPlacer } from './placer'
 // channel. Per frame and per rig hotspot it reads the anchor's world
 // position from its HS_ node, projects it into stage pixels, casts one ray
 // from the camera to the anchor through the product's occluders, and writes
-// one placement. The work runs after the render, so it reads the world and
-// camera matrices that frame used, whichever frame callback wrote them.
+// one placement, all inside one overlay pass in the frame's stage box. The
+// work runs after the render, so it reads the world and camera matrices
+// that frame used, whichever frame callback wrote them.
 //
 // The occluders are every mesh of the product except the rig's shadow
 // subtree, collected once per load: finishes swap materials, never geometry.
@@ -30,10 +31,13 @@ export function ProductHotspots() {
 
   const occluders = useMemo(() => collectOccluders(loaded), [loaded])
   const placer = useMemo(() => new HotspotPlacer(), [])
+  // One overlay pass per presented frame: every marker of the frame is
+  // written before the overlay's pass listeners, the open card among them,
+  // decide against the complete set.
   const place = useCallback(
     () =>
-      placer.place(loaded.rig.hotspots, occluders, camera, size, (key, placement) =>
-        overlay.place(key, placement),
+      overlay.pass(size, (write) =>
+        placer.place(loaded.rig.hotspots, occluders, camera, size, write),
       ),
     [placer, loaded, occluders, camera, size, overlay],
   )
