@@ -1,10 +1,20 @@
 import { expect, test } from './fixtures'
-import { harnessPath, harnessProducts, productLoadBudgetMs } from './productSpecs'
+import { brokenFinishModel } from './brokenFinishModel'
+import { expectProductAlert, pollProductChannel, remountProduct } from './productFailureChannel'
+import { harnessPath, harnessProducts, waitForProductReady } from './productSpecs'
+
+// Every anticipated product failure reaches the one product channel as a
+// typed value: the product ends failed with the failure's kind and facts,
+// the renderer stays ready, and the stage's alert names the product. The
+// suite's page-error gate stays on for every case, so a failure the channel
+// handled that also escaped as a page error fails the test.
 
 const products = await harnessProducts()
 
 for (const product of products) {
-  test(`a model of ${product.slug} that cannot load fails the product, never the renderer`, async ({
+  const modelUrl = `/models/${product.slug}/model.glb`
+
+  test(`a model of ${product.slug} that cannot load fails the product with the load kind and no page error`, async ({
     page,
     backendPath,
     expectedBrowserName,
@@ -12,44 +22,105 @@ for (const product of products) {
   }) => {
     // Take the model away for this page only: every request for it fails, so
     // the product channel must carry the failure while the stage renderer
-    // stays ready. The uncaught load error is declared on every browser; the
-    // browser's own line for the failed request exists only in the Chromium
-    // builds, so it is declared there alone.
-    await page.route(`**/models/${product.slug}/model.glb`, (route) => route.abort())
+    // stays ready. The browser's own line for the failed request exists only
+    // in the Chromium builds, so it is declared there alone; the product's
+    // failure itself is never a console or page error.
+    await page.route(`**${modelUrl}`, (route) => route.abort())
     if (expectedBrowserName === 'chromium') {
       consoleGate.expectError(/Failed to load resource|net::/, { times: 'one-or-more' })
     }
-    consoleGate.expectError(new RegExp(`Could not load .*/models/${product.slug}/model[.]glb`), {
-      times: 'one-or-more',
-    })
 
     await page.goto(harnessPath(backendPath, product.slug))
 
-    // The failed terminal state rides the same budget as ready: the channel
-    // cannot report a failure before the stage has started and the product
-    // has mounted, and that start stretches under the matrix's load.
-    await expect
-      .poll(
-        () =>
-          page.evaluate(() => ({
-            product: window.__viewer?.product,
-            productSlug: window.__viewer?.productSlug,
-            failure: window.__viewer?.productFailure,
-            status: window.__viewer?.status,
-          })),
-        { timeout: productLoadBudgetMs },
-      )
-      .toEqual({
-        product: 'failed',
-        productSlug: product.slug,
-        failure: expect.stringContaining('Could not load'),
-        status: 'ready',
-      })
+    await pollProductChannel(page).toEqual({
+      product: 'failed',
+      productSlug: product.slug,
+      failure: { kind: 'load', url: modelUrl, message: expect.any(String) },
+      status: 'ready',
+    })
+    await expectProductAlert(page, product.slug, `Could not load ${modelUrl}`)
+  })
 
-    // The alert is a DOM element outside the Canvas and names the product.
-    const alert = page.getByTestId('product-alert')
-    await expect(alert).toBeVisible()
-    await expect(alert).toContainText(product.slug)
-    await expect(alert).toContainText('Could not load')
+  test(`a failed load of ${product.slug} is loaded anew by the next mount`, async ({
+    page,
+    backendPath,
+    expectedBrowserName,
+    consoleGate,
+  }) => {
+    // Only the first request for the model fails: the failed load must be
+    // forgotten with the failed mount, so the next mount loads the model
+    // again instead of reading the failed outcome back from the stage's
+    // loads.
+    let requests = 0
+    await page.route(`**${modelUrl}`, (route) => {
+      requests += 1
+      return requests === 1 ? route.abort() : route.continue()
+    })
+    if (expectedBrowserName === 'chromium') {
+      consoleGate.expectError(/Failed to load resource|net::/, { times: 1 })
+    }
+
+    await page.goto(harnessPath(backendPath, product.slug))
+    await pollProductChannel(page).toMatchObject({ product: 'failed', failure: { kind: 'load' } })
+    await remountProduct(page)
+
+    await waitForProductReady(page)
+    expect(requests).toBe(2)
+  })
+
+  test(`a camera block of ${product.slug} the home view cannot meet fails the product with the camera contract kind and no page error`, async ({
+    page,
+    backendPath,
+  }) => {
+    // A minimum distance far past any home view: the camera rules break on
+    // the shipped model, with no model of its own needed. The block itself
+    // is valid, so the manifest schema lets it through to the runtime rules.
+    const camera = JSON.stringify({ minDistance: 1000 })
+    await page.goto(
+      `${harnessPath(backendPath, product.slug)}&camera=${encodeURIComponent(camera)}`,
+    )
+
+    await pollProductChannel(page).toEqual({
+      product: 'failed',
+      productSlug: product.slug,
+      failure: {
+        kind: 'camera-contract',
+        problems: expect.arrayContaining([
+          expect.objectContaining({ rule: 'home-within-distance-limits' }),
+        ]),
+      },
+      status: 'ready',
+    })
+    await expectProductAlert(page, product.slug, 'break the stage camera rules')
+  })
+
+  test(`a model of ${product.slug} whose finish mapping is broken fails the product with the finish contract kind and no page error`, async ({
+    page,
+    backendPath,
+  }) => {
+    // The shipped bytes with one mapping pointed past the declared variants:
+    // the file loads and parses, and only the finish plan read objects, so
+    // the failure must name the mapping problem, never pass as a load error.
+    const broken = await brokenFinishModel(product.slug)
+    await page.route(`**${modelUrl}`, (route) =>
+      route.fulfill({ body: broken.bytes, contentType: 'model/gltf-binary' }),
+    )
+
+    await page.goto(harnessPath(backendPath, product.slug))
+
+    await pollProductChannel(page).toEqual({
+      product: 'failed',
+      productSlug: product.slug,
+      failure: {
+        kind: 'finish-contract',
+        problems: [
+          expect.objectContaining({
+            message: `the mapping at 0 names variant ${broken.namedVariant}, the file declares ${broken.declaredVariants}`,
+          }),
+        ],
+      },
+      status: 'ready',
+    })
+    await expectProductAlert(page, product.slug, 'the finish mapping contract')
   })
 }

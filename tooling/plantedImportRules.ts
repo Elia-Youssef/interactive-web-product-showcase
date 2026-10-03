@@ -2,6 +2,7 @@
 // extensions allowed under src/, the styles row, and the two ways an import
 // used to escape the gate: a target outside the layer graph, and an
 // alias-shaped specifier that resolves to nothing.
+import { namespaceImportRestricted } from './frameLoopRule.ts'
 import { layerByName, layers } from './layers.ts'
 import {
   LAYERS_RULE,
@@ -176,9 +177,57 @@ export function bannedPackageCases(): PlantedCase[] {
         tree: 'violations',
         file: `${caseDirectory(layer)}/uses-${slug(ban.sample)}.ts`,
         code: `import * as planted from '${ban.sample}'\nexport const usesPlanted = planted\n`,
-        expectedRuleIds: [LAYERS_RULE],
+        // A namespace reaches every name of the package, so a package src
+        // restricts names of reports the namespace import on top of the ban.
+        expectedRuleIds: namespaceImportRestricted(ban.sample)
+          ? [LAYERS_RULE, 'no-restricted-imports']
+          : [LAYERS_RULE],
       })
     }
   }
   return cases
+}
+
+// The fixture module category: test support that may import the dev
+// packages and the production code it stands in for, and that only test
+// files and other fixture modules may import. The fixture modules
+// themselves are support files, planted into both trees by the suite.
+export function fixtureCases(): PlantedCase[] {
+  return [
+    {
+      title: 'a fixture module importing a dev package',
+      tree: 'clean',
+      file: 'src/lib/planted-dev.fixtures.ts',
+      code: valueImportOf('expect', 'vitest'),
+      expectedRuleIds: [],
+    },
+    {
+      title: 'a fixture module importing production code',
+      tree: 'clean',
+      file: 'src/lib/planted-target.fixtures.ts',
+      code: valueImport('./target'),
+      expectedRuleIds: [],
+    },
+    {
+      title: 'a test file importing a fixture module',
+      tree: 'clean',
+      file: 'src/lib/uses-fixture.test.ts',
+      code: valueImport('./planted-target.fixtures'),
+      expectedRuleIds: [],
+    },
+    {
+      title: 'a production module importing a fixture module',
+      tree: 'violations',
+      file: 'src/lib/imports-fixture.ts',
+      code: `import { plantedFixtureTarget } from './planted-target.fixtures'\nexport const planted = plantedFixtureTarget\n`,
+      expectedRuleIds: ['no-restricted-imports'],
+    },
+    {
+      title: 'a type-only production import of a fixture module',
+      tree: 'violations',
+      file: 'src/lib/imports-fixture-type.ts',
+      code: `import type { plantedFixtureTarget } from './planted-target.fixtures'\nexport const planted: typeof plantedFixtureTarget = 'lib'\n`,
+      expectedRuleIds: ['no-restricted-imports'],
+    },
+  ]
 }

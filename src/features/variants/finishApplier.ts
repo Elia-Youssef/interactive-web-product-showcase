@@ -1,12 +1,12 @@
 import { asError } from '@lib/errors'
 import { TaskChain } from '@lib/async/taskChain'
+import { finishMaterialIndex, finishPrimitiveKey, prescribesMaterial } from '@lib/product'
 import type { ViewerFinish } from '@viewer/automation/viewerAutomation'
 import type { LoadedProduct } from '@viewer/product/loadedProduct'
+import type { MappedSceneNode } from '@viewer/product/mappedSceneNodes'
 import { applyFinish, resolvedMaterial } from './applyFinish'
 import { applyFirstFinish } from './firstFinishApplication'
-import type { MappedMesh } from './mappedMeshes'
 import { mappedSceneMeshes } from './mappedMeshes'
-import { finishMaterialIndex, finishPrimitiveKey } from './variants.logic'
 
 // The finish applier of one loaded product. It serializes every application
 // of the store's selection on one chain, carries the load-time precompile as
@@ -101,7 +101,7 @@ export function createFinishApplier(owner: FinishApplierOwner): FinishApplier {
 // scene graph now and keyed by the file's own tables ('<mesh>:<primitive>'),
 // the identity an e2e can derive from the shipped model, not by the names
 // the loader renames.
-function carriedMaterials(mapped: readonly MappedMesh[]): Record<string, string> {
+function carriedMaterials(mapped: readonly MappedSceneNode[]): Record<string, string> {
   const materials: Record<string, string> = {}
   for (const { mesh, entry } of mapped) {
     if (Array.isArray(mesh.material)) {
@@ -121,7 +121,7 @@ function carriedMaterials(mapped: readonly MappedMesh[]): Record<string, string>
 // which is the read's own word for that file's ambiguity.
 function appliedVariantOf(
   loaded: LoadedProduct,
-  mapped: readonly MappedMesh[],
+  mapped: readonly MappedSceneNode[],
   materials: Record<string, string>,
 ): string | null {
   variantLoop: for (const [variantIndex, variant] of loaded.finishes.plan.variants.entries()) {
@@ -132,7 +132,11 @@ function appliedVariantOf(
       if (!prescribesMaterial(entry, variantIndex)) {
         continue variantLoop
       }
-      const expected = resolvedMaterial(loaded, finishMaterialIndex(entry, variantIndex)).name
+      const expected = resolvedMaterial(
+        loaded,
+        entry,
+        finishMaterialIndex(entry, variantIndex),
+      ).name
       if (materials[finishPrimitiveKey(entry.mesh, entry.primitive)] !== expected) {
         continue variantLoop
       }
@@ -140,16 +144,4 @@ function appliedVariantOf(
     return variant
   }
   return null
-}
-
-// Whether one mapped entry is dressed under a variant at all: the mapping
-// names it, or the primitive default stands in.
-function prescribesMaterial(
-  entry: {
-    readonly defaultMaterial: number | null
-    readonly variantMaterials: ReadonlyMap<number, number>
-  },
-  variantIndex: number,
-): boolean {
-  return entry.variantMaterials.has(variantIndex) || entry.defaultMaterial !== null
 }

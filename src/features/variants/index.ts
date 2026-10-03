@@ -6,4 +6,3 @@
 
 export { ProductFinishes } from './ProductFinishes'
 export { useFinishOffer } from './useFinishOffer'
-export { finishMaterialIndex, finishPrimitiveKey, mappedFinishEntries } from './variants.logic'

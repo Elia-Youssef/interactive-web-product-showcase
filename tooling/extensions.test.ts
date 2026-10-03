@@ -2,7 +2,13 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ESLint } from 'eslint'
 import { describe, expect, test } from 'vitest'
-import { extensionGlob, globAlternation, jsxExtensions, testFileGlob } from './extensions.ts'
+import {
+  extensionGlob,
+  fixtureMarker,
+  globAlternation,
+  jsxExtensions,
+  testFileGlob,
+} from './extensions.ts'
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -22,6 +28,11 @@ describe('globAlternation', () => {
   test('backs both list-built globs', () => {
     expect(extensionGlob(['tsx'])).toBe('tsx')
     expect(testFileGlob(['test'], ['ts'])).toBe('**/*.test.ts')
+  })
+
+  test('builds the fixture glob from its marker, disjoint from the test markers', () => {
+    expect(testFileGlob([fixtureMarker], ['ts'])).toBe('**/*.fixtures.ts')
+    expect(testFileGlob([fixtureMarker], ['ts', 'tsx'])).toBe('**/*.fixtures.{ts,tsx}')
   })
 })
 

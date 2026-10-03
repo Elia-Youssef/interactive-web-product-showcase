@@ -9,7 +9,7 @@ import {
   type Material as ThreeMaterial,
   type Texture as ThreeTexture,
 } from 'three'
-import { readFinishPlan } from '@lib/product'
+import { plannedFinish } from '@lib/product/finishPlan.fixtures'
 import type { ProductFinishMaterials } from './finishMaterials'
 import { disposeProductScene } from './dispose'
 
@@ -97,22 +97,26 @@ function trackedTree() {
   return { parts, disposals }
 }
 
-// The table a load resolves, possibly empty for a file without finishes,
-// plus the materials the scene carried at parse time, which the swap may
-// have replaced.
+// The tables a load resolves, possibly empty for a file without finishes:
+// one parameter per source, the derived material per mapped primitive and
+// index pair, the raw materials the derivations started from, and the
+// materials the scene carried at parse time, which the swap may have
+// replaced.
 function finishesOf(
-  entries: readonly [number, ThreeMaterial][],
+  derived: readonly [string, ThreeMaterial][] = [],
+  raws: readonly [number, ThreeMaterial][] = [],
   sceneMaterials: readonly ThreeMaterial[] = [],
 ): ProductFinishMaterials {
   return {
-    plan: readFinishPlan({}),
-    materials: new Map(entries),
+    plan: plannedFinish({}),
+    materials: new Map(derived),
+    rawMaterials: new Map(raws),
     sceneMaterials: new Set(sceneMaterials),
   }
 }
 
 function noFinishes(): ProductFinishMaterials {
-  return finishesOf([])
+  return finishesOf()
 }
 
 test('a teardown disposes every geometry, material and texture the scene holds', () => {
@@ -120,12 +124,14 @@ test('a teardown disposes every geometry, material and texture the scene holds',
 
   disposeProductScene(parts.root, noFinishes())
 
+  // The geometries go in the walk, then the set of materials the scene
+  // named, in walk order, each with its textures before its dispose.
   expect(disposals).toEqual([
     'geometryA',
+    'geometryB',
     'diffuse',
     'normal',
     'bodyMaterial',
-    'geometryB',
     'grilleMap',
     'grilleMaterial0',
     'grilleMaterial1',
@@ -135,10 +141,32 @@ test('a teardown disposes every geometry, material and texture the scene holds',
 test('the resolved finishes the scene does not carry are disposed with their textures', () => {
   const { parts, disposals } = trackedTree()
 
-  disposeProductScene(parts.root, finishesOf([[1, parts.variantMaterial]]))
+  disposeProductScene(parts.root, finishesOf([['0:0:1', parts.variantMaterial]]))
 
   expect(disposals).toContain('variantMaterial')
   expect(disposals).toContain('variantDiffuse')
+})
+
+test('a material the scene and all three tables name is disposed exactly once', () => {
+  const { parts, disposals } = trackedTree()
+  const body = parts.root.children[0]
+  if (!(body instanceof Mesh)) {
+    throw new Error('the fixture body must be a mesh')
+  }
+
+  // The body's default material sits on the scene, in the derived table as
+  // a mapped primitive's default, in the raw record behind that index, and
+  // in the parse-time record: four sources, one owner. Counting the events
+  // pins the whole class: every material the load created goes once,
+  // whatever names it.
+  disposeProductScene(
+    parts.root,
+    finishesOf([['0:0:0', parts.bodyMaterial]], [[0, parts.bodyMaterial]], [parts.bodyMaterial]),
+  )
+
+  expect(disposals.filter((event) => event === 'bodyMaterial')).toHaveLength(1)
+  expect(disposals.filter((event) => event === 'diffuse')).toHaveLength(1)
+  expect(disposals.filter((event) => event === 'normal')).toHaveLength(1)
 })
 
 test('a finish applied before teardown is disposed, and the default with it', () => {
@@ -150,13 +178,13 @@ test('a finish applied before teardown is disposed, and the default with it', ()
   body.material = parts.variantMaterial
 
   // The product owns every resolved material, the replaced default
-  // included: the release passes the scene and the resolved table, and a
-  // material shared by both simply runs through the two passes.
+  // included: the release names one set from the scene and the tables, so
+  // the applied material goes once, the replaced default with it.
   disposeProductScene(
     parts.root,
     finishesOf([
-      [0, parts.bodyMaterial],
-      [1, parts.variantMaterial],
+      ['0:0:0', parts.bodyMaterial],
+      ['0:0:1', parts.variantMaterial],
     ]),
   )
 
@@ -184,15 +212,34 @@ test('a load whose meshes were swapped disposes the materials it replaced', () =
   }
   disposeProductScene(
     parts.root,
-    finishesOf([[1, parts.variantMaterial]], [parts.bodyMaterial, grilleFirst]),
+    finishesOf([['0:0:1', parts.variantMaterial]], [], [parts.bodyMaterial, grilleFirst]),
   )
 
-  // The swapped-out material goes through the record alone, exactly once.
-  // The grille's first material is both still applied and recorded, so its
-  // two passes both reach it, and three's dispose is idempotent about that.
+  // The swapped-out material goes through the record alone. The grille's
+  // first material is both still applied and recorded, and the set disposes
+  // it once all the same.
   expect(disposals.filter((event) => event === 'bodyMaterial')).toHaveLength(1)
-  expect(disposals).toContain('grilleMaterial0')
+  expect(disposals.filter((event) => event === 'grilleMaterial0')).toHaveLength(1)
   expect(disposals).toContain('variantMaterial')
+})
+
+test('every derived and raw finish material the meshes do not carry goes once', () => {
+  const { parts, disposals } = trackedTree()
+
+  // The derived material of a mapped primitive for a finish the product is
+  // not wearing: the clone the loader derives for that mesh, distinct from
+  // the raw material and carried by the derived table alone. The raw
+  // material behind the index is what the derivation started from, carried
+  // by the raw record alone. Neither is on the scene, so each table is the
+  // one pass that reaches it, and the texture the clone shares with the raw
+  // runs through both, which three's idempotent dispose absorbs.
+  const derived = parts.variantMaterial.clone()
+  track(derived, disposals, 'derivedVariant')
+  disposeProductScene(parts.root, finishesOf([['2:0:1', derived]], [[1, parts.variantMaterial]]))
+
+  expect(disposals.filter((event) => event === 'derivedVariant')).toHaveLength(1)
+  expect(disposals.filter((event) => event === 'variantMaterial')).toHaveLength(1)
+  expect(disposals).toContain('variantDiffuse')
 })
 
 test('disposing an already disposed scene is safe', () => {
@@ -200,6 +247,6 @@ test('disposing an already disposed scene is safe', () => {
 
   disposeProductScene(parts.root, noFinishes())
   expect(() =>
-    disposeProductScene(parts.root, finishesOf([[1, parts.variantMaterial]])),
+    disposeProductScene(parts.root, finishesOf([['0:0:1', parts.variantMaterial]])),
   ).not.toThrow()
 })

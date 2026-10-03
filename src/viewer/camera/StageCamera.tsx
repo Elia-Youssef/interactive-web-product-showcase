@@ -1,6 +1,5 @@
-import { useMemo, useRef, useState, type ReactNode } from 'react'
+import { useMemo, useRef, type ReactNode } from 'react'
 import { useThree } from '@react-three/fiber'
-import { CameraControls, type CameraControlsImpl } from '@react-three/drei'
 import { PerspectiveCamera } from 'three'
 import type { DistanceRange } from '@lib/camera/limits'
 import { useAppStoreApi } from '@store/index'
@@ -13,6 +12,7 @@ import {
   transitionToView,
   type StageCameraState,
 } from './stageCameraApi'
+import { useStageControls } from './useStageControls'
 import { useCameraControlsConfig } from './useCameraControlsConfig'
 import { useCameraAutomationSource } from './useCameraAutomationSource'
 import { useCameraReadoutPublish, useCameraRequests } from './useCameraStoreBridge'
@@ -25,15 +25,16 @@ type StageCameraProps = {
   readonly children?: ReactNode
 }
 
-// The stage camera: drei's CameraControls is the one owner of the stage
-// camera. It is mounted once, outside the product, and it is the only code
-// that moves the camera. It presents the product's plan, executes the UI's
-// requests from the store's camera channel, publishes the live readouts to
-// the store, keeps the view through a resize, and reads itself into the
-// stage's automation slot. The wiring lives in the hooks beside this file;
-// the component only mounts the controls and hands the API out.
+// The stage camera: the controls mount of useStageControls is the one owner
+// of the stage camera. It is mounted once, outside the product, and it is
+// the only code that moves the camera. It presents the product's plan,
+// executes the UI's requests from the store's camera channel, publishes the
+// live readouts to the store, keeps the view through a resize, and reads
+// itself into the stage's automation slot. The wiring lives in the hooks
+// beside this file; the component only mounts the controls and hands the
+// API out.
 export function StageCamera({ children }: StageCameraProps) {
-  const [controls, setControls] = useState<CameraControlsImpl | null>(null)
+  const controls = useStageControls()
   const camera = useThree((state) => state.camera)
   const size = useThree((state) => state.size)
   const invalidate = useThree((state) => state.invalidate)
@@ -71,10 +72,5 @@ export function StageCamera({ children }: StageCameraProps) {
     [state, store],
   )
 
-  return (
-    <StageCameraContext.Provider value={api}>
-      <CameraControls ref={setControls} makeDefault />
-      {children}
-    </StageCameraContext.Provider>
-  )
+  return <StageCameraContext.Provider value={api}>{children}</StageCameraContext.Provider>
 }

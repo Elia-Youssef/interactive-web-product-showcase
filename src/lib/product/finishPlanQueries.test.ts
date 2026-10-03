@@ -1,17 +1,22 @@
 import { expect, test } from 'vitest'
-import { readFinishPlan, type FinishPlan } from '@lib/product'
+import type { FinishPlan } from './variants'
+import { plannedFinish } from './finishPlan.fixtures'
 import {
+  finishDerivedKey,
   finishMaterialIndex,
   finishPrimitiveKey,
   mappedFinishEntries,
+  prescribesMaterial,
   precompilePairs,
-} from './variants.logic'
+} from './finishPlanQueries'
 
-// The plan tables mirror the placeholder speaker's file: two variants, a
-// per-variant mapping on base and body, one material shared by both
-// variants on grille and knob, and an unmapped mesh.
+// The plan queries, against the plan reader that feeds them: the tables
+// mirror the placeholder speaker's file, two variants, a per-variant
+// mapping on base, one material shared by both variants on grille, and an
+// unmapped mesh.
+
 function speakerPlan(): FinishPlan {
-  return readFinishPlan({
+  return plannedFinish({
     extensions: { KHR_materials_variants: { variants: [{ name: 'sage' }, { name: 'graphite' }] } },
     materials: Array.from({ length: 7 }, (_, index) => ({ name: `MAT_${index}` })),
     meshes: [
@@ -52,6 +57,11 @@ test('a finish key names the mesh and the primitive the file declares', () => {
   expect(finishPrimitiveKey(0, 1)).toBe('0:1')
 })
 
+test('a derived key names the primitive and the material index the pair ran for', () => {
+  expect(finishDerivedKey(2, 0, 4)).toBe('2:0:4')
+  expect(finishDerivedKey(0, 1, 0)).toBe('0:1:0')
+})
+
 test('only the mapped entries of a plan are reachable by a switch', () => {
   const plan = speakerPlan()
 
@@ -80,7 +90,7 @@ test('a shared material entry carries the same index under every variant', () =>
 })
 
 test('a variant a mapping omits keeps the primitive default', () => {
-  const plan = readFinishPlan({
+  const plan = plannedFinish({
     extensions: { KHR_materials_variants: { variants: [{ name: 'sage' }, { name: 'graphite' }] } },
     materials: [{ name: 'A' }, { name: 'B' }],
     meshes: [
@@ -105,7 +115,7 @@ test('a variant a mapping omits keeps the primitive default', () => {
 })
 
 test('a mapped entry without a default and without the variant fails instead of guessing', () => {
-  const plan = readFinishPlan({
+  const plan = plannedFinish({
     extensions: { KHR_materials_variants: { variants: [{ name: 'sage' }, { name: 'graphite' }] } },
     materials: [{ name: 'B' }],
     meshes: [
@@ -129,13 +139,53 @@ test('a mapped entry without a default and without the variant fails instead of 
   )
 })
 
+test('an entry prescribes the variants its mapping names and those its default covers', () => {
+  const entries = mappedFinishEntries(speakerPlan())
+  const base = entries[0]
+  const grille = entries[1]
+  if (base === undefined || grille === undefined) {
+    throw new Error('the fixture plan must map a base and a grille')
+  }
+  const unmapped = speakerPlan().primitives.find((entry) => entry.variantMaterials.size === 0)
+  if (unmapped === undefined) {
+    throw new Error('the fixture plan must carry an unmapped entry')
+  }
+
+  expect(prescribesMaterial(base, 0)).toBe(true)
+  expect(prescribesMaterial(grille, 1)).toBe(true)
+  expect(prescribesMaterial(unmapped, 0)).toBe(true)
+})
+
+test('an entry without the mapping and without a default prescribes nothing', () => {
+  const plan = plannedFinish({
+    extensions: { KHR_materials_variants: { variants: [{ name: 'sage' }, { name: 'graphite' }] } },
+    materials: [{ name: 'B' }],
+    meshes: [
+      {
+        name: 'PART_partial',
+        primitives: [
+          {
+            extensions: { KHR_materials_variants: { mappings: [{ material: 0, variants: [0] }] } },
+          },
+        ],
+      },
+    ],
+  })
+  const entry = mappedFinishEntries(plan)[0]
+  if (entry === undefined) {
+    throw new Error('the fixture plan must map an entry')
+  }
+
+  expect(prescribesMaterial(entry, 1)).toBe(false)
+})
+
 test('the precompile pairs cover every mapped mesh with every material it could wear', () => {
   const pairs = precompilePairs(speakerPlan())
 
   expect(pairs).toEqual([
-    { mesh: 0, materialIndex: 0 },
-    { mesh: 0, materialIndex: 1 },
-    { mesh: 1, materialIndex: 4 },
+    { mesh: 0, primitive: 0, materialIndex: 0 },
+    { mesh: 0, primitive: 0, materialIndex: 1 },
+    { mesh: 1, primitive: 0, materialIndex: 4 },
   ])
 })
 

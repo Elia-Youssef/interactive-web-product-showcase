@@ -172,8 +172,9 @@ export function rendererCompileCases(): PlantedCase[] {
 }
 
 // A stand-in for the runner's poll, declared in the planted file, so the
-// cases need no installed test runner in the planted tree.
-const pollStandIn =
+// cases need no installed test runner in the planted tree. The capture case
+// group plants it too, for the ban proof at its exempt path.
+export const pollStandIn =
   'declare const expect: { poll(read: () => unknown, options?: unknown): { toBe(value: unknown): Promise<void> } }\n'
 
 function pollCase(

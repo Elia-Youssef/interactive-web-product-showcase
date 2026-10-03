@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext } from 'react'
 import type { ShadowFadeClaim, ShadowOpacityHolder } from './shadowOpacityOwner'
 
 // The context that hands the shadow opacity ownership to the loaded
-// product's writers. ProductContent provides one holder per presented
+// product's writers. PresentedProduct provides one holder per presented
 // product; ProductLook installs the owner into it, and the features that
 // fade the shadow claim their factor through it. R3F bridges the context
 // into the canvas, so a feature component that arrives as the product's

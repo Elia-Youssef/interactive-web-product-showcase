@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import type { ProductModelCounts, ProductRigSummary } from '@lib/product'
+import type { ProductFailure, ProductModelCounts, ProductRigSummary } from '@lib/product'
 import { applyProductEvent, type ProductEvent, type ProductStatus } from './product.logic'
 
 // The transition table as test data: one row per cell, so a change to any
@@ -23,7 +23,14 @@ const counts: ProductModelCounts = { meshes: 4, triangles: 1200 }
 
 const otherSummary: ProductRigSummary = { ...summary, parts: [] }
 
-const failed = (slug: string, reason: string): ProductStatus => ({ kind: 'failed', slug, reason })
+// A failure value per cause name, so the rows read which failure is kept.
+const failure = (message: string): ProductFailure => ({ kind: 'render', message })
+
+const failed = (slug: string, cause: string): ProductStatus => ({
+  kind: 'failed',
+  slug,
+  failure: failure(cause),
+})
 
 const ready = (slug: string): ProductStatus => ({
   kind: 'ready',
@@ -46,9 +53,9 @@ const table: TransitionCase[] = [
     expected: ready('sample-one'),
   },
   {
-    name: 'loading + failed(slug, reason) becomes failed',
+    name: 'loading + failed(slug, failure) becomes failed',
     from: { kind: 'loading', slug: 'sample-one' },
-    event: { kind: 'failed', slug: 'sample-one', reason: 'the model is missing' },
+    event: { kind: 'failed', slug: 'sample-one', failure: failure('the model is missing') },
     expected: failed('sample-one', 'the model is missing'),
   },
   {
@@ -81,9 +88,9 @@ const table: TransitionCase[] = [
     expected: failed('sample-one', 'first cause'),
   },
   {
-    name: 'failed + failed(other reason) keeps the first reason',
+    name: 'failed + failed(other failure) keeps the first failure',
     from: failed('sample-one', 'first cause'),
-    event: { kind: 'failed', slug: 'sample-one', reason: 'second cause' },
+    event: { kind: 'failed', slug: 'sample-one', failure: failure('second cause') },
     expected: failed('sample-one', 'first cause'),
   },
   {

@@ -7,10 +7,10 @@ import {
   SHADOW_NODE_NAME,
   readVariantNames,
   type Product,
+  type RigProblem,
 } from '@lib/product'
 import { jsonNodeNames } from './gltfJson'
 import type { ProductRig, ProductHotspot } from './productRig'
-import { ProductRigError, type RigProblem } from './rigError'
 
 // What the parse reads the rig from: the loaded glTF result, kept
 // structural so tests build it from plain trees.
@@ -36,17 +36,23 @@ type NamedNodes = {
   shadows: Object3D[]
 }
 
-// Parses the loaded product into its rig, or fails with one ProductRigError
-// listing every contract problem the model has. This is the runtime
-// guarantee every later feature reads; the validate step checks the same
-// contract at build time.
+// The outcome of a rig parse: the rig, or every contract problem the model
+// has. A model that breaks the contract is an outcome the product path
+// anticipates, so it is a value the caller routes, never a throw.
+export type RigParse =
+  | { readonly kind: 'parsed'; readonly rig: ProductRig }
+  | { readonly kind: 'broken'; readonly problems: readonly RigProblem[] }
+
+// Parses the loaded product into its rig, or reports every contract problem
+// the model has, listed at once. This is the runtime guarantee every later
+// feature reads; the validate step checks the same contract at build time.
 //
 // The contract names are the node table of the glTF JSON, the same facts
 // the validate step reads. The runtime graph cannot be trusted for them
 // alone: the loader names every mesh object after its mesh definition, so
 // the quantize wrapper of PART_base arrives as a scene node named
 // PART_base_1, which is not a contract node but a load artifact.
-export function parseProductRig(source: ProductSource, manifest: Product): ProductRig {
+export function parseProductRig(source: ProductSource, manifest: Product): RigParse {
   const nodes = collectNamedNodes(source.scene, jsonNodeNames(source.json))
   const problems: RigProblem[] = [...duplicateNameProblems(nodes)]
 
@@ -59,15 +65,18 @@ export function parseProductRig(source: ProductSource, manifest: Product): Produ
   const parts = new Map(nodes.parts.map((node) => [node.name, node]))
 
   if (problems.length > 0) {
-    throw new ProductRigError(manifest.slug, problems)
+    return { kind: 'broken', problems }
   }
   return {
-    parts,
-    hotspots,
-    cameras,
-    shadow: present(shadow, 'the shadow node'),
-    clip: present(clip, 'the explode clip'),
-    variants: readVariantNames(source.json),
+    kind: 'parsed',
+    rig: {
+      parts,
+      hotspots,
+      cameras,
+      shadow: present(shadow, 'the shadow node'),
+      clip: present(clip, 'the explode clip'),
+      variants: readVariantNames(source.json),
+    },
   }
 }
 

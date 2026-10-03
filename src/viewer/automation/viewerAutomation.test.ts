@@ -133,14 +133,18 @@ describe('createViewerAutomation', () => {
     expect(automation.renderedFrames).toBe(1)
 
     renderer = { kind: 'failed', reason: 'the canvas is gone' }
-    product = { kind: 'failed', slug: 'forma-one', reason: 'the model broke' }
+    product = {
+      kind: 'failed',
+      slug: 'forma-one',
+      failure: { kind: 'render', message: 'the model broke' },
+    }
     frames = 2
     expect(automation.status).toBe('failed')
     expect(automation.backend).toBeNull()
     expect(automation.ready).toBe(false)
     expect(automation.failure).toBe('the canvas is gone')
     expect(automation.product).toBe('failed')
-    expect(automation.productFailure).toBe('the model broke')
+    expect(automation.productFailure).toEqual({ kind: 'render', message: 'the model broke' })
     expect(automation.rig).toBeNull()
     expect(automation.model).toBeNull()
     expect(automation.renderedFrames).toBe(2)
@@ -157,14 +161,23 @@ describe('the store field derivations', () => {
   it('the product slug names the product the store works on, null when idle', () => {
     expect(productSlugOf({ kind: 'loading', slug: 'forma-one' })).toBe('forma-one')
     expect(productSlugOf(readyProduct)).toBe('forma-one')
-    expect(productSlugOf({ kind: 'failed', slug: 'forma-one', reason: 'x' })).toBe('forma-one')
+    expect(
+      productSlugOf({
+        kind: 'failed',
+        slug: 'forma-one',
+        failure: { kind: 'unexpected', message: 'x' },
+      }),
+    ).toBe('forma-one')
     expect(productSlugOf({ kind: 'idle' })).toBeNull()
   })
 
-  it('the product failure is the failed status reason, null otherwise', () => {
-    expect(productFailureOf({ kind: 'failed', slug: 'forma-one', reason: 'bad glb' })).toBe(
-      'bad glb',
-    )
+  it('the product failure is the failed status failure, null otherwise', () => {
+    const failure = {
+      kind: 'load',
+      url: '/models/forma-one/model.glb',
+      message: 'bad glb',
+    } as const
+    expect(productFailureOf({ kind: 'failed', slug: 'forma-one', failure })).toBe(failure)
     expect(productFailureOf(readyProduct)).toBeNull()
     expect(productFailureOf({ kind: 'idle' })).toBeNull()
   })

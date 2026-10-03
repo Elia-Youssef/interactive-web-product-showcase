@@ -8,8 +8,8 @@ export {
   PART_PREFIX,
   SHADOW_NODE_NAME,
 } from './contractNames'
-export { productManifestSchema, productLookSchema } from './schema'
-export type { Product, ProductInput, ProductLookBlock } from './schema'
+export { productCameraSchema, productManifestSchema, productLookSchema } from './schema'
+export type { Product, ProductCameraBlock, ProductInput, ProductLookBlock } from './schema'
 export { HOTSPOT_BULLETS_MAX } from './rules'
 export { parseProduct } from './parse'
 export { resolveProductLook } from './resolveLook'
@@ -22,5 +22,20 @@ export { productModelUrl } from './modelUrl'
 export type { ProductModelCounts } from './modelCounts'
 export { basisTranscoderPath } from './transcoderPath'
 export type { ProductClipSummary, ProductHotspotSummary, ProductRigSummary } from './rigSummary'
-export { FinishPlanError, readFinishPlan, readJsonKey, readVariantNames } from './variants'
-export type { FinishPlan, FinishPrimitivePlan, FinishProblem } from './variants'
+export type { RigProblem } from './rigProblem'
+export type { ProductFailure, ProductFailureKind } from './failure'
+export {
+  finishEntryMaterialIndexes,
+  readFinishPlan,
+  readJsonKey,
+  readVariantNames,
+} from './variants'
+export type { FinishPlan, FinishPlanRead, FinishPrimitivePlan, FinishProblem } from './variants'
+export {
+  finishDerivedKey,
+  finishMaterialIndex,
+  finishPrimitiveKey,
+  mappedFinishEntries,
+  prescribesMaterial,
+  precompilePairs,
+} from './finishPlanQueries'

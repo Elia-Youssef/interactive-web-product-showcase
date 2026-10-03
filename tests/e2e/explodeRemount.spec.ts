@@ -1,15 +1,19 @@
-import { productLoadBudgetMs, testBodyBudgetMs } from './budgets'
+import { productLoadBudgetMs, testBodyBudgetMs, testBudgetMs } from './budgets'
 import type { Page } from '@playwright/test'
 import { expect, test } from './fixtures'
 import { readExplodeModelFacts } from './explodeModelFacts'
+import { frameFaultPath, pollProductChannel, remountProduct } from './productFailureChannel'
 import { expectPoll, harnessPath, harnessProducts, waitForProductReady } from './productSpecs'
 import { siteCopy } from '../../src/lib/copy/site'
+import { frameFaultMessage } from '../../src/app/product-harness/frameFaultQuery.ts'
 
 // The remount contract on the dev harness: the presented view lives and
 // dies with the product. The explode toggle next to the remount control
 // opens the view, so a real remount can start from the open state and prove
 // that the next presentation is assembled, with the toggle's own state as
-// the paired lifetime's readout.
+// the paired lifetime's readout. A product a present fault failed takes its
+// view with it, and the next product, on the fresh canvas the stage gives
+// new content after a retired renderer, attaches its own view and drives it.
 const products = await harnessProducts()
 
 for (const product of products) {
@@ -76,6 +80,50 @@ for (const product of products) {
     await expectPoll(page, () => window.__viewer?.explode?.t, testBodyBudgetMs).toBe(0)
     await expectPoll(page, () => window.__viewer?.explode?.moving, testBodyBudgetMs).toBe(false)
     await expectPose(page, facts.firstPose)
+  })
+
+  test(`after a present fault fails the ${product.slug}, the next product on a fresh canvas attaches its exploded view and drives it`, async ({
+    page,
+    backendPath,
+  }) => {
+    // Two product loads: the faulted first mount, then the remount.
+    test.setTimeout(testBudgetMs({ productLoads: 2 }))
+
+    await page.goto(frameFaultPath(backendPath, product.slug, 'present', 'product'))
+    await pollProductChannel(page).toEqual({
+      product: 'failed',
+      productSlug: product.slug,
+      failure: { kind: 'render', message: frameFaultMessage('present') },
+      status: 'ready',
+    })
+    const explodeToggle = page.getByRole('button', { name: toggleLabel })
+
+    // The failed product left the stage with its view: nothing is attached,
+    // so the toggle is disabled and there is no reading.
+    await expect(explodeToggle).toBeDisabled()
+    await expectPoll(page, () => window.__viewer?.explode ?? null, testBodyBudgetMs).toBeNull()
+    const retiredCanvas = await page.locator('canvas').elementHandle()
+    if (retiredCanvas === null) {
+      throw new Error('the stage must still show the canvas the present fault retired')
+    }
+
+    // The remount is new, clean content, so the stage mounts it on a fresh
+    // canvas: the retired one has left the page.
+    await remountProduct(page)
+    await waitForProductReady(page)
+    expect(await retiredCanvas.evaluate((canvas) => canvas.isConnected)).toBe(false)
+
+    // The new product's view is attached and assembled, and the toggle
+    // drives it to the far end and its last keyframes.
+    await expect(explodeToggle).toBeEnabled()
+    await expect(explodeToggle).toHaveAttribute('aria-pressed', 'false')
+    await expectPoll(page, () => window.__viewer?.explode?.t, testBodyBudgetMs).toBe(0)
+    await expectPose(page, facts.firstPose)
+    await explodeToggle.click()
+    await expect(explodeToggle).toHaveAttribute('aria-pressed', 'true')
+    await expectPoll(page, () => window.__viewer?.explode?.moving, testBodyBudgetMs).toBe(false)
+    await expectPoll(page, () => window.__viewer?.explode?.t, testBodyBudgetMs).toBe(1)
+    await expectPose(page, facts.lastPose)
   })
 }
 

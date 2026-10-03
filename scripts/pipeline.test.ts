@@ -55,6 +55,7 @@ describe('buildUastcStageArgs', () => {
       `--level=${settings.uastcLevel}`,
       `--rdo=${settings.uastcRdo}`,
       `--rdo-lambda=${settings.uastcRdoLambda}`,
+      `--rdo-multithreading=${settings.uastcRdoMultithreading}`,
     ])
   })
 })
@@ -139,6 +140,9 @@ describe('runOptimizePipeline', () => {
     expect(data).toContain(`--level=${DEFAULT_OPTIMIZE_SETTINGS.uastcLevel}`)
     expect(data).toContain(`--rdo=${DEFAULT_OPTIMIZE_SETTINGS.uastcRdo}`)
     expect(data).toContain(`--rdo-lambda=${DEFAULT_OPTIMIZE_SETTINGS.uastcRdoLambda}`)
+    expect(data).toContain(
+      `--rdo-multithreading=${DEFAULT_OPTIMIZE_SETTINGS.uastcRdoMultithreading}`,
+    )
     expect(color).toContain(`--quality=${DEFAULT_OPTIMIZE_SETTINGS.etc1sQuality}`)
   })
 })

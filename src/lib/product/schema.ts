@@ -48,7 +48,9 @@ const explodeSchema = z.strictObject({
   label: singleLineText.optional(),
 })
 
-const cameraSchema = z
+// The per-product camera block: the authored distance limits, each side
+// optional, the minimum below the maximum when both are authored.
+export const productCameraSchema = z
   .strictObject({
     minDistance: z.number().positive().optional(),
     maxDistance: z.number().positive().optional(),
@@ -164,6 +166,7 @@ export const productLookSchema = z.strictObject({
 })
 
 export type ProductLookBlock = z.output<typeof productLookSchema>
+export type ProductCameraBlock = z.output<typeof productCameraSchema>
 
 // The single source of truth for what a product manifest is. Every object is
 // strict, so an unknown key is an error and a typo never passes silently.
@@ -184,7 +187,7 @@ export const productManifestSchema = z.strictObject({
   // carries the block, so every reader of explode.clip can trust the clip
   // name without repeating the default. The input keeps the block optional.
   explode: explodeSchema.prefault({}),
-  camera: cameraSchema.optional(),
+  camera: productCameraSchema.optional(),
   // Unlike explode, the look block keeps what the author wrote: the
   // resolution layer fills the defaults, because its own defaults are
   // viewer config, not schema data.

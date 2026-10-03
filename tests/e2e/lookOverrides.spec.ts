@@ -3,15 +3,10 @@ import { expect, test } from './fixtures'
 import { harnessStageBox, lookHarnessPath } from './lookHarness'
 import type { RegionBox } from './stagePixels'
 import { decodeScreenshotRGBA } from './stagePixels'
-import {
-  boxChannelSum,
-  captureStage,
-  countDifferingPixels,
-  countDifferingPixelsByDirection,
-} from './lookPixels'
+import { boxChannelSum, countDifferingPixels, countDifferingPixelsByDirection } from './lookPixels'
 import { testBodyBudgetMs, testBudgetMs } from './budgets'
 import { expectPoll, harnessProducts, waitForProductReady } from './productSpecs'
-import { settledStage } from './stageSettle'
+import { settledStageCapture } from './stageCapture'
 
 // The look overrides, driven through the harness look parameter and proven
 // with pixels on every matrix project. Every comparison is exact: no region
@@ -24,8 +19,10 @@ import { settledStage } from './stageSettle'
 // would make the effect comparisons stricter, not looser.
 const products = await harnessProducts()
 
-// Loads the harness page for a look, waits for the settled stage, and
-// decodes the capture to RGBA.
+// Loads the harness page for a look and decodes a settled capture to RGBA:
+// the settled capture entry waits for the stage's rest and drains the dev
+// HUD, so at rest nothing renders after it and every capture of the run
+// masks the same box.
 async function settledDecoded(
   page: Page,
   backendPath: string,
@@ -34,13 +31,8 @@ async function settledDecoded(
 ): Promise<{ decoded: Awaited<ReturnType<typeof decodeScreenshotRGBA>>; box: RegionBox }> {
   await page.goto(lookHarnessPath(backendPath, slug, look))
   await waitForProductReady(page)
-  // The ready report marks the settled frame; the settle wait then drains
-  // every load-frame debt and the dev HUD's rolling window, so at rest
-  // nothing renders after the wait and the masked HUD sits at its rest
-  // text: every capture of the run masks the same box.
-  await settledStage(page)
   const box = await harnessStageBox(page)
-  const decoded = await decodeScreenshotRGBA(page, await captureStage(page))
+  const decoded = await decodeScreenshotRGBA(page, await settledStageCapture(page))
   return { decoded, box }
 }
 
@@ -50,7 +42,7 @@ async function settledDecoded(
 async function determinismPair(
   page: Page,
 ): Promise<Awaited<ReturnType<typeof decodeScreenshotRGBA>>> {
-  return decodeScreenshotRGBA(page, await captureStage(page))
+  return decodeScreenshotRGBA(page, await settledStageCapture(page))
 }
 
 for (const product of products) {

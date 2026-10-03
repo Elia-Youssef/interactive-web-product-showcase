@@ -6,6 +6,9 @@
 import type { Document, Node } from '@gltf-transform/core'
 import { KHRMaterialsVariants, type MappingList } from '@gltf-transform/extensions'
 import { HOTSPOT_PREFIX } from '../src/lib/product/contractNames.ts'
+import { readCameraFacts, readGeometryFacts, readMeshBoxes } from './modelFacts.ts'
+import type { CameraFact, GeometryFacts } from './modelFacts.ts'
+import type { MeshBox } from '../src/lib/camera/frame.ts'
 
 // The extension a file must carry to prove the optimize step ran its
 // Meshopt pass. The reader decodes the compressed accessors, so the
@@ -30,6 +33,13 @@ export type ProductStructure = {
   unlitMaterialNames: string[]
   occlusionMaterialNames: string[]
   meshoptCompressed: boolean
+  // The camera, mesh and geometry facts the camera and model contracts'
+  // rules read, as plain data; the document itself never leaves the model
+  // step. The camera names derive from the same camera facts, so one read
+  // answers both.
+  cameraFacts: CameraFact[]
+  geometry: GeometryFacts
+  meshBoxes: MeshBox[]
 }
 
 export function isHotspotNode(node: Node): boolean {
@@ -73,6 +83,7 @@ function readMappingCount(doc: Document): number {
 export function readProductStructure(doc: Document): ProductStructure {
   const root = doc.getRoot()
   const variantsExtension = doc.createExtension(KHRMaterialsVariants)
+  const cameraFacts = readCameraFacts(doc)
   const unlitMaterialNames: string[] = []
   const occlusionMaterialNames: string[] = []
   for (const material of root.listMaterials()) {
@@ -95,10 +106,7 @@ export function readProductStructure(doc: Document): ProductStructure {
         name: node.getName(),
         parentName: nearestNamedAncestor(node),
       })),
-    cameraNames: root
-      .listNodes()
-      .filter((node) => node.getCamera() !== null)
-      .map((node) => node.getName()),
+    cameraNames: cameraFacts.map((fact) => fact.name),
     variantNames: variantsExtension.listVariants().map((variant) => variant.getName()),
     mappingCount: readMappingCount(doc),
     animationNames: root.listAnimations().map((animation) => animation.getName()),
@@ -107,6 +115,9 @@ export function readProductStructure(doc: Document): ProductStructure {
     meshoptCompressed: root
       .listExtensionsUsed()
       .some((extension) => extension.extensionName === MESHOPT_EXTENSION),
+    cameraFacts,
+    geometry: readGeometryFacts(doc),
+    meshBoxes: readMeshBoxes(doc),
   }
 }
 
