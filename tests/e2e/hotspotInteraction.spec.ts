@@ -1,9 +1,6 @@
 import { expect, test } from './fixtures'
 import { testBodyBudgetMs, testBudgetMs } from './budgets'
-import { harnessPath, harnessProducts, waitForProductReady } from './productSpecs'
-import { readProductHotspotFacts } from './productHotspots'
-import type { ProductHotspotFacts } from './productHotspots'
-import { readProductCameraFacts } from './productCamera'
+import { harnessPath, waitForProductReady } from './productSpecs'
 import { settledFrames } from './stageSettle'
 import { renderedFrames } from './stageCamera'
 import {
@@ -13,6 +10,7 @@ import {
   oppositeAzimuthOf,
 } from './hotspotDrives'
 import { markerOf, occludableFact, pointOf, requireCamera } from './hotspotViews'
+import { flowFacts } from './hotspotFlowFacts'
 
 // The pulse animations of one marker, read through the Web Animations API.
 // The marker subtree carries exactly one animation, the pulse; its keyframes
@@ -37,133 +35,124 @@ function pulseStartTimes(page: Parameters<typeof markerOf>[0], title: string): P
 // replays and reduced motion never shows. The open card and its camera
 // close-up live in hotspotFlow.spec.ts.
 
-const products = await harnessProducts()
-const factsBySlug = new Map<string, ProductHotspotFacts>()
-const viewFactsBySlug = new Map<string, Awaited<ReturnType<typeof readProductCameraFacts>>>()
-for (const product of products) {
-  factsBySlug.set(product.slug, await readProductHotspotFacts(product.slug, product))
-  viewFactsBySlug.set(product.slug, await readProductCameraFacts(product.slug))
-}
+const { flows, factsBySlug } = await flowFacts()
 
-for (const product of products) {
+for (const flow of flows) {
+  const { product } = flow.subject
   const facts = factsBySlug.get(product.slug)
   if (facts === undefined) {
     throw new Error(`no hotspot facts for ${product.slug}`)
   }
-  const viewFacts = viewFactsBySlug.get(product.slug)
-  if (viewFacts === undefined) {
-    throw new Error(`no camera view facts for ${product.slug}`)
-  }
-  // The press proof needs one hotspot without a close-up, whose opening is
-  // no camera move, and one with, whose opening moves the camera. A product
-  // missing either has no contrast to prove.
-  const plain = product.hotspots.find((hotspot) => !viewFacts.closeUps.has(hotspot.id))
-  const closeUp = product.hotspots.find((hotspot) => viewFacts.closeUps.has(hotspot.id))
-  if (plain === undefined) {
-    throw new Error(`the press proof needs a hotspot without a close-up in ${product.slug}`)
-  }
-  if (closeUp === undefined) {
-    throw new Error(`the press proof needs a hotspot with a close-up in ${product.slug}`)
-  }
+  // The press proof's contrast comes from the product set, per hotspot
+  // kind: a hotspot without a close-up, whose opening is no camera move,
+  // and one with, whose opening moves the camera. No product is required to
+  // carry both kinds; the subject selection fails at collection when the
+  // whole set lacks one.
+  const plain = flow.subject.plains[0]
+  const closeUp = flow.subject.closeUps[0]
   const slug = product.slug
 
-  test(`hotspots ${slug}: pressing the marker without a close-up presses it alone in the red token, and the camera stays put`, async ({
-    page,
-    backendPath,
-  }) => {
-    await page.goto(harnessPath(backendPath, slug))
-    await waitForProductReady(page)
-    await settledFrames(page)
+  if (plain !== undefined) {
+    test(`hotspots ${slug}: pressing the marker without a close-up presses it alone in the red token, and the camera stays put`, async ({
+      page,
+      backendPath,
+    }) => {
+      await page.goto(harnessPath(backendPath, slug))
+      await waitForProductReady(page)
+      await settledFrames(page)
 
-    const cameraBefore = await requireCamera(page)
-    const framesBefore = await page.evaluate(() => window.__viewer?.renderedFrames ?? -1)
+      const cameraBefore = await requireCamera(page)
+      const framesBefore = await page.evaluate(() => window.__viewer?.renderedFrames ?? -1)
 
-    await markerOf(page, plain.title).click()
-    await expect(markerOf(page, plain.title)).toHaveAttribute('aria-pressed', 'true')
-    for (const other of product.hotspots.filter((hotspot) => hotspot.id !== plain.id)) {
-      await expect(markerOf(page, other.title)).toHaveAttribute('aria-pressed', 'false')
-    }
+      await markerOf(page, plain.title).click()
+      await expect(markerOf(page, plain.title)).toHaveAttribute('aria-pressed', 'true')
+      for (const other of product.hotspots.filter((hotspot) => hotspot.id !== plain.id)) {
+        await expect(markerOf(page, other.title)).toHaveAttribute('aria-pressed', 'false')
+      }
 
-    // The dot's computed color is the red token, read from the tokens
-    // themselves so no hand-typed color enters the expectation. The dot
-    // lifts through the state transition token (150ms), so the read polls
-    // past it.
-    const redToken = await page.evaluate(() =>
-      getComputedStyle(document.documentElement).getPropertyValue('--red').trim(),
-    )
-    expect(redToken).toMatch(/^#[0-9a-f]{6}$/i)
-    const redAsRgb = `rgb(${redToken
-      .slice(1)
-      .match(/../g)
-      ?.map((hex) => Number.parseInt(hex, 16))
-      .join(', ')})`
-    await expect
-      .poll(
-        () =>
-          markerOf(page, plain.title).evaluate(
-            (element) => getComputedStyle(element, '::after').backgroundColor,
-          ),
-        { message: 'the pressed marker dot must be the red token', timeout: testBodyBudgetMs },
+      // The dot's computed color is the red token, read from the tokens
+      // themselves so no hand-typed color enters the expectation. The dot
+      // lifts through the state transition token (150ms), so the read polls
+      // past it.
+      const redToken = await page.evaluate(() =>
+        getComputedStyle(document.documentElement).getPropertyValue('--red').trim(),
       )
-      .toBe(redAsRgb)
+      expect(redToken).toMatch(/^#[0-9a-f]{6}$/i)
+      const redAsRgb = `rgb(${redToken
+        .slice(1)
+        .match(/../g)
+        ?.map((hex) => Number.parseInt(hex, 16))
+        .join(', ')})`
+      await expect
+        .poll(
+          () =>
+            markerOf(page, plain.title).evaluate(
+              (element) => getComputedStyle(element, '::after').backgroundColor,
+            ),
+          { message: 'the pressed marker dot must be the red token', timeout: testBodyBudgetMs },
+        )
+        .toBe(redAsRgb)
 
-    // A press without a close-up is not a drag and not a camera move: the
-    // camera holds, and the press renders no frame.
-    const cameraAfter = await requireCamera(page)
-    expect(cameraAfter.azimuth).toBeCloseTo(cameraBefore.azimuth, 9)
-    expect(cameraAfter.polar).toBeCloseTo(cameraBefore.polar, 9)
-    expect(cameraAfter.distance).toBeCloseTo(cameraBefore.distance, 9)
-    expect(
-      await page.evaluate(() => window.__viewer?.renderedFrames ?? -1),
-      'a press without a close-up must render no frame',
-    ).toBe(framesBefore)
+      // A press without a close-up is not a drag and not a camera move: the
+      // camera holds, and the press renders no frame.
+      const cameraAfter = await requireCamera(page)
+      expect(cameraAfter.azimuth).toBeCloseTo(cameraBefore.azimuth, 9)
+      expect(cameraAfter.polar).toBeCloseTo(cameraBefore.polar, 9)
+      expect(cameraAfter.distance).toBeCloseTo(cameraBefore.distance, 9)
+      expect(
+        await page.evaluate(() => window.__viewer?.renderedFrames ?? -1),
+        'a press without a close-up must render no frame',
+      ).toBe(framesBefore)
 
-    // Pressing the active marker clears the selection, and the dot leaves
-    // the red token, through the same transition.
-    await markerOf(page, plain.title).click()
-    await expect(markerOf(page, plain.title)).toHaveAttribute('aria-pressed', 'false')
-    for (const other of product.hotspots.filter((hotspot) => hotspot.id !== plain.id)) {
-      await expect(markerOf(page, other.title)).toHaveAttribute('aria-pressed', 'false')
-    }
-    await expect
-      .poll(
-        () =>
-          markerOf(page, plain.title).evaluate(
-            (element) => getComputedStyle(element, '::after').backgroundColor,
-          ),
-        { message: 'the cleared marker dot must not stay red', timeout: testBodyBudgetMs },
-      )
-      .not.toBe(redAsRgb)
-  })
+      // Pressing the active marker clears the selection, and the dot leaves
+      // the red token, through the same transition.
+      await markerOf(page, plain.title).click()
+      await expect(markerOf(page, plain.title)).toHaveAttribute('aria-pressed', 'false')
+      for (const other of product.hotspots.filter((hotspot) => hotspot.id !== plain.id)) {
+        await expect(markerOf(page, other.title)).toHaveAttribute('aria-pressed', 'false')
+      }
+      await expect
+        .poll(
+          () =>
+            markerOf(page, plain.title).evaluate(
+              (element) => getComputedStyle(element, '::after').backgroundColor,
+            ),
+          { message: 'the cleared marker dot must not stay red', timeout: testBodyBudgetMs },
+        )
+        .not.toBe(redAsRgb)
+    })
+  }
 
-  test(`hotspots ${slug}: pressing the marker with a close-up presses it and moves the camera`, async ({
-    page,
-    backendPath,
-  }) => {
-    await page.goto(harnessPath(backendPath, slug))
-    await waitForProductReady(page)
-    await settledFrames(page)
+  if (closeUp !== undefined) {
+    test(`hotspots ${slug}: pressing the marker with a close-up presses it and moves the camera`, async ({
+      page,
+      backendPath,
+    }) => {
+      await page.goto(harnessPath(backendPath, slug))
+      await waitForProductReady(page)
+      await settledFrames(page)
 
-    const framesBefore = await settledFrames(page)
-    const cameraBefore = await requireCamera(page)
+      const framesBefore = await settledFrames(page)
+      const cameraBefore = await requireCamera(page)
 
-    await markerOf(page, closeUp.title).click()
-    await expect(markerOf(page, closeUp.title)).toHaveAttribute('aria-pressed', 'true')
+      await markerOf(page, closeUp.title).click()
+      await expect(markerOf(page, closeUp.title)).toHaveAttribute('aria-pressed', 'true')
 
-    // A press whose hotspot has a close-up owes the camera the move: the
-    // stage renders for the eased approach and comes to rest elsewhere.
-    await settledFrames(page)
-    expect(
-      await renderedFrames(page),
-      'a press with a close-up must render the frames of its move',
-    ).toBeGreaterThan(framesBefore)
-    const cameraAfter = await requireCamera(page)
-    const moved =
-      Math.abs(cameraAfter.azimuth - cameraBefore.azimuth) +
-      Math.abs(cameraAfter.polar - cameraBefore.polar) +
-      Math.abs(cameraAfter.distance - cameraBefore.distance)
-    expect(moved, 'the close-up press must have moved the camera').toBeGreaterThan(0)
-  })
+      // A press whose hotspot has a close-up owes the camera the move: the
+      // stage renders for the eased approach and comes to rest elsewhere.
+      await settledFrames(page)
+      expect(
+        await renderedFrames(page),
+        'a press with a close-up must render the frames of its move',
+      ).toBeGreaterThan(framesBefore)
+      const cameraAfter = await requireCamera(page)
+      const moved =
+        Math.abs(cameraAfter.azimuth - cameraBefore.azimuth) +
+        Math.abs(cameraAfter.polar - cameraBefore.polar) +
+        Math.abs(cameraAfter.distance - cameraBefore.distance)
+      expect(moved, 'the close-up press must have moved the camera').toBeGreaterThan(0)
+    })
+  }
 
   test(`hotspots ${slug}: each marker pulses exactly once after load, and an occlusion round trip replays nothing`, async ({
     page,

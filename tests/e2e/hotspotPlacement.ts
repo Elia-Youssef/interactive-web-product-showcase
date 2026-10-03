@@ -12,8 +12,13 @@ export type StagePoint = { readonly x: number; readonly y: number }
 
 export type Point3 = { readonly x: number; readonly y: number; readonly z: number }
 
+// The camera reads the projection needs: where the camera stands, where it
+// looks and its vertical fov. A live camera read carries them, and so does
+// an authored view's ray.
+export type ProjectionCamera = Pick<CameraRead, 'position' | 'target' | 'fovY'>
+
 export function projectToStageBox(
-  camera: CameraRead,
+  camera: ProjectionCamera,
   anchor: Point3,
   box: { readonly width: number; readonly height: number },
 ): StagePoint {
@@ -28,6 +33,13 @@ export function projectToStageBox(
     x: ((ndcX + 1) / 2) * box.width,
     y: ((1 - ndcY) / 2) * box.height,
   }
+}
+
+// How far in front of the camera a point stands along its view axis: the
+// negated view z, positive in front, so a projection is meaningful exactly
+// when it is above zero.
+export function viewDepthOf(camera: ProjectionCamera, point: Point3): number {
+  return -viewOf(camera.position, camera.target)(point).z
 }
 
 // The view transform of a look-at with up +Y: the world point through the

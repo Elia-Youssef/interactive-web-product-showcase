@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { parseProduct, type Product } from '../../src/lib/product'
 import type { AuthoredView, ProductCameraFacts } from './productCamera'
+import type { MarkerViews } from './productMarkerViews'
 import { selectFlowSubjects } from './flowSubjects'
 
 // The selection of the flow proof's subjects, over fake products: the
@@ -63,6 +64,29 @@ function factsOf(products: readonly { slug: string; closeUps: readonly string[] 
   return new Map(products.map((product) => [product.slug, viewFactsOf(product.closeUps)]))
 }
 
+// Every view of every product shows every marker of its product: the
+// selection then picks by kind alone.
+function everyMarkerShown(
+  products: readonly Product[],
+  viewFactsBySlug: ReadonlyMap<string, ProductCameraFacts>,
+): ReadonlyMap<string, MarkerViews> {
+  return new Map(
+    products.map((product) => {
+      const all = new Set(product.hotspots.map((hotspot) => hotspot.id))
+      const closeUps = [...(viewFactsBySlug.get(product.slug)?.closeUps.keys() ?? [])]
+      return [product.slug, { home: all, closeUps: new Map(closeUps.map((id) => [id, all])) }]
+    }),
+  )
+}
+
+// Selects over a set where every view shows every marker.
+function selectShown(
+  products: readonly Product[],
+  viewFactsBySlug: ReadonlyMap<string, ProductCameraFacts>,
+) {
+  return selectFlowSubjects(products, viewFactsBySlug, everyMarkerShown(products, viewFactsBySlug))
+}
+
 describe('selectFlowSubjects', () => {
   it('splits a mixed set per product and kind, in manifest order', () => {
     const products = [
@@ -74,7 +98,7 @@ describe('selectFlowSubjects', () => {
       { slug: 'plain-piece', closeUps: [] },
     ])
 
-    const subjects = selectFlowSubjects(products, viewFactsBySlug)
+    const subjects = selectShown(products, viewFactsBySlug)
 
     expect(subjects).toHaveLength(2)
     const [mixed, plain] = subjects
@@ -89,7 +113,7 @@ describe('selectFlowSubjects', () => {
     const products = [fakeProduct('wordy-piece', ['cu_a', 'pl_b'])]
     const viewFactsBySlug = factsOf([{ slug: 'wordy-piece', closeUps: ['cu_a'] }])
 
-    const [subject] = selectFlowSubjects(products, viewFactsBySlug)
+    const [subject] = selectShown(products, viewFactsBySlug)
 
     expect(subject?.closeUps[0]?.title).toBe('the cu_a title')
     expect(subject?.closeUps[0]?.eyebrow).toBe('A closer look')
@@ -112,7 +136,7 @@ describe('selectFlowSubjects', () => {
       { slug: 'pair-piece', closeUps: ['cu_c'] },
     ])
 
-    const subjects = selectFlowSubjects(products, viewFactsBySlug)
+    const subjects = selectShown(products, viewFactsBySlug)
 
     expect(subjects[0]?.closeUps.map((hotspot) => hotspot.id)).toEqual(['only_a'])
     expect(subjects[0]?.plains).toEqual([])
@@ -130,7 +154,7 @@ describe('selectFlowSubjects', () => {
       { slug: 'twin-piece', closeUps: ['cu_a', 'cu_b'] },
     ])
 
-    const subjects = selectFlowSubjects(products, viewFactsBySlug)
+    const subjects = selectShown(products, viewFactsBySlug)
 
     const [reversed, twin] = subjects
     expect(reversed?.switches).toEqual([
@@ -158,7 +182,7 @@ describe('selectFlowSubjects', () => {
       { slug: 'mixed-piece', closeUps: ['cu_a'] },
     ])
 
-    const subjects = selectFlowSubjects(products, viewFactsBySlug)
+    const subjects = selectShown(products, viewFactsBySlug)
 
     expect(subjects[0]?.plains.map((hotspot) => hotspot.id)).toEqual(['pl_a', 'pl_b'])
     expect(subjects[0]?.switches).toEqual([])
@@ -168,7 +192,7 @@ describe('selectFlowSubjects', () => {
     const products = [fakeProduct('all-close-ups', ['a', 'b'])]
     const viewFactsBySlug = factsOf([{ slug: 'all-close-ups', closeUps: ['a', 'b'] }])
 
-    expect(() => selectFlowSubjects(products, viewFactsBySlug)).toThrow(/carries no plain hotspot/)
+    expect(() => selectShown(products, viewFactsBySlug)).toThrow(/carries no plain hotspot/)
   })
 
   it('fails naming the close-up kind when no hotspot of the set has one', () => {
@@ -178,9 +202,7 @@ describe('selectFlowSubjects', () => {
       { slug: 'also-plain', closeUps: [] },
     ])
 
-    expect(() => selectFlowSubjects(products, viewFactsBySlug)).toThrow(
-      /carries no close-up hotspot/,
-    )
+    expect(() => selectShown(products, viewFactsBySlug)).toThrow(/carries no close-up hotspot/)
   })
 
   it('fails naming the missing switch when no pair in the set moves the camera', () => {
@@ -195,12 +217,75 @@ describe('selectFlowSubjects', () => {
       { slug: 'one-plain', closeUps: [] },
     ])
 
-    expect(() => selectFlowSubjects(products, viewFactsBySlug)).toThrow(/carries no hotspot switch/)
+    expect(() => selectShown(products, viewFactsBySlug)).toThrow(/carries no hotspot switch/)
   })
 
   it('fails naming the product when its view facts are missing', () => {
     const products = [fakeProduct('unfactured', ['a'])]
 
-    expect(() => selectFlowSubjects(products, new Map())).toThrow(/unfactured/)
+    expect(() => selectFlowSubjects(products, new Map(), new Map())).toThrow(/unfactured/)
+  })
+
+  it('takes a switch only when the first view shows the target marker', () => {
+    const products = [fakeProduct('hidden-piece', ['cu_a', 'cu_b', 'cu_c', 'pl_d'])]
+    const viewFactsBySlug = factsOf([{ slug: 'hidden-piece', closeUps: ['cu_a', 'cu_b', 'cu_c'] }])
+    // cu_a's close-up shows only cu_c, cu_b's shows the plain marker, and
+    // home shows no close-up marker but cu_c.
+    const markerViewsBySlug = new Map<string, MarkerViews>([
+      [
+        'hidden-piece',
+        {
+          home: new Set(['cu_c', 'pl_d']),
+          closeUps: new Map([
+            ['cu_a', new Set(['cu_a', 'cu_c'])],
+            ['cu_b', new Set(['cu_b', 'pl_d'])],
+            ['cu_c', new Set(['cu_c'])],
+          ]),
+        },
+      ],
+    ])
+
+    const [subject] = selectFlowSubjects(products, viewFactsBySlug, markerViewsBySlug)
+
+    expect(subject?.switches.map((pair) => [pair.kind, pair.from.id, pair.to.id])).toEqual([
+      ['close-up-to-plain', 'cu_b', 'pl_d'],
+      ['plain-to-close-up', 'pl_d', 'cu_c'],
+      ['close-up-to-close-up', 'cu_a', 'cu_c'],
+    ])
+  })
+
+  it('offers no switch of a kind whose targets no first view shows', () => {
+    const products = [
+      fakeProduct('apart-piece', ['cu_a', 'cu_b']),
+      fakeProduct('mixed-piece', ['cu_c', 'pl_d']),
+    ]
+    const viewFactsBySlug = factsOf([
+      { slug: 'apart-piece', closeUps: ['cu_a', 'cu_b'] },
+      { slug: 'mixed-piece', closeUps: ['cu_c'] },
+    ])
+    const markerViewsBySlug = new Map<string, MarkerViews>([
+      [
+        'apart-piece',
+        {
+          home: new Set(['cu_a', 'cu_b']),
+          closeUps: new Map([
+            ['cu_a', new Set(['cu_a'])],
+            ['cu_b', new Set(['cu_b'])],
+          ]),
+        },
+      ],
+      ...everyMarkerShown(products.slice(1), viewFactsBySlug),
+    ])
+
+    const [apart] = selectFlowSubjects(products, viewFactsBySlug, markerViewsBySlug)
+
+    expect(apart?.switches).toEqual([])
+  })
+
+  it('fails naming the product when its marker views are missing', () => {
+    const products = [fakeProduct('unviewed', ['a'])]
+    const viewFactsBySlug = factsOf([{ slug: 'unviewed', closeUps: ['a'] }])
+
+    expect(() => selectFlowSubjects(products, viewFactsBySlug, new Map())).toThrow(/unviewed/)
   })
 })

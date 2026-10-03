@@ -1,12 +1,16 @@
 import type { Product } from '../../src/lib/product'
 import type { AuthoredView, ProductCameraFacts } from './productCamera'
+import type { MarkerViews } from './productMarkerViews'
 
 // The subjects of the hotspot flow proof, selected from the product set:
 // per product, its close-up hotspots and its plain hotspots, each list
 // possibly empty, because no product is required to carry both kinds, and
 // its hotspot switches by transition kind, one pair per kind the product
-// offers. The selection is pure: the products and their view facts in, the
-// subjects out. The set-level guards fail at collection when the whole
+// offers. A switch is pressed on the target's marker while the first
+// hotspot's view is shown, so a pair counts only when that view shows the
+// target's marker: no product is required to show every marker in every
+// close-up. The selection is pure: the products, their view facts and the
+// markers each view shows in, the subjects out. The set-level guards fail at collection when the whole
 // product set carries no close-up hotspot, no plain hotspot, or no switch
 // whose camera moves, naming what is missing, so a proof never disappears
 // silently with the products it was written to drive.
@@ -61,8 +65,9 @@ type SortedHotspot = FlowHotspot & { readonly view: AuthoredView | null }
 export function selectFlowSubjects(
   products: readonly Product[],
   viewFactsBySlug: ReadonlyMap<string, ProductCameraFacts>,
+  markerViewsBySlug: ReadonlyMap<string, MarkerViews>,
 ): readonly FlowSubject[] {
-  const subjects = products.map((product) => subjectOf(product, viewFactsBySlug))
+  const subjects = products.map((product) => subjectOf(product, viewFactsBySlug, markerViewsBySlug))
   if (!subjects.some((subject) => subject.closeUps.length > 0)) {
     throw new Error('the product set carries no close-up hotspot for the flow proof')
   }
@@ -80,10 +85,15 @@ export function selectFlowSubjects(
 function subjectOf(
   product: Product,
   viewFactsBySlug: ReadonlyMap<string, ProductCameraFacts>,
+  markerViewsBySlug: ReadonlyMap<string, MarkerViews>,
 ): FlowSubject {
   const viewFacts = viewFactsBySlug.get(product.slug)
   if (viewFacts === undefined) {
     throw new Error(`no view facts for ${product.slug}`)
+  }
+  const markerViews = markerViewsBySlug.get(product.slug)
+  if (markerViews === undefined) {
+    throw new Error(`no marker views for ${product.slug}`)
   }
   const sorted: SortedHotspot[] = product.hotspots.map((hotspot) => ({
     ...hotspot,
@@ -97,7 +107,7 @@ function subjectOf(
     viewFacts,
     closeUps,
     plains,
-    switches: switchPairsOf(closeUps, plains),
+    switches: switchPairsOf(closeUps, plains, markerViews),
     viewOf: (hotspotId) => {
       const view = viewsById.get(hotspotId)
       if (view === undefined) {
@@ -109,26 +119,50 @@ function subjectOf(
 }
 
 // One pair per transition kind the product offers, its endpoints picked by
-// kind: the first hotspot of each kind stands for its kind, so the proven
-// transition is the same whichever manifest order carries it.
+// kind: the first pair of each kind, in manifest order, whose target marker
+// the first hotspot's view shows (its close-up, or home for a plain
+// hotspot, whose opening leaves the camera there), so the proven transition
+// is the same whichever manifest order carries it.
 function switchPairsOf(
   closeUps: readonly FlowCloseUp[],
   plains: readonly FlowHotspot[],
+  markerViews: MarkerViews,
 ): readonly SwitchPair[] {
-  const closeUp = closeUps[0]
-  const plain = plains[0]
-  const secondCloseUp = closeUps[1]
-  const switches: SwitchPair[] = []
-  if (closeUp !== undefined && plain !== undefined) {
-    switches.push(
-      { kind: 'close-up-to-plain', from: closeUp, to: plain },
-      { kind: 'plain-to-close-up', from: plain, to: closeUp },
-    )
+  return [
+    ...firstShownPair('close-up-to-plain', closeUps, plains, (from) =>
+      closeUpViewOf(markerViews, from),
+    ),
+    ...firstShownPair('plain-to-close-up', plains, closeUps, () => markerViews.home),
+    ...firstShownPair('close-up-to-close-up', closeUps, closeUps, (from) =>
+      closeUpViewOf(markerViews, from),
+    ),
+  ]
+}
+
+// The first pair of one kind whose target's marker shows in the first
+// hotspot's view, or none.
+function firstShownPair(
+  kind: SwitchKind,
+  froms: readonly FlowHotspot[],
+  tos: readonly FlowHotspot[],
+  shownFrom: (from: FlowHotspot) => ReadonlySet<string>,
+): readonly SwitchPair[] {
+  for (const from of froms) {
+    const shown = shownFrom(from)
+    const to = tos.find((candidate) => candidate.id !== from.id && shown.has(candidate.id))
+    if (to !== undefined) {
+      return [{ kind, from, to }]
+    }
   }
-  if (closeUp !== undefined && secondCloseUp !== undefined) {
-    switches.push({ kind: 'close-up-to-close-up', from: closeUp, to: secondCloseUp })
+  return []
+}
+
+function closeUpViewOf(markerViews: MarkerViews, hotspot: FlowHotspot): ReadonlySet<string> {
+  const shown = markerViews.closeUps.get(hotspot.id)
+  if (shown === undefined) {
+    throw new Error(`no marker view for the close-up of ${hotspot.id}`)
   }
-  return switches
+  return shown
 }
 
 function hasView(hotspot: SortedHotspot): hotspot is FlowCloseUp {

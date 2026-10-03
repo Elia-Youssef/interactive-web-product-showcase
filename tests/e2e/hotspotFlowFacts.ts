@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test'
 import type { Product } from '../../src/lib/product'
 import { readProductCameraFacts, type AuthoredView, type ProductCameraFacts } from './productCamera'
 import { readProductHotspotFacts, type ProductHotspotFacts } from './productHotspots'
+import { markerViewsOf, type MarkerViews } from './productMarkerViews'
 import { harnessProducts } from './productSpecs'
 import { resolvedDistanceRange, viewExpectation } from './stageCamera'
 import { selectFlowSubjects, type FlowSubject } from './flowSubjects'
@@ -41,7 +42,16 @@ export async function flowFacts(): Promise<FlowFacts> {
   for (const product of products) {
     factsBySlug.set(product.slug, await readProductHotspotFacts(product.slug, product))
   }
-  return { flows: flowsOf(products, viewFactsBySlug), factsBySlug }
+  const markerViewsBySlug = new Map<string, MarkerViews>()
+  for (const product of products) {
+    const facts = factsBySlug.get(product.slug)
+    const views = viewFactsBySlug.get(product.slug)
+    if (facts === undefined || views === undefined) {
+      throw new Error(`no hotspot or view facts for ${product.slug}`)
+    }
+    markerViewsBySlug.set(product.slug, markerViewsOf(facts, views))
+  }
+  return { flows: flowsOf(products, viewFactsBySlug, markerViewsBySlug), factsBySlug }
 }
 
 // The view expectations of every selected subject, derived once per
@@ -50,8 +60,9 @@ export async function flowFacts(): Promise<FlowFacts> {
 function flowsOf(
   products: readonly Product[],
   viewFactsBySlug: ReadonlyMap<string, ProductCameraFacts>,
+  markerViewsBySlug: ReadonlyMap<string, MarkerViews>,
 ): readonly HotspotFlow[] {
-  return selectFlowSubjects(products, viewFactsBySlug).map((subject) => {
+  return selectFlowSubjects(products, viewFactsBySlug, markerViewsBySlug).map((subject) => {
     const range = resolvedDistanceRange(subject.product, subject.viewFacts.home.distance)
     return {
       subject,

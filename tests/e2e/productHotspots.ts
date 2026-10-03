@@ -34,6 +34,9 @@ export type ProductHotspotFacts = {
   // The bounds of the occluding meshes, the shadow plane excluded, in stage
   // space: the body the occlusion argument is checked against.
   readonly occluderBounds: { readonly min: vec3; readonly max: vec3 }
+  // The occluding meshes' stage-space triangles, the ones the runtime's
+  // occluder raycast sees.
+  readonly occluders: readonly Triangle[]
 }
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url))
@@ -86,14 +89,7 @@ export async function readProductHotspotFacts(
   const homeTarget = closestPointOnRay(homePosition, homeForward, [0, 0, 0])
   const homeDistance = length(subtract(homePosition, homeTarget))
 
-  const anchors = manifest.hotspots.map((hotspot) => {
-    const name = `${HOTSPOT_PREFIX}${hotspot.id}`
-    const node = findNode(root.listNodes(), name, modelPath)
-    return {
-      id: hotspot.id,
-      stagePosition: subtract(transformPoint(node.getWorldMatrix(), [0, 0, 0]), center),
-    }
-  })
+  const anchors = readAnchors(root.listNodes(), manifest, center, modelPath)
 
   const hotspots = anchors.map((anchor, index) => {
     const others = anchors.filter((_, candidateIndex) => candidateIndex !== index)
@@ -111,7 +107,24 @@ export async function readProductHotspotFacts(
   return {
     hotspots,
     occluderBounds: { min: meshes.min, max: meshes.max },
+    occluders: meshes.triangles,
   }
+}
+
+// Every manifest hotspot's HS_ anchor in stage space, in manifest order.
+function readAnchors(
+  nodes: readonly GltfNode[],
+  manifest: Product,
+  center: vec3,
+  modelPath: string,
+): readonly { readonly id: string; readonly stagePosition: vec3 }[] {
+  return manifest.hotspots.map((hotspot) => {
+    const node = findNode(nodes, `${HOTSPOT_PREFIX}${hotspot.id}`, modelPath)
+    return {
+      id: hotspot.id,
+      stagePosition: subtract(transformPoint(node.getWorldMatrix(), [0, 0, 0]), center),
+    }
+  })
 }
 
 function findNode(nodes: readonly GltfNode[], name: string, modelPath: string): GltfNode {
