@@ -1,4 +1,3 @@
-import { mkdir, mkdtemp, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js'
@@ -52,12 +51,9 @@ export async function parseGltfWithLoader(modelPath: string): Promise<ParsedProd
       extension.dispose()
     }
   }
-  const tempRoot = path.join(ROOT, 'scratch')
-  await mkdir(tempRoot, { recursive: true })
-  const workDir = await mkdtemp(path.join(tempRoot, 'shipped-gltf-'))
-  const strippedPath = path.join(workDir, 'model.glb')
-  await io.write(strippedPath, doc)
-  const bytes = await readFile(strippedPath)
+  // The stripped copy lives in memory only: the loader parses the bytes the
+  // write produces, and no file outlives the parse.
+  const bytes = await io.writeBinary(doc)
   const arrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
 
   await MeshoptDecoder.ready
