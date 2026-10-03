@@ -26,7 +26,10 @@ describe('resolveOptimizeSettings', () => {
       uastcRdo: true,
       uastcRdoMultithreading: false,
       uastcRdoLambda: 4,
+      uastcZstd: 18,
       etc1sQuality: 255,
+      ktxThreads: 1,
+      ktxJobs: 4,
       textureMaxSize: 2048,
       occlusionTextureMaxSize: 2048,
     })
