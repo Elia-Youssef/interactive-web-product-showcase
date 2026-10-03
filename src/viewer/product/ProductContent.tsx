@@ -1,5 +1,4 @@
-import { useCallback, useMemo, type ReactNode } from 'react'
-import { useGLTF } from '@react-three/drei'
+import { use, useCallback, useMemo, type ReactNode } from 'react'
 import { productModelUrl, type Product } from '@lib/product'
 import { useAppStore } from '@store/index'
 import { measureModelFrame } from '../modelFrame'
@@ -8,10 +7,9 @@ import { parseProductRig } from '../rig/parseProductRig'
 import { summarizeProductRig } from '../rig/summary'
 import { useStageHold } from '../stageHoldsContext'
 import { disposeProductScene } from './dispose'
-import { useProductKtx2Loader } from './DecoderProvider'
+import { useProductModelLoads } from './ProductModelsProvider'
 import { LoadedProductContext, type LoadedProduct } from './loadedProduct'
 import { readFinishMaterials } from './finishMaterials'
-import { wireProductDecoders, type GltfLoaderLike } from './decoders'
 import { useProductPresentation } from './useProductPresentation'
 
 type ProductContentProps = {
@@ -21,7 +19,7 @@ type ProductContentProps = {
 }
 
 // The loaded product inside the Canvas: it loads the model through the
-// stage's own decoders, parses the rig, measures the frame once, renders the
+// stage's own model loads, parses the rig, measures the frame once, renders the
 // scene centered on the origin, and hands the stage life (the home
 // presentation, the settle, the ready report) to the presentation hook. Its
 // extensions mount with it and read the loaded product from context.
@@ -31,17 +29,13 @@ type ProductContentProps = {
 export function ProductContent({ manifest, children }: ProductContentProps) {
   const slug = manifest.slug
   const url = productModelUrl(slug)
-  const ktx2 = useProductKtx2Loader()
+  const models = useProductModelLoads()
   const productReady = useAppStore((state) => state.productReady)
 
-  const extendLoader = useCallback(
-    (loader: GltfLoaderLike) => wireProductDecoders(loader, ktx2),
-    [ktx2],
-  )
-
-  // Drei's own draco and meshopt paths stay off (false, false): the extend
-  // callback below is the whole decoding setup, and none of it is a CDN.
-  const gltf = useGLTF(url, false, false, extendLoader)
+  // The load entry is the same object on every render while it is live, so
+  // the suspension resumes on the very promise it suspended on.
+  const model = models.read(url)
+  const gltf = use(model.value)
 
   // The parse is part of the render: a model that breaks the contract fails
   // here, once, with every problem listed, and the boundary reports it.
@@ -74,12 +68,12 @@ export function ProductContent({ manifest, children }: ProductContentProps) {
 
   // The loaded product's lifetime is this component's hold on it. Once the
   // hold is gone for good, the scene is disposed with every finish material
-  // the load resolved, and the suspense cache entry is cleared, so the next
-  // mount loads fresh instead of reusing a released tree.
+  // the load resolved, and the load is forgotten, so the next mount loads
+  // fresh instead of reusing a released tree.
   const releaseScene = useCallback(() => {
     disposeProductScene(gltf.scene, finishes)
-    useGLTF.clear(url)
-  }, [gltf.scene, finishes, url])
+    models.forget(model)
+  }, [gltf.scene, finishes, models, model])
   useStageHold(gltf.scene, releaseScene)
 
   // A failure is thrown to the boundary that owns the product's failures,

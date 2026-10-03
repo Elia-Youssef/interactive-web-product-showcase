@@ -16,8 +16,8 @@ import { mappedSceneNodes, type GltfAssociation } from './mappedSceneNodes'
 // load resolves, resolves every material the plan names through the
 // parser's own cache, derives the material every mapped mesh shows for
 // every index its plan entry can give it, records every material the scene
-// carries at that moment, and hands all of it to the parser, so useGLTF
-// resolves with all of them ready and a switch never loads and never has
+// carries at that moment, and hands all of it to the parser, so the model
+// load resolves with all of them ready and a switch never loads and never has
 // to re-derive.
 
 // What the glTF loader recorded about one object it built is declared with
@@ -214,9 +214,8 @@ export interface FinishLoaderLike {
 }
 
 // The one factory the wiring registers. It is a stable module function on
-// purpose: the loader collects the factories it was given, and the product
-// path re-wires the same loader instance on every load, so a fresh closure
-// per call would grow the loader's plugin list for the page's lifetime. A
+// purpose: the loader collects the factories it was given and dedupes them
+// by identity, so wiring a loader twice never grows its plugin list. A
 // parse constructs its own resolver from its own parser.
 function finishResolverFactory(parser: FinishParserLike): FinishMaterialsResolver {
   return new FinishMaterialsResolver(parser)

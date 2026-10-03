@@ -47,8 +47,9 @@ for (const product of products) {
     const baseline = await waitForSettledMemory(page)
 
     for (let cycle = 1; cycle <= 3; cycle += 1) {
-      // Mount: a fresh load every time, because each teardown clears the
-      // suspense cache, and its resources sit on top of the empty baseline.
+      // Mount: a fresh load every time, because each teardown forgets the
+      // stage's load of the model, and its resources sit on top of the empty
+      // baseline.
       await toggle.click()
       await waitForProductReady(page)
       expect(await page.evaluate(() => window.__viewer?.model ?? null)).toEqual(presented)

@@ -7,7 +7,7 @@ import { StageAlert } from './StageAlert'
 import { RendererErrorBoundary } from './RendererErrorBoundary'
 import { RendererRig } from './RendererRig'
 import { StageCamera } from './camera/StageCamera'
-import { ProductDecoderProvider } from './product/DecoderProvider'
+import { ProductModelsProvider } from './product/ProductModelsProvider'
 import { StageEnvironment } from './StageEnvironment'
 import { initFailureReason } from '@lib/renderer/initFailure'
 import type { StageRendererStart } from './rendererFactory'
@@ -22,8 +22,8 @@ type StageCanvasProps = {
   // Reports a renderer that could not start on either backend.
   readonly onInitError: (error: Error) => void
   // The scene content the stage shows: mounted after the rig and the frame
-  // observer, under one null-fallback Suspense boundary and the decoder
-  // provider, so an async load never crosses the canvas and every loader
+  // observer, under one null-fallback Suspense boundary and the model
+  // provider, so an async load never crosses the canvas and every model
   // decodes through the renderer's own decoders.
   readonly content?: ReactNode
 }
@@ -50,7 +50,7 @@ export function StageCanvas({
         <StageCamera>
           <Suspense fallback={null}>
             <StageEnvironment />
-            <ProductDecoderProvider>{content}</ProductDecoderProvider>
+            <ProductModelsProvider>{content}</ProductModelsProvider>
           </Suspense>
         </StageCamera>
       </Canvas>
