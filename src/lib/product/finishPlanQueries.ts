@@ -1,15 +1,25 @@
-import type { FinishPlan, FinishPrimitivePlan } from '@lib/product'
+import type { FinishPlan, FinishPrimitivePlan } from './variants'
+import { finishEntryMaterialIndexes } from './variants'
 
-// The pure finish math the controller runs per application: which plan
-// entries are mapped, and which material index an entry carries for one
-// variant. No React, no three.js: the scene walk that uses this lives in
-// the controller.
+// The finish plan queries every consumer of a loaded finish plan shares:
+// the loader's resolver derives the mapped primitives' materials from these
+// tables at load, and the variants controller switches and reads them at
+// runtime. Pure math over the plan: no React, no three.js; the scene walk
+// that uses it lives one layer up.
 
 // The key a mapped mesh primitive is reported under in the automation's
 // finish record: the glTF mesh and primitive indexes, the identity the
 // file's own tables carry and nothing the loader renamed.
 export function finishPrimitiveKey(mesh: number, primitive: number): string {
   return `${mesh}:${primitive}`
+}
+
+// The key one derived material sits under in a load's finish table: the
+// mapped primitive and the material index, the pair the derivation ran
+// for. One material index can derive to one material per primitive, since
+// the loader reads each mesh's geometry for its clone flags.
+export function finishDerivedKey(mesh: number, primitive: number, materialIndex: number): string {
+  return `${finishPrimitiveKey(mesh, primitive)}:${materialIndex}`
 }
 
 // The mapped entries of a plan: the primitives the variants extension
@@ -37,25 +47,28 @@ export function finishMaterialIndex(entry: FinishPrimitivePlan, variantIndex: nu
   return entry.defaultMaterial
 }
 
+// Whether one mapped entry is dressed under a variant at all: the mapping
+// names it, or the primitive default stands in. An entry the plan cannot
+// dress is no candidate for what the meshes carry: the apply path refuses
+// it the same way.
+export function prescribesMaterial(entry: FinishPrimitivePlan, variantIndex: number): boolean {
+  return entry.variantMaterials.has(variantIndex) || entry.defaultMaterial !== null
+}
+
 // The geometry and material pairs a load's precompile must cover: every
 // mapped mesh, with every material its entry could dress it in, default
 // and mapped alike. A pipeline is keyed by the geometry's attributes as
 // well as the material, so a material compiled on one mesh's geometry is
 // not the pipeline another mesh's switch uses; the pairs say so exactly.
-export function precompilePairs(
-  plan: FinishPlan,
-): readonly { readonly mesh: number; readonly materialIndex: number }[] {
-  const pairs: { mesh: number; materialIndex: number }[] = []
+export function precompilePairs(plan: FinishPlan): readonly {
+  readonly mesh: number
+  readonly primitive: number
+  readonly materialIndex: number
+}[] {
+  const pairs: { mesh: number; primitive: number; materialIndex: number }[] = []
   for (const entry of mappedFinishEntries(plan)) {
-    const seen = new Set<number>()
-    if (entry.defaultMaterial !== null) {
-      seen.add(entry.defaultMaterial)
-    }
-    for (const materialIndex of entry.variantMaterials.values()) {
-      seen.add(materialIndex)
-    }
-    for (const materialIndex of seen) {
-      pairs.push({ mesh: entry.mesh, materialIndex })
+    for (const materialIndex of finishEntryMaterialIndexes(entry)) {
+      pairs.push({ mesh: entry.mesh, primitive: entry.primitive, materialIndex })
     }
   }
   return pairs

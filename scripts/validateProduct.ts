@@ -6,16 +6,16 @@ import type { NodeIO } from '@gltf-transform/core'
 import { countDrawCalls } from './drawCalls.ts'
 import { createModelIO } from './modelIo.ts'
 import type { ParseProduct } from './manifestIo.ts'
-import { readManifestFile } from './manifestIo.ts'
+import { loadCameraContract, readManifestFile } from './manifestIo.ts'
 import { productPaths, repoPath, type ProductPaths } from './productPaths.ts'
 import { describeTextures, fileSizeBytes, formatBytes } from './report.ts'
 import { readProductStructure, type ProductStructure } from './structure.ts'
 import {
   checkBudgets,
-  checkCameras,
   checkEncoding,
   checkExplode,
   checkFinishes,
+  checkGeometry,
   checkHotspots,
   checkManifest,
   checkResult,
@@ -26,6 +26,7 @@ import {
   type ProductValidation,
   type TextureFact,
 } from './validateChecks.ts'
+import { checkCameras } from './validateCameras.ts'
 
 function reasonOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
@@ -127,6 +128,7 @@ export async function validateShippedProduct(
 ): Promise<ProductValidation> {
   const io = await createModelIO()
   const paths = productPaths(root, slug)
+  const contract = await loadCameraContract()
   const manifestSide = await loadManifest(root, paths, parseProduct)
   const modelSide = await loadModel(io, root, paths)
   const checks: CheckResult[] = [manifestSide.check, modelSide.check]
@@ -136,7 +138,8 @@ export async function validateShippedProduct(
   if (manifest !== null && structure !== null) {
     checks.push(
       checkHotspots(manifest, structure),
-      checkCameras(manifest, structure),
+      checkCameras(manifest, structure, contract),
+      checkGeometry(structure),
       checkFinishes(manifest, structure),
       checkExplode(manifest, structure),
     )
@@ -145,6 +148,7 @@ export async function validateShippedProduct(
     checks.push(
       skippedCheck('hotspots', reason),
       skippedCheck('cameras', reason),
+      skippedCheck('geometry', reason),
       skippedCheck('finishes', reason),
       skippedCheck('explode', reason),
     )

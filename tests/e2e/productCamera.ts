@@ -1,20 +1,31 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { Camera } from '@gltf-transform/core'
-import { getBounds, type mat4, type Node as GltfNode, type vec3 } from '@gltf-transform/core'
+import type { Camera, Document } from '@gltf-transform/core'
+import type { Node as GltfNode, vec3 } from '@gltf-transform/core'
+import { frameSpanOfMeshBoxes } from '../../src/lib/camera/frame.ts'
 import { createModelIO } from '../../scripts/modelIo.ts'
+import { readCameraFacts, readMeshBoxes } from '../../scripts/modelFacts.ts'
+
+// The authored ray of one camera: the world position, the world forward
+// unit vector and the vertical fov in radians, as the camera facts carry it.
+type AuthoredCameraRay = {
+  readonly position: readonly [number, number, number]
+  readonly forward: readonly [number, number, number]
+  readonly fovY: number
+}
 
 // The authored camera facts of a shipped product, computed in Node straight
-// from the `.glb` the site ships: the model center and the home camera view
-// with its orbit numbers. The camera specs derive their expectations from
-// these facts, never from the viewer's own code, so a viewer regression
-// cannot hide behind its own math. getBounds reads every POSITION vertex
-// through the same Meshopt setup the asset pipeline reads with, already
-// denormalized and transformed by its node's world matrix, which is the box
-// the runtime's frame measure spans.
+// from the `.glb` the site ships: the model frame and the home camera view
+// with its orbit numbers. The frame center comes from the one shared frame
+// function over the document facts, the same numbers the build-time
+// validate step checks; the projection onto the view ray and the orbit
+// angles are computed here, in this module, the way the base computed them.
+// So the specs' expectations stand on the shipped file and on unit-tested
+// pure math, never on the viewer's runtime state, and a viewer regression
+// cannot hide behind its own math.
 
 export type ProductCameraFacts = {
-  // The center of the scene's bounding box, in the model's own space.
+  // The center of the model's bounding box, in the model's own space.
   readonly center: vec3
   readonly home: AuthoredHomeView
 }
@@ -44,20 +55,20 @@ export async function readProductCameraFacts(slug: string): Promise<ProductCamer
   const io = await createModelIO()
   const modelPath = path.join(ROOT, 'public', 'models', slug, 'model.glb')
   const doc = await io.read(modelPath)
-  const root = doc.getRoot()
+  return productCameraFactsOf(doc, modelPath)
+}
 
-  const scene = root.listScenes()[0]
-  if (scene === undefined) {
-    throw new Error(`no scene in ${modelPath}`)
-  }
-  const bounds = getBounds(scene)
-  const center: vec3 = [
-    (bounds.min[0] + bounds.max[0]) / 2,
-    (bounds.min[1] + bounds.max[1]) / 2,
-    (bounds.min[2] + bounds.max[2]) / 2,
-  ]
-
-  const homeNode = root.listNodes().find((node: GltfNode) => node.getName() === HOME_CAMERA_NAME)
+// The camera facts of one product document: the frame center and the home
+// view. A home camera with no authored aspect fails here by name: the
+// aspect is a contract fact the specs derive their scaling from, and the
+// build-time validate step rejects a camera without one.
+export function productCameraFactsOf(doc: Document, modelPath: string): ProductCameraFacts {
+  const frame = frameSpanOfMeshBoxes(readMeshBoxes(doc))
+  const center: vec3 = [frame.center[0], frame.center[1], frame.center[2]]
+  const homeNode = doc
+    .getRoot()
+    .listNodes()
+    .find((node: GltfNode) => node.getName() === HOME_CAMERA_NAME)
   if (homeNode === undefined) {
     throw new Error(`no ${HOME_CAMERA_NAME} node in ${modelPath}`)
   }
@@ -65,34 +76,43 @@ export async function readProductCameraFacts(slug: string): Promise<ProductCamer
   if (camera === null || camera.getType() !== 'perspective') {
     throw new Error(`${HOME_CAMERA_NAME} in ${modelPath} carries no perspective camera`)
   }
-  return { center, home: authoredHomeViewOf(homeNode, camera, center) }
+  const aspect = camera.getAspectRatio()
+  if (aspect === null) {
+    throw new Error(`${HOME_CAMERA_NAME} in ${modelPath} carries no aspect ratio`)
+  }
+  const homeFact = readCameraFacts(doc).find((fact) => fact.name === HOME_CAMERA_NAME)
+  if (homeFact === undefined || homeFact.ray === null) {
+    throw new Error(`${HOME_CAMERA_NAME} in ${modelPath} carries no authored camera ray`)
+  }
+  return { center, home: authoredHomeViewOf(camera, aspect, homeFact.ray, frame.center) }
 }
 
-// The home view of one authored camera node, in stage space: the centered
+// The home view of the authored camera, in stage space: the centered
 // position, the orbit target the view ray's closest point to the model
 // center is, the authored lens, and the orbit numbers.
-function authoredHomeViewOf(homeNode: GltfNode, camera: Camera, center: vec3): AuthoredHomeView {
-  const world = homeNode.getWorldMatrix()
-  const position = transformPoint(world, [0, 0, 0])
-  // A glTF camera looks down its local -Z, so the forward is that column
-  // of the world rotation, normalized.
-  const forward = normalize(transformDirection(world, [0, 0, -1]))
+function authoredHomeViewOf(
+  camera: Camera,
+  aspect: number,
+  ray: AuthoredCameraRay,
+  center: AuthoredCameraRay['position'],
+): AuthoredHomeView {
   const stagePosition: vec3 = [
-    position[0] - center[0],
-    position[1] - center[1],
-    position[2] - center[2],
+    ray.position[0] - center[0],
+    ray.position[1] - center[1],
+    ray.position[2] - center[2],
   ]
-  // The orbit target is the point on the view ray closest to the
-  // stage-space model center, the origin: the projection of the origin.
+  // The orbit target is the point on the view ray closest to the stage
+  // origin: the projection of the origin onto the ray, computed here so the
+  // specs' expectations do not stand on the viewer's own math.
   const along = -(
-    stagePosition[0] * forward[0] +
-    stagePosition[1] * forward[1] +
-    stagePosition[2] * forward[2]
+    stagePosition[0] * ray.forward[0] +
+    stagePosition[1] * ray.forward[1] +
+    stagePosition[2] * ray.forward[2]
   )
   const target: vec3 = [
-    stagePosition[0] + forward[0] * along,
-    stagePosition[1] + forward[1] * along,
-    stagePosition[2] + forward[2] * along,
+    stagePosition[0] + ray.forward[0] * along,
+    stagePosition[1] + ray.forward[1] * along,
+    stagePosition[2] + ray.forward[2] * along,
   ]
   const offset: vec3 = [
     stagePosition[0] - target[0],
@@ -100,39 +120,17 @@ function authoredHomeViewOf(homeNode: GltfNode, camera: Camera, center: vec3): A
     stagePosition[2] - target[2],
   ]
   const distance = Math.sqrt(offset[0] * offset[0] + offset[1] * offset[1] + offset[2] * offset[2])
-
   return {
     position: stagePosition,
     target,
-    fovY: camera.getYFov(),
-    aspect: camera.getAspectRatio() ?? 1,
+    fovY: ray.fovY,
+    aspect,
     near: camera.getZNear(),
     far: camera.getZFar(),
     azimuthDegrees: (Math.atan2(offset[0], offset[2]) * 180) / Math.PI,
     polarDegrees: (Math.acos(clampUnit(offset[1] / distance)) * 180) / Math.PI,
     distance,
   }
-}
-
-function transformPoint(m: mat4, v: vec3): vec3 {
-  return [
-    m[0] * v[0] + m[4] * v[1] + m[8] * v[2] + m[12],
-    m[1] * v[0] + m[5] * v[1] + m[9] * v[2] + m[13],
-    m[2] * v[0] + m[6] * v[1] + m[10] * v[2] + m[14],
-  ]
-}
-
-function transformDirection(m: mat4, v: vec3): vec3 {
-  return [
-    m[0] * v[0] + m[4] * v[1] + m[8] * v[2],
-    m[1] * v[0] + m[5] * v[1] + m[9] * v[2],
-    m[2] * v[0] + m[6] * v[1] + m[10] * v[2],
-  ]
-}
-
-function normalize(v: vec3): vec3 {
-  const length = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])
-  return [v[0] / length, v[1] / length, v[2] / length]
 }
 
 function clampUnit(value: number): number {

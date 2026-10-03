@@ -9,6 +9,13 @@ import {
   KHRMaterialsVariants,
   type MappingList,
 } from '@gltf-transform/extensions'
+import { authoredCameraAspect } from '../src/lib/camera/config.ts'
+import { cameraContractProblems } from '../src/lib/camera/contract.ts'
+import type { CameraContract } from './manifestIo.ts'
+
+// The camera contract the check suites run, as the real module export: one
+// fixture, imported by every suite that calls the camera check.
+export const cameraContract: CameraContract = { cameraContractProblems }
 
 // Where the fixture hotspots hang. The two kinds are distinct tags, not one
 // string, so parenting to a node literally named 'scene' stays expressible
@@ -16,11 +23,33 @@ import {
 export type HotspotParent =
   { readonly kind: 'node'; readonly name: string } | { readonly kind: 'scene' }
 
+// The pose every fixture camera carries. A camera looks down its local -Z,
+// so an identity rotation from the given position looks straight at the
+// fixture model's center; the rotation quaternion re-aims it. The aspect
+// plants the camera contract's cases: the authored ratio to pass, any other
+// ratio to fail it, and null for a camera with none.
+export type CameraPose = {
+  readonly position: [number, number, number]
+  readonly rotation?: [number, number, number, number]
+  readonly fovYDegrees: number
+  readonly aspect: number | null
+}
+
+// The pose the fixture contract passes on: the model framed from the front,
+// at the authored aspect, with the home distance clearing the fixture
+// model's radius.
+export const PASSING_CAMERA_POSE: CameraPose = {
+  position: [1, 1, 4],
+  fovYDegrees: 30,
+  aspect: authoredCameraAspect,
+}
+
 export type DocumentOptions = {
   // HS_ node names, parented to the named node (or the scene root).
   hotspotNames?: string[]
   hotspotParent?: HotspotParent
   cameraNames?: string[]
+  cameraPose?: CameraPose
   variantNames?: string[]
   animationNames?: string[]
   // Whether the document carries the Meshopt extension mark.
@@ -97,9 +126,17 @@ function addHotspots(doc: Document, names: readonly string[], parent: HotspotPar
   }
 }
 
-function addCameras(doc: Document, names: readonly string[]): void {
+function addCameras(doc: Document, names: readonly string[], pose: CameraPose): void {
   for (const name of names) {
-    addSceneNode(doc, doc.createNode(name).setCamera(doc.createCamera(name)))
+    const camera = doc
+      .createCamera(name)
+      .setYFov((pose.fovYDegrees * Math.PI) / 180)
+      .setAspectRatio(pose.aspect)
+    const node = doc.createNode(name).setCamera(camera).setTranslation(pose.position)
+    if (pose.rotation !== undefined) {
+      node.setRotation(pose.rotation)
+    }
+    addSceneNode(doc, node)
   }
 }
 
@@ -145,12 +182,14 @@ function addAnimations(doc: Document, names: readonly string[]): void {
 }
 
 // The contract document every check passes on: two parts, the hotspots on a
-// part, both cameras, the variants, one clip per given name, Meshopt marked.
+// part, both cameras in the passing pose, the variants, one clip per given
+// name, Meshopt marked.
 export function buildDocument(options: DocumentOptions = {}): Document {
   const {
     hotspotNames,
     hotspotParent = { kind: 'node', name: 'PART_base' },
     cameraNames = ['CAM_home', 'CAM_driver'],
+    cameraPose = PASSING_CAMERA_POSE,
     variantNames = ['sage', 'graphite'],
     animationNames = ['Explode'],
     meshopt = true,
@@ -161,7 +200,7 @@ export function buildDocument(options: DocumentOptions = {}): Document {
   addPartMesh(doc, 'PART_base')
   addPartMesh(doc, 'PART_knob')
   addVariants(doc, variantNames)
-  addCameras(doc, cameraNames)
+  addCameras(doc, cameraNames, cameraPose)
   addHotspots(doc, hotspotNames ?? [], hotspotParent)
   addAnimations(doc, animationNames)
   if (meshopt) {

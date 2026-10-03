@@ -3,6 +3,19 @@
 // without the CLI or a file.
 import { describe, expect, it } from 'vitest'
 import { findStructureLosses, type HotspotAnchor, type ProductStructure } from './structure.ts'
+import type { GeometryFacts } from './modelFacts.ts'
+
+// The geometry facts a structure fixture without shapes carries.
+const noGeometry: GeometryFacts = {
+  primitives: 0,
+  primitivesNotTriangles: 0,
+  primitivesWithoutPosition: 0,
+  primitivesWithMorphTargets: 0,
+  skins: 0,
+  gpuInstancing: false,
+  scenes: 0,
+  nodeNamesOutsideScene: [],
+}
 
 function structureWith(hotspotAnchors: readonly HotspotAnchor[]): ProductStructure {
   return {
@@ -15,6 +28,9 @@ function structureWith(hotspotAnchors: readonly HotspotAnchor[]): ProductStructu
     unlitMaterialNames: [],
     occlusionMaterialNames: [],
     meshoptCompressed: false,
+    cameraFacts: [],
+    meshBoxes: [],
+    geometry: noGeometry,
   }
 }
 

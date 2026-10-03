@@ -12,6 +12,7 @@ import { createTypeScriptImportResolver } from 'eslint-import-resolver-typescrip
 import type { Linter } from 'eslint'
 import {
   extensionGlob,
+  fixtureMarker,
   jsxExtensions,
   scriptExtensions,
   sourceExtensions,
@@ -20,11 +21,17 @@ import {
 } from './extensions.ts'
 import { layerConfigs } from './eslintLayers.ts'
 import { sourcePolicyPlugin } from './sourcePolicy.ts'
+import {
+  frameLoopRestriction,
+  frameLoopSyntaxRestrictions,
+  stageFrameModules,
+} from './frameLoopRule.ts'
 
 const SCRIPT_GLOB = `**/*.${extensionGlob(scriptExtensions)}`
 const SRC_SCRIPT_GLOB = `src/**/*.${extensionGlob(scriptExtensions)}`
 const JSX_GLOB = `**/*.${extensionGlob(jsxExtensions)}`
 const TEST_GLOB = testFileGlob(testFileMarkers, sourceExtensions)
+const FIXTURE_GLOB = testFileGlob([fixtureMarker], sourceExtensions)
 
 // The extensions the import-x cycle rule must parse with the TypeScript
 // parser: every source extension the gate accepts, derived, so a new source
@@ -68,6 +75,12 @@ const compileWalkEntries = compileWalkNames.map((name) => ({
     'Pipelines are built on the frame path; a compile walk yields to the frame scheduling of the engine and can park the settle chain on a frame that never comes.',
 }))
 
+// The frame loop's doors past the import rule, from the one rule module.
+const frameLoopSyntaxEntries = frameLoopSyntaxRestrictions.map(({ selector, message }) => ({
+  selector,
+  message,
+}))
+
 // The e2e polls that would ride the runner's implicit timeout, one selector
 // per shape, so each poll is reported once: no second argument, a message
 // string where the options belong, and an options object with no timeout.
@@ -84,6 +97,29 @@ const pollBudgetEntries = pollBudgetSelectors.map((selector) => ({
   message:
     'A poll names its budget: pass a timeout from the budget module, never the runner default.',
 }))
+
+// The raw capture calls of the e2e suite. The member itself is selected, one
+// selector per spelling of the property: the identifier form, and the string
+// literal form that a call, a lift or a reference can hide behind. A capture
+// that does not go through the capture module races the dev HUD's drain,
+// whose content-sized box resizes between captures, so its mask covers
+// different pixels on each shot.
+const captureMessages = [
+  {
+    name: 'screenshot',
+    message:
+      'A capture goes through the capture module (tests/e2e/stageCapture.ts): its entries own the standard mask, and the settled one waits for the settled stage, so compared captures of a run cover the same box.',
+  },
+  {
+    name: 'toHaveScreenshot',
+    message:
+      'A visual snapshot goes through the capture module (tests/e2e/stageCapture.ts): its entries own the standard mask, and the settled one waits for the settled stage, so every run covers the same box.',
+  },
+]
+const captureEntries = captureMessages.flatMap(({ name, message }) => [
+  { selector: `MemberExpression[property.name='${name}']`, message },
+  { selector: `MemberExpression[property.value='${name}']`, message },
+])
 
 function parserConfigs(): Linter.Config[] {
   return [
@@ -148,10 +184,26 @@ function sharedRulesConfig(): Linter.Config {
   }
 }
 
+// The import specifier of a fixture module, extensionless or fully
+// extensioned: the one shape the production restriction below matches.
+const fixtureImportPattern = '\\.fixtures(\\.[cm]?[jt]sx?)?$'
+
+const fixtureImportRestriction = {
+  regex: fixtureImportPattern,
+  message:
+    'Fixture modules are test support: only test files and other fixture modules import them (tooling/eslintLayers.ts).',
+}
+
 // The source policy of src/, applied after the shared rules. A flat config
 // object replaces a rule wholesale for its files, so the restricted-syntax
 // entry here carries the shared selectors with it: src files keep the
-// double-assertion ban and gain the compile-walk ban on top.
+// double-assertion ban and gain the compile-walk ban and the frame loop's
+// syntax doors on top. The restricted imports entry carries two rules:
+// fixture modules are test support, so production code never imports them,
+// and content code never subscribes to R3F's frame loop itself. The
+// exemptions below switch the import rule off where fixtures are legal and
+// restate both rules without the frame loop for the stage's frame
+// modules.
 function srcPolicyConfig(): Linter.Config {
   return {
     files: [SRC_SCRIPT_GLOB],
@@ -173,6 +225,29 @@ function srcPolicyConfig(): Linter.Config {
         },
       ],
       'source-policy/known-source-extension': 'error',
+      'no-restricted-imports': [
+        'error',
+        { patterns: [fixtureImportRestriction], paths: [frameLoopRestriction] },
+      ],
+      'no-restricted-syntax': [
+        'error',
+        ...doubleAssertionEntries,
+        ...compileWalkEntries,
+        ...frameLoopSyntaxEntries,
+      ],
+    },
+  }
+}
+
+// The stage's frame modules subscribe to R3F's frame loop: that is their
+// job. A flat config object replaces a rule wholesale for its files, so this
+// entry restates the fixture restriction and the shared selectors without
+// the frame loop's.
+function stageFrameExemptionConfig(): Linter.Config {
+  return {
+    files: stageFrameModules,
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [fixtureImportRestriction] }],
       'no-restricted-syntax': ['error', ...doubleAssertionEntries, ...compileWalkEntries],
     },
   }
@@ -187,18 +262,46 @@ function testExemptionConfig(): Linter.Config {
   }
 }
 
+// Test files and fixture modules are the two importers the fixture rule
+// allows. A flat config object replaces a rule wholesale for its files, so
+// this entry switches the whole restricted-imports rule off for them: a
+// fixture module importing another fixture module is the module's own
+// purpose, and no src production config applies outside src/ anyway.
+function fixtureExemptionConfig(): Linter.Config {
+  return {
+    files: [TEST_GLOB, FIXTURE_GLOB],
+    rules: { 'no-restricted-imports': 'off' },
+  }
+}
+
 // Fixture functions in the tests folder that deliberately take no fixtures
 // still destructure an object: the test-runner convention for an empty
 // dependency set. The relaxation stays in the folder, so production code
 // keeps the plain rule above. The folder's restricted syntax carries the
-// shared selectors with it, since a flat config object replaces a rule
-// wholesale, and adds the poll budget rule on top.
+// shared selectors and the poll budget rule; the raw-capture ban rides on
+// top everywhere but the helper module the ban points at, whose files
+// re-declare the folder's list without the ban, since a flat config object
+// replaces a rule wholesale.
+const testsFolderEntries = [...doubleAssertionEntries, ...pollBudgetEntries]
+const testsCaptureEntries = [...testsFolderEntries, ...captureEntries]
+
 function testsFolderConfig(): Linter.Config {
   return {
     files: ['tests/**'],
     rules: {
       'no-empty-pattern': ['error', { allowObjectPatternsAsParameters: true }],
-      'no-restricted-syntax': ['error', ...doubleAssertionEntries, ...pollBudgetEntries],
+      'no-restricted-syntax': ['error', ...testsCaptureEntries],
+    },
+  }
+}
+
+// The one module whose job is to take the suite's raw captures: the capture
+// helper. Its files keep the folder's other restricted-syntax entries.
+function stageCaptureHelperConfig(): Linter.Config {
+  return {
+    files: ['tests/e2e/stageCapture.ts'],
+    rules: {
+      'no-restricted-syntax': ['error', ...testsFolderEntries],
     },
   }
 }
@@ -210,8 +313,11 @@ export function createConfig({ root }: { root: string }) {
     tseslint.configs.recommended,
     sharedRulesConfig(),
     srcPolicyConfig(),
+    stageFrameExemptionConfig(),
     testExemptionConfig(),
+    fixtureExemptionConfig(),
     testsFolderConfig(),
+    stageCaptureHelperConfig(),
     ...layerConfigs(root),
     // Formatting belongs to Prettier: every stylistic ESLint rule goes off.
     prettier,

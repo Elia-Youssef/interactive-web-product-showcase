@@ -1,24 +1,32 @@
 // The validate checks, over contract documents built in memory with
 // @gltf-transform/core (no Blender, no KTX-Software). Every case builds the
 // fact its rule reads, runs the check group, and asserts the exact
-// violation messages: the report's wording is part of the contract.
+// violation messages: the report's wording is part of the contract. The
+// camera contract check's cases live in validateCameras.test.ts.
 import { describe, expect, it } from 'vitest'
 import { parseProduct } from '../src/lib/product/index.ts'
 import type { Product, ProductInput } from '../src/lib/product/index.ts'
 import { readProductStructure } from './structure.ts'
-import { buildDocument, addRootNode, nodeNamed, type DocumentOptions } from './validateFixtures.ts'
+import {
+  buildDocument,
+  addRootNode,
+  cameraContract,
+  nodeNamed,
+  type DocumentOptions,
+} from './validateFixtures.ts'
 import {
   checkBudgets,
-  checkCameras,
   checkEncoding,
   checkExplode,
   checkFinishes,
+  checkGeometry,
   checkHotspots,
   checkManifest,
   type BudgetFacts,
   type EncodingFacts,
   type TextureFact,
 } from './validateChecks.ts'
+import { checkCameras } from './validateCameras.ts'
 
 // The hotspots of the fixture manifest, on the fixture document's parts.
 const FIXTURE_HOTSPOTS = ['HS_driver', 'HS_knob']
@@ -86,9 +94,10 @@ describe('the validate checks on a contract document', () => {
       violations: [],
       warnings: [],
     })
-    expect(checkCameras(fixture, structure).violations).toEqual([])
+    expect(checkCameras(fixture, structure, cameraContract).violations).toEqual([])
     expect(checkFinishes(fixture, structure).violations).toEqual([])
     expect(checkExplode(fixture, structure).violations).toEqual([])
+    expect(checkGeometry(structure).status).toBe('pass')
     expect(checkEncoding(passingEncoding).status).toBe('pass')
     expect(checkBudgets(passingBudgets).status).toBe('pass')
   })
@@ -134,21 +143,6 @@ describe('the validate checks on a contract document', () => {
     expect(result.violations).toEqual([
       'hotspot HS_driver is parented to scene root, expected a PART_ node',
     ])
-  })
-
-  it('reports a missing CAM_home', () => {
-    const structure = readProductStructure(buildFixtureDocument({ cameraNames: ['CAM_driver'] }))
-    const result = checkCameras(fixture, structure)
-    expect(result.violations).toEqual(['no CAM_home node, the start and reset view is required'])
-  })
-
-  it('warns, but does not fail, on a camera that is no manifest hotspot', () => {
-    const structure = readProductStructure(
-      buildFixtureDocument({ cameraNames: ['CAM_home', 'CAM_side'] }),
-    )
-    const result = checkCameras(fixture, structure)
-    expect(result.violations).toEqual([])
-    expect(result.warnings).toEqual([`camera CAM_side has no manifest hotspot 'side'`])
   })
 
   it('reports a manifest finish with no variant and an extra variant', () => {

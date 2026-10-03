@@ -55,11 +55,11 @@ export class StageSettle {
   // it presents the same scene state, so it changes no pixels.
   //
   // The step has no failure of its own: the invalidate never throws and the
-  // frame wait only resolves. A render error surfaces where render errors
-  // always surface, as the page's uncaught error out of the engine's frame
-  // loop, and a frame that dies before the stage's observer records it is
-  // never recorded, so a broken present holds the chain instead of
-  // resolving it.
+  // frame wait only resolves. A frame that throws belongs to the stage's
+  // frame path, which halts the frames and fails their owner; a frame that
+  // did not present is never recorded, so a broken present holds the step
+  // until the frames present again, never resolving it on a frame that
+  // failed.
   private async runSettleStep(resources: SettleResources): Promise<void> {
     resources.invalidate()
     await this.clock.onceFrame()

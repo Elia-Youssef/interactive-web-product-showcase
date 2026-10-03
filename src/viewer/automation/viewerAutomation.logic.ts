@@ -1,4 +1,4 @@
-import type { ProductModelCounts, ProductRigSummary } from '@lib/product'
+import type { ProductFailure, ProductModelCounts, ProductRigSummary } from '@lib/product'
 import type { ProductStatus, RendererStatus } from '@store/index'
 
 // The derivation table of the automation's store-backed fields: one pure
@@ -25,9 +25,10 @@ export function productSlugOf(status: ProductStatus): string | null {
   return status.kind === 'idle' ? null : status.slug
 }
 
-// The product's failure reason, or null while the product has not failed.
-export function productFailureOf(status: ProductStatus): string | null {
-  return status.kind === 'failed' ? status.reason : null
+// The product's typed failure, its kind and the facts its channel
+// computed, or null while the product has not failed.
+export function productFailureOf(status: ProductStatus): ProductFailure | null {
+  return status.kind === 'failed' ? status.failure : null
 }
 
 // The rig summary the product's ready status carried out of the parse, or

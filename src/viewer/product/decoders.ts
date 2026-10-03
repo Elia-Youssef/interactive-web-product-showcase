@@ -1,5 +1,5 @@
-// The compressed asset decoding a product needs, wired through the loader
-// Drei's useGLTF hands us. Nothing here reaches a CDN: the KTX2 transcoder
+// The compressed asset decoding a product needs, wired into the stage's
+// product model loader. Nothing here reaches a CDN: the KTX2 transcoder
 // is served from the transcoder path (src/lib/product/transcoderPath.ts,
 // the one module that defines it; scripts/copyBasis.ts keeps the copies
 // fresh) and the Meshopt decoder is bundled from three's own module.
@@ -23,9 +23,8 @@ export function createProductKtx2Loader(renderer: WebGLRenderer | WebGPURenderer
   return new KTX2Loader().setTranscoderPath(basisTranscoderPath).detectSupport(renderer)
 }
 
-// The loader surface the product wiring configures, kept structural: Drei
-// hands the extendLoader callback its own GLTFLoader, whose setters match
-// these signatures at runtime while carrying its own loader types. register
+// The loader surface the product wiring configures, kept structural, so the
+// wiring states exactly what it sets on three's GLTFLoader. register
 // collects the plugin factories a parse constructs its plugin instances
 // from; GLTFLoader dedupes the factories by identity.
 export interface GltfLoaderLike {
@@ -36,9 +35,8 @@ export interface GltfLoaderLike {
 
 // Wires the loader setup a product load needs: the renderer's KTX2 loader,
 // three's bundled Meshopt decoder, and the plugin that loads every finish
-// material with the model instead of on the first switch. Drei's own draco
-// and meshopt paths stay off (useGLTF's false, false), so these calls are
-// the whole setup and none of it is a CDN default.
+// material with the model instead of on the first switch. These calls are
+// the whole setup, and none of it is a CDN default.
 export function wireProductDecoders(loader: GltfLoaderLike, ktx2: KTX2Loader): void {
   loader.setKTX2Loader(ktx2)
   loader.setMeshoptDecoder(MeshoptDecoder)

@@ -30,11 +30,127 @@ export type Point = { readonly x: number; readonly y: number; readonly z: number
 // (camera-controls dist/camera-controls.module.js, `restThreshold = 0.01`.)
 export const REST_THRESHOLD = 0.01
 
+// The float bound of a fraction compared against the one-step rule below:
+// the controls' recurrence and the rule run the same arithmetic in two
+// float paths, so their results differ by a few ulps of one. Measured
+// across the eased moves, the gap stays below nine ulps; the bound is the
+// next power of two of one's ulp.
+export const ONE_STEP_FLOAT_GAP = 16 * Number.EPSILON
+
+// The fraction of its change one eased step from rest moves, with
+// x = 2 dt / smoothTime: the step leaves (1 + x) over
+// (1 + x + 0.48 x^2 + 0.235 x^3) of the change, the velocity term
+// included (camera-controls dist/camera-controls.module.js, smoothDamp).
+// Restated here like the orbit math above, so a viewer regression cannot
+// hide behind its own helper.
+export function oneStepFractionFromRest(smoothTimeSeconds: number, dtSeconds: number): number {
+  const x = (2 * dtSeconds) / smoothTimeSeconds
+  return 1 - (1 + x) / (1 + x + 0.48 * x * x + 0.235 * x * x * x)
+}
+
+// One eased step of an angle channel, restated from camera-controls'
+// smoothDamp (dist/camera-controls.module.js) including its velocity term
+// and its overshoot guard, so a replay of a running move can be compared
+// against the viewer's per-frame reads.
+export function easedAngleStep(options: {
+  readonly currentRadians: number
+  readonly endRadians: number
+  readonly velocityRadiansPerSecond: number
+  readonly smoothTimeSeconds: number
+  readonly dtSeconds: number
+}): { readonly angleRadians: number; readonly velocityRadiansPerSecond: number } {
+  const { currentRadians, endRadians, velocityRadiansPerSecond, smoothTimeSeconds, dtSeconds } =
+    options
+  const smoothTime = Math.max(0.0001, smoothTimeSeconds)
+  const omega = 2 / smoothTime
+  const x = omega * dtSeconds
+  const exp = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x)
+  const change = currentRadians - endRadians
+  const temp = (velocityRadiansPerSecond + omega * change) * dtSeconds
+  const velocity = (velocityRadiansPerSecond - omega * temp) * exp
+  const angle = endRadians + (change + temp) * exp
+  // The overshoot guard, the source's own: a step that would cross the end
+  // lands on it and carries the crossing as velocity.
+  if (endRadians - currentRadians > 0 === angle > endRadians) {
+    return { angleRadians: endRadians, velocityRadiansPerSecond: (endRadians - angle) / dtSeconds }
+  }
+  return { angleRadians: angle, velocityRadiansPerSecond: velocity }
+}
+
+// The two sides of a product's authored camera aspect a stage can sit on.
+// The aspect rule scales every distance on the narrower side and leaves it
+// unscaled on the other, so a proof of the rule needs a stage on each side;
+// a stage on the wide side alone passes with a scale of exactly 1.
+export const ASPECT_SIDES = ['narrower', 'atLeastAsWide'] as const
+export type AspectSide = (typeof ASPECT_SIDES)[number]
+
+const aspectSideWording: Record<AspectSide, string> = {
+  narrower: 'narrower than',
+  atLeastAsWide: 'at least as wide as',
+}
+
+export function describeAspectSide(side: AspectSide): string {
+  return `stage ${aspectSideWording[side]} the authored camera aspect`
+}
+
+// The side of the authored aspect one stage aspect sits on.
+export function aspectSideOf(authoredAspect: number, stageAspect: number): AspectSide {
+  return stageAspect < authoredAspect ? 'narrower' : 'atLeastAsWide'
+}
+
+// The viewport for each side, either side of the tablet breakpoint. At the
+// shared authored camera aspect of every product (1600 x 1422, about 1.125)
+// the 1024 x 768 stage is about 0.904 wide per unit of height and the
+// 768 x 1024 stage about 1.25. Every proof asserts its side on the measured
+// stage through stageAspectOnSide, so a layout or authored aspect that moves
+// a stage across fails by name instead of proving one side twice.
+export const aspectSideViewports: Record<
+  AspectSide,
+  { readonly width: number; readonly height: number }
+> = {
+  narrower: { width: 1024, height: 768 },
+  atLeastAsWide: { width: 768, height: 1024 },
+}
+
+// The measured stage aspect, once it is asserted to sit on the side of the
+// authored aspect the proof needs.
+export async function stageAspectOnSide(
+  page: Page,
+  authoredAspect: number,
+  side: AspectSide,
+): Promise<number> {
+  const stageAspect = await stageAspectOfCanvas(page)
+  expect(
+    aspectSideOf(authoredAspect, stageAspect),
+    `this proof needs a ${describeAspectSide(side)} (stage ${stageAspect}, authored ${authoredAspect})`,
+  ).toBe(side)
+  return stageAspect
+}
+
+// The lens a zoom presents through a base lens, the tangent half-angle
+// rule the view lens rides the controls' zoom channel by. Restated here
+// like the orbit math above, so a viewer regression cannot hide behind its
+// own helper.
+export function lensOfZoom(baseFovY: number, zoom: number): number {
+  return 2 * Math.atan(Math.tan(baseFovY / 2) / zoom)
+}
+
+// The lens band the rest threshold maps to at a base lens: at rest the
+// zoom sits within REST_THRESHOLD of its end, and this is the fov span
+// that zoom error turns into. The eased lens checks compare against this
+// band, derived from the library's threshold, never a tuned number.
+export function lensBandAtRest(baseFovY: number): number {
+  return Math.max(
+    Math.abs(lensOfZoom(baseFovY, 1 + REST_THRESHOLD) - baseFovY),
+    Math.abs(lensOfZoom(baseFovY, 1 - REST_THRESHOLD) - baseFovY),
+  )
+}
+
 // The aspect rule of the stage camera: when the stage is narrower than the
 // authored aspect, every distance scales by authoredAspect over
 // stageAspect; otherwise it is 1.
 export function containedScale(authoredAspect: number, stageAspect: number): number {
-  return stageAspect < authoredAspect ? authoredAspect / stageAspect : 1
+  return aspectSideOf(authoredAspect, stageAspect) === 'narrower' ? authoredAspect / stageAspect : 1
 }
 
 // The camera position the home view names at one stage aspect: the authored

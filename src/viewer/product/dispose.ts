@@ -1,39 +1,54 @@
 import { Line, Mesh, Points, Texture, type Material, type Object3D } from 'three'
 import type { ProductFinishMaterials } from './finishMaterials'
 
-// Disposes everything a loaded product holds: every geometry and material
-// the scene carries, single or per-group array, every texture those
-// materials carry in whatever slots they sit, every finish material the
-// load resolved, applied or not, and every material the scene carried when
-// the load was parsed, which a finish swap may have replaced on the meshes.
-// The product owns all of them, so its one release lets them all go; a
-// material named twice (shared between the scene and a table, or recorded
-// and still applied) simply runs through the passes, and three's dispose
-// calls are idempotent, so the later pass finds nothing left to free. The
-// traversal is safe to run on an already disposed scene.
-export function disposeProductScene(scene: Object3D, finishes: ProductFinishMaterials): void {
+// Disposes everything a loaded product holds: every geometry the scene
+// carries, and every material the four sources name, the scene, the derived
+// table, the raw record and the parse-time record, single or per-group
+// array, with every texture those materials carry in whatever slots they
+// sit. The product owns all of them, so its one release lets them all go;
+// the four sources name one set first, so a material named by several of
+// them, the way a mesh's default derived material sits on the scene and in
+// two tables at once, is disposed exactly once. The traversal is safe to
+// run on an already disposed scene.
+export function disposeProductScene(
+  scene: Object3D,
+  finishes: ProductFinishMaterials | null,
+): void {
+  const materials = new Set<Material>()
   scene.traverse((node) => {
     if (node instanceof Mesh || node instanceof Line || node instanceof Points) {
       node.geometry.dispose()
-      disposeMaterial(node.material)
+      collectMaterial(materials, node.material)
     }
   })
-  for (const material of finishes.materials.values()) {
-    disposeSingleMaterial(material)
+  if (finishes !== null) {
+    collectFinishMaterials(materials, finishes)
   }
-  for (const material of finishes.sceneMaterials) {
+  for (const material of materials) {
     disposeSingleMaterial(material)
   }
 }
 
-function disposeMaterial(material: Material | Material[]): void {
+function collectFinishMaterials(materials: Set<Material>, finishes: ProductFinishMaterials): void {
+  for (const material of finishes.materials.values()) {
+    materials.add(material)
+  }
+  for (const material of finishes.rawMaterials.values()) {
+    materials.add(material)
+  }
+  for (const material of finishes.sceneMaterials) {
+    materials.add(material)
+  }
+}
+
+function collectMaterial(materials: Set<Material>, material: Material | Material[]): void {
   if (Array.isArray(material)) {
     for (const entry of material) {
-      disposeSingleMaterial(entry)
+      materials.add(entry)
     }
     return
   }
-  disposeSingleMaterial(material)
+  materials.add(material)
 }
 
 function disposeSingleMaterial(material: Material): void {

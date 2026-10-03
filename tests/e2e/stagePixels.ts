@@ -53,6 +53,12 @@ export async function decodeScreenshotRGBA(
   }, toBase64(screenshot))
 }
 
+// The brightest pixel the CSS backdrop can produce: the background channels
+// at 16/18/18 plus a white grid line at 0.025 alpha is about 22 per channel,
+// and the vignette only darkens it. The ceiling sits far above that and far
+// below the model's mid tones, so only model pixels can pass it.
+export const backdropCeiling = 60
+
 // Counts the pixels of a viewport screenshot that lie in the given region
 // and are brighter than the CSS backdrop can ever be. The backdrop's
 // brightest pixel is a grid line: the background at rgb(16 18 18) with a

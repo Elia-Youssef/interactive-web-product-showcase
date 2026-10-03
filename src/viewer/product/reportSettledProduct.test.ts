@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import type { ProductFailure } from '@lib/product'
 import { reportSettledProduct } from './reportSettledProduct'
 
 // A settle promise the tests resolve or reject by hand, so the order of the
@@ -34,7 +35,7 @@ async function stillPending(step: Promise<void>): Promise<boolean> {
 function reportStep() {
   const settle = manualSettle()
   const report = vi.fn<() => void>()
-  const fail = vi.fn<(error: Error) => void>()
+  const fail = vi.fn<(failure: ProductFailure) => void>()
   let cancelled = false
   const step = reportSettledProduct({
     settle: settle.promise,
@@ -66,25 +67,22 @@ describe('reportSettledProduct', () => {
     expect(fail).not.toHaveBeenCalled()
   })
 
-  it('routes a settle rejection to the fail callback, never to the report', async () => {
+  it('routes a settle rejection to the fail callback as the typed presentation failure', async () => {
     const { settle, report, fail, step } = reportStep()
-    const cause = new Error('the compile failed')
 
-    settle.reject(cause)
+    settle.reject(new Error('the settle broke'))
     await expect(step).resolves.toBeUndefined()
     expect(fail).toHaveBeenCalledOnce()
-    expect(fail).toHaveBeenCalledWith(cause)
+    expect(fail).toHaveBeenCalledWith({ kind: 'presentation', message: 'the settle broke' })
     expect(report).not.toHaveBeenCalled()
   })
 
-  it('fails with an Error when the rejection is not one', async () => {
+  it('carries the text of a rejection that is not an Error', async () => {
     const { settle, fail, step } = reportStep()
 
-    settle.reject('the compile failed')
+    settle.reject('the settle broke')
     await step
-    const error = fail.mock.calls[0]?.[0]
-    expect(error).toBeInstanceOf(Error)
-    expect(error?.message).toBe('the compile failed')
+    expect(fail).toHaveBeenCalledWith({ kind: 'presentation', message: 'the settle broke' })
   })
 
   it('reports nothing for a settle that resolves after cancellation', async () => {
@@ -101,7 +99,7 @@ describe('reportSettledProduct', () => {
     const { settle, report, fail, step, cancel } = reportStep()
 
     cancel()
-    settle.reject(new Error('the compile failed'))
+    settle.reject(new Error('the settle broke'))
     await expect(step).resolves.toBeUndefined()
     expect(report).not.toHaveBeenCalled()
     expect(fail).not.toHaveBeenCalled()

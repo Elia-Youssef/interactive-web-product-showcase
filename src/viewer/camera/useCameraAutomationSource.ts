@@ -21,7 +21,10 @@ export function useCameraAutomationSource(
   }, [controls, camera, probes])
 }
 
-function readCameraAutomation(
+// The live lens read: the camera's effective fov, the zoom the controls
+// present included, so the automation reports the lens the viewer sees and
+// not the base fov the view lens rides.
+export function readCameraAutomation(
   controls: CameraControlsImpl,
   camera: PerspectiveCamera,
 ): ViewerCameraAutomation {
@@ -32,7 +35,7 @@ function readCameraAutomation(
   return {
     position: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
     target: { x: endTarget.x, y: endTarget.y, z: endTarget.z },
-    fovY: MathUtils.degToRad(camera.fov),
+    fovY: MathUtils.degToRad(camera.getEffectiveFOV()),
     azimuth: controls.azimuthAngle,
     polar: controls.polarAngle,
     distance: controls.distance,
