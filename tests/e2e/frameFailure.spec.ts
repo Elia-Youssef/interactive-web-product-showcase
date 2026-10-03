@@ -55,7 +55,7 @@ for (const product of products) {
       expect(await paintedStagePixels(page)).toBe(clean)
     })
 
-    test(`a ${place} fault under no presented product fails the stage, mounts no content and shows the renderer alert`, async ({
+    test(`a ${place} fault before ${product.slug} presents fails the stage, mounts no content and shows the renderer alert`, async ({
       page,
       backendPath,
     }) => {
