@@ -140,6 +140,13 @@ export class StageOverlay {
     return this.placements.get(key) ?? null
   }
 
+  // Every key's last placement, as a record read at access time: the keys
+  // the canvas side has written, and nothing else. The read is off the
+  // frame path, so it builds a fresh record on every call.
+  placementRecord(): Readonly<Record<string, OverlayPlacement>> {
+    return Object.fromEntries(this.placements)
+  }
+
   private apply(key: string, { element, origin }: OverlayMount): void {
     const placement = this.placements.get(key)
     if (placement === undefined || placement.kind === 'hidden') {

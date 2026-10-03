@@ -7,6 +7,7 @@ import type {
   ViewerFinish,
   ViewerHotspotsAutomation,
   ViewerLook,
+  ViewerOverlay,
 } from './viewerAutomation'
 import { createViewerAutomation, type ViewerAutomationSources } from './viewerAutomation'
 import {
@@ -51,6 +52,10 @@ const hotspots: ViewerHotspotsAutomation = {
   ],
 }
 
+const overlay: ViewerOverlay = {
+  placements: { 'hotspot:driver': { kind: 'placed', x: 120, y: 80 } },
+}
+
 const rig: ProductRigSummary = {
   parts: ['PART_base'],
   hotspots: [],
@@ -70,6 +75,7 @@ function sourcesWith(overrides?: Partial<ViewerAutomationSources>): ViewerAutoma
   probes.register('camera', () => camera)
   probes.register('finish', () => finish)
   probes.register('hotspots', () => hotspots)
+  probes.register('overlay', () => overlay)
   return {
     probes,
     getStatus: () => readyRenderer,
@@ -88,6 +94,7 @@ describe('createViewerAutomation', () => {
     expect(automation.camera).toEqual(camera)
     expect(automation.finish).toEqual(finish)
     expect(automation.hotspots).toEqual(hotspots)
+    expect(automation.overlay).toEqual(overlay)
   })
 
   it('reads null for a probe key no component holds', () => {
@@ -97,6 +104,7 @@ describe('createViewerAutomation', () => {
     expect(automation.camera).toBeNull()
     expect(automation.finish).toBeNull()
     expect(automation.hotspots).toBeNull()
+    expect(automation.overlay).toBeNull()
   })
 
   it('reads the store and clock fields at access time', () => {

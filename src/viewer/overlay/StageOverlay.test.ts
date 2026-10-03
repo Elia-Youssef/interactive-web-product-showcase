@@ -140,6 +140,22 @@ describe('StageOverlay', () => {
     expect(overlay.placementOf('a')).toEqual({ kind: 'placed', x: 3, y: 4 })
   })
 
+  it('reads every written placement as a record, and nothing for a key never written', () => {
+    const overlay = new StageOverlay()
+    overlay.mount('mounted-only', element(), 'center')
+    expect(overlay.placementRecord()).toEqual({})
+
+    overlay.pass({ width: 400, height: 300 }, (place) => {
+      place('a', { kind: 'placed', x: 10, y: 20 })
+      place('b', { kind: 'hidden' })
+    })
+
+    expect(overlay.placementRecord()).toEqual({
+      a: { kind: 'placed', x: 10, y: 20 },
+      b: { kind: 'hidden' },
+    })
+  })
+
   it('stops running a released pass listener and fails its stale release loudly', () => {
     const overlay = new StageOverlay()
     let runs = 0
