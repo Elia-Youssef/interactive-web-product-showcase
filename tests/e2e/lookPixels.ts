@@ -1,20 +1,10 @@
-import type { Page } from '@playwright/test'
 import type { DecodedScreenshot, RegionBox } from './stagePixels'
 import { decodeScreenshotRGBA } from './stagePixels'
 
-// The pixel measurements of the look specs. Every capture is the whole
-// viewport, like the stage specs': Chromium drops a presented WebGPU canvas
-// from element and clip captures, and only the plain viewport capture
-// carries it. The dev HUD is masked so it cannot answer for the product; the
-// harness page carries no other chrome over the stage. The captures decode
-// once through the shared stage pixels helper, and every metric below is a
-// plain function over the decoded bytes, so the specs compare exact counts
-// and sums against their own measured noise, with no tuned threshold.
-
-// Captures the stage at rest with the dev HUD masked to black.
-export async function captureStage(page: Page): Promise<Uint8Array> {
-  return page.screenshot({ mask: [page.getByTestId('dev-hud')], maskColor: '#000000' })
-}
+// The pixel measurements of the look specs: every metric below is a plain
+// function over decoded capture bytes, so the specs compare exact counts and
+// sums against their own measured noise, with no tuned threshold. The
+// captures decode once through the shared stage pixels helper.
 
 // The sum of the channel values over the canvas box: an integer, so the
 // brighter/darker comparisons the specs make are exact.
