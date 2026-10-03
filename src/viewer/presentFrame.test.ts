@@ -6,7 +6,7 @@ import { presentFrame } from './presentFrame'
 // A path with a stage owner, its host recorded, and a real frame clock
 // whose record and waiter are what the presenter feeds.
 function stage() {
-  const host = { invalidate: vi.fn<() => void>() }
+  const host = { invalidate: vi.fn<() => void>(), retired: vi.fn<() => void>() }
   const path = new StageFramePath(host)
   const owner = vi.fn<(error: Error) => void>()
   path.own('stage', owner)
@@ -42,7 +42,7 @@ describe('presentFrame', () => {
   })
 
   it('records nothing and releases no waiter for a present that threw', async () => {
-    const { path, clock, record, owner } = stage()
+    const { path, clock, record, owner, host } = stage()
     const waiter = clock.onceFrame()
 
     expect(presentFrame(path, throwing, record)).toBe(false)
@@ -50,6 +50,7 @@ describe('presentFrame', () => {
     expect(clock.renderedFrames).toBe(0)
     expect(await stillPending(waiter)).toBe(true)
     expect(owner).toHaveBeenCalledOnce()
+    expect(host.retired).toHaveBeenCalledOnce()
   })
 
   it('records nothing and renders nothing on a halted path', async () => {
@@ -76,7 +77,7 @@ describe('presentFrame', () => {
     expect(seen).toEqual([1, 2])
   })
 
-  it('never runs a listener for a present that threw or a halted path', () => {
+  it('never runs a listener for a present that threw or a retired path', () => {
     const { path, record } = stage()
     const listener = vi.fn()
     path.listen('content', listener)

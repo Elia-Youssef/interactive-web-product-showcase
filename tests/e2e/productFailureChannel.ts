@@ -1,9 +1,11 @@
 import { expect, type Page } from '@playwright/test'
 import { productLoadBudgetMs } from './budgets'
+import { settledStageCapture } from './stageCapture'
+import { backdropCeiling, countRegionPixelsBrighterThan } from './stagePixels'
 
 // The failure channel as the product failure specs read it: the product and
 // renderer channels of the automation in one snapshot, the alerts the stage
-// shows, and the harness's remount.
+// shows, the harness's remount, and the painted stage pixels.
 
 export function productChannel(page: Page) {
   return page.evaluate(() => ({
@@ -38,4 +40,17 @@ export async function remountProduct(page: Page): Promise<void> {
   await expect(toggle).toHaveText('Mount the product')
   await toggle.click()
   await expect(toggle).toHaveText('Unmount the product')
+}
+
+// The stage pixels brighter than the backdrop can ever be, at rest: the
+// settled capture with the dev HUD and the harness controls masked, counted
+// inside the canvas box, so only what the renderer painted can answer. A
+// renderer that draws offscreen leaves the canvas at the backdrop.
+export async function paintedStagePixels(page: Page): Promise<number> {
+  const capture = await settledStageCapture(page, ['harnessControls'])
+  const box = await page.locator('canvas').boundingBox()
+  if (box === null) {
+    throw new Error('the stage canvas must have a bounding box')
+  }
+  return (await countRegionPixelsBrighterThan(page, capture, box, backdropCeiling)).count
 }

@@ -1,11 +1,13 @@
 import { expect, test } from './fixtures'
+import { testBudgetMs } from './budgets'
 import {
   expectProductAlert,
+  paintedStagePixels,
   pollProductChannel,
   productChannel,
   remountProduct,
 } from './productFailureChannel'
-import { harnessPath, harnessProducts } from './productSpecs'
+import { harnessPath, harnessProducts, waitForProductReady } from './productSpecs'
 import {
   frameFaultMessage,
   harnessFrameFaultPlaces,
@@ -26,10 +28,18 @@ function faultPath(backendPath: string, slug: string, place: string, scope: stri
 
 for (const product of products) {
   for (const place of harnessFrameFaultPlaces) {
-    test(`a ${place} fault under the presented ${product.slug} fails it with the render kind, never leaving it loading`, async ({
+    test(`a ${place} fault under the presented ${product.slug} fails it with the render kind, and the next product paints the canvas like a clean mount`, async ({
       page,
       backendPath,
     }) => {
+      // Two product loads: the clean mount the pixels are measured against,
+      // then the remount after the fault.
+      test.setTimeout(testBudgetMs({ productLoads: 2 }))
+
+      await page.goto(harnessPath(backendPath, product.slug))
+      await waitForProductReady(page)
+      const clean = await paintedStagePixels(page)
+
       await page.goto(faultPath(backendPath, product.slug, place, 'product'))
       await pollProductChannel(page).toEqual({
         product: 'failed',
@@ -38,6 +48,14 @@ for (const product of products) {
         status: 'ready',
       })
       await expectProductAlert(page, product.slug, 'A presented frame failed')
+
+      // The next product is new content: it reports ready, and the canvas
+      // shows it exactly as a clean mount does. A renderer left broken by
+      // the fault would still report ready and record frames, while every
+      // frame it drew stayed off the canvas, so the proof is the pixels.
+      await remountProduct(page)
+      await waitForProductReady(page)
+      expect(await paintedStagePixels(page)).toBe(clean)
     })
 
     test(`a ${place} fault under no presented product fails the stage, mounts no content and shows the renderer alert`, async ({

@@ -3,7 +3,8 @@ import { StageFramePath } from './StageFramePath'
 
 function framePath() {
   const resume = vi.fn<() => void>()
-  return { path: new StageFramePath({ invalidate: resume }), resume }
+  const retired = vi.fn<() => void>()
+  return { path: new StageFramePath({ invalidate: resume, retired }), resume, retired }
 }
 
 const fault = new Error('the frame broke')
@@ -144,6 +145,33 @@ describe('StageFramePath', () => {
     expect(() => path.run('content', throwing)).toThrow(fault)
   })
 
+  it('retires the path for good when the present throws, and tells the stage once', () => {
+    const { path, resume, retired } = framePath()
+    const product = vi.fn()
+    const releaseProduct = path.own('content', product)
+
+    expect(path.present(throwing)).toBe(false)
+    expect(path.present(vi.fn())).toBe(false)
+    releaseProduct()
+
+    expect(product).toHaveBeenCalledOnce()
+    expect(product).toHaveBeenCalledWith(fault)
+    expect(retired).toHaveBeenCalledOnce()
+    expect(resume).not.toHaveBeenCalled()
+    expect(path.run('content', vi.fn())).toBe(false)
+    expect(path.present(vi.fn())).toBe(false)
+  })
+
+  it('tells the stage nothing for a content step that throws, which only halts', () => {
+    const { path, retired } = framePath()
+    path.own('content', vi.fn())
+
+    path.run('content', throwing)
+
+    expect(retired).not.toHaveBeenCalled()
+    expect(path.present(vi.fn())).toBe(false)
+  })
+
   it('owes a new listener one frame and fails loudly on a stale release', () => {
     const { path, resume } = framePath()
     const release = path.listen('content', vi.fn())
@@ -202,5 +230,37 @@ describe('StageFramePath', () => {
 
     expect(stage).toHaveBeenCalledOnce()
     expect(product).not.toHaveBeenCalled()
+  })
+
+  it('tells its retirement subscribers once, and a halt tells them nothing', () => {
+    const { path } = framePath()
+    path.own('stage', vi.fn())
+    const subscriber = vi.fn()
+    const unsubscribe = path.subscribeRetirement(subscriber)
+
+    path.run('content', throwing)
+    expect(subscriber).not.toHaveBeenCalled()
+    expect(path.isRetired).toBe(false)
+
+    const fresh = framePath()
+    fresh.path.own('stage', vi.fn())
+    const freshSubscriber = vi.fn()
+    fresh.path.subscribeRetirement(freshSubscriber)
+    fresh.path.present(throwing)
+    fresh.path.present(throwing)
+    expect(freshSubscriber).toHaveBeenCalledOnce()
+    expect(fresh.path.isRetired).toBe(true)
+    unsubscribe()
+  })
+
+  it('stops telling a retirement subscriber that unsubscribed', () => {
+    const { path } = framePath()
+    path.own('stage', vi.fn())
+    const subscriber = vi.fn()
+    path.subscribeRetirement(subscriber)()
+
+    path.present(throwing)
+
+    expect(subscriber).not.toHaveBeenCalled()
   })
 })

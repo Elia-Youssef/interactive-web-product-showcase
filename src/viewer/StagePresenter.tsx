@@ -16,10 +16,10 @@ type StagePresenterProps = {
 // only when it presented, then followed by the presented-frame listeners.
 // It holds a positive render priority, so R3F's loop leaves the render to
 // it; a present that throws (a node build, an object's own render hook, the
-// renderer itself) reaches the owner of the stage's frames instead of
-// escaping the engine's frame loop, and a frame that did not present is
-// never recorded, so nothing waiting on a presented frame is released by a
-// frame that failed.
+// renderer itself) reaches the owner of the stage's frames and retires the
+// renderer instead of escaping the engine's frame loop, and a frame that did
+// not present is never recorded, so nothing waiting on a presented frame is
+// released by a frame that failed.
 //
 // The recorded duration is the CPU time of the loop tick, from R3F's
 // before-effect to the end of the present; GPU time is a different

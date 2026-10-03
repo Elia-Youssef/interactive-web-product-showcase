@@ -21,6 +21,8 @@ type StageCanvasProps = {
   readonly onInitError: (error: Error) => void
   // Reports a frame that threw while no product owned the stage's frames.
   readonly onFrameFailure: (error: Error) => void
+  // Reports that this canvas's renderer is retired: a present threw.
+  readonly onRendererRetired: () => void
   // The scene content the stage shows: mounted after the rig, inside the
   // stage's frames, under one null-fallback Suspense boundary and the model
   // provider, so an async load never crosses the canvas and every model
@@ -40,13 +42,19 @@ export function StageCanvas({
   onFirstFrame,
   onInitError,
   onFrameFailure,
+  onRendererRetired,
   content,
 }: StageCanvasProps) {
   return (
     <RendererErrorBoundary onError={onInitError} fallback={() => null}>
       <Canvas gl={stageRenderer.factory} frameloop={stageConfig.frameloop} dpr={stageConfig.dpr}>
         <RendererRig />
-        <StageFrames clock={clock} onFirstFrame={onFirstFrame} onFrameFailure={onFrameFailure}>
+        <StageFrames
+          clock={clock}
+          onFirstFrame={onFirstFrame}
+          onFrameFailure={onFrameFailure}
+          onRendererRetired={onRendererRetired}
+        >
           <StageCamera>
             <Suspense fallback={null}>
               <StageEnvironment />

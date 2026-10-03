@@ -1,6 +1,7 @@
-import { Suspense, useCallback, useEffect, type ReactNode } from 'react'
+import { Suspense, useCallback, useEffect, useSyncExternalStore, type ReactNode } from 'react'
 import type { Product, ProductFailure } from '@lib/product'
 import { selectProductFailed, useAppStore } from '@store/index'
+import { useStageFramePath } from '../stageFrameContext'
 import { ProductBoundary } from './ProductBoundary'
 import { ProductContent } from './ProductContent'
 
@@ -40,9 +41,17 @@ export function Product({ manifest, children }: ProductProps) {
     (failure: ProductFailure) => productFailed(slug, failure),
     [productFailed, slug],
   )
+  // A canvas whose renderer is retired never takes new content: the stage
+  // replaces it with a fresh canvas once this life has started, and the
+  // content mounts there. The retirement is read as subscribed state, so a
+  // retirement re-renders the product whatever else it changes.
+  const frames = useStageFramePath()
+  const retired = useSyncExternalStore(frames.subscribeRetirement, () => frames.isRetired)
+  const presentable = !failed && !retired
+
   return (
     <ProductBoundary fail={fail}>
-      {!failed && (
+      {presentable && (
         <Suspense fallback={null}>
           <ProductContent manifest={manifest} fail={fail}>
             {children}

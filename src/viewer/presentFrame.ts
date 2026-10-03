@@ -3,7 +3,7 @@ import type { StageFramePath } from './StageFramePath'
 // One frame of the stage, as pure ordering over the frame path: the present
 // runs through the path, the frame is recorded only when it presented, and
 // the listeners of the presented frames run only after that record. A
-// present that threw, or a path that is halted, records nothing,
+// present that threw, or a path that is halted or retired, records nothing,
 // so nothing waiting on a presented frame (the settle's presents, the first
 // frame signal) is released by a frame that never reached the canvas.
 // Returns whether the frame presented.
