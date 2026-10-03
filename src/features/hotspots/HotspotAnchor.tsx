@@ -1,34 +1,25 @@
 import type { Product } from '@lib/product'
-import { siteCopy } from '@lib/copy/site'
-import { Card, Marker } from '@ui/index'
+import { Marker } from '@ui/index'
 import type { StageOverlay } from '@viewer/overlay/StageOverlay'
 import { overlayKey } from './hotspotKeys'
 import styles from './HotspotMarkers.module.css'
 
 export type HotspotAnchorProps = {
   // The overlay channel the anchor mounts itself on: the anchor is the
-  // element the overlay places, so the marker and the open card both ride
-  // the placement the canvas side writes for the hotspot's key.
+  // element the overlay places, so the marker rides the placement the
+  // canvas side writes for the hotspot's key.
   readonly overlay: StageOverlay
   readonly hotspot: Product['hotspots'][number]
   readonly selected: boolean
   readonly onToggle: () => void
-  readonly onClose: () => void
 }
 
 // The anchor of one hotspot: the wrapper the stage overlay centers on the
-// hotspot's projection, holding the marker and, while the hotspot is
-// selected, its card. The overlay's hidden state is a visibility on the
-// wrapper, so the card hides whenever the marker hides; nothing inside sets
-// visibility, and the card is absolutely positioned, so it never changes
-// the anchor's size and the marker stays centered on the projection.
-export function HotspotAnchor({
-  overlay,
-  hotspot,
-  selected,
-  onToggle,
-  onClose,
-}: HotspotAnchorProps) {
+// hotspot's projection, holding the marker. The overlay's hidden state is a
+// visibility on the wrapper; nothing inside sets visibility. The open card
+// is not inside the anchor: it has a presenter of its own, which places it
+// beside the marker or docks it.
+export function HotspotAnchor({ overlay, hotspot, selected, onToggle }: HotspotAnchorProps) {
   return (
     <div
       ref={(element) => {
@@ -39,20 +30,9 @@ export function HotspotAnchor({
         }
         return overlay.mount(overlayKey(hotspot.id), element, 'center')
       }}
-      className={selected ? `${styles.anchor} ${styles.anchorSelected}` : styles.anchor}
+      className={styles.anchor}
     >
       <Marker label={hotspot.title} active={selected} onClick={onToggle} />
-      {selected && (
-        <div className={styles.cardAnchor} data-testid="hotspot-card">
-          <Card
-            eyebrow={hotspot.eyebrow}
-            title={hotspot.title}
-            bullets={hotspot.bullets}
-            onClose={onClose}
-            closeLabel={siteCopy.closeLabel}
-          />
-        </div>
-      )}
     </div>
   )
 }

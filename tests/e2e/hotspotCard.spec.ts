@@ -1,5 +1,4 @@
 import { expect, test } from './fixtures'
-import type { Page } from '@playwright/test'
 import type { Product } from '../../src/lib/product'
 import { expectPoll, harnessPath, waitForProductReady } from './productSpecs'
 import { productLoadBudgetMs, testBudgetMs } from './budgets'
@@ -16,15 +15,16 @@ import {
   occludableFact,
   requireCamera,
   requireHotspots,
-  stagePixelEpsilon,
 } from './hotspotViews'
+import { expectCardBesideMarker } from './hotspotCardChecks'
 import { driveToHidingView, oppositeAzimuthOf, zoomToDistanceBand } from './hotspotDrives'
 import type { ProductHotspotFacts } from './productHotspots'
 import { flowFacts } from './hotspotFlowFacts'
 
-// The card of the open hotspot: it rides its marker's anchor, so it follows
-// the marker's placement, hides whenever the marker hides, and renders no
-// frame of its own; reduced motion lands the close-up on the next rendered
+// The card of the open hotspot: it is placed beside its marker in every
+// overlay pass the markers are placed in, so it follows the marker's
+// placement, hides whenever the marker hides, and renders no frame of its
+// own; reduced motion lands the close-up on the next rendered
 // frame; leaving the product clears the card. The follow test must keep the
 // camera at home, so it runs for a plain hotspot; the remount and rest
 // checks move no camera, so they run for a hotspot of any kind; reduced
@@ -59,8 +59,8 @@ for (const flow of flows) {
       await settledFrames(page)
 
       // With the plain card open at home, a drag moves the marker, and the
-      // card rides inside its anchor: at rest the anchor sits on the marker's
-      // projection, and the card hangs beside the marker it is anchored to.
+      // card follows it: at rest the marker sits on its projection, and the
+      // card hangs beside it.
       await markerOf(page, plain.title).click()
       await expect(cardHeadingOf(page, plain.title)).toBeVisible()
       // The drag starts at the canvas point the overlay content does not
@@ -70,24 +70,10 @@ for (const flow of flows) {
       const framesAfterDrag = await settledFrames(page)
       await expectMarkersAtProjection(page, [plain], 'with the card open, after a drag')
 
-      // The card's own box hangs the token offset to the right of the
-      // marker's, vertically centered on it. Both reads quantize on the
-      // browser's 1/64 px layout grid, the bound the placement epsilon
-      // carries, and the offset value is the token itself.
-      const markerBox = await markerOf(page, plain.title).boundingBox()
-      const cardBox = await page.getByTestId('hotspot-card').boundingBox()
-      if (markerBox === null || cardBox === null) {
-        throw new Error('the marker and the open card must have bounding boxes')
-      }
-      const offsetPx = await offsetHotspotCardPx(page)
-      expect(
-        Math.abs(cardBox.x - (markerBox.x + markerBox.width) - offsetPx),
-        `the card must hang the ${offsetPx}px token offset to the right of the marker`,
-      ).toBeLessThanOrEqual(stagePixelEpsilon)
-      expect(
-        Math.abs(cardBox.y + cardBox.height / 2 - (markerBox.y + markerBox.height / 2)),
-        'the card must be vertically centered on the marker',
-      ).toBeLessThanOrEqual(stagePixelEpsilon)
+      // The card hangs beside the marker it belongs to, the token offset off
+      // the marker's hit box, on whichever side the placement found room:
+      // after the drag the right side would cover the other marker.
+      await expectCardBesideMarker(page, plain.title)
 
       // The stage stays put: the open card asked for no frame of its own.
       expect(
@@ -253,22 +239,4 @@ function occludableSubjectOf(
     throw new Error(`the facts found no hiding height for ${fact.id}`)
   }
   return { hotspot, hidingHeightM: fact.hidingHeightM }
-}
-
-// A token length of the document root, in px, read from the tokens
-// themselves so no hand-typed number enters an expectation.
-async function tokenPx(page: Page, name: string): Promise<number> {
-  const token = await page.evaluate(
-    (tokenName) => getComputedStyle(document.documentElement).getPropertyValue(tokenName).trim(),
-    name,
-  )
-  const parsed = /^(\d*\.?\d+)px$/.exec(token)
-  if (parsed === null || parsed[1] === undefined) {
-    throw new Error(`${name} is not a px length: '${token}'`)
-  }
-  return Number(parsed[1])
-}
-
-async function offsetHotspotCardPx(page: Page): Promise<number> {
-  return tokenPx(page, '--offset-hotspot-card')
 }

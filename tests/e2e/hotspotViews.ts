@@ -71,8 +71,8 @@ export function markerOf(page: Page, title: string) {
 }
 
 // The card of the open hotspot: its title heading, the one card the single
-// selection renders. The card mounts inside the marker's anchor, so every
-// hidden-state and position fact about the marker applies to it.
+// selection renders, floating beside its marker or docked in the layout's
+// dock.
 export function cardHeadingOf(page: Page, title: string) {
   return page.getByRole('heading', { name: title })
 }

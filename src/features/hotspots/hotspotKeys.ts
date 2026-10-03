@@ -5,3 +5,8 @@
 export function overlayKey(hotspotId: string): string {
   return `hotspot:${hotspotId}`
 }
+
+// The overlay key of the open card's floating element. One card is open at
+// a time, so the key is one constant; it sits outside the markers'
+// `hotspot:` namespace, so no hotspot id can ever name it.
+export const CARD_OVERLAY_KEY = 'hotspot-card'

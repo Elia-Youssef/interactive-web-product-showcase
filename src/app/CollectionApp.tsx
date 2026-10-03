@@ -1,4 +1,5 @@
 import '@styles/global.css'
+import { useState } from 'react'
 import type { Product as ProductManifest } from '@lib/product'
 import { StageAngleReadout, StageZoomControls } from '@features/stage-controls'
 import { HotspotMarkers, ProductHotspots } from '@features/hotspots'
@@ -36,10 +37,17 @@ export function CollectionApp({ manifests }: CollectionAppProps) {
 // feature, which reads the camera through the store. The finishes and the
 // hotspots extend the product on the stage: the finishes inside it, the
 // hotspots as the canvas child plus the markers in the stage's overlay. The
-// current product is the collection's first until routing arrives.
+// current product is the collection's first until routing arrives. The
+// panel's dock is held here and handed to the markers, so an open card that
+// docks renders into the panel (the sheet on phone), and so is the stage
+// chrome, which a floating card keeps clear of.
 function ProductPage({ product }: { readonly product: ProductManifest }) {
+  const [dock, setDock] = useState<HTMLElement | null>(null)
+  const [chrome, setChrome] = useState<HTMLElement | null>(null)
   return (
     <AppLayout
+      dockRef={setDock}
+      chromeRef={setChrome}
       productIndex={<ProductIndexLabel number={product.number} category={product.category} />}
       panel={<ProductPanel product={product} />}
       stage={
@@ -50,7 +58,7 @@ function ProductPage({ product }: { readonly product: ProductManifest }) {
               <ProductHotspots />
             </Product>
           }
-          overlay={<HotspotMarkers product={product} />}
+          overlay={<HotspotMarkers product={product} dock={dock} chrome={chrome} />}
         />
       }
       angleReadout={<StageAngleReadout />}

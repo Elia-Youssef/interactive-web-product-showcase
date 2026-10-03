@@ -1,10 +1,11 @@
 /* The dev-only harness page: the stage fills the viewport, the product
-   controls share the top-left corner as one row, and the dev finish buttons
-   stack below them. Values are tokens, which the page reaches through the
+   controls share the top-left corner as one row, the dev finish buttons
+   stack below them, and the dock for an open card that docks sits under
+   the stage, outside its box, where the card scrolls itself into view. Values are tokens, which the page reaches through the
    global stylesheet it imports. */
 .frame {
-  position: fixed;
-  inset: 0;
+  position: relative;
+  block-size: var(--height-viewport);
 }
 
 .controls {
@@ -24,4 +25,15 @@
   flex-direction: column;
   gap: var(--space-2);
   align-items: start;
+}
+
+.dock {
+  position: absolute;
+  inset-block-start: var(--size-fill);
+  inset-inline-start: 0;
+  inline-size: var(--size-harness-dock);
+}
+
+.dock:empty {
+  display: none;
 }

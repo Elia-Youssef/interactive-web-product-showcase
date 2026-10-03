@@ -1,0 +1,33 @@
+/* The open hotspot card in its two slots. Values are tokens. */
+
+/* The floating card: the element the stage overlay places by its top-left
+   corner at the card box the placement chose, stacked above the markers. It lays out
+   at its content's width up to the token maximum. The width is set, not
+   shrink-to-fit: an absolutely positioned box would shrink against its
+   containing block, so the card would lay out narrower near a stage edge,
+   and the size the placement measures would depend on where the card sits.
+   With max-content it is the card's own size wherever it goes. */
+.floating {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  z-index: var(--z-hotspot-card);
+  inline-size: max-content;
+  max-inline-size: var(--size-hotspot-card-max);
+  /* The overlay box passes pointer events through; the card takes them
+     where it covers, like the markers do. */
+  pointer-events: auto;
+}
+
+/* The docked card fills the width of the dock the layout gives it. */
+.docked {
+  inline-size: var(--size-fill);
+}
+
+/* A docked card hides with its marker in place: it keeps its element and
+   its space, so the panel does not shift and nothing remounts when the
+   marker shows again. Hidden by visibility, it leaves the accessibility
+   tree and the focus order. */
+.dockedHidden {
+  visibility: hidden;
+}

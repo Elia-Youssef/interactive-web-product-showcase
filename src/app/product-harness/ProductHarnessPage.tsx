@@ -92,6 +92,10 @@ function HarnessProduct({
 }) {
   const [mounted, setMounted] = useState(true)
   const [moveToken, setMoveToken] = useState(0)
+  // The page's dock for an open card that docks, as the app's panel holds
+  // one: the markers render into it whenever the card has no room beside
+  // its marker. The page has no stage chrome to keep clear of.
+  const [dock, setDock] = useState<HTMLElement | null>(null)
   const manifest = slug === null ? undefined : collection.bySlug(slug)
   // The override rides on the manifest, so the product path sees one look
   // source and no test plumbing. The memo keeps the manifest's identity
@@ -111,8 +115,13 @@ function HarnessProduct({
         // The markers of the hotspots feature, over the same product the
         // content shows. The feature's DOM side renders nothing while the
         // store's product status is not ready for it.
-        overlay={pageManifest !== undefined ? <HotspotMarkers product={pageManifest} /> : null}
+        overlay={
+          pageManifest !== undefined ? (
+            <HotspotMarkers product={pageManifest} dock={dock} chrome={null} />
+          ) : null
+        }
       />
+      <div ref={setDock} className={styles.dock} data-slot="dock" />
       <HarnessSlugAlerts slug={slug} collection={collection} />
       {manifest !== undefined && (
         <>

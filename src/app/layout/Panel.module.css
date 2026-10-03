@@ -32,6 +32,19 @@ height: a shrunken content box would let its children run under the footer. */
   display: none;
 }
 
+/* The dock takes no room while nothing is docked in it. */
+.dock:empty {
+  display: none;
+}
+
+/* A card that docks scrolls itself into the panel's view; the scroll eases
+   unless the visitor asks for reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .panel {
+    scroll-behavior: smooth;
+  }
+}
+
 @media (--vp-desktop) {
   .panel {
     order: 1;
@@ -44,6 +57,10 @@ height: a shrunken content box would let its children run under the footer. */
     padding: var(--space-8);
     background-color: var(--bg);
     border-inline-end: var(--hairline-width) solid var(--hairline);
+  }
+
+  .dock {
+    margin-block-end: var(--space-8);
   }
 }
 
@@ -60,6 +77,10 @@ height: a shrunken content box would let its children run under the footer. */
     background-color: var(--bg);
     border-block-start: var(--hairline-width) solid var(--hairline);
     border-inline-end: none;
+  }
+
+  .dock {
+    margin-block-end: var(--space-8);
   }
 }
 

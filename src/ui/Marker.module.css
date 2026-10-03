@@ -17,6 +17,9 @@
   /* The stage overlay passes pointer events through on its empty area; the
      marker is the one thing that takes them. */
   pointer-events: auto;
+  /* The global ring, at the marker's own offset token, the one the card
+     placement keeps clear. */
+  --focus-ring-offset: var(--offset-hotspot-focus-ring);
 }
 
 /* The ring and the dot are centered pseudo-elements on the hit area. */
