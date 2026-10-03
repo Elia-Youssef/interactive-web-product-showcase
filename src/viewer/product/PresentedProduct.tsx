@@ -9,6 +9,7 @@ import { LoadedProductContext, type LoadedProduct } from './loadedProduct'
 import type { ProductFinishMaterials } from './finishMaterials'
 import type { LoadedModel } from './productModelLoads'
 import { useProductPresentation } from './useProductPresentation'
+import { useStageFrameFailures } from '../stageFrameContext'
 
 type PresentedProductProps = {
   readonly manifest: Product
@@ -54,6 +55,17 @@ export function PresentedProduct({
   }, [productReady, slug, summary, frame])
 
   useProductPresentation({ rig, manifest, frame, report, fail })
+
+  // The presented content owns the stage's frames while it is in the scene:
+  // a frame that throws then fails the product with the render kind. The
+  // ownership starts in the commit that puts the scene on the stage and
+  // ends in the one that takes it off, so a frame that fails while the
+  // product only loads is the stage's, never the product's.
+  const failRender = useCallback(
+    (error: Error) => fail({ kind: 'render', message: error.message }),
+    [fail],
+  )
+  useStageFrameFailures('content', failRender)
 
   // The offset centers the model on the origin, where the camera looks. The
   // extensions sit beside it, in stage space, and reach the scene's own
