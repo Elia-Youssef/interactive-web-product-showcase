@@ -1,6 +1,8 @@
 import { expect, type Page } from '@playwright/test'
 import { testBodyBudgetMs } from './budgets'
-import type { ProductCameraFacts } from './productCamera'
+import type { AuthoredView, ProductCameraFacts } from './productCamera'
+import { resolvedDistanceLimits, type DistanceRange } from '../../src/lib/camera/limits'
+import type { Product } from '../../src/lib/product'
 import { stageCameraConfig } from '../../src/viewer/camera/config'
 
 // The stage camera's expectations, computed in the test from the authored
@@ -27,7 +29,9 @@ export type Point = { readonly x: number; readonly y: number; readonly z: number
 // every remaining delta to the end state is below this threshold, so the
 // live position and distance sit this far from the authored values at
 // rest. The end state itself is exact.
-// (camera-controls dist/camera-controls.module.js, `restThreshold = 0.01`.)
+// (camera-controls dist/camera-controls.module.js:481, `restThreshold = 0.01`;
+// the rotate and dolly rest checks pass it to approxEquals per component,
+// :1428 to :1429 and :1471.)
 export const REST_THRESHOLD = 0.01
 
 // The float bound of a fraction compared against the one-step rule below:
@@ -128,22 +132,44 @@ export async function stageAspectOnSide(
 }
 
 // The lens a zoom presents through a base lens, the tangent half-angle
-// rule the view lens rides the controls' zoom channel by. Restated here
-// like the orbit math above, so a viewer regression cannot hide behind its
-// own helper.
+// rule the view lens rides the controls' zoom channel by, and its inverse,
+// the zoom that presents a view lens through the base lens. The base lens
+// is the plan's, the authored home view's. Restated here like the orbit
+// math above, so a viewer regression cannot hide behind its own helper.
 export function lensOfZoom(baseFovY: number, zoom: number): number {
   return 2 * Math.atan(Math.tan(baseFovY / 2) / zoom)
 }
 
-// The lens band the rest threshold maps to at a base lens: at rest the
-// zoom sits within REST_THRESHOLD of its end, and this is the fov span
-// that zoom error turns into. The eased lens checks compare against this
-// band, derived from the library's threshold, never a tuned number.
-export function lensBandAtRest(baseFovY: number): number {
+export function zoomOfLens(baseFovY: number, viewFovY: number): number {
+  return Math.tan(baseFovY / 2) / Math.tan(viewFovY / 2)
+}
+
+// The lens band the rest threshold maps to at one view lens: an eased move
+// rests with the zoom within REST_THRESHOLD of the zoom the view's lens
+// maps to through the base lens, and this is the fov span that zoom error
+// turns into around the view's lens. Every eased lens check compares
+// against this band, derived from the library's threshold at the view's
+// own zoom, never a tuned number; at the home view the zoom is 1.
+function lensBandAtRest(baseFovY: number, viewFovY: number): number {
+  const zoomEnd = zoomOfLens(baseFovY, viewFovY)
   return Math.max(
-    Math.abs(lensOfZoom(baseFovY, 1 + REST_THRESHOLD) - baseFovY),
-    Math.abs(lensOfZoom(baseFovY, 1 - REST_THRESHOLD) - baseFovY),
+    Math.abs(lensOfZoom(baseFovY, zoomEnd + REST_THRESHOLD) - viewFovY),
+    Math.abs(lensOfZoom(baseFovY, zoomEnd - REST_THRESHOLD) - viewFovY),
   )
+}
+
+// The live lens after an eased move onto a view, held to the band the rest
+// threshold maps to at that view's zoom.
+export function expectLensAtRest(
+  camera: CameraRead,
+  baseFovY: number,
+  viewFovY: number,
+  why: string,
+): void {
+  expect(
+    Math.abs(camera.fovY - viewFovY),
+    `${why}: the lens must sit at the view's lens within the band of the rest threshold`,
+  ).toBeLessThanOrEqual(lensBandAtRest(baseFovY, viewFovY))
 }
 
 // The aspect rule of the stage camera: when the stage is narrower than the
@@ -172,29 +198,92 @@ export function positionOfOrbit(
   }
 }
 
-// The home expectation of one product at one stage aspect. The distance
-// limits are the camera config's ratios of the authored home distance,
-// scaled by the aspect rule; the zoom percentage is the same linear map
-// the readout applies, at the distance the home view keeps.
-export function homeExpectation(facts: ProductCameraFacts, stageAspect: number) {
-  const scale = containedScale(facts.home.aspect, stageAspect)
-  const distance = facts.home.distance * scale
+// The distance limits the camera enforces for one product at the authored
+// aspect: each authored side of the manifest's camera block wins, a side it
+// does not author is a ratio of the authored home distance, the same
+// resolution the presented plan builds. Derived here from the manifest,
+// never assumed from the fallback ratios, so a product with authored
+// limits is under test unchanged.
+export function resolvedDistanceRange(product: Product, homeDistance: number): DistanceRange {
+  return resolvedDistanceLimits(product.camera ?? {}, homeDistance, {
+    minRatio: stageCameraConfig.minHomeDistanceRatio,
+    maxRatio: stageCameraConfig.maxHomeDistanceRatio,
+  })
+}
+
+// The expectation of one authored view at one stage aspect: the orbit
+// position at the scaled distance, the scaled limits, and the zoom
+// percentage, the same linear map the readout applies, at the view's
+// distance. The aspect in the rule is the authored aspect of the home
+// camera, the one the plan carries for every view.
+export function viewExpectation(
+  view: AuthoredView,
+  authoredAspect: number,
+  range: DistanceRange,
+  stageAspect: number,
+) {
+  const scale = containedScale(authoredAspect, stageAspect)
+  const distance = view.distance * scale
   const target: Point = {
-    x: facts.home.target[0],
-    y: facts.home.target[1],
-    z: facts.home.target[2],
+    x: view.target[0],
+    y: view.target[1],
+    z: view.target[2],
   }
-  const minDistance = facts.home.distance * stageCameraConfig.minHomeDistanceRatio * scale
-  const maxDistance = facts.home.distance * stageCameraConfig.maxHomeDistanceRatio * scale
+  const minDistance = range.min * scale
+  const maxDistance = range.max * scale
   return {
-    position: positionOfOrbit(facts.home.azimuthDegrees, facts.home.polarDegrees, distance, target),
+    position: positionOfOrbit(view.azimuthDegrees, view.polarDegrees, distance, target),
     target,
-    fovY: facts.home.fovY,
+    fovY: view.fovY,
+    // The authored orbit angles in radians, converted from the facts'
+    // degrees: the same convention the controls use, azimuth around +Y
+    // from +Z and polar from +Y.
+    azimuth: (view.azimuthDegrees * Math.PI) / 180,
+    polar: (view.polarDegrees * Math.PI) / 180,
     distance,
     minDistance,
     maxDistance,
     zoomPercent: ((maxDistance - distance) / (maxDistance - minDistance)) * 100,
   }
+}
+
+// The home expectation of one product at one stage aspect.
+export function homeExpectation(facts: ProductCameraFacts, product: Product, stageAspect: number) {
+  return viewExpectation(
+    facts.home,
+    facts.home.aspect,
+    resolvedDistanceRange(product, facts.home.distance),
+    stageAspect,
+  )
+}
+
+// The wrapped angle difference from the first angle to the second, in
+// [-PI, PI]: the controls accumulate full turns, an authored view does not.
+export function angleDelta(from: number, to: number): number {
+  return Math.atan2(Math.sin(to - from), Math.cos(to - from))
+}
+
+// The orbit at rest against an authored expectation. The controls rest when
+// every remaining delta to the end state is below the threshold (see
+// REST_THRESHOLD above), so each spherical component sits at most that far
+// from the authored view, and no other tolerance enters.
+export function expectOrbitAtRest(
+  camera: CameraRead,
+  expected: { readonly azimuth: number; readonly polar: number; readonly distance: number },
+  why: string,
+): void {
+  expect(
+    Math.abs(angleDelta(expected.azimuth, camera.azimuth)),
+    `${why}: the azimuth must sit at the view within the rest threshold`,
+  ).toBeLessThanOrEqual(REST_THRESHOLD)
+  expect(
+    Math.abs(camera.polar - expected.polar),
+    `${why}: the polar must sit at the view within the rest threshold`,
+  ).toBeLessThanOrEqual(REST_THRESHOLD)
+  expect(
+    Math.abs(camera.distance - expected.distance),
+    `${why}: the distance must sit at the view within the rest threshold`,
+  ).toBeLessThanOrEqual(REST_THRESHOLD)
 }
 
 // The live camera read, from the camera and the controls themselves.

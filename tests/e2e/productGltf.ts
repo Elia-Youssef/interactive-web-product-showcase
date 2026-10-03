@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import type { AnimationClip, Group } from 'three'
+import type { Document } from '@gltf-transform/core'
 import { createModelIO } from '../../scripts/modelIo.ts'
 
 // The runtime side of the agreement proof: each shipped `.glb` parsed by
@@ -35,7 +36,15 @@ export async function parseShippedGltf(slug: string): Promise<ParsedProduct> {
 // drift tests build beside the shipped products.
 export async function parseGltfWithLoader(modelPath: string): Promise<ParsedProduct> {
   const io = await createModelIO()
-  const doc = await io.read(modelPath)
+  return parseDocumentWithLoader(await io.read(modelPath))
+}
+
+// Parses a model document with the real loader, for the cases that bend a
+// shipped document in memory before the parse. The parse strips the
+// document's textures and its meshopt wrapper in place, so a caller reads
+// every build-time fact it needs from the document first.
+export async function parseDocumentWithLoader(doc: Document): Promise<ParsedProduct> {
+  const io = await createModelIO()
   for (const material of doc.getRoot().listMaterials()) {
     material.setBaseColorTexture(null)
     material.setNormalTexture(null)

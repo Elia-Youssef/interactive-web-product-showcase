@@ -13,8 +13,8 @@ import {
   canvasCenter,
   describeAspectSide,
   dragOnCanvas,
+  expectLensAtRest,
   homeExpectation,
-  lensBandAtRest,
   readCamera,
   REST_THRESHOLD,
   stageAspectOnSide,
@@ -61,7 +61,7 @@ for (const side of ASPECT_SIDES) {
     test.slow()
     const stageAspect = await readyStageOnSide(page, backendPath, side)
     const center = await canvasCenter(page)
-    const expected = homeExpectation(facts, stageAspect)
+    const expected = homeExpectation(facts, first, stageAspect)
     const homeAzimuth = (facts.home.azimuthDegrees * Math.PI) / 180
 
     await dragOnCanvas(page, center, { x: center.x + 240, y: center.y - 160 })
@@ -91,8 +91,9 @@ for (const side of ASPECT_SIDES) {
     expect(home.polar).toBeCloseTo((facts.home.polarDegrees * Math.PI) / 180, 2)
     expect(Math.abs(home.distance - expected.distance)).toBeLessThanOrEqual(REST_THRESHOLD)
     // The lens rode the same eased move and is home again: within the lens
-    // band the controls' rest threshold maps to at the home lens.
-    expect(Math.abs(home.fovY - expected.fovY)).toBeLessThanOrEqual(lensBandAtRest(expected.fovY))
+    // band the controls' rest threshold maps to at the home lens, which is
+    // the plan's base lens.
+    expectLensAtRest(home, facts.home.fovY, expected.fovY, 'Reset')
     await expect(page.locator('[data-corner="top-right"]')).toHaveText('325 / 360')
     await expect(page.locator('[data-corner="bottom-right"]')).toContainText(
       zoomReadoutText(expected.zoomPercent),
@@ -106,7 +107,7 @@ for (const side of ASPECT_SIDES) {
     await page.emulateMedia({ reducedMotion: 'reduce' })
     const stageAspect = await readyStageOnSide(page, backendPath, side)
     const center = await canvasCenter(page)
-    const expected = homeExpectation(facts, stageAspect)
+    const expected = homeExpectation(facts, first, stageAspect)
 
     await dragOnCanvas(page, center, { x: center.x + 240, y: center.y - 160 })
     await settledFrames(page)

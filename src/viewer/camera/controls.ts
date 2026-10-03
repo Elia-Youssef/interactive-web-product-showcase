@@ -38,14 +38,6 @@ export function scaledRangeOf(plan: CameraPlan, stageAspect: number): DistanceRa
   }
 }
 
-export function viewOfPlan(plan: CameraPlan, viewId: string): CameraView {
-  const view = plan.views.get(viewId)
-  if (view === undefined) {
-    throw new Error(`the presented camera plan holds no view '${viewId}'`)
-  }
-  return view
-}
-
 // The lens the plan presents once, when it is presented: the plan's base
 // lens and the one clip range of all its views. The views themselves never
 // touch the lens: each rides the controls' zoom channel (see applyView), so

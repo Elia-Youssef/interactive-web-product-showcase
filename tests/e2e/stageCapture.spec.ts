@@ -8,11 +8,13 @@ import type { RegionBox } from './stagePixels'
 import { decodeScreenshotRGBA } from './stagePixels'
 import { settledStage } from './stageSettle'
 
-// The contract of the suite's settled capture helper, proven at the moment
+// The contract of the suite's settled capture helper, proven at the moments
 // the caller-ordered waits used to race: right after a finish switch, when
 // the dev HUD's rolling window is still draining and its content-sized mask
-// box is about to shrink. After the helper returns, the HUD must read its
-// rest values, and captures taken across the drain must be pixel-identical.
+// box is about to shrink, and right after a load, when the markers'
+// first-load pulse is still running on CSS time. After the helper returns,
+// the HUD must read its rest values and no one-time animation may run, and
+// captures taken across the drain must be pixel-identical.
 
 const product = (await loadCollection()).first
 
@@ -72,4 +74,22 @@ test('a stage capture returns with the HUD at rest and repeats pixel-exact acros
     countDifferingPixels(decodedFirst, decodedReference, wholeFrame).count,
     'a capture from before the HUD drain shows a different mask box than the reference',
   ).toBe(0)
+})
+
+test('a stage capture right after the load returns with every one-time animation finished', async ({
+  page,
+  backendPath,
+}) => {
+  await page.goto(backendPath)
+  await waitForProductReady(page)
+
+  await settledStageCapture(page)
+
+  // One read, with no retry, right after the capture: a helper that shoots
+  // before the markers' first-load pulse has ended gets here with the pulse
+  // still running.
+  const running = await page.evaluate(
+    () => document.getAnimations().filter((animation) => animation.playState === 'running').length,
+  )
+  expect(running, 'the settled capture shot while a one-time animation was running').toBe(0)
 })

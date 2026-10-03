@@ -1,10 +1,8 @@
 import { CameraControlsImpl } from '@react-three/drei'
 import {
-  AnimationClip,
   Box3,
   MathUtils,
   Matrix4,
-  Object3D,
   PerspectiveCamera,
   Quaternion,
   Raycaster,
@@ -16,13 +14,12 @@ import {
 } from 'three'
 import { parseProduct } from '@lib/product'
 import { sampleOneManifest } from '@lib/product/fixtures'
-import type { ModelFrame } from '../modelFrame'
-import type { ProductRig } from '../rig/productRig'
 import type { StageCameraState } from './stageCameraApi'
 import { presentPlan } from './stageCameraApi'
 import { stageCameraConfig } from './config'
 import type { CameraPlan, CameraView } from './productPlan'
 import { buildCameraPlan } from './productPlan'
+import { centeredFrame, rigWith } from './productPlanFixtures'
 
 // The staging of the eased lens ride tests: the plan with three differently
 // lensed views, and the real controls installed and constructed the way
@@ -90,27 +87,6 @@ export const STEP_BUDGET = 600
 // every distance is 1 and the expectations carry no scale.
 export const STAGE_ASPECT = 1.6
 
-function rigWith(cameras: readonly PerspectiveCamera[]): ProductRig {
-  return {
-    parts: new Map(),
-    hotspots: [],
-    cameras: new Map(cameras.map((camera) => [camera.name.slice('CAM_'.length), camera])),
-    shadow: new Object3D(),
-    clip: new AnimationClip('Explode', 1, []),
-    variants: [],
-  }
-}
-
-// A centered frame, so the views orbit the origin.
-const frame: ModelFrame = {
-  centerX: 0,
-  centerY: 0,
-  centerZ: 0,
-  radius: 0.05,
-  meshes: 1,
-  triangles: 12,
-}
-
 // The plan under test: a home lens of 25 degrees and two close-ups in the
 // low teens, the shape of a product whose hotspot views magnify. All three
 // cameras sit on the +Z axis looking at the origin, so a move between them
@@ -130,7 +106,7 @@ function planOf(): CameraPlan {
   const build = buildCameraPlan(
     rigWith([home, closeUp, midView]),
     parseProduct(sampleOneManifest, 'sample-one.test'),
-    frame,
+    centeredFrame,
   )
   if (build.kind === 'broken') {
     throw new Error(`the staged plan must build, it broke with: ${JSON.stringify(build.problems)}`)

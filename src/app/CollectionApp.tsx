@@ -8,12 +8,13 @@ import {
 } from '@lib/routing'
 import { siteCopy } from '@lib/copy/site'
 import { StageAngleReadout, StageZoomControls } from '@features/stage-controls'
+import { HotspotMarkers, ProductHotspots } from '@features/hotspots'
 import { ProductIndexLabel, ProductPanel } from '@features/product-panel'
 import { ProductFinishes } from '@features/variants'
 import { AppStoreProvider } from '@store/index'
 import { Product } from '@viewer/product/Product'
 import { Stage } from '@viewer/Stage'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { CollectionProvider } from './collection/CollectionProvider'
 import { NotFoundScreen } from './collection/NotFoundScreen'
 import { AppLayout } from './layout/index'
@@ -87,11 +88,19 @@ function NotFoundPage({ collection }: { readonly collection: ProductCollection }
 // The layout with one product's words in its slots and the renderer in its
 // stage slot, showing the current product through the product channel. The
 // stage chrome's angle slot and controls slot carry the stage controls
-// feature, which reads the camera through the store. The finishes feature
-// extends the product on the stage.
+// feature, which reads the camera through the store. The finishes and the
+// hotspots extend the product on the stage: the finishes inside it, the
+// hotspots as the canvas child plus the markers in the stage's overlay. The
+// panel's dock is held here and handed to the markers, so an open card that
+// docks renders into the panel (the sheet on phone), and so is the stage
+// chrome, which a floating card keeps clear of.
 function ProductPage({ product }: { readonly product: ProductManifest }) {
+  const [dock, setDock] = useState<HTMLElement | null>(null)
+  const [chrome, setChrome] = useState<HTMLElement | null>(null)
   return (
     <AppLayout
+      dockRef={setDock}
+      chromeRef={setChrome}
       productIndex={<ProductIndexLabel number={product.number} category={product.category} />}
       panel={<ProductPanel product={product} />}
       stage={
@@ -104,8 +113,10 @@ function ProductPage({ product }: { readonly product: ProductManifest }) {
             // transitions build on that clean mount.
             <Product key={product.slug} manifest={product}>
               <ProductFinishes />
+              <ProductHotspots />
             </Product>
           }
+          overlay={<HotspotMarkers product={product} dock={dock} chrome={chrome} />}
         />
       }
       angleReadout={<StageAngleReadout />}

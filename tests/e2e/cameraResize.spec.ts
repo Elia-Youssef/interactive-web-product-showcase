@@ -16,12 +16,13 @@ import {
 const first = (await loadCollection()).first
 const facts = await readProductCameraFacts(first.slug)
 
-// Both distance limits of the live camera are the aspect rule's limits at
-// the measured stage aspect. The aspect in the rule comes from the canvas
-// box, read twice: once by the renderer, once by this spec, whose
-// fractional pixel rounding can differ, hence the precision.
+// Both distance limits of the live camera are the product's resolved
+// limits, the same resolution the plan builds from the manifest, scaled by
+// the aspect rule at the measured stage aspect. The aspect in the rule comes
+// from the canvas box, read twice: once by the renderer, once by this spec,
+// whose fractional pixel rounding can differ, hence the precision.
 function expectLimitsAtAspect(camera: CameraRead, stageAspect: number): void {
-  const expected = homeExpectation(facts, stageAspect)
+  const expected = homeExpectation(facts, first, stageAspect)
   expect(camera.minDistance).toBeCloseTo(expected.minDistance, 6)
   expect(camera.maxDistance).toBeCloseTo(expected.maxDistance, 6)
 }

@@ -1,6 +1,7 @@
 import type { ProductFailure, ProductRigSummary } from '@lib/product'
 import type { RendererBackend } from '@lib/renderer/backend'
 import { selectRendererBackend, type ProductStatus, type RendererStatus } from '@store/index'
+import type { OverlayPlacement } from '../overlay/StageOverlay'
 import type { ViewerModel } from './viewerAutomation.logic'
 import {
   productFailureOf,
@@ -85,9 +86,39 @@ export type StageProbeReads = {
   look: ViewerLook
   camera: ViewerCameraAutomation
   finish: ViewerFinish
+  hotspots: ViewerHotspotsAutomation
+  overlay: ViewerOverlay
 }
 
 export type StageProbeKey = keyof StageProbeReads
+
+// One hotspot of the stage's product, as the automation reports it: the
+// manifest id and the world position of its anchor, read from the HS_ node
+// at access time, so it is wherever the node stands now, motion included.
+export type ViewerHotspotAutomation = {
+  readonly id: string
+  readonly position: ViewerVector3
+}
+
+// The hotspots of the product on the stage: the product slug and, per
+// hotspot in manifest order, its id and its anchor's live world position.
+// The DOM markers are the visible truth; this probe gives only what a test
+// cannot read from the page: where each anchor really stands in the scene.
+export type ViewerHotspotsAutomation = {
+  readonly product: string
+  readonly hotspots: readonly ViewerHotspotAutomation[]
+}
+
+// The overlay channel of the stage's current canvas life: every key the
+// canvas side has written a placement for, with that placement, read from
+// the channel at access time. Only a presented frame's post-present phase
+// writes placements, and a fresh canvas life starts a fresh channel, so a
+// key here was placed by a frame the current canvas presented. The DOM
+// markers are the visible truth; this probe shows what the channel holds
+// while no marker is mounted to show it.
+export type ViewerOverlay = {
+  readonly placements: Readonly<Record<string, OverlayPlacement>>
+}
 
 // The finish a product on the stage carries: the applied variant name and,
 // per mapped mesh primitive, the material name the mesh carries. The
@@ -109,8 +140,9 @@ export type ViewerFinish = {
 
 // The probe-backed fields of the automation: one entry per stage probe key,
 // null while no component holds the key. The mapped type is derived from
-// StageProbeReads, so a key the stage gains appears here and in the
-// automation object below, or the typecheck fails.
+// StageProbeReads, so a key the stage gains appears here and as a getter in
+// the automation object below, or the typecheck fails: a key without a
+// getter, or a getter without a key, fails the compile.
 export type ViewerAutomationProbeFields = {
   readonly [K in StageProbeKey]: StageProbeReads[K] | null
 }
@@ -121,7 +153,7 @@ export type ViewerAutomation = {
   readonly status: RendererStatus['kind']
   readonly backend: RendererBackend | null
   // True while the store's status is ready, which the stage sets after the
-  // first frame its observer saw actually rendered.
+  // first frame it presented.
   readonly ready: boolean
   readonly failure: string | null
   // The product channel: the status kind, the slug it is about, the typed
@@ -154,56 +186,86 @@ export type ViewerAutomationSources = {
 }
 
 export function createViewerAutomation(sources: ViewerAutomationSources): ViewerAutomation {
-  const rendererStatus = () => sources.getStatus()
-  const productStatus = () => sources.getProductStatus()
-  return Object.freeze({
-    get status(): RendererStatus['kind'] {
-      return rendererStatus().kind
-    },
-    get backend(): RendererBackend | null {
-      return selectRendererBackend({ rendererStatus: rendererStatus() })
-    },
-    get ready(): boolean {
-      return rendererStatus().kind === 'ready'
-    },
-    get failure(): string | null {
-      return rendererFailureOf(rendererStatus())
-    },
-    get product(): ProductStatus['kind'] {
-      return productStatus().kind
-    },
-    get productSlug(): string | null {
-      return productSlugOf(productStatus())
-    },
-    get productFailure(): ProductFailure | null {
-      return productFailureOf(productStatus())
-    },
-    get rig(): ProductRigSummary | null {
-      return productRigOf(productStatus())
-    },
-    get model(): ViewerModel | null {
-      return productModelOf(productStatus())
-    },
-    get renderedFrames(): number {
-      return sources.renderedFrames()
-    },
-    get toneMapping(): number | null {
-      return sources.getToneMapping()
-    },
-    // The probe-backed fields, one getter per key of StageProbeReads, each
-    // read live through the stage's probes. The type above is the mapped
-    // StageProbeReads, so the typecheck holds this object to the table: a
-    // key without a getter, or a getter without a key, fails the compile.
-    get look(): ViewerLook | null {
-      return sources.probes.read('look')
-    },
-    get camera(): ViewerCameraAutomation | null {
-      return sources.probes.read('camera')
-    },
-    get finish(): ViewerFinish | null {
-      return sources.probes.read('finish')
-    },
-  })
+  return new StageViewerAutomation(sources)
+}
+
+// The automation object: one getter per field of the contract, each reading
+// its source at access time. The implements clause is the completeness
+// check: a field the contract gains, a probe key included, without a getter
+// here fails the typecheck. The sources sit in a private field, so the
+// contract exposes the getters and nothing else, and the instance is frozen
+// once built.
+class StageViewerAutomation implements ViewerAutomation {
+  readonly #sources: ViewerAutomationSources
+
+  constructor(sources: ViewerAutomationSources) {
+    this.#sources = sources
+    Object.freeze(this)
+  }
+
+  get status(): RendererStatus['kind'] {
+    return this.#sources.getStatus().kind
+  }
+
+  get backend(): RendererBackend | null {
+    return selectRendererBackend({ rendererStatus: this.#sources.getStatus() })
+  }
+
+  get ready(): boolean {
+    return this.#sources.getStatus().kind === 'ready'
+  }
+
+  get failure(): string | null {
+    return rendererFailureOf(this.#sources.getStatus())
+  }
+
+  get product(): ProductStatus['kind'] {
+    return this.#sources.getProductStatus().kind
+  }
+
+  get productSlug(): string | null {
+    return productSlugOf(this.#sources.getProductStatus())
+  }
+
+  get productFailure(): ProductFailure | null {
+    return productFailureOf(this.#sources.getProductStatus())
+  }
+
+  get rig(): ProductRigSummary | null {
+    return productRigOf(this.#sources.getProductStatus())
+  }
+
+  get model(): ViewerModel | null {
+    return productModelOf(this.#sources.getProductStatus())
+  }
+
+  get renderedFrames(): number {
+    return this.#sources.renderedFrames()
+  }
+
+  get toneMapping(): number | null {
+    return this.#sources.getToneMapping()
+  }
+
+  get look(): ViewerLook | null {
+    return this.#sources.probes.read('look')
+  }
+
+  get camera(): ViewerCameraAutomation | null {
+    return this.#sources.probes.read('camera')
+  }
+
+  get finish(): ViewerFinish | null {
+    return this.#sources.probes.read('finish')
+  }
+
+  get hotspots(): ViewerHotspotsAutomation | null {
+    return this.#sources.probes.read('hotspots')
+  }
+
+  get overlay(): ViewerOverlay | null {
+    return this.#sources.probes.read('overlay')
+  }
 }
 
 declare global {

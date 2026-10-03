@@ -11,6 +11,7 @@ import { DevHud } from './hud/DevHud'
 import { productFailureMessage } from './product/failureMessage'
 import { StageAlert } from './StageAlert'
 import { StageCanvas } from './StageCanvas'
+import { StageLife } from './StageLife'
 import { backendRequestFromLocation } from './backendRequest'
 import { useRendererLifecycle } from './useRendererLifecycle'
 import { useStageCanvasLife } from './useStageCanvasLife'
@@ -23,20 +24,28 @@ export type StageProps = {
   // its frame callbacks through the stage's frame path and holds the
   // resources it loads through the stage's holds.
   readonly content?: ReactNode
+  // The DOM content the stage shows over its canvas, in the canvas's own
+  // box and inside the stage's providers: the overlay content registers its
+  // elements with the overlay channel of the canvas life it shows over, and
+  // the canvas content writes their placements through the same channel.
+  // The overlay's empty area passes pointer events through to the canvas.
+  readonly overlay?: ReactNode
 }
 
 // The stage: it owns its frame clock, the holds on its content's loaded
 // resources and its probes, one each per mount, and reads the backend
-// request once. Inside, it mounts the canvas, keyed by the canvas's life,
-// so a renderer retired by a present that threw is replaced by a fresh
-// canvas when new content arrives. It wires the renderer lifecycle to the
-// store, mounts the automation hook for its whole lifetime (failure paths
-// included) and the dev HUD in dev builds. A failed stage, whatever failed
-// it, mounts no content and shows the renderer alert; a failed product shows
-// the product alert. The alerts are DOM elements outside the Canvas. It owns
-// no landmark and fills the box its container gives it; the app owns the
-// page frame.
-export function Stage({ content }: StageProps = {}) {
+// request once. Inside, it mounts one canvas life at a time, keyed by the
+// life's epoch: the canvas, and the overlay channel and overlay content that
+// belong to that canvas, so a renderer retired by a present that threw is
+// replaced by a fresh canvas, with a fresh overlay over it, when new content
+// arrives. It wires the renderer lifecycle to the store, mounts the
+// automation hook for its whole lifetime (failure paths included) and the
+// dev HUD in dev builds. A failed stage, whatever failed it, mounts no
+// content and shows the renderer alert; a failed product shows the product
+// alert. The alerts and the overlay are DOM elements outside the Canvas. It
+// owns no landmark and fills the box its container gives it; the app owns
+// the page frame.
+export function Stage({ content, overlay }: StageProps = {}) {
   const [clock] = useState(() => new FrameClock())
   // A dropped hold is released once the effect flush that dropped it has
   // ended: React runs a flush's cleanups and setups in one synchronous call,
@@ -58,11 +67,8 @@ export function Stage({ content }: StageProps = {}) {
   const stageFailed = rendererStatus.kind === 'failed'
   const canvasLife = useStageCanvasLife(productStatus.kind === 'loading', stageFailed)
 
-  // The canvas is keyed by its life's epoch: a retired renderer is replaced
-  // by a fresh canvas when new content arrives.
   const canvas = request.kind === 'valid' && (
     <StageCanvas
-      key={canvasLife.epoch}
       clock={clock}
       stageRenderer={stageRenderer}
       onFirstFrame={handleFirstFrame}
@@ -78,7 +84,7 @@ export function Stage({ content }: StageProps = {}) {
       <StageProbesContext.Provider value={probes}>
         <StageHoldsContext.Provider value={holds}>
           <AutomationBridge clock={clock} probes={probes} getToneMapping={getToneMapping} />
-          {canvas}
+          <StageLife key={canvasLife.epoch} canvas={canvas} overlay={overlay} />
           {stageFailed && <StageAlert reason={rendererStatus.reason} />}
           {productStatus.kind === 'failed' && (
             <StageAlert

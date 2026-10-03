@@ -41,6 +41,15 @@ export type CameraLimitProblem = {
   readonly message: string
 }
 
+// The orbit angles of one named view: the CAM_ identity a problem names,
+// and the two values the limit rules check. Every view of the plan is
+// checked, the home view included.
+export type ViewOrbit = {
+  readonly id: string
+  readonly distance: number
+  readonly polar: number
+}
+
 // The distance limits of a product: each authored side wins; a side the
 // manifest does not author is a ratio of the authored home distance.
 export function resolvedDistanceLimits(
@@ -68,20 +77,23 @@ function degreesToRadians(degrees: number): number {
   return degrees * (Math.PI / 180)
 }
 
-// The distance rules: the home distance must lie within [min, max] (a home
-// exactly at a limit is within), and the minimum must exceed the model
-// frame's radius, so the camera never enters the model.
+// The distance rules: every view's orbit distance must lie within [min, max]
+// (a view exactly at a limit is within), and the minimum must exceed the
+// model frame's radius, so the camera never enters the model. A problem
+// names the view it failed on.
 export function distanceLimitProblems(
   range: DistanceRange,
-  homeDistance: number,
+  views: readonly ViewOrbit[],
   radius: number,
 ): readonly CameraLimitProblem[] {
   const problems: CameraLimitProblem[] = []
-  if (homeDistance < range.min || homeDistance > range.max) {
-    problems.push({
-      rule: 'home-within-distance-limits',
-      message: `the home distance ${homeDistance} lies outside the distance limits [${range.min}, ${range.max}]`,
-    })
+  for (const view of views) {
+    if (view.distance < range.min || view.distance > range.max) {
+      problems.push({
+        rule: 'view-within-distance-limits',
+        message: `the CAM_${view.id} distance ${view.distance} lies outside the distance limits [${range.min}, ${range.max}]`,
+      })
+    }
   }
   if (range.min <= radius) {
     problems.push({
@@ -92,19 +104,21 @@ export function distanceLimitProblems(
   return problems
 }
 
-// The polar rule: the home polar angle must lie within the configured polar
-// limits, in radians, or the home view is unreachable by orbiting.
+// The polar rule: every view's polar angle must lie within the configured
+// polar limits, in radians, so every view is reachable by orbiting. A
+// problem names the view it failed on.
 export function polarLimitProblems(
   polar: PolarRange,
-  homePolar: number,
+  views: readonly ViewOrbit[],
 ): readonly CameraLimitProblem[] {
-  if (homePolar < polar.min || homePolar > polar.max) {
-    return [
-      {
-        rule: 'home-within-polar-limits',
-        message: `the home polar angle ${homePolar} lies outside the polar limits [${polar.min}, ${polar.max}]`,
-      },
-    ]
+  const problems: CameraLimitProblem[] = []
+  for (const view of views) {
+    if (view.polar < polar.min || view.polar > polar.max) {
+      problems.push({
+        rule: 'view-within-polar-limits',
+        message: `the CAM_${view.id} polar angle ${view.polar} lies outside the polar limits [${polar.min}, ${polar.max}]`,
+      })
+    }
   }
-  return []
+  return problems
 }

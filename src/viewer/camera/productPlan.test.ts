@@ -1,82 +1,24 @@
 import { describe, expect, it } from 'vitest'
 import type { Camera } from 'three'
-import { AnimationClip, Group, Object3D, OrthographicCamera, PerspectiveCamera } from 'three'
-import { parseProduct } from '@lib/product'
-import { sampleOneManifest } from '@lib/product/fixtures'
-import type { ModelFrame } from '../modelFrame'
+import { AnimationClip, Object3D, OrthographicCamera, PerspectiveCamera } from 'three'
 import type { ProductRig } from '../rig/productRig'
 import { stageCameraConfig } from './config'
-import { buildCameraPlan, type CameraPlan, type CameraPlanBuild } from './productPlan'
+import { buildCameraPlan } from './productPlan'
+import {
+  brokenMessages,
+  brokenProblems,
+  centeredFrame,
+  manifestWith,
+  mountedTree,
+  planned,
+  raisedFrame,
+  rigWith,
+} from './productPlanFixtures'
 
-// The parsed manifest the plan builds against, with the camera block each
-// case overrides, so the builder reads the real schema output.
-function manifestWith(camera: { minDistance?: number; maxDistance?: number } | undefined) {
-  return parseProduct({ ...sampleOneManifest, camera }, 'sample-one.test')
-}
-
-// The plan of a build the case expects to succeed; a broken build fails
-// the case with the problems it reported.
-function planned(build: CameraPlanBuild): CameraPlan {
-  if (build.kind === 'broken') {
-    throw new Error(`the plan must build, it broke with: ${JSON.stringify(build.problems)}`)
-  }
-  return build.plan
-}
-
-// The problem messages of a build the case expects to break, one per line.
-function brokenMessages(build: CameraPlanBuild): string {
-  if (build.kind === 'planned') {
-    throw new Error('the broken camera data must be reported as a broken build')
-  }
-  return build.problems.map((problem) => problem.message).join('\n')
-}
-
-// Rig fixtures for the builder: only its cameras enter the plan, so the
-// rest holds minimal stand-ins.
-function rigWith(cameras: readonly PerspectiveCamera[]): ProductRig {
-  return {
-    parts: new Map(),
-    hotspots: [],
-    cameras: new Map(cameras.map((camera) => [camera.name.slice('CAM_'.length), camera])),
-    shadow: new Object3D(),
-    clip: new AnimationClip('Explode', 1, []),
-    variants: [],
-  }
-}
-
-// The measured frame of the fixture model: its center rides 0.1 above the
-// floor, which the centering group offsets.
-const frame: ModelFrame = {
-  centerX: 0,
-  centerY: 0.1,
-  centerZ: 0,
-  radius: 0.4,
-  meshes: 1,
-  triangles: 12,
-}
-
-// A centered frame: no centering offset, a small radius.
-const centeredFrame: ModelFrame = {
-  centerX: 0,
-  centerY: 0,
-  centerZ: 0,
-  radius: 0.05,
-  meshes: 1,
-  triangles: 12,
-}
-
-// Mounts the cameras under a centering group offset, the way the loaded
-// product's tree is centered on the origin.
-function mountedTree(cameras: readonly PerspectiveCamera[], offset: ModelFrame = frame): Group {
-  const group = new Group()
-  group.position.set(-offset.centerX, -offset.centerY, -offset.centerZ)
-  const scene = new Object3D()
-  for (const camera of cameras) {
-    scene.add(camera)
-  }
-  group.add(scene)
-  return group
-}
+// The plan the builder makes from a well-formed rig: its views, its lens,
+// its clip range and its limits, and the authored data it rejects as a
+// broken build. The limit rules every view is held to live in
+// productPlanLimits.test.ts.
 
 describe('buildCameraPlan', () => {
   it('builds a view per rig camera from the centered world transforms', () => {
@@ -89,7 +31,9 @@ describe('buildCameraPlan', () => {
     closeUp.lookAt(0, 0.1, 0)
     mountedTree([home, closeUp])
 
-    const plan = planned(buildCameraPlan(rigWith([home, closeUp]), manifestWith(undefined), frame))
+    const plan = planned(
+      buildCameraPlan(rigWith([home, closeUp]), manifestWith(undefined), raisedFrame),
+    )
 
     expect([...plan.views.keys()]).toEqual(['home', 'driver'])
     const homeView = plan.views.get('home')
@@ -208,55 +152,6 @@ describe('buildCameraPlan', () => {
     expect(plan.distanceRange).toEqual({ min: 0.9, max: 3 })
   })
 
-  it('fails with every broken rule named when the home sits outside the limits', () => {
-    const home = new PerspectiveCamera(30, 1.6, 0.05, 25)
-    home.name = 'CAM_home'
-    home.position.set(0, 0, 1.2)
-    mountedTree([home])
-
-    // The authored maximum pulls the home distance 1.2 outside [0.4, 1.1],
-    // and the authored minimum only reaches the model's radius of 0.4,
-    // which the minimum must exceed.
-    const build = buildCameraPlan(
-      rigWith([home]),
-      manifestWith({ minDistance: 0.4, maxDistance: 1.1 }),
-      frame,
-    )
-    if (build.kind === 'planned') {
-      throw new Error('the broken limits must be reported as a broken build')
-    }
-    expect(build.problems.map((problem) => problem.rule)).toEqual([
-      'home-within-distance-limits',
-      'minimum-clears-the-model',
-    ])
-  })
-
-  it('fails when the minimum does not clear the model radius', () => {
-    const home = new PerspectiveCamera(30, 1.6, 0.05, 25)
-    home.name = 'CAM_home'
-    home.position.set(0, 0, 1.2)
-    mountedTree([home])
-
-    expect(
-      brokenMessages(buildCameraPlan(rigWith([home]), manifestWith({ minDistance: 0.35 }), frame)),
-    ).toMatch(/minimum distance 0.35 does not exceed the model radius 0.4/)
-  })
-
-  it('fails when the home polar angle sits outside the configured limits', () => {
-    // A camera aimed straight down from above the model: its polar angle
-    // is nearly 0, below the configured minimum, while the distances stay
-    // inside their limits.
-    const home = new PerspectiveCamera(30, 1.6, 0.05, 25)
-    home.name = 'CAM_home'
-    home.position.set(0, 5, 0)
-    home.lookAt(0, 0, 0)
-    mountedTree([home], centeredFrame)
-
-    expect(
-      brokenMessages(buildCameraPlan(rigWith([home]), manifestWith(undefined), centeredFrame)),
-    ).toMatch(/home polar angle/)
-  })
-
   it('fails when an authored camera is not perspective', () => {
     const home = new PerspectiveCamera(30, 1.6, 0.05, 25)
     home.name = 'CAM_home'
@@ -292,9 +187,6 @@ describe('buildCameraPlan', () => {
     mountedTree([home, inside], centeredFrame)
 
     const build = buildCameraPlan(rigWith([home, inside]), manifestWith(undefined), centeredFrame)
-    if (build.kind === 'planned') {
-      throw new Error('a degenerate view must be reported as a broken build')
-    }
-    expect(build.problems.map((problem) => problem.rule)).toEqual(['view-orbit-distance'])
+    expect(brokenProblems(build).map((problem) => problem.rule)).toEqual(['view-orbit-distance'])
   })
 })

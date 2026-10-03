@@ -20,9 +20,10 @@ import { settledStageCapture } from './stageCapture'
 const products = await harnessProducts()
 
 // Loads the harness page for a look and decodes a settled capture to RGBA:
-// the settled capture entry waits for the stage's rest and drains the dev
-// HUD, so at rest nothing renders after it and every capture of the run
-// masks the same box.
+// the settled capture entry waits for the stage's rest, drains the dev HUD
+// and waits out the one-time DOM animations (the markers' first-load
+// pulse), so at rest nothing renders or moves after it and every capture of
+// the run masks the same box.
 async function settledDecoded(
   page: Page,
   backendPath: string,

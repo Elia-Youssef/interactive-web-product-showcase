@@ -40,7 +40,7 @@ for (const side of ASPECT_SIDES) {
     backendPath,
   }) => {
     const stageAspect = await homeStageAspect(page, backendPath, side)
-    const expected = homeExpectation(facts, stageAspect)
+    const expected = homeExpectation(facts, first, stageAspect)
     const camera = await readCamera(page)
     if (camera === null) {
       throw new Error('the automation must carry the live stage camera once a view is presented')
@@ -62,15 +62,16 @@ for (const side of ASPECT_SIDES) {
     expect(camera.position.y).toBeCloseTo(expected.position.y, 2)
     expect(camera.position.z).toBeCloseTo(expected.position.z, 2)
 
-    // The distance limits are the config ratios of the authored home
-    // distance, scaled by the aspect rule. The aspect in the rule is the
+    // The distance limits are the product's resolved limits, the manifest's
+    // authored sides and the config ratios of the authored home distance
+    // for the rest, scaled by the aspect rule. The aspect in the rule is the
     // canvas box, read once by the renderer and once by this spec, whose
     // fractional pixel rounding can differ, hence the precision.
     expect(camera.minDistance).toBeCloseTo(expected.minDistance, 6)
     expect(camera.maxDistance).toBeCloseTo(expected.maxDistance, 6)
     const percent =
       ((camera.maxDistance - camera.distance) / (camera.maxDistance - camera.minDistance)) * 100
-    expect(percent, 'the home view sits at the ratio limits home percentage').toBeCloseTo(
+    expect(percent, 'the home view sits at the home percentage of the resolved limits').toBeCloseTo(
       expected.zoomPercent,
       6,
     )
@@ -81,7 +82,7 @@ for (const side of ASPECT_SIDES) {
     backendPath,
   }) => {
     const stageAspect = await homeStageAspect(page, backendPath, side)
-    const expected = homeExpectation(facts, stageAspect)
+    const expected = homeExpectation(facts, first, stageAspect)
 
     // The angle readout normalizes the accumulated azimuth into [0, 360): the
     // authored home azimuth is -35 degrees, which reads as 325.
@@ -97,7 +98,7 @@ for (const side of ASPECT_SIDES) {
     await expect(angle).toHaveText(`${Math.round(normalized) % 360} / 360`)
 
     // The zoom readout is the exact linear map of the live distance between
-    // the limits, formatted as the chrome formats it: at home, the ratio
+    // the limits, formatted as the chrome formats it: at home, the resolved
     // limits put the product at the home percentage.
     const zoom = page.locator('[data-corner="bottom-right"]')
     await expect(zoom).toContainText(zoomReadoutText(expected.zoomPercent))

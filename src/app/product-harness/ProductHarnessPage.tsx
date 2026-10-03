@@ -2,12 +2,14 @@ import '@styles/global.css'
 import { useCallback, useMemo, useState } from 'react'
 import { CollectionError, createCollection, type Product as ProductManifest } from '@lib/product'
 import { productManifests } from '@products/index'
+import { HotspotMarkers } from '@features/hotspots'
 import { useFinishOffer } from '@features/variants'
 import { AppStoreProvider, useAppStore } from '@store/index'
 import { Stage } from '@viewer/Stage'
 import { StageAlert } from '@viewer/StageAlert'
 import styles from './ProductHarnessPage.module.css'
 import { HarnessProductContent } from './HarnessProductContent'
+import { HarnessProductControls } from './HarnessProductControls'
 import { harnessFrameFault, type HarnessFrameFault } from './frameFaultQuery'
 import { harnessOverrides, withOverrides, type HarnessOverrides } from './harnessOverrides'
 import { harnessSlug } from './harnessSlug'
@@ -83,7 +85,8 @@ type HarnessCollection = {
 }
 
 // The product side of the harness: the overridden manifest, the mount
-// toggle, the finish controls, and the alerts the slug state can raise.
+// toggle, the finish controls, the part motion control, the dock for an
+// open card, and the alerts the slug state can raise.
 function HarnessProduct({
   slug,
   collection,
@@ -96,6 +99,11 @@ function HarnessProduct({
   readonly frameFault: HarnessFrameFault | null
 }) {
   const { mounted, firstMount, toggle } = useHarnessMount()
+  const [moveToken, setMoveToken] = useState(0)
+  // The page's dock for an open card that docks, as the app's panel holds
+  // one: the markers render into it whenever the card has no room beside
+  // its marker. The page has no stage chrome to keep clear of.
+  const [dock, setDock] = useState<HTMLElement | null>(null)
   const manifest = slug === null ? undefined : collection.bySlug(slug)
   // The overrides ride on the manifest, so the product path sees one source
   // per block and no test plumbing. The memo keeps the manifest's identity
@@ -105,25 +113,34 @@ function HarnessProduct({
     <HarnessProductContent
       manifest={pageManifest}
       mounted={mounted}
+      moveToken={moveToken}
       frameFault={firstMount ? frameFault : null}
     />
   )
 
   return (
     <>
-      <Stage content={content} />
+      <Stage
+        content={content}
+        // The markers of the hotspots feature, over the same product the
+        // content shows. The feature's DOM side renders nothing while the
+        // store's product status is not ready for it.
+        overlay={
+          pageManifest !== undefined ? (
+            <HotspotMarkers product={pageManifest} dock={dock} chrome={null} />
+          ) : null
+        }
+      />
+      <div ref={setDock} className={styles.dock} data-slot="dock" />
       <HarnessSlugAlert slug={slug} found={manifest !== undefined} collection={collection} />
       {manifest !== undefined && (
         <>
           <HarnessFinishControls manifest={manifest} />
-          <button
-            type="button"
-            className={styles.toggle}
-            data-testid="remount-product"
-            onClick={toggle}
-          >
-            {mounted ? 'Unmount the product' : 'Mount the product'}
-          </button>
+          <HarnessProductControls
+            mounted={mounted}
+            onToggleMounted={toggle}
+            onMovePart={() => setMoveToken((current) => current + 1)}
+          />
         </>
       )}
     </>
@@ -191,7 +208,7 @@ function HarnessFinishControls({ manifest }: { readonly manifest: ProductManifes
   useFinishOffer(manifest)
 
   return (
-    <div className={styles.finishes} data-testid="harness-finishes">
+    <div className={styles.finishes} data-testid="harness-finishes" data-harness-control>
       {manifest.finishes.map((finish) => (
         <button
           key={finish.variant}

@@ -128,8 +128,9 @@ test('the finish change repaints the model in the manifest direction, past the n
   // must differ: a capture that lags the state reads the default and pairs up
   // identical, which means the switch never reached the pixels, so it fails
   // instead of passing a finish that did not paint. The helper settles the
-  // stage and drains the dev HUD before each shot, so the pair cannot race
-  // the HUD's mask box.
+  // stage, drains the dev HUD and waits out the one-time DOM animations (the
+  // markers' first-load pulse) before each shot, so the pair cannot race the
+  // HUD's mask box or a pulse.
   const atDefault = await settledStageCapture(page)
   const atDefaultAgain = await settledStageCapture(page)
   await page.getByRole('button', { name: otherFinish.label }).click()

@@ -24,7 +24,7 @@ const failures: { readonly [K in ProductFailureKind]: Extract<ProductFailure, { 
   'camera-contract': {
     kind: 'camera-contract',
     problems: [
-      { rule: 'home-within-distance-limits', message: 'the home distance 1.2 lies outside' },
+      { rule: 'view-within-distance-limits', message: 'the CAM_home distance 1.2 lies outside' },
       { rule: 'minimum-clears-the-model', message: 'the minimum distance 0.35 is inside' },
     ],
   },
@@ -59,7 +59,7 @@ describe('productFailureMessage', () => {
   it('lists every camera rule the authored cameras break on its own line', () => {
     expect(productFailureMessage(failures['camera-contract']).split('\n')).toEqual([
       'The authored cameras break the stage camera rules:',
-      '- the home distance 1.2 lies outside',
+      '- the CAM_home distance 1.2 lies outside',
       '- the minimum distance 0.35 is inside',
     ])
   })

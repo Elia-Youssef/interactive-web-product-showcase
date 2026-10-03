@@ -86,7 +86,7 @@ for (const product of products) {
       failure: {
         kind: 'camera-contract',
         problems: expect.arrayContaining([
-          expect.objectContaining({ rule: 'home-within-distance-limits' }),
+          expect.objectContaining({ rule: 'view-within-distance-limits' }),
         ]),
       },
       status: 'ready',

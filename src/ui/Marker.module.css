@@ -1,0 +1,86 @@
+/* The hotspot marker: a 10px --off dot in a 28px hairline ring, on a 44px
+   hit area. Active: the dot turns --red. Hover: the ring lifts to the
+   hairline hover. The keyboard focus ring is the global :focus-visible
+   recipe, which owns the ring; no second recipe here. Values are tokens. */
+
+.marker {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  inline-size: var(--size-hotspot-hit);
+  block-size: var(--size-hotspot-hit);
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-circle);
+  background: none;
+  cursor: pointer;
+  /* The stage overlay passes pointer events through on its empty area; the
+     marker is the one thing that takes them. */
+  pointer-events: auto;
+  /* The global ring, at the marker's own offset token, the one the card
+     placement keeps clear. */
+  --focus-ring-offset: var(--offset-hotspot-focus-ring);
+}
+
+/* The ring and the dot are centered pseudo-elements on the hit area. */
+.marker::before,
+.marker::after {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  border-radius: var(--radius-circle);
+  content: '';
+}
+
+.marker::before {
+  inline-size: var(--size-hotspot-ring);
+  block-size: var(--size-hotspot-ring);
+  border: var(--hairline-width) solid var(--hairline);
+  transition: border-color var(--duration-hover);
+}
+
+.marker:hover::before,
+.marker[data-force-hover]::before {
+  border-color: var(--hairline-hover);
+}
+
+.marker::after {
+  inline-size: var(--size-hotspot-dot);
+  block-size: var(--size-hotspot-dot);
+  background-color: var(--off);
+  transition: background-color var(--duration-hover);
+}
+
+.marker[aria-pressed='true']::after {
+  background-color: var(--red);
+}
+
+/*
+The one first-load pulse: a ring that grows out of the marker and fades,
+once, then rests invisible through its forwards fill. It runs on the
+element's own mount, so an occlusion hide with visibility never replays it;
+with reduced motion the duration token resolves to zero, so no pulse shows.
+*/
+.pulse {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  inline-size: var(--size-hotspot-ring);
+  block-size: var(--size-hotspot-ring);
+  border: var(--hairline-width) solid var(--hairline);
+  border-radius: var(--radius-circle);
+  pointer-events: none;
+  animation: marker-pulse var(--duration-hotspot-pulse) var(--ease-pulse) forwards;
+}
+
+@keyframes marker-pulse {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(2);
+  }
+}

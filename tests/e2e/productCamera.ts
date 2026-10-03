@@ -5,6 +5,7 @@ import type { Node as GltfNode, vec3 } from '@gltf-transform/core'
 import { frameSpanOfMeshBoxes } from '../../src/lib/camera/frame.ts'
 import { createModelIO } from '../../scripts/modelIo.ts'
 import { readCameraFacts, readMeshBoxes } from '../../scripts/modelFacts.ts'
+import type { CameraFact } from '../../scripts/modelFacts.ts'
 
 // The authored ray of one camera: the world position, the world forward
 // unit vector and the vertical fov in radians, as the camera facts carry it.
@@ -15,22 +16,26 @@ type AuthoredCameraRay = {
 }
 
 // The authored camera facts of a shipped product, computed in Node straight
-// from the `.glb` the site ships: the model frame and the home camera view
-// with its orbit numbers. The frame center comes from the one shared frame
-// function over the document facts, the same numbers the build-time
-// validate step checks; the projection onto the view ray and the orbit
-// angles are computed here, in this module, the way the base computed them.
-// So the specs' expectations stand on the shipped file and on unit-tested
-// pure math, never on the viewer's runtime state, and a viewer regression
-// cannot hide behind its own math.
+// from the `.glb` the site ships: the model frame, the home camera view and
+// every close-up view, each with its orbit numbers. The frame center comes
+// from the one shared frame function over the document facts, the same
+// numbers the build-time validate step checks; the projection onto each
+// view ray and the orbit angles are computed here, in this module. So the
+// specs' expectations stand on the shipped file and on unit-tested pure
+// math, never on the viewer's runtime state, and a viewer regression cannot
+// hide behind its own math.
 
 export type ProductCameraFacts = {
   // The center of the model's bounding box, in the model's own space.
   readonly center: vec3
-  readonly home: AuthoredHomeView
+  readonly home: AuthoredView
+  // Every other CAM_ view the model carries, keyed by the id after the
+  // CAM_ prefix: a hotspot's close-up under the hotspot's id. A hotspot
+  // without a close-up has no entry.
+  readonly closeUps: ReadonlyMap<string, AuthoredView>
 }
 
-export type AuthoredHomeView = {
+export type AuthoredView = {
   // The camera position in stage space, where the centered model sits on
   // the origin.
   readonly position: vec3
@@ -47,7 +52,8 @@ export type AuthoredHomeView = {
   readonly distance: number
 }
 
-const HOME_CAMERA_NAME = 'CAM_home'
+const CAMERA_NODE_PREFIX = 'CAM_'
+const HOME_VIEW_ID = 'home'
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url))
 
@@ -58,44 +64,66 @@ export async function readProductCameraFacts(slug: string): Promise<ProductCamer
   return productCameraFactsOf(doc, modelPath)
 }
 
-// The camera facts of one product document: the frame center and the home
-// view. A home camera with no authored aspect fails here by name: the
-// aspect is a contract fact the specs derive their scaling from, and the
-// build-time validate step rejects a camera without one.
+// The camera facts of one product document: the frame center, the home
+// view and every close-up view, each the first CAM_ camera of its name. A
+// CAM_ camera that is not perspective, or that carries no authored aspect,
+// fails here by name: the aspect is a contract fact the specs derive their
+// scaling from, and the build-time validate step rejects a camera without
+// one.
 export function productCameraFactsOf(doc: Document, modelPath: string): ProductCameraFacts {
   const frame = frameSpanOfMeshBoxes(readMeshBoxes(doc))
   const center: vec3 = [frame.center[0], frame.center[1], frame.center[2]]
-  const homeNode = doc
-    .getRoot()
-    .listNodes()
-    .find((node: GltfNode) => node.getName() === HOME_CAMERA_NAME)
-  if (homeNode === undefined) {
-    throw new Error(`no ${HOME_CAMERA_NAME} node in ${modelPath}`)
+  const views = new Map<string, AuthoredView>()
+  for (const { node, fact } of cameraNodesWithFacts(doc)) {
+    const name = node.getName()
+    const id = name.slice(CAMERA_NODE_PREFIX.length)
+    if (!name.startsWith(CAMERA_NODE_PREFIX) || views.has(id)) {
+      continue
+    }
+    const camera = node.getCamera()
+    if (camera === null || camera.getType() !== 'perspective' || fact.ray === null) {
+      throw new Error(`${name} in ${modelPath} carries no perspective camera`)
+    }
+    if (fact.aspect === null) {
+      throw new Error(`${name} in ${modelPath} carries no aspect ratio`)
+    }
+    views.set(id, authoredViewOf(camera, fact.aspect, fact.ray, frame.center))
   }
-  const camera = homeNode.getCamera()
-  if (camera === null || camera.getType() !== 'perspective') {
-    throw new Error(`${HOME_CAMERA_NAME} in ${modelPath} carries no perspective camera`)
+  const home = views.get(HOME_VIEW_ID)
+  if (home === undefined) {
+    throw new Error(`no ${CAMERA_NODE_PREFIX}${HOME_VIEW_ID} node in ${modelPath}`)
   }
-  const aspect = camera.getAspectRatio()
-  if (aspect === null) {
-    throw new Error(`${HOME_CAMERA_NAME} in ${modelPath} carries no aspect ratio`)
-  }
-  const homeFact = readCameraFacts(doc).find((fact) => fact.name === HOME_CAMERA_NAME)
-  if (homeFact === undefined || homeFact.ray === null) {
-    throw new Error(`${HOME_CAMERA_NAME} in ${modelPath} carries no authored camera ray`)
-  }
-  return { center, home: authoredHomeViewOf(camera, aspect, homeFact.ray, frame.center) }
+  views.delete(HOME_VIEW_ID)
+  return { center, home, closeUps: views }
 }
 
-// The home view of the authored camera, in stage space: the centered
-// position, the orbit target the view ray's closest point to the model
-// center is, the authored lens, and the orbit numbers.
-function authoredHomeViewOf(
+// Every camera node of the document beside its camera fact. The facts are
+// one per camera node in the document's node order, so the two lists pair
+// up by position; the names are checked, so a reordered read fails loudly.
+function cameraNodesWithFacts(doc: Document): { node: GltfNode; fact: CameraFact }[] {
+  const nodes = doc
+    .getRoot()
+    .listNodes()
+    .filter((node) => node.getCamera() !== null)
+  const facts = readCameraFacts(doc)
+  return nodes.map((node, index) => {
+    const fact = facts[index]
+    if (fact === undefined || fact.name !== node.getName()) {
+      throw new Error('internal error: the camera facts do not pair with the camera nodes')
+    }
+    return { node, fact }
+  })
+}
+
+// The view of one authored camera, in stage space: the centered position,
+// the orbit target the view ray's closest point to the model center is,
+// the authored lens, and the orbit numbers.
+function authoredViewOf(
   camera: Camera,
   aspect: number,
   ray: AuthoredCameraRay,
   center: AuthoredCameraRay['position'],
-): AuthoredHomeView {
+): AuthoredView {
   const stagePosition: vec3 = [
     ray.position[0] - center[0],
     ray.position[1] - center[1],

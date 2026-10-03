@@ -81,15 +81,16 @@ export function buildCameraPlan(
 
   const check = cameraContractProblems({
     views: rays,
-    home: home.ray,
+    homeId: CAMERA_HOME_ID,
     frame: { center: MODEL_CENTER_IN_STAGE, radius: frame.radius },
     authoredDistanceLimits: manifest.camera ?? {},
     limits: cameraLimitConfig,
   })
-  problems.push(...check.problems)
-
-  if (problems.length > 0) {
-    return { kind: 'broken', problems }
+  if (check.kind === 'broken' || problems.length > 0) {
+    return {
+      kind: 'broken',
+      problems: [...problems, ...(check.kind === 'broken' ? check.problems : [])],
+    }
   }
   return {
     kind: 'planned',
@@ -105,25 +106,25 @@ export function buildCameraPlan(
 }
 
 // The home camera's facts, carried out of the rig walk together: the view
-// the controls present, the ray the contract assembly reads, and the
-// authored aspect the stage's distance scale rides on.
+// the controls present and the authored aspect the stage's distance scale
+// rides on.
 type CollectedHome = {
   readonly view: CameraView
-  readonly ray: AuthoredCameraRay
   readonly aspect: number
 }
 
 type CollectedViews = {
   readonly views: Map<string, CameraView>
-  // Every perspective camera's authored ray, in rig order: the list the
-  // contract assembly holds for the rules that check every view.
+  // Every perspective camera's authored ray by its view id, in rig order:
+  // the view list the contract assembly checks, the home view among them.
   readonly rays: NamedCameraRay[]
   readonly home: CollectedHome | null
 }
 
-// One orbit view per rig camera, read from the camera's world transform.
-// A camera that is not perspective is a problem of its own; the home view
-// and its authored aspect are carried out for the limit rules.
+// One orbit view per rig camera, read from the camera's world transform,
+// and its named ray for the contract assembly. A camera that is not
+// perspective is a problem of its own; the home view and its authored
+// aspect are carried out for the plan.
 function collectViews(rig: ProductRig, problems: CameraLimitProblem[]): CollectedViews {
   const views = new Map<string, CameraView>()
   const rays: NamedCameraRay[] = []
@@ -155,7 +156,7 @@ function collectViews(rig: ProductRig, problems: CameraLimitProblem[]): Collecte
     views.set(id, view)
     rays.push({ id, ray })
     if (id === CAMERA_HOME_ID) {
-      home = { view, ray, aspect: camera.aspect }
+      home = { view, aspect: camera.aspect }
     }
   }
   return { views, rays, home }

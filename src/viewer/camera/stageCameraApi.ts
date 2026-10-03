@@ -2,8 +2,8 @@ import type { CameraControlsImpl } from '@react-three/drei'
 import type { RefObject } from 'react'
 import { PerspectiveCamera, type Camera } from 'three'
 import type { DistanceRange } from '@lib/camera/limits'
-import type { CameraPlan } from './productPlan'
-import { applyLens, applyView, scaledRangeOf, stepZoom, viewOfPlan } from './controls'
+import type { CameraPlan, CameraView } from './productPlan'
+import { applyLens, applyView, scaledRangeOf, stepZoom } from './controls'
 import { prefersReducedMotion } from './prefersReducedMotion'
 
 // The four camera operations the context API hands out, as plain functions
@@ -27,6 +27,23 @@ export type StageCameraState = {
   readonly invalidate: () => void
 }
 
+// The two synchronous failures of a move request, as typed errors: the
+// store bridge classifies a rejection by the error's own type, never by its
+// message, and any other throw is not a move failure the channel knows.
+export class CameraNoPlanError extends Error {
+  constructor() {
+    super('no product view is presented to move the stage camera with')
+    this.name = 'CameraNoPlanError'
+  }
+}
+
+export class CameraUnknownViewError extends Error {
+  constructor(viewId: string) {
+    super(`the presented camera plan holds no view '${viewId}'`)
+    this.name = 'CameraUnknownViewError'
+  }
+}
+
 function requireControls(state: StageCameraState): CameraControlsImpl {
   if (state.controls === null) {
     throw new Error('the stage camera is not mounted yet')
@@ -44,9 +61,20 @@ function requirePerspectiveCamera(state: StageCameraState): PerspectiveCamera {
 function requirePlan(state: StageCameraState): CameraPlan {
   const plan = state.planRef.current
   if (plan === null) {
-    throw new Error('no product view is presented to move the stage camera with')
+    throw new CameraNoPlanError()
   }
   return plan
+}
+
+// The view of the plan a view id names. The one resolution every caller
+// shares: a view the plan does not hold throws CameraUnknownViewError
+// before anything changes.
+function viewOfPlan(plan: CameraPlan, viewId: string): CameraView {
+  const view = plan.views.get(viewId)
+  if (view === undefined) {
+    throw new CameraUnknownViewError(viewId)
+  }
+  return view
 }
 
 // Registers the plan and shows one of its views at once, with no
@@ -68,7 +96,9 @@ export function presentPlan(state: StageCameraState, plan: CameraPlan, viewId: s
 }
 
 // Eases to one of the plan's views, or moves at once under reduced motion.
-// Resolves when the controls reach rest.
+// Resolves when the controls reach rest. The view is resolved before
+// anything changes: a view the plan does not hold throws
+// CameraUnknownViewError and moves nothing.
 export function transitionToView(state: StageCameraState, viewId: string): Promise<void> {
   const plan = requirePlan(state)
   return applyView(

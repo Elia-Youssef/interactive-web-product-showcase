@@ -1,16 +1,21 @@
 // The camera contract check: the names rule (CAM_home required, hotspot
-// cameras), the aspect rule, and every view's geometry plus the home view's
-// limit rules through the one shared assembly the runtime plan runs. Its
-// scope is the contract's own: the cameras the naming contract names
-// (CAM_), the set the runtime rig walks.
+// cameras), the aspect rule, and every view's geometry and limit rules
+// through the one shared assembly the runtime plan runs, over the views the
+// runtime rig resolves.
 import type { Product } from '../src/lib/product/index.ts'
-import { CAMERA_HOME_NAME, CAMERA_PREFIX } from '../src/lib/product/contractNames.ts'
+import {
+  CAMERA_HOME_ID,
+  CAMERA_HOME_NAME,
+  CAMERA_PREFIX,
+} from '../src/lib/product/contractNames.ts'
 import {
   AUTHORED_CAMERA_RESOLUTION,
   authoredCameraAspect,
   cameraLimitConfig,
 } from '../src/lib/camera/config.ts'
 import { frameSpanOfMeshBoxes } from '../src/lib/camera/frame.ts'
+import type { NamedCameraRay } from '../src/lib/camera/view.ts'
+import type { CameraFact } from './modelFacts.ts'
 import type { ProductStructure } from './structure.ts'
 import type { CameraContract } from './manifestIo.ts'
 import { checkResult, type CheckResult } from './validateChecks.ts'
@@ -18,11 +23,9 @@ import { checkResult, type CheckResult } from './validateChecks.ts'
 // The camera contract: CAM_home is required (the start and reset view), a
 // CAM_<id> whose id is no manifest hotspot is a warning (the camera does
 // not break anything on its own), every CAM_ camera carries the one
-// authored aspect ratio the project exports at, and the home view satisfies
-// the same limit rules the runtime plan enforces, through the one shared
-// rule assembly. The scope is the contract's own: the cameras the naming
-// contract names (CAM_), the set the runtime rig checks, so a camera the
-// site can never present is nobody's violation.
+// authored aspect ratio the project exports at, and every view satisfies
+// the same geometry and limit rules the runtime plan enforces, through the
+// one shared rule assembly.
 export function checkCameras(
   manifest: Product,
   structure: ProductStructure,
@@ -44,7 +47,7 @@ export function checkCameras(
     }
   }
   violations.push(...cameraAspectViolations(structure))
-  violations.push(...homeLimitViolations(manifest, structure, contract))
+  violations.push(...viewRuleViolations(manifest, structure, contract))
 
   const detail =
     structure.cameraNames.length === 0 ? 'no cameras' : `found ${structure.cameraNames.join(', ')}`
@@ -57,7 +60,10 @@ export function checkCameras(
 // nor a view the site can present, and is reported for what it is.
 function cameraAspectViolations(structure: ProductStructure): string[] {
   const violations: string[] = []
-  for (const fact of contractCameras(structure)) {
+  for (const fact of structure.cameraFacts) {
+    if (!fact.name.startsWith(CAMERA_PREFIX)) {
+      continue
+    }
     if (fact.ray === null) {
       violations.push(
         `camera ${fact.name} is not a perspective camera, the site presents perspective views only`,
@@ -81,39 +87,54 @@ function cameraAspectViolations(structure: ProductStructure): string[] {
   return violations
 }
 
-// The view rules through the one shared rule assembly: every view's
-// geometry, then the home distance within the limits, the minimum outside
-// the model, the home polar angle within the polar limits. Each problem
-// message names what it is about (the camera, or the home view), so the
-// violation is the message itself.
-function homeLimitViolations(
+// The view rules over every view, through the one shared rule assembly:
+// each view's geometry, then each view within the distance limits, the
+// minimum outside the model, each view within the polar limits. The
+// assembly's messages name the camera they fail on, so they are reported
+// as they come.
+function viewRuleViolations(
   manifest: Product,
   structure: ProductStructure,
   contract: CameraContract,
 ): string[] {
-  const contractFacts = contractCameras(structure)
-  const home = contractFacts.find((fact) => fact.name === CAMERA_HOME_NAME)
-  if (home === undefined || home.ray === null) {
+  const views = contractViews(manifest, structure)
+  if (!views.some((view) => view.id === CAMERA_HOME_ID)) {
+    // The names rule above reports a missing CAM_home and the aspect rule a
+    // home that is not perspective; without a home view the limits have no
+    // distance to derive from.
     return []
   }
   if (structure.meshBoxes.length === 0) {
-    return ['the model holds no meshes to frame, the home view has nothing to orbit']
+    return ['the model holds no meshes to frame, the views have nothing to orbit']
   }
-  const views = contractFacts.flatMap((fact) =>
-    fact.ray === null ? [] : [{ id: fact.name.slice(CAMERA_PREFIX.length), ray: fact.ray }],
-  )
   const check = contract.cameraContractProblems({
     views,
-    home: home.ray,
+    homeId: CAMERA_HOME_ID,
     frame: frameSpanOfMeshBoxes(structure.meshBoxes),
     authoredDistanceLimits: manifest.camera ?? {},
     limits: cameraLimitConfig,
   })
-  return check.problems.map((problem) => problem.message)
+  return check.kind === 'broken' ? check.problems.map((problem) => problem.message) : []
 }
 
-// The contract's cameras: the CAM_-named facts, the set the runtime rig
-// walks, in document order.
-function contractCameras(structure: ProductStructure) {
-  return structure.cameraFacts.filter((fact) => fact.name.startsWith(CAMERA_PREFIX))
+// The views the view rules check: the set the runtime rig resolves and
+// the plan presents. That is the home view, then one close-up per manifest
+// hotspot whose CAM_<id> camera the model carries, in manifest order, each
+// the first camera of its name. A CAM_ camera named after no hotspot is a
+// view the site can never present, so it is nobody's violation; a camera
+// that is not perspective has no view at all, and the aspect rule reports
+// it.
+export function contractViews(manifest: Product, structure: ProductStructure): NamedCameraRay[] {
+  const views: NamedCameraRay[] = []
+  for (const id of [CAMERA_HOME_ID, ...manifest.hotspots.map((hotspot) => hotspot.id)]) {
+    const ray = firstCameraNamed(structure.cameraFacts, `${CAMERA_PREFIX}${id}`)?.ray ?? null
+    if (ray !== null) {
+      views.push({ id, ray })
+    }
+  }
+  return views
+}
+
+function firstCameraNamed(facts: readonly CameraFact[], name: string): CameraFact | undefined {
+  return facts.find((fact) => fact.name === name)
 }

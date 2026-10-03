@@ -65,7 +65,7 @@ test('a move that starts after an idle eases from its start on the first present
   const framesAtRest = await settledFrames(page)
   const zoomedDistance = requireCamera((await readCamera(page))?.distance ?? null)
   const stageAspect = await stageAspectOfCanvas(page)
-  const expected = homeExpectation(facts, stageAspect)
+  const expected = homeExpectation(facts, first, stageAspect)
   expect(
     expected.distance - zoomedDistance,
     `the zoom step must have moved the camera away from the home distance first ` +

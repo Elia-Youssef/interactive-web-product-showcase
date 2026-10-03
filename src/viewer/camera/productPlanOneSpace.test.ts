@@ -5,33 +5,13 @@
 // center in another disagrees by the dot product of center and forward,
 // which is what the off-origin, pitched-camera table catches.
 import { describe, expect, it } from 'vitest'
-import { AnimationClip, Object3D, PerspectiveCamera, Vector3 } from 'three'
-import { parseProduct } from '@lib/product'
-import { sampleOneManifest } from '@lib/product/fixtures'
+import { PerspectiveCamera, Vector3 } from 'three'
 import { cameraContractProblems } from '@lib/camera/contract'
 import { cameraLimitConfig } from '@lib/camera/config'
 import type { ModelFrame } from '../modelFrame'
 import type { ProductRig } from '../rig/productRig'
 import { buildCameraPlan } from './productPlan'
-
-// The parsed manifest the plan builds against, with the camera block each
-// case overrides, so the builder reads the real schema output.
-function manifestWith(camera: { minDistance?: number; maxDistance?: number } | undefined) {
-  return parseProduct({ ...sampleOneManifest, camera }, 'sample-one.test')
-}
-
-// Rig fixtures for the builder: only its cameras enter the plan, so the
-// rest holds minimal stand-ins.
-function rigWith(cameras: readonly PerspectiveCamera[]): ProductRig {
-  return {
-    parts: new Map(),
-    hotspots: [],
-    cameras: new Map(cameras.map((camera) => [camera.name.slice('CAM_'.length), camera])),
-    shadow: new Object3D(),
-    clip: new AnimationClip('Explode', 1, []),
-    variants: [],
-  }
-}
+import { brokenProblems, manifestWith, mountedTree, rigWith } from './productPlanFixtures'
 
 // A frame whose center sits at the given model-space point.
 function frameAt(center: [number, number, number]): ModelFrame {
@@ -51,24 +31,7 @@ function planProblems(
   modelFrame: ModelFrame,
   camera: { minDistance?: number; maxDistance?: number },
 ) {
-  const build = buildCameraPlan(rig, manifestWith(camera), modelFrame)
-  if (build.kind === 'planned') {
-    throw new Error('the broken limits must be reported as a broken build')
-  }
-  return build.problems
-}
-
-// Mounts the cameras under a centering group offset, the way the loaded
-// product's tree is centered on the origin.
-function mountedTree(cameras: readonly PerspectiveCamera[], offset: ModelFrame): Object3D {
-  const group = new Object3D()
-  group.position.set(-offset.centerX, -offset.centerY, -offset.centerZ)
-  const scene = new Object3D()
-  for (const camera of cameras) {
-    scene.add(camera)
-  }
-  group.add(scene)
-  return group
+  return brokenProblems(buildCameraPlan(rig, manifestWith(camera), modelFrame))
 }
 
 // Frames off the origin, home cameras pitched at the frame, so the view
@@ -110,23 +73,24 @@ describe('the plan checks one space', () => {
       }
       const modelSpace = cameraContractProblems({
         views: [{ id: 'home', ray }],
-        home: ray,
+        homeId: 'home',
         frame: { center, radius: modelFrame.radius },
         authoredDistanceLimits: cameraBlock,
         limits: cameraLimitConfig,
       })
 
+      const modelProblems = modelSpace.kind === 'broken' ? modelSpace.problems : []
       expect(problems.map((problem) => problem.rule)).toEqual(
-        modelSpace.problems.map((problem) => problem.rule),
+        modelProblems.map((problem) => problem.rule),
       )
       const distanceOf = (message: string) =>
-        Number(/the home distance (\S+) lies outside/.exec(message)?.[1])
+        Number(/the CAM_home distance (\S+) lies outside/.exec(message)?.[1])
       const planDistance = distanceOf(
-        problems.find((problem) => problem.rule === 'home-within-distance-limits')?.message ?? '',
+        problems.find((problem) => problem.rule === 'view-within-distance-limits')?.message ?? '',
       )
       const modelDistance = distanceOf(
-        modelSpace.problems.find((problem) => problem.rule === 'home-within-distance-limits')
-          ?.message ?? '',
+        modelProblems.find((problem) => problem.rule === 'view-within-distance-limits')?.message ??
+          '',
       )
       expect(planDistance).toBeDefined()
       expect(planDistance).toBeCloseTo(modelDistance, 12)

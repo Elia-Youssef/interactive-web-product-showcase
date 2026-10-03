@@ -1,6 +1,6 @@
 // The camera contract check, over contract documents built in memory: the
-// names rule it inherits, the aspect rule, and the limit rules through the
-// one shared assembly. Every case asserts the exact violation messages:
+// names rule it inherits, the aspect rule, and the geometry and limit rules
+// through the one shared assembly. Every case asserts the exact violation messages:
 // the report's wording is part of the contract.
 import { describe, expect, it } from 'vitest'
 import { parseProduct } from '../src/lib/product/index.ts'
@@ -122,13 +122,39 @@ describe('the camera contract check', () => {
     ])
   })
 
-  it('reports a home outside the authored distance limits', () => {
+  it('reports every view outside the authored distance limits, by its view', () => {
+    // The fixture cameras share one pose, so the home and the driver
+    // close-up both sit at distance 4, outside the authored range.
     const manifest = manifestWith({ camera: { minDistance: 4.5, maxDistance: 9 } })
     const structure = readProductStructure(buildFixtureDocument())
     const result = checkCameras(manifest, structure, cameraContract)
     expect(result.violations).toEqual([
-      'the home distance 4 lies outside the distance limits [4.5, 9]',
+      'the CAM_home distance 4 lies outside the distance limits [4.5, 9]',
+      'the CAM_driver distance 4 lies outside the distance limits [4.5, 9]',
     ])
+  })
+
+  it('reports a close-up below the minimum the home view sets, and passes it once authored', () => {
+    // The driver close-up moves in to 1.5 in front of the model center,
+    // below the fallback minimum of half the home distance.
+    const doc = buildFixtureDocument()
+    nodeNamed(doc, 'CAM_driver').setTranslation([1, 1, 1.5])
+    const structure = readProductStructure(doc)
+    expect(checkCameras(fixture, structure, cameraContract).violations).toEqual([
+      'the CAM_driver distance 1.5 lies outside the distance limits [2, 10]',
+    ])
+    const authored = manifestWith({ camera: { minDistance: 1.5 } })
+    expect(checkCameras(authored, structure, cameraContract).violations).toEqual([])
+  })
+
+  it('leaves a camera named after no hotspot out of the view rules, as the rig does', () => {
+    // CAM_side is no hotspot's close-up, so the site never presents it: it
+    // breaks the distance limits and still only warns as an unknown camera.
+    const doc = buildFixtureDocument({ cameraNames: ['CAM_home', 'CAM_driver', 'CAM_side'] })
+    nodeNamed(doc, 'CAM_side').setTranslation([1, 1, 1.5])
+    const result = checkCameras(fixture, readProductStructure(doc), cameraContract)
+    expect(result.violations).toEqual([])
+    expect(result.warnings).toEqual([`camera CAM_side has no manifest hotspot 'side'`])
   })
 
   it('reports an authored minimum that does not clear the model radius', () => {
@@ -140,9 +166,9 @@ describe('the camera contract check', () => {
     ])
   })
 
-  it('reports a home outside the polar limits', () => {
-    // A camera aimed straight down from above the model: its polar angle is
-    // 0, below the configured minimum, while the distances stay inside.
+  it('reports every view outside the polar limits, by its view', () => {
+    // Cameras aimed straight down from above the model: their polar angle
+    // is 0, below the configured minimum, while the distances stay inside.
     const structure = readProductStructure(
       buildFixtureDocument({
         cameraPose: {
@@ -154,9 +180,10 @@ describe('the camera contract check', () => {
       }),
     )
     const result = checkCameras(fixture, structure, cameraContract)
+    const polarRange = `[${(15 * Math.PI) / 180}, ${(165 * Math.PI) / 180}]`
     expect(result.violations).toEqual([
-      'the home polar angle 0 lies outside the polar limits ' +
-        `[${(15 * Math.PI) / 180}, ${(165 * Math.PI) / 180}]`,
+      `the CAM_home polar angle 0 lies outside the polar limits ${polarRange}`,
+      `the CAM_driver polar angle 0 lies outside the polar limits ${polarRange}`,
     ])
   })
 
@@ -171,5 +198,21 @@ describe('the camera contract check', () => {
           `the camera ${name} has a field of view of 0 rad, outside the open range (0, ${Math.PI})`,
       ),
     )
+  })
+
+  it('holds a close-up whose geometry is broken to its geometry alone, beside a sound home', () => {
+    // A close-up with a zero field of view has no orbit to hold to the
+    // limits, so its geometry problem is the one message, while the home
+    // view still derives the limits the other views answer to.
+    const doc = buildFixtureDocument()
+    const camera = nodeNamed(doc, 'CAM_driver').getCamera()
+    if (camera === null) {
+      throw new Error('the fixture CAM_driver carries no camera')
+    }
+    camera.setYFov(0)
+    const result = checkCameras(fixture, readProductStructure(doc), cameraContract)
+    expect(result.violations).toEqual([
+      `the camera CAM_driver has a field of view of 0 rad, outside the open range (0, ${Math.PI})`,
+    ])
   })
 })

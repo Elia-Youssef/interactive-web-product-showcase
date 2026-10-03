@@ -148,7 +148,7 @@ describe('planPresentation', () => {
     expect(presentation.failure).toMatchObject({
       kind: 'camera-contract',
       problems: expect.arrayContaining([
-        expect.objectContaining({ rule: 'home-within-distance-limits' }),
+        expect.objectContaining({ rule: 'view-within-distance-limits' }),
       ]),
     })
   })

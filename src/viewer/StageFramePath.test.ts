@@ -181,6 +181,20 @@ describe('StageFramePath', () => {
     expect(release).toThrow(/stale/)
   })
 
+  it('stops running a released listener and keeps running the others, in subscription order', () => {
+    const { path } = framePath()
+    const calls: string[] = []
+    const releaseFirst = path.listen('content', () => calls.push('first'))
+    path.listen('content', () => calls.push('second'))
+    path.listen('stage', () => calls.push('third'))
+
+    path.runListeners()
+    releaseFirst()
+    path.runListeners()
+
+    expect(calls).toEqual(['first', 'second', 'third', 'second', 'third'])
+  })
+
   it('reports a step to the owner of the scope it names: stage code fails the stage under a presented product', () => {
     const { path } = framePath()
     const stage = vi.fn()

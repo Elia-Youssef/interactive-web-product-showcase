@@ -1,10 +1,10 @@
 // The authored camera contract of the project, as data: the distance and
-// polar limits the authored home view must satisfy, and the one camera
+// polar limits every authored view must satisfy, and the one camera
 // aspect every product is exported at. The runtime plan and the build-time
 // validate step read these values from here, so a rule tuned in one place
 // is tuned in both, and no limit or aspect sits inline anywhere else.
 
-// The distance and polar limits of the home view. The distance sides are
+// The distance and polar limits of every view. The distance sides are
 // ratios of the authored home distance, the polar sides degrees measured
 // from straight up.
 export type CameraLimitConfig = {

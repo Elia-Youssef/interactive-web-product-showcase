@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest'
 import type { ProductModelCounts, ProductRigSummary } from '@lib/product'
 import type { ProductStatus, RendererStatus } from '@store/index'
 import { StageProbes } from './StageProbes'
-import type { ViewerCameraAutomation, ViewerFinish, ViewerLook } from './viewerAutomation'
+import type {
+  ViewerCameraAutomation,
+  ViewerFinish,
+  ViewerHotspotsAutomation,
+  ViewerLook,
+  ViewerOverlay,
+} from './viewerAutomation'
 import { createViewerAutomation, type ViewerAutomationSources } from './viewerAutomation'
 import {
   productFailureOf,
@@ -38,6 +44,18 @@ const finish: ViewerFinish = {
   materials: { 'PART_base:0': 'MatSage' },
 }
 
+const hotspots: ViewerHotspotsAutomation = {
+  product: 'forma-one',
+  hotspots: [
+    { id: 'driver', position: { x: 0.02, y: 0.11, z: 0.2 } },
+    { id: 'knob', position: { x: 0, y: 0.25, z: 0 } },
+  ],
+}
+
+const overlay: ViewerOverlay = {
+  placements: { 'hotspot:driver': { kind: 'placed', x: 120, y: 80 } },
+}
+
 const rig: ProductRigSummary = {
   parts: ['PART_base'],
   hotspots: [],
@@ -56,6 +74,8 @@ function sourcesWith(overrides?: Partial<ViewerAutomationSources>): ViewerAutoma
   probes.register('look', () => look)
   probes.register('camera', () => camera)
   probes.register('finish', () => finish)
+  probes.register('hotspots', () => hotspots)
+  probes.register('overlay', () => overlay)
   return {
     probes,
     getStatus: () => readyRenderer,
@@ -73,6 +93,8 @@ describe('createViewerAutomation', () => {
     expect(automation.look).toEqual(look)
     expect(automation.camera).toEqual(camera)
     expect(automation.finish).toEqual(finish)
+    expect(automation.hotspots).toEqual(hotspots)
+    expect(automation.overlay).toEqual(overlay)
   })
 
   it('reads null for a probe key no component holds', () => {
@@ -81,6 +103,8 @@ describe('createViewerAutomation', () => {
     expect(automation.look).toBeNull()
     expect(automation.camera).toBeNull()
     expect(automation.finish).toBeNull()
+    expect(automation.hotspots).toBeNull()
+    expect(automation.overlay).toBeNull()
   })
 
   it('reads the store and clock fields at access time', () => {
