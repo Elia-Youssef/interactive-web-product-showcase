@@ -87,6 +87,29 @@ const pollBudgetEntries = pollBudgetSelectors.map((selector) => ({
     'A poll names its budget: pass a timeout from the budget module, never the runner default.',
 }))
 
+// The raw capture calls of the e2e suite. The member itself is selected, one
+// selector per spelling of the property: the identifier form, and the string
+// literal form that a call, a lift or a reference can hide behind. A capture
+// that does not go through the capture module races the dev HUD's drain,
+// whose content-sized box resizes between captures, so its mask covers
+// different pixels on each shot.
+const captureMessages = [
+  {
+    name: 'screenshot',
+    message:
+      'A capture goes through the capture module (tests/e2e/stageCapture.ts): its entries own the standard mask, and the settled one waits for the settled stage, so compared captures of a run cover the same box.',
+  },
+  {
+    name: 'toHaveScreenshot',
+    message:
+      'A visual snapshot goes through the capture module (tests/e2e/stageCapture.ts): its entries own the standard mask, and the settled one waits for the settled stage, so every run covers the same box.',
+  },
+]
+const captureEntries = captureMessages.flatMap(({ name, message }) => [
+  { selector: `MemberExpression[property.name='${name}']`, message },
+  { selector: `MemberExpression[property.value='${name}']`, message },
+])
+
 function parserConfigs(): Linter.Config[] {
   return [
     {
@@ -224,14 +247,30 @@ function fixtureExemptionConfig(): Linter.Config {
 // still destructure an object: the test-runner convention for an empty
 // dependency set. The relaxation stays in the folder, so production code
 // keeps the plain rule above. The folder's restricted syntax carries the
-// shared selectors with it, since a flat config object replaces a rule
-// wholesale, and adds the poll budget rule on top.
+// shared selectors and the poll budget rule; the raw-capture ban rides on
+// top everywhere but the helper module the ban points at, whose files
+// re-declare the folder's list without the ban, since a flat config object
+// replaces a rule wholesale.
+const testsFolderEntries = [...doubleAssertionEntries, ...pollBudgetEntries]
+const testsCaptureEntries = [...testsFolderEntries, ...captureEntries]
+
 function testsFolderConfig(): Linter.Config {
   return {
     files: ['tests/**'],
     rules: {
       'no-empty-pattern': ['error', { allowObjectPatternsAsParameters: true }],
-      'no-restricted-syntax': ['error', ...doubleAssertionEntries, ...pollBudgetEntries],
+      'no-restricted-syntax': ['error', ...testsCaptureEntries],
+    },
+  }
+}
+
+// The one module whose job is to take the suite's raw captures: the capture
+// helper. Its files keep the folder's other restricted-syntax entries.
+function stageCaptureHelperConfig(): Linter.Config {
+  return {
+    files: ['tests/e2e/stageCapture.ts'],
+    rules: {
+      'no-restricted-syntax': ['error', ...testsFolderEntries],
     },
   }
 }
@@ -246,6 +285,7 @@ export function createConfig({ root }: { root: string }) {
     testExemptionConfig(),
     fixtureExemptionConfig(),
     testsFolderConfig(),
+    stageCaptureHelperConfig(),
     ...layerConfigs(root),
     // Formatting belongs to Prettier: every stylistic ESLint rule goes off.
     prettier,
