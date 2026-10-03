@@ -140,6 +140,26 @@ export async function expectMarkersAtProjection(
   }
 }
 
+// Every listed hotspot whose marker is shown, against the projection of the
+// anchor the probe reports right now, and at least one shown. A view that
+// moved can hide a marker by the occlusion rule or the stage edge; which
+// markers it hides belongs to the occlusion proof, so a placement proof
+// holds the shown ones.
+export async function expectShownMarkersAtProjection(
+  page: Page,
+  hotspots: readonly { readonly id: string; readonly title: string }[],
+  why: string,
+): Promise<void> {
+  const shown: { readonly id: string; readonly title: string }[] = []
+  for (const hotspot of hotspots) {
+    if (await markerOf(page, hotspot.title).isVisible()) {
+      shown.push(hotspot)
+    }
+  }
+  expect(shown.length, `${why}: at least one marker must be shown`).toBeGreaterThan(0)
+  await expectMarkersAtProjection(page, shown, why)
+}
+
 // The marker's box center against the projection of the anchor the probe
 // reports, through this module's own projection.
 export async function expectMarkerAtProjection(
