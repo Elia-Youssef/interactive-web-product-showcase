@@ -2,7 +2,9 @@ import type { Page } from '@playwright/test'
 import type { Product } from '../../src/lib/product'
 import { readProductCameraFacts, type AuthoredView, type ProductCameraFacts } from './productCamera'
 import { readProductHotspotFacts, type ProductHotspotFacts } from './productHotspots'
-import { markerViewsOf, type MarkerViews } from './productMarkerViews'
+import { markerViewsOf, type MarkerStage, type MarkerViews } from './productMarkerViews'
+import { harnessStageBox } from './e2eViewport'
+import { readMarkerExtentTokens } from './markerExtentTokens'
 import { harnessProducts } from './productSpecs'
 import { resolvedDistanceRange, viewExpectation } from './stageCamera'
 import { selectFlowSubjects, type FlowSubject } from './flowSubjects'
@@ -28,30 +30,41 @@ export type HotspotFlow = {
 }
 
 export type FlowFacts = {
+  // The flows on the harness stage, where the harness specs run.
   readonly flows: readonly HotspotFlow[]
+  // The flows on any other stage box: which markers a view shows depends
+  // on the stage's size, so a spec running at another viewport selects its
+  // subjects for its own stage.
+  readonly flowsAt: (box: MarkerStage['box']) => readonly HotspotFlow[]
   readonly factsBySlug: ReadonlyMap<string, ProductHotspotFacts>
+  // Which markers each product's views show on a stage box.
+  readonly markerViewsAt: (box: MarkerStage['box']) => ReadonlyMap<string, MarkerViews>
 }
 
 export async function flowFacts(): Promise<FlowFacts> {
   const products = await harnessProducts()
   const viewFactsBySlug = new Map<string, ProductCameraFacts>()
-  for (const product of products) {
-    viewFactsBySlug.set(product.slug, await readProductCameraFacts(product.slug))
-  }
   const factsBySlug = new Map<string, ProductHotspotFacts>()
   for (const product of products) {
+    viewFactsBySlug.set(product.slug, await readProductCameraFacts(product.slug))
     factsBySlug.set(product.slug, await readProductHotspotFacts(product.slug, product))
   }
-  const markerViewsBySlug = new Map<string, MarkerViews>()
-  for (const product of products) {
-    const facts = factsBySlug.get(product.slug)
-    const views = viewFactsBySlug.get(product.slug)
-    if (facts === undefined || views === undefined) {
-      throw new Error(`no hotspot or view facts for ${product.slug}`)
+  const extent = await readMarkerExtentTokens()
+  const markerViewsAt = (box: MarkerStage['box']): ReadonlyMap<string, MarkerViews> => {
+    const markerViewsBySlug = new Map<string, MarkerViews>()
+    for (const product of products) {
+      const facts = factsBySlug.get(product.slug)
+      const views = viewFactsBySlug.get(product.slug)
+      if (facts === undefined || views === undefined) {
+        throw new Error(`no hotspot or view facts for ${product.slug}`)
+      }
+      markerViewsBySlug.set(product.slug, markerViewsOf(facts, views, { box, extent }))
     }
-    markerViewsBySlug.set(product.slug, markerViewsOf(facts, views))
+    return markerViewsBySlug
   }
-  return { flows: flowsOf(products, viewFactsBySlug, markerViewsBySlug), factsBySlug }
+  const flowsAt = (box: MarkerStage['box']) =>
+    flowsOf(products, viewFactsBySlug, markerViewsAt(box))
+  return { flows: flowsAt(harnessStageBox), flowsAt, factsBySlug, markerViewsAt }
 }
 
 // The view expectations of every selected subject, derived once per

@@ -6,7 +6,7 @@ import { expect, test } from './fixtures'
 import { siteCopy } from '../../src/lib/copy/site'
 import { expectSettledStageScreenshot } from './stageCapture'
 import { productLoadBudgetMs } from './productSpecs'
-import { viewportContracts } from './layoutContracts'
+import { stageBoxOf, viewportContracts } from './layoutContracts'
 
 for (const spec of viewportContracts) {
   test(`responsive frame contract at ${spec.width}x${spec.height}`, async ({
@@ -64,6 +64,15 @@ for (const spec of viewportContracts) {
     if (spec.stageHeightRatio !== undefined) {
       expect(stageBox.height).toBeCloseTo(spec.height * spec.stageHeightRatio, 0)
     }
+
+    // The canvas slot is the stage box the hotspot facts are computed for.
+    const slotBox = await page.locator('[data-slot="stage"]').boundingBox()
+    if (slotBox === null) {
+      throw new Error('the stage slot bounding box must be present')
+    }
+    const expectedStage = stageBoxOf(spec)
+    expect(slotBox.width, 'the stage slot width').toBeCloseTo(expectedStage.width, 0)
+    expect(slotBox.height, 'the stage slot height').toBeCloseTo(expectedStage.height, 0)
 
     // 5. Chrome corners visibility and placement within stage bounds
     for (const cornerKey of spec.visibleCorners) {

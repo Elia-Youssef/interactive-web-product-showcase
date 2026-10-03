@@ -1,14 +1,16 @@
 import { Raycaster, Vector3 } from 'three'
 import type { Camera, Intersection, Mesh } from 'three'
-import { isInsideStageBox, projectToStage, type StageBox } from '@lib/hotspots/projection'
-import { isMarkerVisible, isOccluded } from '@lib/hotspots/visibility'
+import type { MarkerExtent } from '@lib/hotspots/markerBox'
+import { projectToStage, type StageBox } from '@lib/hotspots/projection'
+import { isMarkerPlaceable, isMarkerVisible, isOccluded } from '@lib/hotspots/visibility'
 import type { ProductHotspot } from '@viewer/rig/productRig'
 import type { OverlayPlacement } from '@viewer/overlay/StageOverlay'
 import { aimRay } from './aimRay'
 import { overlayKey } from './hotspotKeys'
 
 // Per presented frame, per hotspot, the marker's placement: one projection
-// of the anchor and one raycast from the camera to it. The placement is
+// of the anchor, and one raycast from the camera to it while the marker's
+// keep-out box fits the stage. The placement is
 // handed to a write callback, never to the DOM directly, so the class owns
 // no channel and the caller decides where placements land.
 
@@ -22,7 +24,8 @@ export class HotspotPlacer {
   private readonly cameraPosition = new Vector3()
   private readonly hits: Intersection[] = []
 
-  // Places the given rig hotspots, in their given order. The camera's
+  // Places the given rig hotspots, in their given order, each by the
+  // visibility rule over the marker's extent the stylesheets declare. The camera's
   // matrices are the ones the presented frame used: the placer runs after
   // the render, which updated the scene's and the camera's world matrices
   // before drawing.
@@ -31,6 +34,7 @@ export class HotspotPlacer {
     occluders: Mesh[],
     camera: Camera,
     stage: StageBox,
+    extent: MarkerExtent,
     write: (key: string, placement: OverlayPlacement) => void,
   ): void {
     camera.getWorldPosition(this.cameraPosition)
@@ -44,7 +48,7 @@ export class HotspotPlacer {
         },
         stage,
       )
-      if (!projection.inFront || !isInsideStageBox(projection, stage)) {
+      if (!isMarkerPlaceable(projection, stage, extent)) {
         write(overlayKey(hotspot.id), HIDDEN)
         continue
       }
@@ -56,7 +60,7 @@ export class HotspotPlacer {
       this.raycaster.intersectObjects(occluders, false, this.hits)
       const nearest = this.hits[0]
       const occluded = isOccluded(anchorDistance, nearest === undefined ? null : nearest.distance)
-      const placement: OverlayPlacement = isMarkerVisible(projection, stage, occluded)
+      const placement: OverlayPlacement = isMarkerVisible(projection, stage, extent, occluded)
         ? { kind: 'placed', x: projection.x, y: projection.y }
         : HIDDEN
       write(overlayKey(hotspot.id), placement)

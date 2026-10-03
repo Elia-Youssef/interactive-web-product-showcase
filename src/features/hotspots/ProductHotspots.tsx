@@ -7,6 +7,8 @@ import { useLoadedProduct, type LoadedProduct } from '@viewer/product/loadedProd
 import { usePresentedFrame } from '@viewer/stageFrameContext'
 import { useStageOverlay } from '@viewer/overlay/stageOverlayContext'
 import { collectOccluders } from './occluders'
+import { readMarkerExtent } from './cardLayout'
+import { MarkerExtentSource } from './markerExtentSource'
 import { HotspotPlacer } from './placer'
 
 // The canvas side of the hotspots: one child of the loaded product that
@@ -35,15 +37,22 @@ export function ProductHotspots() {
 
   const occluders = useMemo(() => collectOccluders(loaded), [loaded])
   const placer = useMemo(() => new HotspotPlacer(), [])
+  // The marker extent comes from the tokens on the document root, per
+  // stage size.
+  const extentSource = useMemo(
+    () =>
+      new MarkerExtentSource(() => readMarkerExtent(getComputedStyle(document.documentElement))),
+    [],
+  )
   // One overlay pass per presented frame: every marker of the frame is
   // written before the overlay's pass listeners, the open card among them,
   // decide against the complete set.
   const place = useCallback(
     () =>
       overlay.pass(size, (write) =>
-        placer.place(loaded.rig.hotspots, occluders, camera, size, write),
+        placer.place(loaded.rig.hotspots, occluders, camera, size, extentSource.for(size), write),
       ),
-    [placer, loaded, occluders, camera, size, overlay],
+    [placer, loaded, occluders, camera, size, extentSource, overlay],
   )
   usePresentedFrame('content', place)
 

@@ -1,4 +1,4 @@
-import type { StageRect } from '@lib/hotspots/cardPlacement'
+import type { StageRect } from '@lib/hotspots/markerBox'
 
 // The stage chrome as obstacles for the floating card: every child of the
 // chrome element that lays out with an area, as a box in stage pixels. The

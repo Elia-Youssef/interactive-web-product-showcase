@@ -13,14 +13,8 @@
 //   then floats beside its marker, or docks when no side has room.
 
 import type { StageBox } from './projection'
-import {
-  placeHotspotCard,
-  type BoxSize,
-  type CardMetrics,
-  type CardSide,
-  type StagePoint,
-  type StageRect,
-} from './cardPlacement'
+import { placeHotspotCard, type BoxSize, type CardMetrics, type CardSide } from './cardPlacement'
+import type { StagePoint, StageRect } from './markerBox'
 
 // The layout's dock policy: 'always' docks every card, 'when-crowded' floats
 // a card and docks it only when no side has room.

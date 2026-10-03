@@ -13,6 +13,8 @@ import type { ProductHotspot } from '@viewer/rig/productRig'
 // rejects the plate, before the triangles are read.
 
 const STAGE = { width: 800, height: 600 }
+// The marker extent of the tokens: a 44 px hit box and a 5 px ring reach.
+const EXTENT = { markerHitPx: 44, focusOutsetPx: 5 }
 const CAMERA_Z_M = 5
 
 // The camera-to-anchor distances the cases walk: below 1 m, where a ray
@@ -44,7 +46,7 @@ function placedAt(distanceM: number, occluderZM: number | null): OverlayPlacemen
 
   const hotspots: ProductHotspot[] = [{ id: 'probe', node: anchor, part: anchor }]
   let placement: OverlayPlacement | undefined
-  new HotspotPlacer().place(hotspots, occluders, camera, STAGE, (_key, value) => {
+  new HotspotPlacer().place(hotspots, occluders, camera, STAGE, EXTENT, (_key, value) => {
     placement = value
   })
   if (placement === undefined) {
@@ -80,5 +82,44 @@ describe('HotspotPlacer', () => {
         })
       })
     }
+  })
+
+  // An unoccluded anchor at 2 m, moved sideways so it projects the given
+  // number of stage pixels from the left edge: the camera's horizontal
+  // half extent at that depth maps to half the stage width.
+  function placedFromLeftEdge(pixels: number): OverlayPlacement {
+    const camera = new PerspectiveCamera()
+    camera.position.set(0, 0, CAMERA_Z_M)
+    camera.updateMatrixWorld(true)
+    const depthM = 2
+    const halfWidthM = depthM * Math.tan((camera.fov * Math.PI) / 360) * camera.aspect
+    const anchor = new Object3D()
+    anchor.position.set((pixels / (STAGE.width / 2) - 1) * halfWidthM, 0, CAMERA_Z_M - depthM)
+    let placement: OverlayPlacement | undefined
+    new HotspotPlacer().place(
+      [{ id: 'edge', node: anchor, part: anchor }],
+      [],
+      camera,
+      STAGE,
+      EXTENT,
+      (_key, value) => {
+        placement = value
+      },
+    )
+    if (placement === undefined) {
+      throw new Error('the placer must write one placement per hotspot')
+    }
+    return placement
+  }
+
+  describe('near a stage edge', () => {
+    it('hides a marker whose center is inside but whose keep-out box crosses the edge', () => {
+      expect(placedFromLeftEdge(10)).toEqual({ kind: 'hidden' })
+    })
+
+    it('places a marker whose keep-out box fits inside the stage', () => {
+      const placement = placedFromLeftEdge(40)
+      expect(placement.kind).toBe('placed')
+    })
   })
 })

@@ -72,3 +72,31 @@ export const viewportContracts: readonly ViewportContract[] = [
 // the stage chrome and docks for lack of room. The card specs run it; the
 // layout spec does not hold a baseline for it.
 export const phoneLandscape = { width: 844, height: 390, hotspotCard: 'floats' } as const
+
+// The height of the top bar above a side-by-side stage, in CSS pixels: the
+// --height-top-bar token. The layout spec measures every contract's stage
+// slot against the box derived from it, so a drift fails there.
+const topBarPx = 56
+
+// The stage box the layout gives the canvas at a viewport, in CSS pixels:
+// beside a fixed-width panel under the top bar, or the full width at its
+// height ratio on top. It is the box the hotspot facts measure a marker's
+// keep-out box against.
+export function stageBoxOf(contract: ViewportContract): {
+  readonly width: number
+  readonly height: number
+} {
+  if (contract.stagePosition === 'top') {
+    if (contract.stageHeightRatio === undefined) {
+      throw new Error(`the ${contract.width}x${contract.height} contract names no stage height`)
+    }
+    return { width: contract.width, height: contract.height * contract.stageHeightRatio }
+  }
+  if (contract.panelWidth.kind !== 'fixed') {
+    throw new Error(`the ${contract.width}x${contract.height} contract names no panel width`)
+  }
+  return {
+    width: contract.width - contract.panelWidth.expected,
+    height: contract.height - topBarPx,
+  }
+}

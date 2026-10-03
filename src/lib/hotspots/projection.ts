@@ -86,15 +86,3 @@ function at(matrix: ReadonlyArray<number>, index: number): number {
   }
   return value
 }
-
-// The projection sits inside the stage box, edges included: a marker whose
-// center lands exactly on the box edge is still on the stage. The bounds are
-// the same box the projection's pixels are measured from.
-export function isInsideStageBox(projection: StageProjection, stage: StageBox): boolean {
-  return (
-    projection.x >= 0 &&
-    projection.x <= stage.width &&
-    projection.y >= 0 &&
-    projection.y <= stage.height
-  )
-}

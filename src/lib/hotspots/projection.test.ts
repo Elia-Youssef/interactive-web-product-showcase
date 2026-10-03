@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CameraMatrices, StageBox, WorldPoint } from './projection'
-import { isInsideStageBox, projectToStage } from './projection'
+import { projectToStage } from './projection'
 
 // The test builds its own matrices, so the math is held against its
 // definitions instead of against the viewer's camera: a perspective view
@@ -128,7 +128,6 @@ type Case = {
   // The box verdict is asserted only for points in front of the camera: a
   // point behind it has no readable coordinates, and the visibility rule
   // never reads them.
-  readonly inside?: boolean
 }
 
 const cases: readonly Case[] = [
@@ -139,7 +138,6 @@ const cases: readonly Case[] = [
     camera: straightCamera,
     expected: { x: 400, y: 400 },
     inFront: true,
-    inside: true,
   },
   {
     name: 'left edge',
@@ -148,7 +146,6 @@ const cases: readonly Case[] = [
     camera: straightCamera,
     expected: { x: 0, y: 400 },
     inFront: true,
-    inside: true,
   },
   {
     name: 'right edge',
@@ -157,7 +154,6 @@ const cases: readonly Case[] = [
     camera: straightCamera,
     expected: { x: 800, y: 400 },
     inFront: true,
-    inside: true,
   },
   {
     name: 'top edge',
@@ -166,7 +162,6 @@ const cases: readonly Case[] = [
     camera: straightCamera,
     expected: { x: 400, y: 0 },
     inFront: true,
-    inside: true,
   },
   {
     name: 'bottom edge',
@@ -175,7 +170,6 @@ const cases: readonly Case[] = [
     camera: straightCamera,
     expected: { x: 400, y: 800 },
     inFront: true,
-    inside: true,
   },
   {
     name: 'outside the left edge',
@@ -184,7 +178,6 @@ const cases: readonly Case[] = [
     camera: straightCamera,
     expected: { x: -80, y: 400 },
     inFront: true,
-    inside: false,
   },
   {
     name: 'outside the bottom edge',
@@ -193,7 +186,6 @@ const cases: readonly Case[] = [
     camera: straightCamera,
     expected: { x: 400, y: 1000 },
     inFront: true,
-    inside: false,
   },
   {
     name: 'behind the camera',
@@ -218,7 +210,6 @@ const cases: readonly Case[] = [
     camera: straightCamera,
     expected: { x: 400, y: 400 },
     inFront: true,
-    inside: true,
   },
   {
     name: 'off the optical axis at depth, off-center camera',
@@ -227,7 +218,6 @@ const cases: readonly Case[] = [
     camera: straightCamera,
     expected: { x: 600, y: 400 },
     inFront: true,
-    inside: true,
   },
   {
     name: 'a wide box maps the frustum edge to its own width',
@@ -236,7 +226,6 @@ const cases: readonly Case[] = [
     camera: cameraAt({ x: 0, y: 0, z: 3 }, { x: 0, y: 0, z: 0 }, WIDE_ASPECT),
     expected: { x: 1200, y: 300 },
     inFront: true,
-    inside: true,
   },
 ]
 
@@ -249,9 +238,6 @@ describe('projectToStage', () => {
       if (entry.inFront) {
         expect(projection.x).toBeCloseTo(entry.expected.x, 9)
         expect(projection.y).toBeCloseTo(entry.expected.y, 9)
-        if (entry.inside !== undefined) {
-          expect(isInsideStageBox(projection, entry.stage)).toBe(entry.inside)
-        }
       }
     })
   }

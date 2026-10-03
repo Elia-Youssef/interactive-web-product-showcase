@@ -1,4 +1,5 @@
-import type { BoxSize, StagePoint, StageRect } from '@lib/hotspots/cardPlacement'
+import type { BoxSize } from '@lib/hotspots/cardPlacement'
+import type { StagePoint, StageRect } from '@lib/hotspots/markerBox'
 import { presentHotspotCard, type CardPresentation } from '@lib/hotspots/cardPresentation'
 import type { OverlayBox, OverlayPlacement, StageOverlay } from '@viewer/overlay/StageOverlay'
 import type { CardLayout } from './cardLayout'

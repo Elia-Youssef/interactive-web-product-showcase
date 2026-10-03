@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
+import type { MarkerExtent } from './markerBox'
 import type { StageBox } from './projection'
-import { isOccluded, isMarkerVisible } from './visibility'
+import { isMarkerPlaceable, isMarkerVisible, isOccluded } from './visibility'
 
 const stage: StageBox = { width: 800, height: 600 }
-const center = { x: 400, y: 300, inFront: true }
+const extent: MarkerExtent = { markerHitPx: 44, focusOutsetPx: 5 }
+const HALF = 27
+const center = { x: 400, y: 300 }
 
 describe('isOccluded', () => {
   it('is not occluded when the ray reaches the anchor untouched', () => {
@@ -23,30 +26,56 @@ describe('isOccluded', () => {
   })
 })
 
+// Each row: the projection, whether it is in front, whether an occluder
+// stands before it, and whether the marker shows. A 44 px hit box with a
+// 5 px ring reach keeps a 27 px half box around the projection: the rows
+// put that box exactly on each stage edge, where it shows, and one pixel
+// across each, where it hides, beside the camera plane and occlusion rows.
+const visibilityRows: readonly (readonly [
+  string,
+  { x: number; y: number },
+  boolean,
+  boolean,
+  boolean,
+])[] = [
+  ['in front, inside and unoccluded', center, true, false, true],
+  ['behind the camera, with coordinates that would land inside', center, false, false, false],
+  ['behind an occluder', center, true, true, false],
+  ['with the box touching the left edge', { x: HALF, y: 300 }, true, false, true],
+  ['with the box one pixel across the left edge', { x: HALF - 1, y: 300 }, true, false, false],
+  ['with the box touching the right edge', { x: 800 - HALF, y: 300 }, true, false, true],
+  [
+    'with the box one pixel across the right edge',
+    { x: 800 - HALF + 1, y: 300 },
+    true,
+    false,
+    false,
+  ],
+  ['with the box touching the top edge', { x: 400, y: HALF }, true, false, true],
+  ['with the box one pixel across the top edge', { x: 400, y: HALF - 1 }, true, false, false],
+  ['with the box touching the bottom edge', { x: 400, y: 600 - HALF }, true, false, true],
+  [
+    'with the box one pixel across the bottom edge',
+    { x: 400, y: 600 - HALF + 1 },
+    true,
+    false,
+    false,
+  ],
+  ['with its center inside but its box across the left edge', { x: 3, y: 300 }, true, false, false],
+]
+
 describe('isMarkerVisible', () => {
-  it('shows in front, inside and unoccluded', () => {
-    expect(isMarkerVisible(center, stage, false)).toBe(true)
-  })
+  for (const [name, point, inFront, occluded, shows] of visibilityRows) {
+    it(`${shows ? 'shows' : 'hides'} ${name}`, () => {
+      expect(isMarkerVisible({ ...point, inFront }, stage, extent, occluded)).toBe(shows)
+    })
+  }
+})
 
-  it('hides behind the camera even when the coordinates would land inside', () => {
-    expect(isMarkerVisible({ ...center, inFront: false }, stage, false)).toBe(false)
-  })
-
-  it('hides outside the box on any side', () => {
-    expect(isMarkerVisible({ ...center, x: -1 }, stage, false)).toBe(false)
-    expect(isMarkerVisible({ ...center, x: 801 }, stage, false)).toBe(false)
-    expect(isMarkerVisible({ ...center, y: -1 }, stage, false)).toBe(false)
-    expect(isMarkerVisible({ ...center, y: 601 }, stage, false)).toBe(false)
-  })
-
-  it('shows exactly on the box edges', () => {
-    expect(isMarkerVisible({ ...center, x: 0 }, stage, false)).toBe(true)
-    expect(isMarkerVisible({ ...center, x: 800 }, stage, false)).toBe(true)
-    expect(isMarkerVisible({ ...center, y: 0 }, stage, false)).toBe(true)
-    expect(isMarkerVisible({ ...center, y: 600 }, stage, false)).toBe(true)
-  })
-
-  it('hides when an occluder stands between the camera and the anchor', () => {
-    expect(isMarkerVisible(center, stage, true)).toBe(false)
+describe('isMarkerPlaceable', () => {
+  it('ignores occlusion: it is the in front and inside half of the rule', () => {
+    expect(isMarkerPlaceable({ ...center, inFront: true }, stage, extent)).toBe(true)
+    expect(isMarkerPlaceable({ x: HALF - 1, y: 300, inFront: true }, stage, extent)).toBe(false)
+    expect(isMarkerPlaceable({ ...center, inFront: false }, stage, extent)).toBe(false)
   })
 })

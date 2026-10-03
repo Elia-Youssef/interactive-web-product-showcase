@@ -1,4 +1,5 @@
 import type { CardMetrics } from '@lib/hotspots/cardPlacement'
+import type { MarkerExtent } from '@lib/hotspots/markerBox'
 import { parseCardDockPolicy, type CardDockPolicy } from '@lib/hotspots/cardPresentation'
 
 // The card layout as the stylesheets declare it, read from computed custom
@@ -33,12 +34,22 @@ export function readCardLayout(style: CustomPropertyRead): CardLayout {
   return {
     policy: parseCardDockPolicy(style.getPropertyValue(cardLayoutProperties.dockPolicy).trim()),
     metrics: {
-      markerHitPx: pxOf(style, cardLayoutProperties.markerHit),
+      ...readMarkerExtent(style),
       cardOffsetPx: pxOf(style, cardLayoutProperties.cardOffset),
-      focusOutsetPx:
-        pxOf(style, cardLayoutProperties.focusWidth) +
-        pxOf(style, cardLayoutProperties.markerRingOffset),
     },
+  }
+}
+
+// The marker's own box as the stylesheets declare it: the hit size and the
+// focus ring's reach outside it. The one reader of these tokens, for the
+// card that keeps clear of every marker's box and for the visibility rule
+// that shows a marker only while its box fits the stage.
+export function readMarkerExtent(style: CustomPropertyRead): MarkerExtent {
+  return {
+    markerHitPx: pxOf(style, cardLayoutProperties.markerHit),
+    focusOutsetPx:
+      pxOf(style, cardLayoutProperties.focusWidth) +
+      pxOf(style, cardLayoutProperties.markerRingOffset),
   }
 }
 

@@ -7,7 +7,7 @@ import { settledFrames } from './stageSettle'
 import { expectOrbitAtRest, readCamera, renderedFrames, stageAspectOfCanvas } from './stageCamera'
 import { cardHeadingOf, markerOf } from './hotspotViews'
 import { closeWays, flowFacts, type HotspotFlow } from './hotspotFlowFacts'
-import { viewportContracts } from './layoutContracts'
+import { stageBoxOf, viewportContracts } from './layoutContracts'
 
 // The docked card is the same card in another place: on the layouts that
 // dock every card (the phone's sheet), it keeps the flow's rules. It closes
@@ -20,12 +20,22 @@ import { viewportContracts } from './layoutContracts'
 // the cases run for every product it can present.
 
 const collection = await loadCollection()
-const { flows } = await flowFacts()
-const appFlows = flows.filter((flow) => flow.subject.product.slug === collection.first.slug)
+const { flowsAt, markerViewsAt } = await flowFacts()
 const dockingLayouts = viewportContracts.filter((contract) => contract.hotspotCard === 'docks')
 
 for (const contract of dockingLayouts) {
   const size = `${contract.width}x${contract.height}`
+  // Which markers a view shows depends on the stage's size, so the subjects
+  // come from the facts on this layout's stage: the switches whose target
+  // this stage shows, and the markers home shows to press.
+  const stage = stageBoxOf(contract)
+  const appFlows = flowsAt(stage).filter(
+    (flow) => flow.subject.product.slug === collection.first.slug,
+  )
+  const shownAtHome = markerViewsAt(stage).get(collection.first.slug)?.home
+  if (shownAtHome === undefined || shownAtHome.size === 0) {
+    throw new Error(`${collection.first.slug} shows no marker at home on the ${size} stage`)
+  }
   for (const flow of appFlows) {
     const { product, closeUps, plains, switches } = flow.subject
     const openDocked = async (page: Page, backendPath: string, title: string) => {
@@ -37,7 +47,7 @@ for (const contract of dockingLayouts) {
       await expectDockedCardOf(page, title)
     }
 
-    for (const closeUp of closeUps.slice(0, 1)) {
+    for (const closeUp of closeUps.filter((entry) => shownAtHome.has(entry.id)).slice(0, 1)) {
       for (const [way, closeBy] of closeWays) {
         test(`docked card at ${size}: ${product.slug} closing the close-up card of ${closeUp.title} by ${way} clears the pressed state and returns the camera home`, async ({
           page,
@@ -57,7 +67,7 @@ for (const contract of dockingLayouts) {
       }
     }
 
-    for (const plain of plains.slice(0, 1)) {
+    for (const plain of plains.filter((entry) => shownAtHome.has(entry.id)).slice(0, 1)) {
       for (const [way, closeBy] of closeWays) {
         test(`docked card at ${size}: ${product.slug} closing the plain card of ${plain.title} by ${way} clears the pressed state and moves nothing`, async ({
           page,
@@ -72,7 +82,7 @@ for (const contract of dockingLayouts) {
       }
     }
 
-    for (const hotspot of product.hotspots) {
+    for (const hotspot of product.hotspots.filter((entry) => shownAtHome.has(entry.id))) {
       test(`docked card at ${size}: ${product.slug} the card of ${hotspot.title} docks into view from a sheet scrolled to its end`, async ({
         page,
         backendPath,
@@ -114,7 +124,7 @@ for (const contract of dockingLayouts) {
       })
     }
 
-    for (const closeUp of closeUps.slice(0, 1)) {
+    for (const closeUp of closeUps.filter((entry) => shownAtHome.has(entry.id)).slice(0, 1)) {
       test(`docked card at ${size}: ${product.slug} under reduced motion the close-up of ${closeUp.title} and the return home land on the next rendered frame`, async ({
         page,
         backendPath,

@@ -1,15 +1,27 @@
 import type { vec3 } from '@gltf-transform/core'
+import type { MarkerExtent } from '../../src/lib/hotspots/markerBox'
 import { projectToStageBox, viewDepthOf } from './hotspotPlacement'
 import type { AuthoredView, ProductCameraFacts } from './productCamera'
 import type { ProductHotspotFacts } from './productHotspots'
 import { isBlocked } from './productMesh'
+import { containedScale } from './stageCamera'
 
-// Which markers the shipped model shows from its views, computed in Node
-// from the hotspot facts: per authored view, and the azimuth swing from
-// home a drag can turn through with a marker still shown. The rule is the
-// runtime's visibility rule restated over the shipped meshes, so the specs
-// choose their subjects from the product's own geometry, never from the
-// viewer's scene graph.
+// Which markers the shipped model shows from its views on one stage,
+// computed in Node from the hotspot facts: per authored view, and the
+// azimuth swing from home a drag can turn through with a marker still
+// shown. The rule is the runtime's visibility rule restated over the
+// shipped meshes, so the specs choose their subjects from the product's own
+// geometry, never from the viewer's scene graph. A marker shows only while
+// its whole keep-out box fits the stage, so what a view shows depends on
+// the stage's size in pixels: every fact here is for the stage box the
+// spec runs at, and holds for no other.
+
+// The stage a spec runs at, in CSS pixels, and the marker extent the
+// stylesheets declare.
+export type MarkerStage = {
+  readonly box: { readonly width: number; readonly height: number }
+  readonly extent: MarkerExtent
+}
 
 // Which manifest hotspots' markers each authored view shows, with the
 // model assembled: the home view, and each close-up under its hotspot id.
@@ -18,19 +30,24 @@ export type MarkerViews = {
   readonly closeUps: ReadonlyMap<string, ReadonlySet<string>>
 }
 
-// The markers every authored view of the product shows, by the runtime's
-// visibility rule restated over the shipped meshes: an anchor shows when
-// it stands in front of the view's camera, projects inside the view's
-// authored frame, and no occluder is nearer along the ray to it. The
-// authored frame is the strictest stage: a wider stage shows more of the
-// scene beside it, and a narrower one pulls the camera back along the view
-// until the whole frame fits, so a marker inside the frame is inside every
-// stage.
-export function markerViewsOf(facts: ProductHotspotFacts, views: ProductCameraFacts): MarkerViews {
+// The markers every authored view of the product shows on the stage, by
+// the runtime's visibility rule restated over the shipped meshes: an
+// anchor shows when it stands in front of the presented camera, the
+// marker's whole keep-out box (the hit box grown by the ring's reach,
+// centered on the projection) fits inside the stage box, and no occluder
+// is nearer along the ray to it. The presented camera is the view's under
+// the stage's contain rule: on a stage narrower than the authored aspect it
+// stands back along the view from the orbit target until the authored
+// frame fits.
+export function markerViewsOf(
+  facts: ProductHotspotFacts,
+  views: ProductCameraFacts,
+  stage: MarkerStage,
+): MarkerViews {
   return {
-    home: markersShownIn(facts, views.home),
+    home: markersShownIn(facts, views.home, stage),
     closeUps: new Map(
-      [...views.closeUps].map(([id, view]) => [id, markersShownIn(facts, view)] as const),
+      [...views.closeUps].map(([id, view]) => [id, markersShownIn(facts, view, stage)] as const),
     ),
   }
 }
@@ -48,11 +65,15 @@ const SWING_STEP_RAD = Math.PI / 36
 // controls' azimuth convention. A drag turns the camera about the vertical
 // axis through the orbit target at the presented distance, so the poses
 // are the home view turned about that axis.
-export function shownSwingOf(facts: ProductHotspotFacts, home: AuthoredView): number {
+export function shownSwingOf(
+  facts: ProductHotspotFacts,
+  home: AuthoredView,
+  stage: MarkerStage,
+): number {
   const reach = (direction: 1 | -1): number => {
     let reached = 0
     for (let angle = SWING_STEP_RAD; angle <= Math.PI; angle += SWING_STEP_RAD) {
-      if (markersShownIn(facts, turnedView(home, direction * angle)).size === 0) {
+      if (markersShownIn(facts, turnedView(home, direction * angle), stage).size === 0) {
         break
       }
       reached = angle
@@ -81,22 +102,32 @@ function turnedView(view: AuthoredView, angle: number): AuthoredView {
   return { ...view, position, azimuthDegrees: view.azimuthDegrees + (angle * 180) / Math.PI }
 }
 
-function markersShownIn(facts: ProductHotspotFacts, view: AuthoredView): ReadonlySet<string> {
-  const camera = {
-    position: pointOf(view.position),
-    target: pointOf(view.target),
-    fovY: view.fovY,
-  }
+function markersShownIn(
+  facts: ProductHotspotFacts,
+  view: AuthoredView,
+  stage: MarkerStage,
+): ReadonlySet<string> {
+  const scale = containedScale(view.aspect, stage.box.width / stage.box.height)
+  const position: vec3 = [
+    view.target[0] + (view.position[0] - view.target[0]) * scale,
+    view.target[1] + (view.position[1] - view.target[1]) * scale,
+    view.target[2] + (view.position[2] - view.target[2]) * scale,
+  ]
+  const camera = { position: pointOf(position), target: pointOf(view.target), fovY: view.fovY }
+  const half = stage.extent.markerHitPx / 2 + stage.extent.focusOutsetPx
   const shown = new Set<string>()
   for (const hotspot of facts.hotspots) {
     const anchor = hotspot.stagePosition
     if (viewDepthOf(camera, pointOf(anchor)) <= 0) {
       continue
     }
-    const projected = projectToStageBox(camera, pointOf(anchor), { width: view.aspect, height: 1 })
-    const inFrame =
-      projected.x >= 0 && projected.x <= view.aspect && projected.y >= 0 && projected.y <= 1
-    if (inFrame && !isBlocked(view.position, anchor, facts.occluders)) {
+    const projected = projectToStageBox(camera, pointOf(anchor), stage.box)
+    const boxFits =
+      projected.x - half >= 0 &&
+      projected.x + half <= stage.box.width &&
+      projected.y - half >= 0 &&
+      projected.y + half <= stage.box.height
+    if (boxFits && !isBlocked(position, anchor, facts.occluders)) {
       shown.add(hotspot.id)
     }
   }

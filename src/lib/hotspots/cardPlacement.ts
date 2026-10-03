@@ -13,23 +13,17 @@
 // it.
 
 import type { StageBox } from './projection'
-
-export type StagePoint = {
-  readonly x: number
-  readonly y: number
-}
+import {
+  isRectInsideStage,
+  markerKeepOut,
+  type MarkerExtent,
+  type StagePoint,
+  type StageRect,
+} from './markerBox'
 
 export type BoxSize = {
   readonly width: number
   readonly height: number
-}
-
-// An axis-aligned box in the stage, edges as coordinates.
-export type StageRect = {
-  readonly left: number
-  readonly top: number
-  readonly right: number
-  readonly bottom: number
 }
 
 // The sides of a floating card, in preference order: beside the marker
@@ -38,15 +32,10 @@ export const CARD_SIDES = ['right', 'left', 'below', 'above'] as const
 
 export type CardSide = (typeof CARD_SIDES)[number]
 
-// The lengths the card geometry is built from.
-export type CardMetrics = {
-  // The side of a marker's square hit box, centered on its placement.
-  readonly markerHitPx: number
-  // The gap between the selected marker's hit box and its card.
+// The lengths the card geometry is built from: the marker's own box, and
+// the gap between the selected marker's hit box and its card.
+export type CardMetrics = MarkerExtent & {
   readonly cardOffsetPx: number
-  // How far a marker's focus ring reaches outside its hit box: the ring's
-  // offset plus its width.
-  readonly focusOutsetPx: number
 }
 
 export type CardPlacementInput = {
@@ -72,7 +61,7 @@ export function placeHotspotCard(input: CardPlacementInput): CardPlacement {
   for (const side of CARD_SIDES) {
     const box = cardBoxAt(side, input.marker, input.card, input.metrics)
     if (
-      isInsideStage(box, input.stage) &&
+      isRectInsideStage(box, input.stage) &&
       !coversAnyMarker(box, input) &&
       !input.obstacles.some((obstacle) => overlaps(box, obstacle))
     ) {
@@ -103,24 +92,8 @@ export function cardBoxAt(
   }
 }
 
-// The box a marker keeps clear: its hit box grown by the focus ring's reach
-// on every side.
-export function markerKeepOut(marker: StagePoint, metrics: CardMetrics): StageRect {
-  const half = metrics.markerHitPx / 2 + metrics.focusOutsetPx
-  return {
-    left: marker.x - half,
-    top: marker.y - half,
-    right: marker.x + half,
-    bottom: marker.y + half,
-  }
-}
-
 function besideAt(left: number, top: number, card: BoxSize): StageRect {
   return { left, top, right: left + card.width, bottom: top + card.height }
-}
-
-function isInsideStage(box: StageRect, stage: StageBox): boolean {
-  return box.left >= 0 && box.top >= 0 && box.right <= stage.width && box.bottom <= stage.height
 }
 
 function coversAnyMarker(box: StageRect, input: CardPlacementInput): boolean {

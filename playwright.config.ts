@@ -4,6 +4,7 @@ import { e2eBaseURL, e2eServer } from './tooling/devHost.ts'
 import { gateProofProject, matrixAssignments } from './tests/e2e/matrix.ts'
 import type { MatrixAssignment } from './tests/e2e/matrix.ts'
 import { testBudgetMs } from './tests/e2e/budgets.ts'
+import { e2eViewport } from './tests/e2e/e2eViewport.ts'
 import { resolveDevPort } from './tooling/devPort.ts'
 
 const port = resolveDevPort(process.env)
@@ -55,6 +56,7 @@ export default defineConfig({
   reporter: [['list']],
   use: {
     baseURL,
+    viewport: e2eViewport,
     screenshot: { mode: 'only-on-failure', fullPage: true },
   },
   webServer: {

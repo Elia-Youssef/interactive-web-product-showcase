@@ -7,7 +7,7 @@
 // is the anchor's own part at worst, never a nearer occluder.
 
 import type { StageBox, StageProjection } from './projection'
-import { isInsideStageBox } from './projection'
+import { isKeepOutInsideStage, type MarkerExtent } from './markerBox'
 
 // The nearest occluder hit along the ray from the camera to the anchor, or
 // null when the ray reaches the anchor without touching any occluder. The
@@ -17,13 +17,26 @@ export function isOccluded(anchorDistance: number, nearestHitDistance: number | 
   return nearestHitDistance !== null && nearestHitDistance < anchorDistance
 }
 
-// A marker shows when its anchor is in front of the camera, its projection
-// lands inside the stage box, and nothing stands between the camera and the
-// anchor. Every other combination hides it.
+// A marker shows when its anchor is in front of the camera, its whole
+// keep-out box (the hit box grown by the focus ring's reach, centered on
+// the projection) fits inside the stage box, and nothing stands between
+// the camera and the anchor. Every other combination hides it: a marker
+// whose box crosses a stage edge hides like an occluded one, so no part of
+// a shown marker's hit area or focus ring ever lies under whatever sits
+// beside the stage.
+export function isMarkerPlaceable(
+  projection: StageProjection,
+  stage: StageBox,
+  extent: MarkerExtent,
+): boolean {
+  return projection.inFront && isKeepOutInsideStage(projection, stage, extent)
+}
+
 export function isMarkerVisible(
   projection: StageProjection,
   stage: StageBox,
+  extent: MarkerExtent,
   occluded: boolean,
 ): boolean {
-  return projection.inFront && isInsideStageBox(projection, stage) && !occluded
+  return isMarkerPlaceable(projection, stage, extent) && !occluded
 }

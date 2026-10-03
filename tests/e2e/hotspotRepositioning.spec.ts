@@ -6,6 +6,8 @@ import { dragToAzimuth } from './hotspotDrives'
 import { readProductCameraFacts } from './productCamera'
 import { readProductHotspotFacts } from './productHotspots'
 import { shownSwingOf } from './productMarkerViews'
+import { harnessStageBox } from './e2eViewport'
+import { readMarkerExtentTokens } from './markerExtentTokens'
 import {
   expectMarkersAtProjection,
   expectShownMarkersAtProjection,
@@ -24,11 +26,12 @@ import {
 // those proofs hold every marker still shown, and at least one.
 
 const products = await harnessProducts()
+const harnessStage = { box: harnessStageBox, extent: await readMarkerExtentTokens() }
 const swingBySlug = new Map<string, number>()
 for (const product of products) {
   const views = await readProductCameraFacts(product.slug)
   const facts = await readProductHotspotFacts(product.slug, product)
-  swingBySlug.set(product.slug, shownSwingOf(facts, views.home))
+  swingBySlug.set(product.slug, shownSwingOf(facts, views.home, harnessStage))
 }
 
 for (const product of products) {

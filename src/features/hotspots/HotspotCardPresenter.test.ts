@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { StageRect } from '@lib/hotspots/cardPlacement'
+import type { StageRect } from '@lib/hotspots/markerBox'
 import type { CardDockPolicy } from '@lib/hotspots/cardPresentation'
 import { StageOverlay, type OverlayElement } from '@viewer/overlay/StageOverlay'
 import type { CardLayout } from './cardLayout'

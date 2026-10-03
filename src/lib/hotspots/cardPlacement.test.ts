@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
   cardBoxAt,
-  markerKeepOut,
   placeHotspotCard,
   type CardMetrics,
   type CardPlacement,
   type CardPlacementInput,
-  type StagePoint,
 } from './cardPlacement'
+import { markerKeepOut, type StagePoint } from './markerBox'
 import type { StageBox } from './projection'
 
 // The metrics of the cases: a 44 px hit box, the card 8 px off it, and a
@@ -60,17 +59,6 @@ describe('cardBoxAt', () => {
       top: 170,
       right: 500,
       bottom: 270,
-    })
-  })
-})
-
-describe('markerKeepOut', () => {
-  it('grows the hit box by the ring reach on every side', () => {
-    expect(markerKeepOut(center, metrics)).toEqual({
-      left: 373,
-      top: 273,
-      right: 427,
-      bottom: 327,
     })
   })
 })
