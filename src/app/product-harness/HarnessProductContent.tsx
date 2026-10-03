@@ -4,6 +4,7 @@ import { ProductHotspots } from '@features/hotspots'
 import { ProductFinishes } from '@features/variants'
 import { Product } from '@viewer/product/Product'
 import { HarnessFrameFault } from './HarnessFrameFault'
+import { LensFrameRecorder } from './LensFrameRecorder'
 import type { HarnessFrameFault as FrameFault } from './frameFaultQuery'
 import { RendererMemoryProbe } from './RendererMemoryProbe'
 import { PartMotion } from './PartMotion'
@@ -39,6 +40,7 @@ export function HarnessProductContent({
   return (
     <>
       <RendererMemoryProbe />
+      <LensFrameRecorder />
       <StageWarmup />
       {frameFault?.scope === 'stage' && <HarnessFrameFault fault={frameFault} />}
       {manifest !== undefined && mounted && (

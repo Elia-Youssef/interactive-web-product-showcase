@@ -150,7 +150,7 @@ export function zoomOfLens(baseFovY: number, viewFovY: number): number {
 // turns into around the view's lens. Every eased lens check compares
 // against this band, derived from the library's threshold at the view's
 // own zoom, never a tuned number; at the home view the zoom is 1.
-function lensBandAtRest(baseFovY: number, viewFovY: number): number {
+export function lensBandAtRest(baseFovY: number, viewFovY: number): number {
   const zoomEnd = zoomOfLens(baseFovY, viewFovY)
   return Math.max(
     Math.abs(lensOfZoom(baseFovY, zoomEnd + REST_THRESHOLD) - viewFovY),
