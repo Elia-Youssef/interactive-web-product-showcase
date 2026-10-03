@@ -19,7 +19,7 @@ export function HarnessProductControls({
   onMovePart,
 }: HarnessProductControlsProps) {
   return (
-    <div className={styles.controls}>
+    <div className={styles.controls} data-harness-control>
       <button type="button" data-testid="remount-product" onClick={onToggleMounted}>
         {mounted ? 'Unmount the product' : 'Mount the product'}
       </button>

@@ -208,7 +208,7 @@ function HarnessFinishControls({ manifest }: { readonly manifest: ProductManifes
   useFinishOffer(manifest)
 
   return (
-    <div className={styles.finishes} data-testid="harness-finishes">
+    <div className={styles.finishes} data-testid="harness-finishes" data-harness-control>
       {manifest.finishes.map((finish) => (
         <button
           key={finish.variant}
