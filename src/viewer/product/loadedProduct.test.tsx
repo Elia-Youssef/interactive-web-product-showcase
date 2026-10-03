@@ -15,6 +15,7 @@ function SlugOfLoadedProduct() {
 const noFinishes: ProductFinishMaterials = {
   plan: readFinishPlan({}),
   materials: new Map(),
+  rawMaterials: new Map(),
   sceneMaterials: new Set(),
 }
 

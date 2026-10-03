@@ -14,6 +14,14 @@ export type AuthoredCameraRay = {
   readonly fovY: number
 }
 
+// One authored view of a product: the view id the camera carries after the
+// CAM_ prefix ('home', 'driver'), the identity a limit problem names, and
+// the camera's authored ray.
+export type NamedCameraRay = {
+  readonly id: string
+  readonly ray: AuthoredCameraRay
+}
+
 // The orbit view the controls present for an authored camera: where the
 // camera sits, what it orbits around, and the vertical fov it keeps.
 export type OrbitView = {

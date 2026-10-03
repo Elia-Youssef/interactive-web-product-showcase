@@ -3,7 +3,7 @@ import { testBodyBudgetMs, testBudgetMs } from './budgets'
 import { harnessPath, harnessProducts, waitForProductReady } from './productSpecs'
 import { readProductHotspotFacts } from './productHotspots'
 import type { ProductHotspotFacts } from './productHotspots'
-import { readProductViewFacts } from './productCamera'
+import { readProductCameraFacts } from './productCamera'
 import { settledFrames } from './stageSettle'
 import { renderedFrames } from './stageCamera'
 import {
@@ -39,10 +39,10 @@ function pulseStartTimes(page: Parameters<typeof markerOf>[0], title: string): P
 
 const products = await harnessProducts()
 const factsBySlug = new Map<string, ProductHotspotFacts>()
-const viewFactsBySlug = new Map<string, Awaited<ReturnType<typeof readProductViewFacts>>>()
+const viewFactsBySlug = new Map<string, Awaited<ReturnType<typeof readProductCameraFacts>>>()
 for (const product of products) {
   factsBySlug.set(product.slug, await readProductHotspotFacts(product.slug, product))
-  viewFactsBySlug.set(product.slug, await readProductViewFacts(product.slug))
+  viewFactsBySlug.set(product.slug, await readProductCameraFacts(product.slug))
 }
 
 for (const product of products) {

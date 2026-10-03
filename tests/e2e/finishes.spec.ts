@@ -2,7 +2,8 @@ import { expect, test } from './fixtures'
 import { loadCollection } from './productList'
 import { readFinishExpectations } from './finishModel'
 import { measureFinishChange } from './finishPixels'
-import { settledFrames, settledStageAnimations } from './stageSettle'
+import { settledStageCapture } from './stageCapture'
+import { settledFrames } from './stageSettle'
 import { testBodyBudgetMs } from './budgets'
 import { waitForProductReady } from './productSpecs'
 import { canvasCenter } from './stageCamera'
@@ -120,31 +121,25 @@ test('the finish change repaints the model in the manifest direction, past the n
   const defaultIsLighter =
     swatchLuminance(defaultFinish.swatch) > swatchLuminance(otherFinish.swatch)
 
-  // Three captures: two back-to-back at the default finish, one after
-  // switching to the other. The first two are this run's noise reference:
-  // same state, same run, so any differing pixel is capture jitter, and a
-  // jittery run proves no direction. The switch pair must differ: a capture
-  // that lags the state reads the default and pairs up identical, which
-  // means the switch never reached the pixels, so it fails instead of
-  // passing a finish that did not paint.
-  await settledFrames(page)
-  // The markers' first-load pulse runs on CSS time, past the frame settle;
-  // the captures pin the stage at rest, so the wait covers it too.
-  await settledStageAnimations(page)
-  // The dev HUD shows live timings, so it is masked: the captures pin the
-  // stage, not a measurement.
-  const capture = (): Promise<Uint8Array> =>
-    page.screenshot({ mask: [page.getByTestId('dev-hud')], maskColor: '#000000' })
-  const atDefault = await capture()
-  const atDefaultAgain = await capture()
+  // Three captures through the settled capture helper: two back-to-back at
+  // the default finish, one after switching to the other. The first two are
+  // this run's noise reference: same state, same run, so any differing pixel
+  // is capture jitter, and a jittery run proves no direction. The switch pair
+  // must differ: a capture that lags the state reads the default and pairs up
+  // identical, which means the switch never reached the pixels, so it fails
+  // instead of passing a finish that did not paint. The helper settles the
+  // stage, drains the dev HUD and waits out the one-time DOM animations (the
+  // markers' first-load pulse) before each shot, so the pair cannot race the
+  // HUD's mask box or a pulse.
+  const atDefault = await settledStageCapture(page)
+  const atDefaultAgain = await settledStageCapture(page)
   await page.getByRole('button', { name: otherFinish.label }).click()
   await expect
     .poll(() => page.evaluate(() => window.__viewer?.finish?.applied ?? null), {
       timeout: testBodyBudgetMs,
     })
     .toBe(otherFinish.variant)
-  await settledFrames(page)
-  const atOther = await capture()
+  const atOther = await settledStageCapture(page)
 
   const stageBox = await page.locator('[data-slot="stage"]').boundingBox()
   if (stageBox === null) {

@@ -1,8 +1,8 @@
 import type { Material } from 'three'
+import { finishDerivedKey, finishMaterialIndex, type FinishPrimitivePlan } from '@lib/product'
 import type { LoadedProduct } from '@viewer/product/loadedProduct'
-import type { MappedMesh } from './mappedMeshes'
+import type { MappedSceneNode } from '@viewer/product/mappedSceneNodes'
 import { mappedSceneMeshes } from './mappedMeshes'
-import { finishMaterialIndex } from './variants.logic'
 
 // One application of a finish to a loaded product: it swaps every mapped
 // mesh's material to what the plan prescribes for the variant and settles
@@ -35,29 +35,37 @@ export async function applyFinish(application: FinishApplication): Promise<void>
 
 function applyVariantMaterials(
   loaded: LoadedProduct,
-  mapped: readonly MappedMesh[],
+  mapped: readonly MappedSceneNode[],
   variantIndex: number,
 ): void {
   for (const { mesh, entry } of mapped) {
-    const material = resolvedMaterial(loaded, finishMaterialIndex(entry, variantIndex))
+    const material = resolvedMaterial(loaded, entry, finishMaterialIndex(entry, variantIndex))
     assertSingleMaterial(mesh)
     mesh.material = material
   }
 }
 
-// The material behind one plan index: the table every application and the
-// applier's read resolve through.
-export function resolvedMaterial(loaded: LoadedProduct, index: number): Material {
-  const material = loaded.finishes.materials.get(index)
+// The derived material one plan entry shows for one material index: the
+// load's table is the one answer every reader resolves through, so an
+// application and the applier's read can never disagree about what a
+// variant dresses a mesh in, and no raw material reaches a mesh.
+export function resolvedMaterial(
+  loaded: LoadedProduct,
+  entry: FinishPrimitivePlan,
+  index: number,
+): Material {
+  const material = loaded.finishes.materials.get(
+    finishDerivedKey(entry.mesh, entry.primitive, index),
+  )
   if (material === undefined) {
     throw new Error(
-      `the loaded product '${loaded.manifest.slug}' resolved no material for the index ${index}`,
+      `the loaded product '${loaded.manifest.slug}' derived no material for the mesh ${entry.mesh} primitive ${entry.primitive} at the index ${index}`,
     )
   }
   return material
 }
 
-function assertSingleMaterial(mesh: MappedMesh['mesh']): void {
+function assertSingleMaterial(mesh: MappedSceneNode['mesh']): void {
   if (Array.isArray(mesh.material)) {
     throw new Error(
       `the mapped mesh '${mesh.name}' carries a material array, the plan maps one material per primitive`,

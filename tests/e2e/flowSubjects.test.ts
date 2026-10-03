@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseProduct, type Product } from '../../src/lib/product'
-import type { AuthoredView, ProductViewFacts } from './productCamera'
+import type { AuthoredView, ProductCameraFacts } from './productCamera'
 import { selectFlowSubjects } from './flowSubjects'
 
 // The selection of the flow proof's subjects, over fake products: the
@@ -51,8 +51,9 @@ const HOME_VIEW: AuthoredView = {
 const CLOSE_UP_VIEW: AuthoredView = { ...HOME_VIEW, distance: 0.5 }
 
 // The view facts of one fake product: the given ids are its close-ups.
-function viewFactsOf(closeUpIds: readonly string[]): ProductViewFacts {
+function viewFactsOf(closeUpIds: readonly string[]): ProductCameraFacts {
   return {
+    center: [0, 0, 0],
     home: HOME_VIEW,
     closeUps: new Map(closeUpIds.map((id) => [id, CLOSE_UP_VIEW])),
   }

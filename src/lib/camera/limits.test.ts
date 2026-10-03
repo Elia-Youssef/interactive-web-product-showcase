@@ -3,9 +3,11 @@ import {
   distanceLimitProblems,
   polarLimitProblems,
   resolvedDistanceLimits,
+  resolvedPolarRange,
   type PolarRange,
   type ViewOrbit,
 } from './limits'
+import { cameraLimitConfig } from './config'
 
 describe('resolvedDistanceLimits', () => {
   it('lets each authored side win over its ratio', () => {
@@ -145,5 +147,13 @@ describe('polarLimitProblems', () => {
     expect(problems).toHaveLength(1)
     expect(problems[0]?.rule).toBe('view-within-polar-limits')
     expect(problems[0]?.message).toContain('CAM_home')
+  })
+})
+
+describe('resolvedPolarRange', () => {
+  it('converts the configured degrees to radians the way degToRad does', () => {
+    const range = resolvedPolarRange(cameraLimitConfig)
+    expect(range.min).toBe((cameraLimitConfig.minPolarAngleDegrees * Math.PI) / 180)
+    expect(range.max).toBe((cameraLimitConfig.maxPolarAngleDegrees * Math.PI) / 180)
   })
 })

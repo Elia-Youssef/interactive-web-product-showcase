@@ -17,5 +17,9 @@ export const CAMERA_PREFIX = 'CAM_'
 // The camera id of the start and reset view: CAM_home, always required.
 export const CAMERA_HOME_ID = 'home'
 
+// The home camera's full node name, derived from the prefix and the id so
+// the naming contract holds one spelling of it.
+export const CAMERA_HOME_NAME = CAMERA_PREFIX + CAMERA_HOME_ID
+
 // The one baked contact shadow plane, named in full.
 export const SHADOW_NODE_NAME = 'SHADOW'

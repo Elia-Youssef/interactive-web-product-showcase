@@ -1,5 +1,5 @@
 import type { Product } from '../../src/lib/product'
-import type { AuthoredView, ProductViewFacts } from './productCamera'
+import type { AuthoredView, ProductCameraFacts } from './productCamera'
 
 // The subjects of the hotspot flow proof, selected from the product set:
 // per product, its close-up hotspots and its plain hotspots, each list
@@ -36,7 +36,7 @@ export type SwitchPair = {
 // The flow proof's subjects of one product.
 export type FlowSubject = {
   readonly product: Product
-  readonly viewFacts: ProductViewFacts
+  readonly viewFacts: ProductCameraFacts
   // The product's hotspots with an authored close-up, in manifest order.
   readonly closeUps: readonly FlowCloseUp[]
   // The product's hotspots without one, in manifest order.
@@ -60,7 +60,7 @@ type SortedHotspot = FlowHotspot & { readonly view: AuthoredView | null }
 // drive, wherever in the set it sits.
 export function selectFlowSubjects(
   products: readonly Product[],
-  viewFactsBySlug: ReadonlyMap<string, ProductViewFacts>,
+  viewFactsBySlug: ReadonlyMap<string, ProductCameraFacts>,
 ): readonly FlowSubject[] {
   const subjects = products.map((product) => subjectOf(product, viewFactsBySlug))
   if (!subjects.some((subject) => subject.closeUps.length > 0)) {
@@ -79,7 +79,7 @@ export function selectFlowSubjects(
 
 function subjectOf(
   product: Product,
-  viewFactsBySlug: ReadonlyMap<string, ProductViewFacts>,
+  viewFactsBySlug: ReadonlyMap<string, ProductCameraFacts>,
 ): FlowSubject {
   const viewFacts = viewFactsBySlug.get(product.slug)
   if (viewFacts === undefined) {

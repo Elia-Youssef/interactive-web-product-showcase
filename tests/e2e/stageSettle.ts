@@ -1,5 +1,5 @@
 import { expect, type Page } from '@playwright/test'
-import { hudDrainBudgetMs, testBodyBudgetMs } from './budgets'
+import { hudDrainBudgetMs } from './budgets'
 
 // Waits until the stage's frame count holds still across a settle window:
 // every load-frame debt (the model, the camera fit) is paid, and the stage
@@ -31,23 +31,4 @@ export async function settledStage(page: Page): Promise<void> {
   // window's fall to the rest text, an order of magnitude above the drain.
   await expect(page.getByTestId('hud-fps')).toHaveText('0.0', { timeout: hudDrainBudgetMs })
   await expect(page.getByTestId('hud-tick-cpu')).toHaveText('-', { timeout: hudDrainBudgetMs })
-}
-
-// Waits until the page's one-time DOM animations have finished, the
-// markers' first-load pulse among them. They run on CSS time, not on
-// frames, so a frame settle does not cover them, and a capture taken
-// mid-pulse pins a transition state instead of the rest the capture claims.
-// They run once per load, so the wait falls through in one poll afterwards.
-export async function settledStageAnimations(page: Page): Promise<void> {
-  await expect
-    .poll(
-      () =>
-        page.evaluate(
-          () =>
-            document.getAnimations().filter((animation) => animation.playState === 'running')
-              .length,
-        ),
-      { timeout: testBodyBudgetMs },
-    )
-    .toBe(0)
 }

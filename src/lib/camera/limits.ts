@@ -1,6 +1,10 @@
 // The distance and polar limit rules of the stage camera, as pure checks
 // over the authored data. Authored data is never clamped: a rule that
 // breaks is a problem naming the values, and the product fails on it.
+// The limit values themselves live in ./config, the one place the runtime
+// and the build-time validate step read them from.
+
+import type { CameraLimitConfig } from './config'
 
 export type DistanceRange = {
   // The closest the camera may come to the target, in stage units at the
@@ -57,6 +61,20 @@ export function resolvedDistanceLimits(
     min: authored.minDistance ?? homeDistance * ratios.minRatio,
     max: authored.maxDistance ?? homeDistance * ratios.maxRatio,
   }
+}
+
+// The polar limits of a product, in radians: the configured degrees
+// converted the way three's MathUtils.degToRad converts them, so the rules
+// read the same range on every side.
+export function resolvedPolarRange(limits: CameraLimitConfig): PolarRange {
+  return {
+    min: degreesToRadians(limits.minPolarAngleDegrees),
+    max: degreesToRadians(limits.maxPolarAngleDegrees),
+  }
+}
+
+function degreesToRadians(degrees: number): number {
+  return degrees * (Math.PI / 180)
 }
 
 // The distance rules: every view's orbit distance must lie within [min, max]

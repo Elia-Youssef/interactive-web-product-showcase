@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import type { Product } from '../../src/lib/product'
-import { readProductViewFacts, type AuthoredView, type ProductViewFacts } from './productCamera'
+import { readProductCameraFacts, type AuthoredView, type ProductCameraFacts } from './productCamera'
 import { readProductHotspotFacts, type ProductHotspotFacts } from './productHotspots'
 import { harnessProducts } from './productSpecs'
 import { resolvedDistanceRange, viewExpectation } from './stageCamera'
@@ -33,9 +33,9 @@ export type FlowFacts = {
 
 export async function flowFacts(): Promise<FlowFacts> {
   const products = await harnessProducts()
-  const viewFactsBySlug = new Map<string, ProductViewFacts>()
+  const viewFactsBySlug = new Map<string, ProductCameraFacts>()
   for (const product of products) {
-    viewFactsBySlug.set(product.slug, await readProductViewFacts(product.slug))
+    viewFactsBySlug.set(product.slug, await readProductCameraFacts(product.slug))
   }
   const factsBySlug = new Map<string, ProductHotspotFacts>()
   for (const product of products) {
@@ -49,7 +49,7 @@ export async function flowFacts(): Promise<FlowFacts> {
 // product's resolved distance range.
 function flowsOf(
   products: readonly Product[],
-  viewFactsBySlug: ReadonlyMap<string, ProductViewFacts>,
+  viewFactsBySlug: ReadonlyMap<string, ProductCameraFacts>,
 ): readonly HotspotFlow[] {
   return selectFlowSubjects(products, viewFactsBySlug).map((subject) => {
     const range = resolvedDistanceRange(subject.product, subject.viewFacts.home.distance)

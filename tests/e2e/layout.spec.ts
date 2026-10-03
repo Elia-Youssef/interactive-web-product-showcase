@@ -4,8 +4,8 @@
 
 import { expect, test } from './fixtures'
 import { siteCopy } from '../../src/lib/copy/site'
+import { expectSettledStageScreenshot } from './stageCapture'
 import { productLoadBudgetMs } from './productSpecs'
-import { settledStage, settledStageAnimations } from './stageSettle'
 import { viewportContracts } from './layoutContracts'
 
 for (const spec of viewportContracts) {
@@ -233,27 +233,24 @@ for (const spec of viewportContracts) {
     // The baselines show the stage with the collection's product in it.
     // Ready alone would race the product load and shoot the empty stage, so
     // the wait is for the model report, which lands once the product is on a
-    // recorded frame, and the settle of its load frames.
+    // recorded frame; the settled capture then applies the suite's own rest
+    // condition (the frame settle, the HUD drain and the one-time DOM
+    // animations, the markers' first-load pulse among them) and standard
+    // mask.
     await expect
       .poll(() => page.evaluate(() => window.__viewer?.model ?? null), {
         timeout: productLoadBudgetMs,
       })
       .not.toBeNull()
-    await settledStage(page)
-    // The markers' first-load pulse runs on CSS time, past the frame
-    // settle; a baseline pins the stage at rest, so the wait covers it.
-    await settledStageAnimations(page)
 
-    // The dev HUD shows live timings and exists only in dev builds, so it is
-    // masked: the baseline pins the design, not a measurement. The capture is
-    // the viewport, not the full page: a full-page capture expands the page
-    // for the shot, and that expansion clears a presented WebGPU canvas in
-    // Chromium, so a full-page baseline would pin an empty stage. On the
-    // desktop contracts the page fits the viewport and the two coincide; on
-    // tablet and phone the below-fold panel content stays covered by the
-    // functional checks of this spec.
-    await expect(page).toHaveScreenshot(spec.snapshotName, {
-      mask: [page.getByTestId('dev-hud')],
-    })
+    // The capture is the viewport, not the full page: a full-page capture
+    // expands the page for the shot, and that expansion clears a presented
+    // WebGPU canvas in Chromium, so a full-page baseline would pin an empty
+    // stage. On the desktop contracts the page fits the viewport and the two
+    // coincide; on tablet and phone the below-fold panel content stays
+    // covered by the functional checks of this spec. The helper masks the dev
+    // HUD, which shows live timings and exists only in dev builds: the
+    // baseline pins the design, not a measurement.
+    await expectSettledStageScreenshot(page, spec.snapshotName)
   })
 }
