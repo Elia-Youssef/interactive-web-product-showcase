@@ -4,7 +4,8 @@
 // The size rule of a texture comes from the encode plan the run executed,
 // so the report and the encoder share one rule.
 import { stat } from 'node:fs/promises'
-import type { Document, Material, Texture } from '@gltf-transform/core'
+import type { Document } from '@gltf-transform/core'
+import { listTextureSlots } from '@gltf-transform/functions'
 import { MODEL_BUDGET_BYTES } from './budgets.ts'
 import { isMissingFileError } from './fsErrors.ts'
 import { formatKtxVersion, type KtxResolution } from './ktxSoftware.ts'
@@ -53,39 +54,16 @@ export async function fileSizeBytes(filePath: string): Promise<number | null> {
   }
 }
 
-// The standard texture slots, named as the gltf-transform CLI names them,
-// with their accessors.
-const SLOT_ACCESSORS = [
-  ['baseColorTexture', (material: Material) => material.getBaseColorTexture()],
-  ['metallicRoughnessTexture', (material: Material) => material.getMetallicRoughnessTexture()],
-  ['normalTexture', (material: Material) => material.getNormalTexture()],
-  ['occlusionTexture', (material: Material) => material.getOcclusionTexture()],
-  ['emissiveTexture', (material: Material) => material.getEmissiveTexture()],
-] as const
-
-// Groups the slot names by texture across every material: one texture can
-// ride in several slots, which decides which encode stage claims it.
-export function slotsByTexture(doc: Document): Map<Texture, readonly string[]> {
-  const slots = new Map<Texture, string[]>()
-  for (const material of doc.getRoot().listMaterials()) {
-    for (const [name, getTexture] of SLOT_ACCESSORS) {
-      const texture = getTexture(material)
-      if (texture === null) {
-        continue
-      }
-      const used = slots.get(texture) ?? []
-      if (!used.includes(name)) {
-        used.push(name)
-      }
-      slots.set(texture, used)
-    }
-  }
-  return slots
-}
-
+// Describes every texture of a document. With an encode plan, the document
+// must be the one the plan was built over and executed on: the plan's
+// entries are keyed by that document's texture positions. The written file
+// is not that document, since the CLI's geometry pass merges identical
+// textures first and shifts the positions after them, so the pipeline
+// describes the run's textures itself (pipeline.ts). The slots are read
+// with the plan's own slot rule, so every slot the encoder saw, extension
+// slots included, is the slot the report names.
 export function describeTextures(doc: Document, plan?: EncodePlan): TextureReport[] {
   const textures = doc.getRoot().listTextures()
-  const slots = slotsByTexture(doc)
   return textures.map((texture, index) => {
     const entry = plan?.entries.find((candidate) => candidate.textureIndex === index)
     const image = texture.getImage()
@@ -94,7 +72,7 @@ export function describeTextures(doc: Document, plan?: EncodePlan): TextureRepor
       mimeType: texture.getMimeType(),
       dimensions: texture.getSize(),
       sizeBytes: image === null ? 0 : image.byteLength,
-      slots: slots.get(texture) ?? [],
+      slots: listTextureSlots(texture),
       stage: entry?.stage ?? null,
       sizeRule: entry?.sizeRule ?? null,
     }
@@ -122,8 +100,10 @@ export function budgetShare(bytes: number): string {
 
 // One report line per texture, naming its slots and the claiming stage and
 // size rule of the plan the run executed. A texture with the occlusion slot
-// that a data stage claimed states that the override does not apply to it,
-// so the occlusion override can never silently miss.
+// whose plan size rule is not the override (another stage claimed it first)
+// states that the override does not apply to it, so the occlusion override
+// can never silently miss; one the plan encodes at the override carries no
+// such note, whatever other slots it shares.
 export function formatTextureLine(
   texture: TextureReport,
   settings: Pick<OptimizeSettings, 'textureMaxSize' | 'occlusionTextureMaxSize'>,
@@ -142,7 +122,10 @@ export function formatTextureLine(
       ? settings.occlusionTextureMaxSize
       : settings.textureMaxSize
   line += `, encoded by the ${texture.stage} stage at ${texture.sizeRule} (${sizePx} px)`
-  if (texture.slots.includes('occlusionTexture') && texture.slots.length > 1) {
+  if (
+    texture.slots.includes('occlusionTexture') &&
+    texture.sizeRule !== 'occlusionTextureMaxSize'
+  ) {
     line +=
       `, shared with the occlusion slot: ` +
       `occlusionTextureMaxSize (${settings.occlusionTextureMaxSize} px) does not apply`

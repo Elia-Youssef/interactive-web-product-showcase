@@ -56,7 +56,7 @@ describe('runOptimizePipeline: the encode plan of one texture per class', () => 
     const cli = recordedCliRunner()
     const outputDir = await mkdtemp(path.join(tmpdir(), 'pipeline-test-'))
     const outputPath = path.join(outputDir, 'nested', 'model.glb')
-    const plan = await runOptimizePipeline({
+    const { plan, textures } = await runOptimizePipeline({
       inputPath: 'raw.glb',
       outputPath,
       settings: settingsWith({ occlusionTextureMaxSize: 512 }),
@@ -73,6 +73,27 @@ describe('runOptimizePipeline: the encode plan of one texture per class', () => 
         (candidate) => candidate.textureIndex === row.entry.textureIndex,
       )
       expect(entry, row.name).toEqual(row.entry)
+    }
+    // The run's texture report is drawn from the same plan: each texture
+    // meets its own entry, and names the slots the encoder read, extension
+    // slots included.
+    expect(textures).toHaveLength(PLAN_TABLE.length)
+    for (const row of PLAN_TABLE) {
+      const report = textures[row.entry.textureIndex]
+      expect(
+        {
+          label: report?.label,
+          slots: report?.slots,
+          stage: report?.stage,
+          sizeRule: report?.sizeRule,
+        },
+        row.name,
+      ).toEqual({
+        label: row.def.name,
+        slots: row.entry.slots,
+        stage: row.entry.stage,
+        sizeRule: row.entry.sizeRule,
+      })
     }
     expect(ktx.calls).toHaveLength(PLAN_TABLE.length)
     for (const row of PLAN_TABLE) {

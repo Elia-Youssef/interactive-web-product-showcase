@@ -26,11 +26,11 @@ import { createModelIO } from './modelIo.ts'
 import { runOptimizePipeline } from './pipeline.ts'
 import {
   budgetShare,
-  describeTextures,
   fileSizeBytes,
   formatBytes,
   formatKtxResolutionLine,
   formatTextureLine,
+  type TextureReport,
 } from './report.ts'
 import { productPaths, type ProductPaths } from './productPaths.ts'
 import { loadOptimizeSettings, type OptimizeSettings } from './settings.ts'
@@ -68,7 +68,8 @@ async function resolveSlugs(argv: readonly string[]): Promise<string[]> {
 
 // Optimizes one product and prints its report. The settings come from the
 // optional per-product override file; the structure facts are read back
-// from the written file, never assumed.
+// from the written file, never assumed, and the texture lines are the
+// run's own, each drawn from the plan entry that encoded it.
 async function optimizeProduct(
   paths: ProductPaths,
   settings: OptimizeSettings,
@@ -77,7 +78,7 @@ async function optimizeProduct(
   const io = await createModelIO()
   const beforeStructure = readProductStructure(await io.read(paths.exportGlb))
   const inputBytes = await fileSizeBytes(paths.exportGlb)
-  const plan = await runOptimizePipeline({
+  const run = await runOptimizePipeline({
     inputPath: paths.exportGlb,
     outputPath: paths.modelGlb,
     settings,
@@ -91,7 +92,7 @@ async function optimizeProduct(
   if (outputBytes === null || inputBytes === null) {
     throw new Error(`Missing file after optimizing '${paths.slug}'`)
   }
-  printRunReport(paths, settings, inputBytes, outputBytes, describeTextures(outputDoc, plan))
+  printRunReport(paths, settings, inputBytes, outputBytes, run.textures)
   const afterStructure = readProductStructure(outputDoc)
   printStructure(afterStructure)
   const losses = [
@@ -109,7 +110,7 @@ function printRunReport(
   settings: OptimizeSettings,
   inputBytes: number,
   outputBytes: number,
-  textures: ReturnType<typeof describeTextures>,
+  textures: readonly TextureReport[],
 ): void {
   writeLine(`product: ${paths.slug}`)
   writeLine(`  input:  ${paths.exportGlb} (${formatBytes(inputBytes)})`)

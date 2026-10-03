@@ -138,6 +138,25 @@ describe('formatTextureLine', () => {
     expect(line).toContain('occlusionTextureMaxSize (512 px) does not apply')
   })
 
+  it('carries no miss note for a shared texture the plan encodes at the override', () => {
+    // The occlusion stage claims an occlusion texture shared with a color
+    // slot, so the override applies to it, as the plan's size rule says.
+    const line = formatTextureLine(
+      {
+        label: 'ao-and-color',
+        mimeType: 'image/ktx2',
+        dimensions: [512, 512],
+        sizeBytes: 1024,
+        slots: ['baseColorTexture', 'occlusionTexture'],
+        stage: 'occlusion',
+        sizeRule: 'occlusionTextureMaxSize',
+      },
+      settingsWith({ occlusionTextureMaxSize: 512 }),
+    )
+    expect(line).toContain('encoded by the occlusion stage at occlusionTextureMaxSize (512 px)')
+    expect(line).not.toContain('does not apply')
+  })
+
   it('states that a texture without a plan entry was already KTX2', () => {
     const line = formatTextureLine(
       {

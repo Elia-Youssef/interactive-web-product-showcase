@@ -18,6 +18,7 @@ import path from 'node:path'
 import type { Document } from '@gltf-transform/core'
 import { executeEncodePlan, type Ktx2Runner } from './ktx2Encode.ts'
 import { buildEncodePlan, type EncodePlan } from './ktx2Plan.ts'
+import { describeTextures, type TextureReport } from './report.ts'
 import type { OptimizeSettings } from './settings.ts'
 
 // The runner the geometry stage is parameterized by: one gltf-transform
@@ -59,13 +60,24 @@ export type PipelineParams = {
   run: CliRunner
 }
 
-// Runs the full pipeline on one product and returns the encode plan it
-// executed, so the run report and the tests print and assert from the same
-// value the encoder ran. The plan is built and executed on one in-memory
-// Document, written through a temporary folder, then the geometry pass
-// runs straight to the output path, creating its folder. The temporary
-// folder is removed even when a stage fails.
-export async function runOptimizePipeline(params: PipelineParams): Promise<EncodePlan> {
+// The outcome of one pipeline run: the encode plan it executed, and the
+// report of every texture as the encode left it. The report is described
+// from the document the plan was built over, the one document whose
+// texture positions key the plan's entries, so each texture meets its own
+// entry; the written file is not described here, because its geometry
+// pass merges identical textures and shifts the positions after them.
+export type PipelineRun = {
+  plan: EncodePlan
+  textures: readonly TextureReport[]
+}
+
+// Runs the full pipeline on one product and returns the plan it executed
+// with the texture report drawn from it, so the run report and the tests
+// print and assert from the same value the encoder ran. The plan is built
+// and executed on one in-memory Document, written through a temporary
+// folder, then the geometry pass runs straight to the output path, creating
+// its folder. The temporary folder is removed even when a stage fails.
+export async function runOptimizePipeline(params: PipelineParams): Promise<PipelineRun> {
   const tempDir = await mkdtemp(path.join(tmpdir(), 'optimize-'))
   try {
     const doc = await params.io.read(params.inputPath)
@@ -77,11 +89,12 @@ export async function runOptimizePipeline(params: PipelineParams): Promise<Encod
       jobs: params.settings.ktxJobs,
       runKtx: params.runKtx,
     })
+    const textures = describeTextures(doc, plan)
     const afterTextures = path.join(tempDir, 'stage-textures-ktx2.glb')
     await params.io.write(afterTextures, doc)
     await mkdir(path.dirname(params.outputPath), { recursive: true })
     await params.run(buildGeometryStageArgs(afterTextures, params.outputPath, params.settings))
-    return plan
+    return { plan, textures }
   } finally {
     await rm(tempDir, { recursive: true, force: true })
   }
