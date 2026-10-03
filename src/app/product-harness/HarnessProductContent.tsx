@@ -7,6 +7,7 @@ import { HarnessFrameFault } from './HarnessFrameFault'
 import type { HarnessFrameFault as FrameFault } from './frameFaultQuery'
 import { RendererMemoryProbe } from './RendererMemoryProbe'
 import { PartMotion } from './PartMotion'
+import { PresentedAnchorsProbe } from './PresentedAnchorsProbe'
 import { SceneGraphProbe } from './SceneGraphProbe'
 import { StageWarmup } from './StageWarmup'
 
@@ -43,6 +44,7 @@ export function HarnessProductContent({
       {manifest !== undefined && mounted && (
         <Product manifest={manifest}>
           <SceneGraphProbe />
+          <PresentedAnchorsProbe />
           <ProductFinishes />
           <ProductHotspots />
           <ProductExplode />
