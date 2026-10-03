@@ -21,6 +21,11 @@ import {
 } from './extensions.ts'
 import { layerConfigs } from './eslintLayers.ts'
 import { sourcePolicyPlugin } from './sourcePolicy.ts'
+import {
+  frameLoopRestriction,
+  frameLoopSyntaxRestrictions,
+  stageFrameModules,
+} from './frameLoopRule.ts'
 
 const SCRIPT_GLOB = `**/*.${extensionGlob(scriptExtensions)}`
 const SRC_SCRIPT_GLOB = `src/**/*.${extensionGlob(scriptExtensions)}`
@@ -68,6 +73,12 @@ const compileWalkEntries = compileWalkNames.map((name) => ({
   selector: `CallExpression[callee.property.name='${name}']`,
   message:
     'Pipelines are built on the frame path; a compile walk yields to the frame scheduling of the engine and can park the settle chain on a frame that never comes.',
+}))
+
+// The frame loop's doors past the import rule, from the one rule module.
+const frameLoopSyntaxEntries = frameLoopSyntaxRestrictions.map(({ selector, message }) => ({
+  selector,
+  message,
 }))
 
 // The e2e polls that would ride the runner's implicit timeout, one selector
@@ -177,13 +188,22 @@ function sharedRulesConfig(): Linter.Config {
 // extensioned: the one shape the production restriction below matches.
 const fixtureImportPattern = '\\.fixtures(\\.[cm]?[jt]sx?)?$'
 
+const fixtureImportRestriction = {
+  regex: fixtureImportPattern,
+  message:
+    'Fixture modules are test support: only test files and other fixture modules import them (tooling/eslintLayers.ts).',
+}
+
 // The source policy of src/, applied after the shared rules. A flat config
 // object replaces a rule wholesale for its files, so the restricted-syntax
 // entry here carries the shared selectors with it: src files keep the
-// double-assertion ban and gain the compile-walk ban on top. The restricted
-// imports entry is the fixture rule: fixture modules are test support, so
-// production code never imports them; the test and fixture exemption below
-// switches the rule off where fixtures are legal.
+// double-assertion ban and gain the compile-walk ban and the frame loop's
+// syntax doors on top. The restricted imports entry carries two rules:
+// fixture modules are test support, so production code never imports them,
+// and content code never subscribes to R3F's frame loop itself. The
+// exemptions below switch the import rule off where fixtures are legal and
+// restate both rules without the frame loop for the stage's frame
+// modules.
 function srcPolicyConfig(): Linter.Config {
   return {
     files: [SRC_SCRIPT_GLOB],
@@ -207,16 +227,27 @@ function srcPolicyConfig(): Linter.Config {
       'source-policy/known-source-extension': 'error',
       'no-restricted-imports': [
         'error',
-        {
-          patterns: [
-            {
-              regex: fixtureImportPattern,
-              message:
-                'Fixture modules are test support: only test files and other fixture modules import them (tooling/eslintLayers.ts).',
-            },
-          ],
-        },
+        { patterns: [fixtureImportRestriction], paths: [frameLoopRestriction] },
       ],
+      'no-restricted-syntax': [
+        'error',
+        ...doubleAssertionEntries,
+        ...compileWalkEntries,
+        ...frameLoopSyntaxEntries,
+      ],
+    },
+  }
+}
+
+// The stage's frame modules subscribe to R3F's frame loop: that is their
+// job. A flat config object replaces a rule wholesale for its files, so this
+// entry restates the fixture restriction and the shared selectors without
+// the frame loop's.
+function stageFrameExemptionConfig(): Linter.Config {
+  return {
+    files: stageFrameModules,
+    rules: {
+      'no-restricted-imports': ['error', { patterns: [fixtureImportRestriction] }],
       'no-restricted-syntax': ['error', ...doubleAssertionEntries, ...compileWalkEntries],
     },
   }
@@ -282,6 +313,7 @@ export function createConfig({ root }: { root: string }) {
     tseslint.configs.recommended,
     sharedRulesConfig(),
     srcPolicyConfig(),
+    stageFrameExemptionConfig(),
     testExemptionConfig(),
     fixtureExemptionConfig(),
     testsFolderConfig(),

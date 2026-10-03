@@ -34,6 +34,7 @@ import {
   sizeCases,
 } from './plantedContentRules.ts'
 import { stageCaptureCases } from './plantedCaptureRules.ts'
+import { frameLoopCases } from './plantedFrameLoopRules.ts'
 
 export type { PlantedCase } from './plantedShapes.ts'
 export { LAYERS_RULE } from './plantedShapes.ts'
@@ -59,6 +60,7 @@ export function buildPlantedCases(): readonly PlantedCase[] {
     ...consoleCases(),
     ...hooksCases(),
     ...rendererCompileCases(),
+    ...frameLoopCases(),
     ...pollBudgetCases(),
     ...stageCaptureCases(),
   ]
