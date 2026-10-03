@@ -30,6 +30,53 @@ export type Point = { readonly x: number; readonly y: number; readonly z: number
 // (camera-controls dist/camera-controls.module.js, `restThreshold = 0.01`.)
 export const REST_THRESHOLD = 0.01
 
+// The float bound of a fraction compared against the one-step rule below:
+// the controls' recurrence and the rule run the same arithmetic in two
+// float paths, so their results differ by a few ulps of one. Measured
+// across the eased moves, the gap stays below nine ulps; the bound is the
+// next power of two of one's ulp.
+export const ONE_STEP_FLOAT_GAP = 16 * Number.EPSILON
+
+// The fraction of its change one eased step from rest moves, with
+// x = 2 dt / smoothTime: the step leaves (1 + x) over
+// (1 + x + 0.48 x^2 + 0.235 x^3) of the change, the velocity term
+// included (camera-controls dist/camera-controls.module.js, smoothDamp).
+// Restated here like the orbit math above, so a viewer regression cannot
+// hide behind its own helper.
+export function oneStepFractionFromRest(smoothTimeSeconds: number, dtSeconds: number): number {
+  const x = (2 * dtSeconds) / smoothTimeSeconds
+  return 1 - (1 + x) / (1 + x + 0.48 * x * x + 0.235 * x * x * x)
+}
+
+// One eased step of an angle channel, restated from camera-controls'
+// smoothDamp (dist/camera-controls.module.js) including its velocity term
+// and its overshoot guard, so a replay of a running move can be compared
+// against the viewer's per-frame reads.
+export function easedAngleStep(options: {
+  readonly currentRadians: number
+  readonly endRadians: number
+  readonly velocityRadiansPerSecond: number
+  readonly smoothTimeSeconds: number
+  readonly dtSeconds: number
+}): { readonly angleRadians: number; readonly velocityRadiansPerSecond: number } {
+  const { currentRadians, endRadians, velocityRadiansPerSecond, smoothTimeSeconds, dtSeconds } =
+    options
+  const smoothTime = Math.max(0.0001, smoothTimeSeconds)
+  const omega = 2 / smoothTime
+  const x = omega * dtSeconds
+  const exp = 1 / (1 + x + 0.48 * x * x + 0.235 * x * x * x)
+  const change = currentRadians - endRadians
+  const temp = (velocityRadiansPerSecond + omega * change) * dtSeconds
+  const velocity = (velocityRadiansPerSecond - omega * temp) * exp
+  const angle = endRadians + (change + temp) * exp
+  // The overshoot guard, the source's own: a step that would cross the end
+  // lands on it and carries the crossing as velocity.
+  if (endRadians - currentRadians > 0 === angle > endRadians) {
+    return { angleRadians: endRadians, velocityRadiansPerSecond: (endRadians - angle) / dtSeconds }
+  }
+  return { angleRadians: angle, velocityRadiansPerSecond: velocity }
+}
+
 // The two sides of a product's authored camera aspect a stage can sit on.
 // The aspect rule scales every distance on the narrower side and leaves it
 // unscaled on the other, so a proof of the rule needs a stage on each side;
