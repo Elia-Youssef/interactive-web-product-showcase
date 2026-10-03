@@ -91,11 +91,27 @@ their minimum below it, switched by the breakpoints at the end of this file.
   --size-hotspot-hit: var(--size-hit-min);
   /*
   The gap between a hotspot marker and the card floating beside it, and the
-  stacking of the selected hotspot's anchor above the other markers, whose
-  placed elements tie in DOM order.
+  stacking of the floating card above the markers, whose placed elements
+  tie in DOM order.
   */
   --offset-hotspot-card: var(--space-2);
   --z-hotspot-card: 1;
+  /*
+  The widest the floating hotspot card lays out: it sizes to its content up
+  to this bound, so a title and the one-line bullets of the copy rules fit
+  on one line each, and longer copy wraps inside the bound instead of
+  spreading over the stage.
+  */
+  --size-hotspot-card-max: 360px;
+  /*
+  Where the open hotspot card goes: beside its marker, docked into the
+  panel only when no side of the marker has room. The phone's panel is a
+  sheet under a short stage, so there every card docks; the breakpoints at
+  the end of this file switch it. Code reads this property, never a width.
+  */
+  --hotspot-card-dock: when-crowded;
+  /* The width of the dev harness page's dock, which sits under its stage. */
+  --size-harness-dock: 400px;
   /*
   The keyboard focus ring. global.css owns the one
   :focus-visible rule and draws it from --focus-ring; a component that needs
@@ -105,6 +121,12 @@ their minimum below it, switched by the breakpoints at the end of this file.
   --focus-width: 2px;
   --focus-offset: 3px;
   --focus-ring: var(--focus-width) solid var(--off);
+  /*
+  The hotspot marker's own ring offset: the marker sets the recipe's
+  --focus-ring-offset from it, and the card placement reads the same token
+  to keep the whole ring clear.
+  */
+  --offset-hotspot-focus-ring: var(--focus-offset);
   /* Gap between a selected text button and its persistent underline. */
   --offset-text-underline: var(--space-1);
 
@@ -186,6 +208,13 @@ at build time, so every stylesheet that queries one of these must
 @custom-media --vp-phone (width < 640px);
 @custom-media --vp-tablet (640px <= width < 1024px);
 @custom-media --vp-desktop (width >= 1024px);
+
+/* On phone every hotspot card docks into the panel's sheet. */
+@media (--vp-phone) {
+  :root {
+    --hotspot-card-dock: always;
+  }
+}
 
 /* Ranged type sizes drop to their minimum below the desktop breakpoint. */
 @media not (--vp-desktop) {

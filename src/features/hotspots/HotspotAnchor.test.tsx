@@ -1,13 +1,11 @@
 import { expect, test } from 'vitest'
 import { renderToString } from 'react-dom/server'
 import { parseProduct } from '@lib/product'
-import { siteCopy } from '@lib/copy/site'
 import { StageOverlay } from '@viewer/overlay/StageOverlay'
 import { HotspotAnchor } from './HotspotAnchor'
 
 // The manifest the anchors render, validated so the component sees the real
-// schema output. Two hotspots whose card copy names nothing the other's
-// carries, so the card-present-only checks read the copy itself.
+// schema output.
 const manifest = parseProduct(
   {
     slug: 'anchor-test-piece',
@@ -49,7 +47,6 @@ function renderAnchors(selectedId: string | null): string {
           hotspot={hotspot}
           selected={selectedId === hotspot.id}
           onToggle={() => {}}
-          onClose={() => {}}
         />
       ))}
     </>,
@@ -66,33 +63,11 @@ test('each hotspot renders one marker named by its title, none pressed while idl
   expect(html).toContain('aria-pressed="false"')
 })
 
-test('the selected hotspot renders its card with the manifest copy and the site close label', () => {
+test('the selected hotspot marker is pressed and no anchor carries a card', () => {
   const html = renderAnchors('driver')
 
-  expect(html).toContain('aria-pressed="true"')
-  expect(html).toContain('<h2')
-  expect(html).toContain('A closer look')
-  expect(html).toContain('Full-range driver')
-  expect(html).toContain('Set behind the grille')
-  expect(html).toContain('Ported through the base')
-  expect(html).toContain(`aria-label="${siteCopy.closeLabel}"`)
-})
-
-test('the card is present only for the selected hotspot', () => {
-  const html = renderAnchors('driver')
-
-  // The knob's card copy must not appear: its marker carries only the
-  // title, and this copy belongs to no marker.
-  expect(html).not.toContain('On top')
-  expect(html).not.toContain('Machined aluminum')
-  // One card, so one title heading and one close button.
-  expect((html.match(/<h2/g) ?? []).length).toBe(1)
-  expect((html.match(new RegExp(`aria-label="${siteCopy.closeLabel}"`, 'g')) ?? []).length).toBe(1)
-})
-
-test('no card renders while the selection is idle', () => {
-  const html = renderAnchors(null)
-
+  expect((html.match(/aria-pressed="true"/g) ?? []).length).toBe(1)
+  // The card has a presenter of its own: an anchor holds its marker only.
   expect(html).not.toContain('<h2')
-  expect(html).not.toContain(`aria-label="${siteCopy.closeLabel}"`)
+  expect(html).not.toContain('A closer look')
 })
