@@ -11,6 +11,7 @@ export const siteCopy = {
   stageLabel: 'Interactive 360 view',
   stageHint: 'Drag to rotate / Scroll to zoom',
   finishHeading: 'Choose your finish',
+  defaultExplodeLabel: 'Exploded view',
   collectionErrorHeading: 'The collection failed to load',
   notFoundHeading: 'Not found',
   notFoundLine: 'That product does not exist in this collection.',

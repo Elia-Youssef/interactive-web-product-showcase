@@ -2,10 +2,10 @@ import { expect, test } from './fixtures'
 import { testBodyBudgetMs } from './budgets'
 import { countDifferingPixels } from './lookPixels'
 import { loadCollection } from './productList'
-import { waitForProductReady } from './productSpecs'
+import { harnessPath, waitForProductReady } from './productSpecs'
 import { settledStageCapture } from './stageCapture'
 import type { RegionBox } from './stagePixels'
-import { decodeScreenshotRGBA } from './stagePixels'
+import { countRegionPixelsBrighterThan, decodeScreenshotRGBA } from './stagePixels'
 import { settledStage } from './stageSettle'
 
 // The contract of the suite's settled capture helper, proven at the moments
@@ -14,7 +14,8 @@ import { settledStage } from './stageSettle'
 // box is about to shrink, and right after a load, when the markers'
 // first-load pulse is still running on CSS time. After the helper returns,
 // the HUD must read its rest values and no one-time animation may run, and
-// captures taken across the drain must be pixel-identical.
+// captures taken across the drain must be pixel-identical. The harness
+// extension masks every control the harness lays over the stage.
 
 const product = (await loadCollection()).first
 
@@ -92,4 +93,33 @@ test('a stage capture right after the load returns with every one-time animation
     () => document.getAnimations().filter((animation) => animation.playState === 'running').length,
   )
   expect(running, 'the settled capture shot while a one-time animation was running').toBe(0)
+})
+
+test('a harness capture masks every control the harness lays over the stage', async ({
+  page,
+  backendPath,
+}) => {
+  await page.goto(harnessPath(backendPath, product.slug))
+  await waitForProductReady(page)
+
+  const capture = await settledStageCapture(page, ['harnessControls'])
+
+  // The oracle is the page's own controls, found by their roles rather than
+  // by the mark the mask reads: every button and slider the harness shows
+  // must come out of the capture as the mask color, so a control the
+  // harness gains without the mark fails here.
+  const controls = [
+    ...(await page.getByRole('button').all()),
+    ...(await page.getByRole('slider').all()),
+  ]
+  expect(controls.length, 'the harness must show its controls').toBeGreaterThan(0)
+  for (const control of controls) {
+    const box = await control.boundingBox()
+    if (box === null) {
+      throw new Error('every harness control must have a bounding box')
+    }
+    const name = (await control.getAttribute('aria-label')) ?? (await control.textContent()) ?? ''
+    const unmasked = await countRegionPixelsBrighterThan(page, capture, box, 0)
+    expect(unmasked.count, `the harness control '${name}' must be masked`).toBe(0)
+  }
 })

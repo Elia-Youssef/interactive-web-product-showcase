@@ -1,8 +1,10 @@
-import { useCallback, useMemo, type ReactNode } from 'react'
+import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import type { Product, ProductFailure } from '@lib/product'
 import { useAppStore } from '@store/index'
 import { measureModelFrame } from '../modelFrame'
 import { ProductLook } from '../look/ProductLook'
+import { ShadowOpacityContext } from '../look/shadowOpacityContext'
+import { createShadowOpacityHolder } from '../look/shadowOpacityOwner'
 import type { ProductRig } from '../rig/productRig'
 import { summarizeProductRig } from '../rig/summary'
 import { LoadedProductContext, type LoadedProduct } from './loadedProduct'
@@ -40,6 +42,10 @@ export function PresentedProduct({
 }: PresentedProductProps) {
   const slug = manifest.slug
   const productReady = useAppStore((state) => state.productReady)
+  // The shadow opacity's per-product slot, one per presented product like
+  // the loaded product itself: the look installs its owner into it and the
+  // features that fade the shadow claim their factor through it.
+  const [shadowOpacity] = useState(createShadowOpacityHolder)
 
   const summary = useMemo(() => summarizeProductRig(rig), [rig])
   const loaded = useMemo<LoadedProduct>(
@@ -76,8 +82,10 @@ export function PresentedProduct({
         <primitive object={model.scene} />
       </group>
       <LoadedProductContext.Provider value={loaded}>
-        <ProductLook />
-        {children}
+        <ShadowOpacityContext.Provider value={shadowOpacity}>
+          <ProductLook />
+          {children}
+        </ShadowOpacityContext.Provider>
       </LoadedProductContext.Provider>
     </>
   )

@@ -8,6 +8,7 @@ import {
 } from '@lib/routing'
 import { siteCopy } from '@lib/copy/site'
 import { StageAngleReadout, StageZoomControls } from '@features/stage-controls'
+import { ProductExplode } from '@features/explode'
 import { HotspotMarkers, ProductHotspots } from '@features/hotspots'
 import { ProductIndexLabel, ProductPanel } from '@features/product-panel'
 import { ProductFinishes } from '@features/variants'
@@ -88,12 +89,13 @@ function NotFoundPage({ collection }: { readonly collection: ProductCollection }
 // The layout with one product's words in its slots and the renderer in its
 // stage slot, showing the current product through the product channel. The
 // stage chrome's angle slot and controls slot carry the stage controls
-// feature, which reads the camera through the store. The finishes and the
-// hotspots extend the product on the stage: the finishes inside it, the
-// hotspots as the canvas child plus the markers in the stage's overlay. The
-// panel's dock is held here and handed to the markers, so an open card that
-// docks renders into the panel (the sheet on phone), and so is the stage
-// chrome, which a floating card keeps clear of.
+// feature, which reads the camera through the store. The finishes, the
+// exploded view and the hotspots extend the product on the stage: the
+// finishes and the exploded view inside it, the hotspots as the canvas
+// child plus the markers in the stage's overlay. The panel's dock is held
+// here and handed to the markers, so an open card that docks renders into
+// the panel (the sheet on phone), and so is the stage chrome, which a
+// floating card keeps clear of.
 function ProductPage({ product }: { readonly product: ProductManifest }) {
   const [dock, setDock] = useState<HTMLElement | null>(null)
   const [chrome, setChrome] = useState<HTMLElement | null>(null)
@@ -114,6 +116,7 @@ function ProductPage({ product }: { readonly product: ProductManifest }) {
             <Product key={product.slug} manifest={product}>
               <ProductFinishes />
               <ProductHotspots />
+              <ProductExplode />
             </Product>
           }
           overlay={<HotspotMarkers product={product} dock={dock} chrome={chrome} />}

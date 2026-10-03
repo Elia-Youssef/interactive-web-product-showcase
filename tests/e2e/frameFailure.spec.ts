@@ -2,6 +2,7 @@ import { expect, test } from './fixtures'
 import { testBudgetMs } from './budgets'
 import {
   expectProductAlert,
+  frameFaultPath,
   paintedStagePixels,
   pollProductChannel,
   productChannel,
@@ -22,10 +23,6 @@ import {
 
 const products = await harnessProducts()
 
-function faultPath(backendPath: string, slug: string, place: string, scope: string): string {
-  return `${harnessPath(backendPath, slug)}&frameFault=${place}&frameFaultScope=${scope}`
-}
-
 for (const product of products) {
   for (const place of harnessScopedFaultPlaces) {
     test(`a ${place} fault under the presented ${product.slug} fails it with the render kind, and the next product paints the canvas like a clean mount`, async ({
@@ -40,7 +37,7 @@ for (const product of products) {
       await waitForProductReady(page)
       const clean = await paintedStagePixels(page)
 
-      await page.goto(faultPath(backendPath, product.slug, place, 'product'))
+      await page.goto(frameFaultPath(backendPath, product.slug, place, 'product'))
       await pollProductChannel(page).toEqual({
         product: 'failed',
         productSlug: product.slug,
@@ -65,7 +62,7 @@ for (const product of products) {
       // The fault sits in the stage's own content, beside the product, and
       // throws in the stage's first frames, before the product presents: the
       // stage owns it, so the stage fails.
-      await page.goto(faultPath(backendPath, product.slug, place, 'stage'))
+      await page.goto(frameFaultPath(backendPath, product.slug, place, 'stage'))
 
       const failedStage = {
         status: 'failed',
@@ -93,7 +90,7 @@ for (const product of products) {
     // The camera's frame step is the stage's code: the fault arms once the
     // product is presented, and the throw must reach the stage's owner,
     // never the presented product's.
-    await page.goto(faultPath(backendPath, product.slug, 'camera', 'stage'))
+    await page.goto(frameFaultPath(backendPath, product.slug, 'camera', 'stage'))
 
     await pollProductChannel(page).toEqual({
       status: 'failed',

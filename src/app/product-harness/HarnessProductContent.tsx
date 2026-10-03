@@ -1,4 +1,5 @@
 import type { Product as ProductManifest } from '@lib/product'
+import { ProductExplode } from '@features/explode'
 import { ProductHotspots } from '@features/hotspots'
 import { ProductFinishes } from '@features/variants'
 import { Product } from '@viewer/product/Product'
@@ -44,6 +45,7 @@ export function HarnessProductContent({
           <SceneGraphProbe />
           <ProductFinishes />
           <ProductHotspots />
+          <ProductExplode />
           {moveToken > 0 && <PartMotion key={moveToken} />}
           {frameFault?.scope === 'product' && <HarnessFrameFault fault={frameFault} />}
         </Product>

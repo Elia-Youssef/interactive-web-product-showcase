@@ -1,11 +1,17 @@
 import { expect, type Page } from '@playwright/test'
 import { productLoadBudgetMs } from './budgets'
+import { harnessPath } from './productSpecs'
 import { settledStageCapture } from './stageCapture'
 import { backdropCeiling, countRegionPixelsBrighterThan } from './stagePixels'
+import type {
+  HarnessFrameFaultPlace,
+  HarnessFrameFaultScope,
+} from '../../src/app/product-harness/frameFaultQuery.ts'
 
-// The failure channel as the product failure specs read it: the product and
-// renderer channels of the automation in one snapshot, the alerts the stage
-// shows, the harness's remount, and the painted stage pixels.
+// The failure channel as the product failure specs read it: the harness path
+// that arms a frame fault, the product and renderer channels of the
+// automation in one snapshot, the alerts the stage shows, the harness's
+// remount, and the painted stage pixels.
 
 export function productChannel(page: Page) {
   return page.evaluate(() => ({
@@ -14,6 +20,18 @@ export function productChannel(page: Page) {
     failure: window.__viewer?.productFailure,
     status: window.__viewer?.status,
   }))
+}
+
+// The harness path of a product whose first mount carries the frame fault
+// at the place and scope named; the remount through the harness toggle is
+// clean content.
+export function frameFaultPath(
+  backendPath: string,
+  slug: string,
+  place: HarnessFrameFaultPlace,
+  scope: HarnessFrameFaultScope,
+): string {
+  return `${harnessPath(backendPath, slug)}&frameFault=${place}&frameFaultScope=${scope}`
 }
 
 // The failed terminal state rides the same budget as ready: the channel

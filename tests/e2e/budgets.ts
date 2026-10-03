@@ -52,3 +52,11 @@ export function testBudgetMs({
 // that freezes the HUD text carries this budget, an order of magnitude
 // above the drain it waits for.
 export const hudDrainBudgetMs = 10_000
+
+// The window a claim of "nothing renders at rest" waits through between its
+// two frame-count reads. The stage renders only on invalidations, and the
+// longest motion the specs leave running into such a window is the explode
+// spring, whose full move ends within its settle time of 0.8 s (the explode
+// feature's config), so a window several times that settle time cannot
+// contain a frame the stage still owes.
+export const restWindowBudgetMs = 2_000

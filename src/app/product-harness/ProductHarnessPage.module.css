@@ -1,8 +1,10 @@
-/* The dev-only harness page: the stage fills the viewport, the product
-   controls share the top-left corner as one row, the dev finish buttons
-   stack below them, and the dock for an open card that docks sits under
-   the stage, outside its box, where the card scrolls itself into view. Values are tokens, which the page reaches through the
-   global stylesheet it imports. */
+/* The dev-only harness page: the stage fills the viewport, the mount
+   toggle and the part motion control share the top-left corner as one row,
+   the dev product controls (the finish buttons, then the explode toggle and
+   its scrub) stack below them, and the dock for an open card that docks
+   sits under the stage, outside its box, where the card scrolls itself into
+   view. Values are tokens, which the page reaches through the global
+   stylesheet it imports. */
 .frame {
   position: relative;
   block-size: var(--height-viewport);
@@ -17,10 +19,17 @@
   align-items: start;
 }
 
-.finishes {
+.productControls {
   position: absolute;
   left: var(--space-4);
   top: var(--space-12);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: start;
+}
+
+.finishes {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);

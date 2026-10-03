@@ -3,10 +3,13 @@ import { useCallback, useMemo, useState } from 'react'
 import { CollectionError, createCollection, type Product as ProductManifest } from '@lib/product'
 import { productManifests } from '@products/index'
 import { HotspotMarkers } from '@features/hotspots'
+import { ProductExplodeScrub, ProductExplodeToggle } from '@features/product-panel'
 import { useFinishOffer } from '@features/variants'
 import { AppStoreProvider, useAppStore } from '@store/index'
 import { Stage } from '@viewer/Stage'
 import { StageAlert } from '@viewer/StageAlert'
+import { createStageSurface } from '@viewer/stageSurface'
+import { StageSurfaceContext, useStageSurfaceElement } from '@viewer/stageSurfaceContext'
 import styles from './ProductHarnessPage.module.css'
 import { HarnessProductContent } from './HarnessProductContent'
 import { HarnessProductControls } from './HarnessProductControls'
@@ -24,11 +27,18 @@ import { harnessSlug } from './harnessSlug'
 // the harness alert.
 // The production build never emits this page: its only input is index.html.
 export function ProductHarnessPage() {
+  // The stage surface, bound to the frame element that hosts the stage, so
+  // the exploded view's grid reaction has its element on this page too.
+  const [surface] = useState(createStageSurface)
+  const bindSurface = useStageSurfaceElement(surface)
+
   return (
     <AppStoreProvider>
-      <main className={styles.frame}>
-        <HarnessStage />
-      </main>
+      <StageSurfaceContext.Provider value={surface}>
+        <main className={styles.frame} ref={bindSurface}>
+          <HarnessStage />
+        </main>
+      </StageSurfaceContext.Provider>
     </AppStoreProvider>
   )
 }
@@ -85,8 +95,11 @@ type HarnessCollection = {
 }
 
 // The product side of the harness: the overridden manifest, the mount
-// toggle, the finish controls, the part motion control, the dock for an
-// open card, and the alerts the slug state can raise.
+// toggle and the part motion control, the product controls (the finishes,
+// then the explode toggle and its scrub), the dock for an open card, and
+// the alerts the slug state can raise. Every dev control laid over the
+// stage carries the harness control mark, the one name the suite's stage
+// captures mask the harness's controls by.
 function HarnessProduct({
   slug,
   collection,
@@ -135,7 +148,7 @@ function HarnessProduct({
       <HarnessSlugAlert slug={slug} found={manifest !== undefined} collection={collection} />
       {manifest !== undefined && (
         <>
-          <HarnessFinishControls manifest={manifest} />
+          <HarnessManifestControls manifest={manifest} />
           <HarnessProductControls
             mounted={mounted}
             onToggleMounted={toggle}
@@ -197,6 +210,19 @@ function useHarnessMount(): {
   return { mounted, firstMount, toggle }
 }
 
+// The dev-only controls that act on the product the manifest names, one
+// stack under the harness control mark: the finish buttons, then the
+// explode toggle and its scrub, the panel's own components.
+function HarnessManifestControls({ manifest }: { readonly manifest: ProductManifest }) {
+  return (
+    <div className={styles.productControls} data-harness-control>
+      <HarnessFinishControls manifest={manifest} />
+      <ProductExplodeToggle product={manifest} />
+      <ProductExplodeScrub product={manifest} />
+    </div>
+  )
+}
+
 // The dev-only finish controls the product e2e drives: one button per
 // manifest finish, selecting through the store's finish slice, and the one
 // offer hook that puts the manifest's finishes in the store. The offer sits
@@ -208,7 +234,7 @@ function HarnessFinishControls({ manifest }: { readonly manifest: ProductManifes
   useFinishOffer(manifest)
 
   return (
-    <div className={styles.finishes} data-testid="harness-finishes" data-harness-control>
+    <div className={styles.finishes} data-testid="harness-finishes">
       {manifest.finishes.map((finish) => (
         <button
           key={finish.variant}

@@ -3,9 +3,18 @@ The stage backdrop: the brand's blueprint grid under a radial vignette. The
 stage slot places this element under the transparent WebGPU canvas; the
 panel stays flat.
 Every value comes from a token in tokens.css.
+The grid alpha is the backdrop's own application of its emphasis input:
+rest alpha plus the emphasis times the step to the exploded alpha. The
+emphasis is written onto an ancestor element by whatever drives it; this
+rule reads it and composes the applied alpha, so the input names nothing
+here and the stylesheet names no feature.
 */
 
 .backdrop {
+  --backdrop-grid-alpha-applied: calc(
+    var(--backdrop-grid-alpha) + var(--backdrop-grid-emphasis) *
+      (var(--backdrop-grid-alpha-exploded) - var(--backdrop-grid-alpha))
+  );
   position: absolute;
   inset: 0;
   pointer-events: none;
@@ -18,11 +27,11 @@ Every value comes from a token in tokens.css.
     ),
     linear-gradient(
       to right,
-      rgb(var(--white-rgb) / var(--backdrop-grid-alpha)) var(--backdrop-grid-line),
+      rgb(var(--white-rgb) / var(--backdrop-grid-alpha-applied)) var(--backdrop-grid-line),
       transparent var(--backdrop-grid-line)
     ),
     linear-gradient(
-      rgb(var(--white-rgb) / var(--backdrop-grid-alpha)) var(--backdrop-grid-line),
+      rgb(var(--white-rgb) / var(--backdrop-grid-alpha-applied)) var(--backdrop-grid-line),
       transparent var(--backdrop-grid-line)
     );
   background-size:

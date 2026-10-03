@@ -88,6 +88,7 @@ export type StageProbeReads = {
   finish: ViewerFinish
   hotspots: ViewerHotspotsAutomation
   overlay: ViewerOverlay
+  explode: ViewerExplode
 }
 
 export type StageProbeKey = keyof StageProbeReads
@@ -136,6 +137,24 @@ export type ViewerFinish = {
   readonly applied: string | null
   readonly requested: string
   readonly materials: Readonly<Record<string, string>>
+}
+
+// The local position of one PART_ node, as the scene graph holds it.
+export type ViewerExplodePart = {
+  readonly x: number
+  readonly y: number
+  readonly z: number
+}
+
+// The exploded view's live reading, served by the mounted explode feature:
+// the spring's progress, the target it moves toward, whether the motion is
+// still running, and every PART_ node's local position read from the scene
+// graph itself.
+export type ViewerExplode = {
+  readonly t: number
+  readonly target: number
+  readonly moving: boolean
+  readonly parts: Readonly<Record<string, ViewerExplodePart>>
 }
 
 // The probe-backed fields of the automation: one entry per stage probe key,
@@ -265,6 +284,10 @@ class StageViewerAutomation implements ViewerAutomation {
 
   get overlay(): ViewerOverlay | null {
     return this.#sources.probes.read('overlay')
+  }
+
+  get explode(): ViewerExplode | null {
+    return this.#sources.probes.read('explode')
   }
 }
 

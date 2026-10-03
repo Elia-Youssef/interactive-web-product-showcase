@@ -1,8 +1,14 @@
 import { expect, test } from 'vitest'
 import type { ProductInput } from '@lib/product'
 import { parseProduct } from '@lib/product'
+import { siteCopy } from '@lib/copy/site'
 import { createAppStore, selectSelectedVariant } from '@store/index'
-import { activeFinish, formatProductIndex } from './product-panel.logic'
+import {
+  activeFinish,
+  explodeToggleLabel,
+  formatExplodePercent,
+  formatProductIndex,
+} from './product-panel.logic'
 
 // Neutral fixture words, never a real product's: the logic renders whatever the
 // manifest says, and the real words belong to src/products/.
@@ -35,6 +41,20 @@ test.each([
   expect(formatProductIndex(number)).toBe(expected)
 })
 
+// The exploded view's whole-percent table: halves round away from a
+// misreading of the pose, so a value in the upper half of a percent reads
+// as the percent it is inside of, and 1 is exactly 100%.
+test.each([
+  { progress: 0, expected: '0%' },
+  { progress: 0.004, expected: '0%' },
+  { progress: 0.005, expected: '1%' },
+  { progress: 0.5, expected: '50%' },
+  { progress: 0.995, expected: '100%' },
+  { progress: 1, expected: '100%' },
+])('formatExplodePercent($progress) is $expected', ({ progress, expected }) => {
+  expect(formatExplodePercent(progress)).toBe(expected)
+})
+
 test('the active finish is the selected variant when the store holds one', () => {
   expect(activeFinish(product, 'sage')).toEqual({
     variant: 'sage',
@@ -53,6 +73,21 @@ test('the active finish is the product default, the first, while nothing is sele
 
 test('a selected variant the product does not offer is the programming error it is', () => {
   expect(() => activeFinish(product, 'graphitee')).toThrowError(/graphitee/)
+})
+
+test('the toggle label is the manifest own word when the manifest names one', () => {
+  const labeled = parseProduct(
+    { ...sampleManifest, explode: { label: 'See inside' } },
+    'sample-one',
+  )
+
+  expect(explodeToggleLabel(labeled)).toBe('See inside')
+})
+
+test('the toggle label falls back to the site word when the manifest names none', () => {
+  // The schema normalizes the explode block, so a manifest without a label
+  // parses with the block present and the label absent.
+  expect(explodeToggleLabel(product)).toBe(siteCopy.defaultExplodeLabel)
 })
 
 // The cross-product pairs, over a real store: product A sits selected on a

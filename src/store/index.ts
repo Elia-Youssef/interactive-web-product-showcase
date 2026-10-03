@@ -22,3 +22,12 @@ export {
   type CameraRequestOutcome,
   type CameraRequestRejectionReason,
 } from './slices/camera'
+export {
+  selectExplodeAttached,
+  selectExplodeOpen,
+  selectExplodeReadout,
+  selectExplodeTarget,
+  type ExplodeReadout,
+  type ExplodeReadoutEvent,
+  type ExplodeStatus,
+} from './slices/explode'

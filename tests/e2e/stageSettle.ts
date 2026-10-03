@@ -1,6 +1,13 @@
 import { expect, type Page } from '@playwright/test'
 import { hudDrainBudgetMs } from './budgets'
 
+// The stage's frame count as the automation hook counts it. A read is one
+// instant; the rest windows that compare two reads are the settle helpers
+// below.
+export function renderedFramesOf(page: Page): Promise<number> {
+  return page.evaluate(() => window.__viewer?.renderedFrames ?? -1)
+}
+
 // Waits until the stage's frame count holds still across a settle window:
 // every load-frame debt (the model, the camera fit) is paid, and the stage
 // is at rest under demand mode, so nothing renders between two reads that

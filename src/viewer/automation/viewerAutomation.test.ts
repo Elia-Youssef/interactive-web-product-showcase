@@ -4,6 +4,7 @@ import type { ProductStatus, RendererStatus } from '@store/index'
 import { StageProbes } from './StageProbes'
 import type {
   ViewerCameraAutomation,
+  ViewerExplode,
   ViewerFinish,
   ViewerHotspotsAutomation,
   ViewerLook,
@@ -56,6 +57,13 @@ const overlay: ViewerOverlay = {
   placements: { 'hotspot:driver': { kind: 'placed', x: 120, y: 80 } },
 }
 
+const explode: ViewerExplode = {
+  t: 0.25,
+  target: 1,
+  moving: true,
+  parts: { PART_base: { x: 0, y: 0.4, z: 0 } },
+}
+
 const rig: ProductRigSummary = {
   parts: ['PART_base'],
   hotspots: [],
@@ -76,6 +84,7 @@ function sourcesWith(overrides?: Partial<ViewerAutomationSources>): ViewerAutoma
   probes.register('finish', () => finish)
   probes.register('hotspots', () => hotspots)
   probes.register('overlay', () => overlay)
+  probes.register('explode', () => explode)
   return {
     probes,
     getStatus: () => readyRenderer,
@@ -95,6 +104,7 @@ describe('createViewerAutomation', () => {
     expect(automation.finish).toEqual(finish)
     expect(automation.hotspots).toEqual(hotspots)
     expect(automation.overlay).toEqual(overlay)
+    expect(automation.explode).toEqual(explode)
   })
 
   it('reads null for a probe key no component holds', () => {
@@ -105,6 +115,18 @@ describe('createViewerAutomation', () => {
     expect(automation.finish).toBeNull()
     expect(automation.hotspots).toBeNull()
     expect(automation.overlay).toBeNull()
+    expect(automation.explode).toBeNull()
+  })
+
+  it('reads a probe registered after the automation was created', () => {
+    // The probe fields are live getters over the stage's probes, never a
+    // snapshot taken at creation: a component registers when its effect
+    // runs, which is after the bridge built the automation object.
+    const probes = new StageProbes()
+    const automation = createViewerAutomation(sourcesWith({ probes }))
+    probes.register('explode', () => explode)
+
+    expect(automation.explode).toEqual(explode)
   })
 
   it('reads the store and clock fields at access time', () => {

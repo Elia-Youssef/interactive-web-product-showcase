@@ -60,6 +60,12 @@ content joins it in step 8 and wins through DOM order. */
   inline-size: var(--space-12);
 }
 
+/* The slider states at the row width the panel's control line gives them,
+so the review shows the control at its working width. */
+.sliderCell {
+  inline-size: var(--panel-width-min);
+}
+
 /*
 The marker is positioned by its stage overlay in the app; the gallery cell
 stands in for that box, sized around the marker's hit area.
