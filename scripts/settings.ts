@@ -63,7 +63,26 @@ const uastcRdoLambda = z.literal(4)
 // leaves it on by default unless this flag is passed. The optimize step
 // must give the same bytes for the same input, so off is the only value.
 const uastcRdoMultithreading = z.literal(false)
+// The zstd supercompression applied to UASTC textures: gltf-transform
+// 4.5.1's optimize KTX2 default (UASTC_DEFAULTS.zstd in cli.mjs), passed to
+// ktx as --zstd. ETC1S (BasisLZ) cannot take zstd, so this is UASTC-only.
+const uastcZstd = z.literal(18)
 const etc1sQuality = z.literal(255)
+// The thread count of every ktx encode. KTX-Software 4.4.2's UASTC encode
+// with RDO is only byte-stable single-threaded: threaded encodes produced
+// two different outputs for the same input across runs, with RDO
+// multithreading already off. gltf-transform 4.5.1 always passes at least
+// two threads (Math.max(2, ...) in cli.mjs) and offers no switch, which is
+// why the encode stage calls ktx directly. One is the only value that
+// gives the same bytes for the same input.
+const ktxThreads = z.literal(1)
+// The size of the pool of concurrent ktx processes that executes the encode
+// plan. Every process encodes one texture with ktxThreads and its output
+// depends only on its own input, so the pool size cannot change any byte;
+// it only overlaps the long single-threaded RDO encodes. Four keeps the
+// peak memory of the pool (source image plus encoder per process) bounded
+// while the encodes run.
+const ktxJobs = z.literal(4)
 
 // The full settings of one optimize run. Every field is required: the
 // defaults below are the base, and the file override is a partial pick.
@@ -79,7 +98,10 @@ export const optimizeSettingsSchema = z.strictObject({
   uastcRdo,
   uastcRdoMultithreading,
   uastcRdoLambda,
+  uastcZstd,
   etc1sQuality,
+  ktxThreads,
+  ktxJobs,
   textureMaxSize: textureSize,
   occlusionTextureMaxSize: textureSize,
 })
@@ -134,7 +156,10 @@ const FIXED_DEFAULTS = {
   uastcRdo: true,
   uastcRdoMultithreading: false,
   uastcRdoLambda: 4,
+  uastcZstd: 18,
   etc1sQuality: 255,
+  ktxThreads: 1,
+  ktxJobs: 4,
 } satisfies Partial<OptimizeSettings>
 
 const DEFAULT_TEXTURE_MAX_SIZE = TEXTURE_MAX_SIZE_PX

@@ -1,13 +1,18 @@
+import { mkdtemp } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { PLAN_TABLE } from './encodePlan.fixtures.ts'
+import type { ModelDocumentIO } from './pipeline.ts'
+import { buildGeometryStageArgs, runOptimizePipeline } from './pipeline.ts'
 import { DEFAULT_OPTIMIZE_SETTINGS, type OptimizeSettings } from './settings.ts'
 import {
-  buildEtc1sStageArgs,
-  buildGeometryStageArgs,
-  buildUastcStageArgs,
-  runOptimizePipeline,
-  textureSizeRule,
-  type CliRunner,
-} from './pipeline.ts'
+  docWithTextures,
+  KTX2_PLACEHOLDER,
+  recordedCliRunner,
+  recordedKtxRunner,
+  textureByName,
+} from './texture.fixtures.ts'
 
 const settingsWith = (overrides: Partial<OptimizeSettings>): OptimizeSettings => ({
   ...DEFAULT_OPTIMIZE_SETTINGS,
@@ -36,113 +41,66 @@ describe('buildGeometryStageArgs', () => {
   })
 })
 
-describe('buildUastcStageArgs', () => {
-  it('emits the encoder parameters from the settings object it is passed', () => {
-    const settings = DEFAULT_OPTIMIZE_SETTINGS
-    const args = buildUastcStageArgs(
-      'in.glb',
-      'out.glb',
-      '{normalTexture,metallicRoughnessTexture}',
-      settings.textureMaxSize,
-      settings,
-    )
-    expect(args).toEqual([
-      'uastc',
-      'in.glb',
-      'out.glb',
-      '--slots={normalTexture,metallicRoughnessTexture}',
-      `--resize=${settings.textureMaxSize}`,
-      `--level=${settings.uastcLevel}`,
-      `--rdo=${settings.uastcRdo}`,
-      `--rdo-lambda=${settings.uastcRdoLambda}`,
-      `--rdo-multithreading=${settings.uastcRdoMultithreading}`,
-    ])
-  })
-})
-
-describe('buildEtc1sStageArgs', () => {
-  it('emits the quality from the settings object it is passed', () => {
-    const settings = DEFAULT_OPTIMIZE_SETTINGS
-    expect(buildEtc1sStageArgs('in.glb', 'out.glb', settings.textureMaxSize, settings)).toEqual([
-      'etc1s',
-      'in.glb',
-      'out.glb',
-      `--resize=${settings.textureMaxSize}`,
-      `--quality=${settings.etc1sQuality}`,
-    ])
-  })
-})
-
-describe('textureSizeRule', () => {
-  it('gives a texture only the occlusion slot uses the occlusion override', () => {
-    expect(textureSizeRule(['occlusionTexture'])).toBe('occlusionTextureMaxSize')
-  })
-
-  it('encodes a texture shared with the occlusion slot at the maximum', () => {
-    expect(textureSizeRule(['normalTexture', 'occlusionTexture'])).toBe('textureMaxSize')
-    expect(textureSizeRule(['occlusionTexture', 'metallicRoughnessTexture'])).toBe('textureMaxSize')
-  })
-
-  it('keeps every other texture at the maximum', () => {
-    expect(textureSizeRule(['baseColorTexture'])).toBe('textureMaxSize')
-    expect(textureSizeRule([])).toBe('textureMaxSize')
-  })
-})
-
-describe('runOptimizePipeline', () => {
-  const recordedRunner = (): { run: CliRunner; calls: string[][] } => {
-    const calls: string[][] = []
-    const run: CliRunner = async (args) => {
-      calls.push([...args])
-      return undefined
+describe('runOptimizePipeline: the encode plan of one texture per class', () => {
+  it('plans and encodes every texture class exactly as tabulated', async () => {
+    const doc = docWithTextures(PLAN_TABLE.map((row) => row.def))
+    const written: string[] = []
+    const io: ModelDocumentIO = {
+      read: async () => doc,
+      write: async (filePath, writtenDoc) => {
+        expect(writtenDoc).toBe(doc)
+        written.push(filePath)
+      },
     }
-    return { run, calls }
-  }
-
-  it('chains three texture passes and the geometry pass to the output path', async () => {
-    const { run, calls } = recordedRunner()
-    await runOptimizePipeline({
+    const ktx = recordedKtxRunner()
+    const cli = recordedCliRunner()
+    const outputDir = await mkdtemp(path.join(tmpdir(), 'pipeline-test-'))
+    const outputPath = path.join(outputDir, 'nested', 'model.glb')
+    const plan = await runOptimizePipeline({
       inputPath: 'raw.glb',
-      outputPath: 'out/model.glb',
+      outputPath,
       settings: settingsWith({ occlusionTextureMaxSize: 512 }),
-      run,
+      io,
+      runKtx: ktx.runKtx,
+      run: cli.run,
     })
-    expect(calls).toHaveLength(4)
-    const [data, occlusion, color, geometry] = calls
-    expect(data?.[0]).toBe('uastc')
-    expect(data?.[1]).toBe('raw.glb')
-    expect(data?.[2]).toMatch(/stage1-data-uastc\.glb$/)
-    expect(data).toContain('--slots={normalTexture,metallicRoughnessTexture}')
-    expect(data).toContain('--resize=2048')
-    expect(occlusion?.[0]).toBe('uastc')
-    expect(occlusion?.[1]).toBe(data?.[2])
-    expect(occlusion?.[2]).toMatch(/stage2-occlusion-uastc\.glb$/)
-    expect(occlusion).toContain('--slots=occlusionTexture')
-    expect(occlusion).toContain('--resize=512')
-    expect(color?.[0]).toBe('etc1s')
-    expect(color?.[1]).toBe(occlusion?.[2])
-    expect(color?.[2]).toMatch(/stage3-color-etc1s\.glb$/)
-    expect(color).toContain('--resize=2048')
-    expect(geometry?.[0]).toBe('optimize')
-    expect(geometry?.[1]).toBe(color?.[2])
-    expect(geometry?.[2]).toBe('out/model.glb')
-  })
-
-  it('carries the encoder parameters of its settings into every texture pass', async () => {
-    const { run, calls } = recordedRunner()
-    await runOptimizePipeline({
-      inputPath: 'raw.glb',
-      outputPath: 'out/model.glb',
-      settings: DEFAULT_OPTIMIZE_SETTINGS,
-      run,
-    })
-    const [data, , color] = calls
-    expect(data).toContain(`--level=${DEFAULT_OPTIMIZE_SETTINGS.uastcLevel}`)
-    expect(data).toContain(`--rdo=${DEFAULT_OPTIMIZE_SETTINGS.uastcRdo}`)
-    expect(data).toContain(`--rdo-lambda=${DEFAULT_OPTIMIZE_SETTINGS.uastcRdoLambda}`)
-    expect(data).toContain(
-      `--rdo-multithreading=${DEFAULT_OPTIMIZE_SETTINGS.uastcRdoMultithreading}`,
-    )
-    expect(color).toContain(`--quality=${DEFAULT_OPTIMIZE_SETTINGS.etc1sQuality}`)
+    // The plan is the pure value the pipeline executed: one exact entry per
+    // texture class, and every ktx call is one of the planned encodes with
+    // the file names resolved against the workspace.
+    expect(plan.entries).toHaveLength(PLAN_TABLE.length)
+    for (const row of PLAN_TABLE) {
+      const entry = plan.entries.find(
+        (candidate) => candidate.textureIndex === row.entry.textureIndex,
+      )
+      expect(entry, row.name).toEqual(row.entry)
+    }
+    expect(ktx.calls).toHaveLength(PLAN_TABLE.length)
+    for (const row of PLAN_TABLE) {
+      // The pool starts the encodes in order but they settle concurrently,
+      // so each call is matched by its unique target file, not by order.
+      const call = ktx.calls.find(
+        (candidate) =>
+          path.basename(candidate[candidate.length - 1] ?? '') === row.entry.targetName,
+      )
+      expect(call, row.name).toEqual([
+        ...row.entry.arguments.slice(0, -2),
+        expect.stringContaining(row.entry.sourceName),
+        expect.stringContaining(row.entry.targetName),
+      ])
+    }
+    // Every texture left the run as KTX2, and the geometry pass ran once.
+    for (const row of PLAN_TABLE) {
+      expect(textureByName(doc, row.def.name)?.getMimeType()).toBe('image/ktx2')
+      expect(textureByName(doc, row.def.name)?.getImage()).toEqual(Buffer.from(KTX2_PLACEHOLDER))
+    }
+    expect(written).toHaveLength(1)
+    expect(written[0]).toMatch(/stage-textures-ktx2\.glb$/)
+    expect(cli.calls).toHaveLength(1)
+    const geometry = cli.calls[0] ?? []
+    expect(geometry[0]).toBe('optimize')
+    expect(geometry[1]).toBe(written[0])
+    expect(geometry[2]).toBe(outputPath)
+    expect(geometry).toContain('--texture-compress=false')
+    expect(geometry).toContain('--compress=meshopt')
   })
 })
