@@ -7,14 +7,11 @@
 //
 // The product domain is reached through types only: a plain Node run can
 // resolve no src import (they are extensionless for the browser bundle), so
-// runtime values cross the boundary through scripts/manifestIo.ts alone.
+// the rule assembly crosses the boundary through scripts/manifestIo.ts; the
+// camera modules that import nothing at runtime (the authored data, the
+// frame function) are imported here natively.
 import type { Product } from '../src/lib/product/index.ts'
-import {
-  CAMERA_HOME_ID,
-  CAMERA_PREFIX,
-  HOTSPOT_PREFIX,
-  PART_PREFIX,
-} from '../src/lib/product/contractNames.ts'
+import { HOTSPOT_PREFIX, PART_PREFIX } from '../src/lib/product/contractNames.ts'
 import { DRAW_CALLS_MAX, MODEL_BUDGET_BYTES, TEXTURE_MAX_SIZE_PX } from './budgets.ts'
 import { budgetShare, formatBytes, type TextureReport } from './report.ts'
 import { describeParent, findExplodeClipViolations, type ProductStructure } from './structure.ts'
@@ -115,30 +112,46 @@ export function checkHotspots(manifest: Product, structure: ProductStructure): C
   return checkResult('hotspots', `${manifest.hotspots.length} manifest hotspots`, violations)
 }
 
-// CAM_home is required: the start and reset view. A CAM_<id> whose id is
-// no manifest hotspot cannot be opened by the site and is a warning, not
-// an error: the camera does not break anything on its own.
-export function checkCameras(manifest: Product, structure: ProductStructure): CheckResult {
+// The model contract: the geometry classes the site can present. A
+// product's meshes are triangle primitives with positions, with no morph
+// targets, no skins and no instancing, in one scene holding every node:
+// the classes the runtime frame measure and the document facts read the
+// same way. Anything else diverges silently between the build-time facts
+// and the loaded scene, so it fails the build by name instead.
+export function checkGeometry(structure: ProductStructure): CheckResult {
   const violations: string[] = []
-  const warnings: string[] = []
-  if (!structure.cameraNames.includes(`${CAMERA_PREFIX}${CAMERA_HOME_ID}`)) {
+  const geometry = structure.geometry
+  if (geometry.primitivesNotTriangles > 0) {
     violations.push(
-      `no ${CAMERA_PREFIX}${CAMERA_HOME_ID} node, the start and reset view is required`,
+      `${geometry.primitivesNotTriangles} of ${geometry.primitives} primitives are not triangles`,
     )
   }
-  const hotspotIds = new Set(manifest.hotspots.map((hotspot) => hotspot.id))
-  for (const cameraName of structure.cameraNames) {
-    if (!cameraName.startsWith(CAMERA_PREFIX)) {
-      continue
-    }
-    const id = cameraName.slice(CAMERA_PREFIX.length)
-    if (id !== CAMERA_HOME_ID && !hotspotIds.has(id)) {
-      warnings.push(`camera ${cameraName} has no manifest hotspot '${id}'`)
-    }
+  if (geometry.primitivesWithoutPosition > 0) {
+    violations.push(
+      `${geometry.primitivesWithoutPosition} of ${geometry.primitives} primitives carry no positions`,
+    )
+  }
+  if (geometry.primitivesWithMorphTargets > 0) {
+    violations.push(
+      `${geometry.primitivesWithMorphTargets} of ${geometry.primitives} primitives carry morph targets`,
+    )
+  }
+  if (geometry.skins > 0) {
+    violations.push(`the model carries ${geometry.skins} skins`)
+  }
+  if (geometry.gpuInstancing) {
+    violations.push('the model carries EXT_mesh_gpu_instancing')
+  }
+  if (geometry.scenes !== 1) {
+    violations.push(`expected exactly one scene, found ${geometry.scenes}`)
+  }
+  for (const name of geometry.nodeNamesOutsideScene) {
+    violations.push(`node ${name} sits outside the scene`)
   }
   const detail =
-    structure.cameraNames.length === 0 ? 'no cameras' : `found ${structure.cameraNames.join(', ')}`
-  return checkResult('cameras', detail, violations, warnings)
+    `${geometry.primitives} primitives, ${geometry.skins} skins, ` +
+    (geometry.gpuInstancing ? 'EXT_mesh_gpu_instancing present' : 'no instancing')
+  return checkResult('geometry', detail, violations)
 }
 
 // Finishes are the pairing of manifest and KHR_materials_variants, in both
