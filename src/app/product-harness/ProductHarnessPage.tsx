@@ -1,11 +1,6 @@
 import '@styles/global.css'
-import { useMemo, useState } from 'react'
-import {
-  CollectionError,
-  createCollection,
-  type Product as ProductManifest,
-  type ProductLookBlock,
-} from '@lib/product'
+import { useCallback, useMemo, useState } from 'react'
+import { CollectionError, createCollection, type Product as ProductManifest } from '@lib/product'
 import { productManifests } from '@products/index'
 import { HotspotMarkers } from '@features/hotspots'
 import { useFinishOffer } from '@features/variants'
@@ -15,15 +10,18 @@ import { StageAlert } from '@viewer/StageAlert'
 import styles from './ProductHarnessPage.module.css'
 import { HarnessProductContent } from './HarnessProductContent'
 import { HarnessProductControls } from './HarnessProductControls'
-import { harnessLook, withLookOverride } from './harnessLook'
+import { harnessFrameFault, type HarnessFrameFault } from './frameFaultQuery'
+import { harnessOverrides, withOverrides, type HarnessOverrides } from './harnessOverrides'
 import { harnessSlug } from './harnessSlug'
 
 // The dev-only page the product e2e drives: one store around one stage
 // whose content is the product named by the slug query parameter. The
 // manifests reach the page through the derived index and the collection's
-// own validation, never a hand copy. The look query parameter, dev-only
-// like the page itself, overrides the product's own look block for this
-// page at the data level. An invalid parameter shows the harness alert.
+// own validation, never a hand copy. The look and camera query parameters,
+// dev-only like the page itself, override the product's own blocks for this
+// page at the data level, and the frameFault parameter mounts a fault that
+// throws inside the product's presented frames. An invalid parameter shows
+// the harness alert.
 // The production build never emits this page: its only input is index.html.
 export function ProductHarnessPage() {
   return (
@@ -37,7 +35,10 @@ export function ProductHarnessPage() {
 
 function HarnessStage() {
   const slug = harnessSlug(window.location.search)
-  const look = harnessLook(window.location.search)
+  // Parsed once per page: the overrides keep their identity across renders,
+  // so the manifest built from them does too.
+  const overrides = useMemo(() => harnessOverrides(window.location.search), [])
+  const frameFault = harnessFrameFault(window.location.search)
   const harness = useMemo(() => {
     try {
       return { kind: 'ready', collection: createCollection(productManifests) } as const
@@ -50,27 +51,32 @@ function HarnessStage() {
   }, [])
 
   if (harness.kind === 'invalid') {
-    return (
-      <>
-        <Stage />
-        <StageAlert testid="harness-alert" reason={harness.reason} />
-      </>
-    )
+    return <HarnessAlertStage reason={harness.reason} />
   }
-  if (look.kind === 'invalid') {
-    return (
-      <>
-        <Stage />
-        <StageAlert testid="harness-alert" reason={look.reason} />
-      </>
-    )
+  if (overrides.kind === 'invalid') {
+    return <HarnessAlertStage reason={overrides.reason} />
+  }
+  if (frameFault.kind === 'invalid') {
+    return <HarnessAlertStage reason={frameFault.reason} />
   }
   return (
     <HarnessProduct
       slug={slug}
       collection={harness.collection}
-      lookOverride={look.kind === 'override' ? look.look : null}
+      overrides={overrides.overrides}
+      frameFault={frameFault.kind === 'fault' ? frameFault.fault : null}
     />
+  )
+}
+
+// The page when a parameter or the collection is invalid: an empty stage
+// and the harness alert naming the problem.
+function HarnessAlertStage({ reason }: { readonly reason: string }) {
+  return (
+    <>
+      <Stage />
+      <StageAlert testid="harness-alert" reason={reason} />
+    </>
   )
 }
 
@@ -78,34 +84,38 @@ type HarnessCollection = {
   readonly collection: ReturnType<typeof createCollection>
 }
 
-// The product side of the harness: the look-applied manifest, the mount
-// toggle, the finish controls, the part motion control, and the alerts the
-// slug state can raise.
+// The product side of the harness: the overridden manifest, the mount
+// toggle, the finish controls, the part motion control, the dock for an
+// open card, and the alerts the slug state can raise.
 function HarnessProduct({
   slug,
   collection,
-  lookOverride,
+  overrides,
+  frameFault,
 }: {
   readonly slug: string | null
   readonly collection: HarnessCollection['collection']
-  readonly lookOverride: ProductLookBlock | null
+  readonly overrides: HarnessOverrides
+  readonly frameFault: HarnessFrameFault | null
 }) {
-  const [mounted, setMounted] = useState(true)
+  const { mounted, firstMount, toggle } = useHarnessMount()
   const [moveToken, setMoveToken] = useState(0)
   // The page's dock for an open card that docks, as the app's panel holds
   // one: the markers render into it whenever the card has no room beside
   // its marker. The page has no stage chrome to keep clear of.
   const [dock, setDock] = useState<HTMLElement | null>(null)
   const manifest = slug === null ? undefined : collection.bySlug(slug)
-  // The override rides on the manifest, so the product path sees one look
-  // source and no test plumbing. The memo keeps the manifest's identity
+  // The overrides ride on the manifest, so the product path sees one source
+  // per block and no test plumbing. The memo keeps the manifest's identity
   // stable across renders, like the collection's own manifests are.
-  const pageManifest = useMemo(
-    () => withLookOverride(manifest, lookOverride),
-    [manifest, lookOverride],
-  )
+  const pageManifest = useMemo(() => withOverrides(manifest, overrides), [manifest, overrides])
   const content = (
-    <HarnessProductContent manifest={pageManifest} mounted={mounted} moveToken={moveToken} />
+    <HarnessProductContent
+      manifest={pageManifest}
+      mounted={mounted}
+      moveToken={moveToken}
+      frameFault={firstMount ? frameFault : null}
+    />
   )
 
   return (
@@ -122,13 +132,13 @@ function HarnessProduct({
         }
       />
       <div ref={setDock} className={styles.dock} data-slot="dock" />
-      <HarnessSlugAlerts slug={slug} collection={collection} />
+      <HarnessSlugAlert slug={slug} found={manifest !== undefined} collection={collection} />
       {manifest !== undefined && (
         <>
           <HarnessFinishControls manifest={manifest} />
           <HarnessProductControls
             mounted={mounted}
-            onToggleMounted={() => setMounted((current) => !current)}
+            onToggleMounted={toggle}
             onMovePart={() => setMoveToken((current) => current + 1)}
           />
         </>
@@ -137,34 +147,54 @@ function HarnessProduct({
   )
 }
 
-// The alerts the slug state can raise: a missing slug, or a slug the
-// collection does not hold. Both are dev-page errors and name their cause.
-function HarnessSlugAlerts({
+// The alert the slug parameter can raise: no slug, or a slug the collection
+// does not hold.
+function HarnessSlugAlert({
   slug,
+  found,
   collection,
 }: {
   readonly slug: string | null
+  readonly found: boolean
   readonly collection: HarnessCollection['collection']
 }) {
-  const manifest = slug === null ? undefined : collection.bySlug(slug)
+  if (slug === null) {
+    return (
+      <StageAlert
+        testid="harness-alert"
+        reason="The product harness needs a slug parameter naming a product."
+      />
+    )
+  }
+  if (found) {
+    return null
+  }
   return (
-    <>
-      {slug === null && (
-        <StageAlert
-          testid="harness-alert"
-          reason="The product harness needs a slug parameter naming a product."
-        />
-      )}
-      {slug !== null && manifest === undefined && (
-        <StageAlert
-          testid="harness-alert"
-          reason={`No product '${slug}': the collection holds ${collection.products
-            .map((product) => product.slug)
-            .join(', ')}.`}
-        />
-      )}
-    </>
+    <StageAlert
+      testid="harness-alert"
+      reason={`No product '${slug}': the collection holds ${collection.products
+        .map((product) => product.slug)
+        .join(', ')}.`}
+    />
   )
+}
+
+// The harness's product mount: whether the product is mounted, and whether
+// this is still the page's first mount. The frame fault rides the first
+// mount only: the toggle's remount is new, clean content, which is what the
+// recovery proofs mount.
+function useHarnessMount(): {
+  readonly mounted: boolean
+  readonly firstMount: boolean
+  readonly toggle: () => void
+} {
+  const [mounted, setMounted] = useState(true)
+  const [firstMount, setFirstMount] = useState(true)
+  const toggle = useCallback(() => {
+    setMounted((current) => !current)
+    setFirstMount(false)
+  }, [])
+  return { mounted, firstMount, toggle }
 }
 
 // The dev-only finish controls the product e2e drives: one button per

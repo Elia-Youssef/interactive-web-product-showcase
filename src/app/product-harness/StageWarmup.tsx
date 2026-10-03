@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useFrame } from '@react-three/fiber'
 import { DataTexture } from 'three'
+import { useStageFrame } from '@viewer/stageFrameContext'
 
 // How many rendered frames the warm-up mesh stays in the scene for: one
 // frame draws it, and the flag goes up as soon as that draw happened.
@@ -38,7 +38,7 @@ export function StageWarmup() {
     return texel
   }, [])
 
-  useFrame(() => {
+  useStageFrame('stage', () => {
     renderedFrames.current += 1
     if (renderedFrames.current === WARMUP_FRAMES) {
       setWarm(true)

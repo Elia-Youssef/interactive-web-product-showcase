@@ -1,12 +1,7 @@
 import { AnimationClip, Group, Mesh, MeshStandardMaterial, type Material } from 'three'
-import {
-  finishDerivedKey,
-  parseProduct,
-  precompilePairs,
-  readFinishPlan,
-  type FinishPlan,
-} from '@lib/product'
+import { finishDerivedKey, parseProduct, precompilePairs, type FinishPlan } from '@lib/product'
 import { sampleOneManifest } from '@lib/product/fixtures'
+import { plannedFinish } from '@lib/product/finishPlan.fixtures'
 import type { LoadedProduct } from '@viewer/product/loadedProduct'
 import type { GltfAssociation } from '@viewer/product/mappedSceneNodes'
 import type { FinishApplierOwner } from './finishApplier'
@@ -35,7 +30,7 @@ function mappedPrimitive(defaultMaterial: number, ...mappings: PrimitiveMapping[
 // A plan over three mapped meshes: the shell and the trim carry one
 // material per variant, the grille one material shared by both.
 export function plan(): FinishPlan {
-  return readFinishPlan({
+  return plannedFinish({
     extensions: {
       KHR_materials_variants: { variants: [{ name: SAGE }, { name: GRAPHITE }] },
     },

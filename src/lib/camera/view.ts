@@ -15,8 +15,8 @@ export type AuthoredCameraRay = {
 }
 
 // One authored view of a product: the view id the camera carries after the
-// CAM_ prefix ('home', 'driver'), the identity a limit problem names, and
-// the camera's authored ray.
+// CAM_ prefix ('home', 'driver'), the identity a problem names, and the
+// camera's authored ray.
 export type NamedCameraRay = {
   readonly id: string
   readonly ray: AuthoredCameraRay

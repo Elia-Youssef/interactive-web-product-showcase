@@ -1,6 +1,6 @@
 // The camera contract check: the names rule (CAM_home required, hotspot
-// cameras), the aspect rule, and the limit rules over every view through
-// the one shared assembly the runtime plan runs, over the views the
+// cameras), the aspect rule, and every view's geometry and limit rules
+// through the one shared assembly the runtime plan runs, over the views the
 // runtime rig resolves.
 import type { Product } from '../src/lib/product/index.ts'
 import {
@@ -24,8 +24,8 @@ import { checkResult, type CheckResult } from './validateChecks.ts'
 // CAM_<id> whose id is no manifest hotspot is a warning (the camera does
 // not break anything on its own), every CAM_ camera carries the one
 // authored aspect ratio the project exports at, and every view satisfies
-// the same limit rules the runtime plan enforces, through the one shared
-// rule assembly.
+// the same geometry and limit rules the runtime plan enforces, through the
+// one shared rule assembly.
 export function checkCameras(
   manifest: Product,
   structure: ProductStructure,
@@ -47,7 +47,7 @@ export function checkCameras(
     }
   }
   violations.push(...cameraAspectViolations(structure))
-  violations.push(...viewLimitViolations(manifest, structure, contract))
+  violations.push(...viewRuleViolations(manifest, structure, contract))
 
   const detail =
     structure.cameraNames.length === 0 ? 'no cameras' : `found ${structure.cameraNames.join(', ')}`
@@ -87,11 +87,12 @@ function cameraAspectViolations(structure: ProductStructure): string[] {
   return violations
 }
 
-// The limit rules over every view, through the one shared rule assembly:
-// each view within the distance limits, the minimum outside the model,
-// each view within the polar limits. The assembly's messages name the view
-// they fail on, so they are reported as they come.
-function viewLimitViolations(
+// The view rules over every view, through the one shared rule assembly:
+// each view's geometry, then each view within the distance limits, the
+// minimum outside the model, each view within the polar limits. The
+// assembly's messages name the camera they fail on, so they are reported
+// as they come.
+function viewRuleViolations(
   manifest: Product,
   structure: ProductStructure,
   contract: CameraContract,
@@ -113,10 +114,10 @@ function viewLimitViolations(
     authoredDistanceLimits: manifest.camera ?? {},
     limits: cameraLimitConfig,
   })
-  return check.problems.map((problem) => problem.message)
+  return check.kind === 'broken' ? check.problems.map((problem) => problem.message) : []
 }
 
-// The views the limit rules check: the set the runtime rig resolves and
+// The views the view rules check: the set the runtime rig resolves and
 // the plan presents. That is the home view, then one close-up per manifest
 // hotspot whose CAM_<id> camera the model carries, in manifest order, each
 // the first camera of its name. A CAM_ camera named after no hotspot is a

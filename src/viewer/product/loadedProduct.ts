@@ -6,8 +6,8 @@ import type { GltfAssociation } from './mappedSceneNodes'
 import type { ProductRig } from '../rig/productRig'
 
 // The surface of the loader's parser a product extension may read, kept
-// structural: Drei's useGLTF hands back its own parser type, which carries
-// this shape at runtime.
+// structural, so an extension depends on what it reads and not on the
+// loader's whole parser type.
 export interface ProductGltfParser {
   readonly json: unknown
   readonly associations: ReadonlyMap<object, GltfAssociation>

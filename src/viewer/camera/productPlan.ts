@@ -1,6 +1,5 @@
 import { MathUtils, PerspectiveCamera, Vector3 } from 'three'
 import { CAMERA_HOME_ID, type Product } from '@lib/product'
-import { CameraLimitsError } from '@lib/camera/errors'
 import type { CameraLimitProblem } from '@lib/camera/limits'
 import { cameraContractProblems } from '@lib/camera/contract'
 import { cameraLimitConfig } from '@lib/camera/config'
@@ -44,14 +43,21 @@ export type CameraPlan = {
   readonly clipRange: ClipRange
 }
 
+// The outcome of a plan build: the plan, or every rule the authored camera
+// data breaks. Authored data that breaks a rule is an outcome the product
+// path anticipates, so it is a value the caller routes, never a throw.
+export type CameraPlanBuild =
+  | { readonly kind: 'planned'; readonly plan: CameraPlan }
+  | { readonly kind: 'broken'; readonly problems: readonly CameraLimitProblem[] }
+
 // The product presentation centers the model on the origin, so the model
 // center the views orbit is the stage-space origin. The rays read below are
 // stage-space too, so one space holds the whole check: the center the
 // assembly projects onto and the rays it projects are the model's own.
 const MODEL_CENTER_IN_STAGE: Vec3 = [0, 0, 0]
 
-// Builds the camera plan of a loaded product, or fails with a
-// CameraLimitsError naming every rule the authored camera data breaks. The
+// Builds the camera plan of a loaded product, or reports every rule the
+// authored camera data breaks, each with its values named. The
 // rules are the one contract assembly the build-time validate step runs,
 // here against the loaded data, and the limits the plan presents are the
 // limits that assembly resolved, so what was checked is what is presented.
@@ -59,7 +65,11 @@ const MODEL_CENTER_IN_STAGE: Vec3 = [0, 0, 0]
 // rejects) never reaches this point, because the loader defaults it outside
 // our code. Call it after the centering group's position is committed: the
 // view positions are read from the cameras' world transforms.
-export function buildCameraPlan(rig: ProductRig, manifest: Product, frame: ModelFrame): CameraPlan {
+export function buildCameraPlan(
+  rig: ProductRig,
+  manifest: Product,
+  frame: ModelFrame,
+): CameraPlanBuild {
   const problems: CameraLimitProblem[] = []
   const { views, rays, home } = collectViews(rig, problems)
   if (home === null) {
@@ -76,18 +86,22 @@ export function buildCameraPlan(rig: ProductRig, manifest: Product, frame: Model
     authoredDistanceLimits: manifest.camera ?? {},
     limits: cameraLimitConfig,
   })
-  problems.push(...check.problems)
-
-  if (problems.length > 0) {
-    throw new CameraLimitsError(manifest.slug, problems)
+  if (check.kind === 'broken' || problems.length > 0) {
+    return {
+      kind: 'broken',
+      problems: [...problems, ...(check.kind === 'broken' ? check.problems : [])],
+    }
   }
   return {
-    views,
-    distanceRange: check.distanceRange,
-    polarRange: check.polarRange,
-    authoredAspect: home.aspect,
-    baseFovY: home.view.fovY,
-    clipRange: clipRangeOf([...views.values()]),
+    kind: 'planned',
+    plan: {
+      views,
+      distanceRange: check.distanceRange,
+      polarRange: check.polarRange,
+      authoredAspect: home.aspect,
+      baseFovY: home.view.fovY,
+      clipRange: clipRangeOf([...views.values()]),
+    },
   }
 }
 

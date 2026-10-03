@@ -8,7 +8,7 @@ import { parseProduct } from '@lib/product'
 import { sampleOneManifest } from '@lib/product/fixtures'
 import {
   registerFinishMaterialsResolver,
-  readFinishMaterials,
+  readFinishResolution,
 } from '@viewer/product/finishMaterials'
 import type { LoadedProduct } from '@viewer/product/loadedProduct'
 import type { MappedSceneNode } from '@viewer/product/mappedSceneNodes'
@@ -141,6 +141,16 @@ async function variantGlb(): Promise<ArrayBuffer> {
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
 }
 
+// The finish materials a fixture load resolved; a broken mapping fails the
+// fixture, since every fixture file maps valid variants.
+function resolvedFinishes(userData: object) {
+  const finish = readFinishResolution(userData)
+  if (finish.kind === 'broken') {
+    throw new Error(`the fixture's finish mapping broke: ${JSON.stringify(finish.problems)}`)
+  }
+  return finish.finishes
+}
+
 // Parses the fixture with the real loader and the product's real resolver,
 // and hands the load plus an oracle: the material the loader itself derives
 // for a mesh from one raw material, read off a probe mesh through the
@@ -164,7 +174,7 @@ export async function parsedLoad(): Promise<{
       variants: [...VARIANTS],
     },
     parser: gltf.parser,
-    finishes: readFinishMaterials(gltf.userData),
+    finishes: resolvedFinishes(gltf.userData),
   }
   return {
     loaded,

@@ -9,7 +9,7 @@ export {
   selectionAfterToggle,
   type HotspotStatus,
 } from './slices/hotspot'
-export { selectProductStatus, type ProductStatus } from './slices/product'
+export { selectProductFailed, selectProductStatus, type ProductStatus } from './slices/product'
 export {
   selectCameraOutcomes,
   selectCameraReadout,

@@ -1,12 +1,15 @@
 import { AnimationClip, Group, Object3D, type PerspectiveCamera } from 'three'
+import type { CameraLimitProblem } from '@lib/camera/limits'
 import { parseProduct } from '@lib/product'
 import { sampleOneManifest } from '@lib/product/fixtures'
 import type { ModelFrame } from '../modelFrame'
 import type { ProductRig } from '../rig/productRig'
+import type { CameraPlan, CameraPlanBuild } from './productPlan'
 
 // The inputs the camera plan builder's tests build against: the parsed
 // manifest with the camera block a case overrides, a rig of authored
-// cameras, the measured frames, and the centered tree the cameras mount in.
+// cameras, the measured frames, and the centered tree the cameras mount in;
+// and the reads of the build outcome a case expects.
 
 // The parsed manifest the plan builds against, with the camera block each
 // case overrides, so the builder reads the real schema output.
@@ -63,4 +66,29 @@ export function mountedTree(
   }
   group.add(scene)
   return group
+}
+
+// The plan of a build the case expects to succeed; a broken build fails
+// the case with the problems it reported.
+export function planned(build: CameraPlanBuild): CameraPlan {
+  if (build.kind === 'broken') {
+    throw new Error(`the plan must build, it broke with: ${JSON.stringify(build.problems)}`)
+  }
+  return build.plan
+}
+
+// The problems of a build the case expects to break; a planned build fails
+// the case.
+export function brokenProblems(build: CameraPlanBuild): readonly CameraLimitProblem[] {
+  if (build.kind === 'planned') {
+    throw new Error('the broken camera data must be reported as a broken build')
+  }
+  return build.problems
+}
+
+// The problem messages of a build the case expects to break, one per line.
+export function brokenMessages(build: CameraPlanBuild): string {
+  return brokenProblems(build)
+    .map((problem) => problem.message)
+    .join('\n')
 }

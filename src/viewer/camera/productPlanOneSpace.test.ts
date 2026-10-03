@@ -6,13 +6,12 @@
 // which is what the off-origin, pitched-camera table catches.
 import { describe, expect, it } from 'vitest'
 import { PerspectiveCamera, Vector3 } from 'three'
-import { CameraLimitsError } from '@lib/camera/errors'
 import { cameraContractProblems } from '@lib/camera/contract'
 import { cameraLimitConfig } from '@lib/camera/config'
 import type { ModelFrame } from '../modelFrame'
 import type { ProductRig } from '../rig/productRig'
 import { buildCameraPlan } from './productPlan'
-import { manifestWith, mountedTree, rigWith } from './productPlanFixtures'
+import { brokenProblems, manifestWith, mountedTree, rigWith } from './productPlanFixtures'
 
 // A frame whose center sits at the given model-space point.
 function frameAt(center: [number, number, number]): ModelFrame {
@@ -26,21 +25,13 @@ function frameAt(center: [number, number, number]): ModelFrame {
   }
 }
 
-// The problems the plan throws for the given manifest camera block.
+// The problems the plan build reports for the given manifest camera block.
 function planProblems(
   rig: ProductRig,
   modelFrame: ModelFrame,
   camera: { minDistance?: number; maxDistance?: number },
 ) {
-  try {
-    buildCameraPlan(rig, manifestWith(camera), modelFrame)
-  } catch (error) {
-    if (error instanceof CameraLimitsError) {
-      return error.problems
-    }
-    throw error
-  }
-  throw new Error('the broken limits must fail the plan')
+  return brokenProblems(buildCameraPlan(rig, manifestWith(camera), modelFrame))
 }
 
 // Frames off the origin, home cameras pitched at the frame, so the view
@@ -88,8 +79,9 @@ describe('the plan checks one space', () => {
         limits: cameraLimitConfig,
       })
 
+      const modelProblems = modelSpace.kind === 'broken' ? modelSpace.problems : []
       expect(problems.map((problem) => problem.rule)).toEqual(
-        modelSpace.problems.map((problem) => problem.rule),
+        modelProblems.map((problem) => problem.rule),
       )
       const distanceOf = (message: string) =>
         Number(/the CAM_home distance (\S+) lies outside/.exec(message)?.[1])
@@ -97,8 +89,8 @@ describe('the plan checks one space', () => {
         problems.find((problem) => problem.rule === 'view-within-distance-limits')?.message ?? '',
       )
       const modelDistance = distanceOf(
-        modelSpace.problems.find((problem) => problem.rule === 'view-within-distance-limits')
-          ?.message ?? '',
+        modelProblems.find((problem) => problem.rule === 'view-within-distance-limits')?.message ??
+          '',
       )
       expect(planDistance).toBeDefined()
       expect(planDistance).toBeCloseTo(modelDistance, 12)

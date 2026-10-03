@@ -10,7 +10,10 @@ import type { ProductFinishMaterials } from './finishMaterials'
 // them, the way a mesh's default derived material sits on the scene and in
 // two tables at once, is disposed exactly once. The traversal is safe to
 // run on an already disposed scene.
-export function disposeProductScene(scene: Object3D, finishes: ProductFinishMaterials): void {
+export function disposeProductScene(
+  scene: Object3D,
+  finishes: ProductFinishMaterials | null,
+): void {
   const materials = new Set<Material>()
   scene.traverse((node) => {
     if (node instanceof Mesh || node instanceof Line || node instanceof Points) {
@@ -18,6 +21,15 @@ export function disposeProductScene(scene: Object3D, finishes: ProductFinishMate
       collectMaterial(materials, node.material)
     }
   })
+  if (finishes !== null) {
+    collectFinishMaterials(materials, finishes)
+  }
+  for (const material of materials) {
+    disposeSingleMaterial(material)
+  }
+}
+
+function collectFinishMaterials(materials: Set<Material>, finishes: ProductFinishMaterials): void {
   for (const material of finishes.materials.values()) {
     materials.add(material)
   }
@@ -26,9 +38,6 @@ export function disposeProductScene(scene: Object3D, finishes: ProductFinishMate
   }
   for (const material of finishes.sceneMaterials) {
     materials.add(material)
-  }
-  for (const material of materials) {
-    disposeSingleMaterial(material)
   }
 }
 

@@ -1,7 +1,8 @@
 import { expect, test } from 'vitest'
 import { renderToString } from 'react-dom/server'
 import { AnimationClip, Object3D } from 'three'
-import { parseProduct, readFinishPlan } from '@lib/product'
+import { parseProduct } from '@lib/product'
+import { plannedFinish } from '@lib/product/finishPlan.fixtures'
 import { sampleOneManifest } from '@lib/product/fixtures'
 import type { ProductFinishMaterials } from './finishMaterials'
 import { LoadedProductContext, useLoadedProduct, type LoadedProduct } from './loadedProduct'
@@ -13,7 +14,7 @@ function SlugOfLoadedProduct() {
 // A load whose file declares no finishes resolves an empty finish table and
 // records nothing on the scene.
 const noFinishes: ProductFinishMaterials = {
-  plan: readFinishPlan({}),
+  plan: plannedFinish({}),
   materials: new Map(),
   rawMaterials: new Map(),
   sceneMaterials: new Set(),

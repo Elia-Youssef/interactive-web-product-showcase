@@ -1,4 +1,4 @@
-import type { ProductRigSummary } from '@lib/product'
+import type { ProductFailure, ProductRigSummary } from '@lib/product'
 import type { RendererBackend } from '@lib/renderer/backend'
 import { selectRendererBackend, type ProductStatus, type RendererStatus } from '@store/index'
 import type { ViewerModel } from './viewerAutomation.logic'
@@ -140,14 +140,15 @@ export type ViewerAutomation = {
   readonly status: RendererStatus['kind']
   readonly backend: RendererBackend | null
   // True while the store's status is ready, which the stage sets after the
-  // first frame its observer saw actually rendered.
+  // first frame it presented.
   readonly ready: boolean
   readonly failure: string | null
-  // The product channel: the status kind, the slug it is about, the reason
-  // when it failed, and the plain rig summary once it is ready.
+  // The product channel: the status kind, the slug it is about, the typed
+  // failure (its kind and facts) when it failed, and the plain rig summary
+  // once it is ready.
   readonly product: ProductStatus['kind']
   readonly productSlug: string | null
-  readonly productFailure: string | null
+  readonly productFailure: ProductFailure | null
   readonly rig: ProductRigSummary | null
   // How many frames the stage's clock has recorded so far.
   readonly renderedFrames: number
@@ -191,7 +192,7 @@ export function createViewerAutomation(sources: ViewerAutomationSources): Viewer
     get productSlug(): string | null {
       return productSlugOf(sources.getProductStatus())
     },
-    get productFailure(): string | null {
+    get productFailure(): ProductFailure | null {
       return productFailureOf(sources.getProductStatus())
     },
     get rig(): ProductRigSummary | null {

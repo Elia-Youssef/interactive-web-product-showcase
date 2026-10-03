@@ -1,11 +1,13 @@
 import { useEffect, useRef } from 'react'
-import { useFrame, useThree } from '@react-three/fiber'
+import { useThree } from '@react-three/fiber'
 import { useLoadedProduct } from '@viewer/product/loadedProduct'
+import { useStageFrame } from '@viewer/stageFrameContext'
 
 // How many frames the part moves for, and how far per frame. A few frames
 // of visible travel: long enough that a placement written anywhere but the
-// presented frame's after-effect lags the final pose by a measurable step,
-// short enough that the motion ends well inside a test's settle window.
+// presented frame's post-present phase lags the final pose by a measurable
+// step, short enough that the motion ends well inside a test's settle
+// window.
 const PART_MOVE_FRAMES = 12
 const PART_MOVE_STEP_M = 0.01
 
@@ -13,7 +15,9 @@ const PART_MOVE_STEP_M = 0.01
 // part the product's first hotspot rides from its own frame callback, for a
 // few frames, and then stops. The motion is the class of the exploded
 // view's: a node that moves in a frame callback, so only a placement written
-// after the render lands on the final pose.
+// after the render lands on the final pose. The callback is the product's
+// content code on the stage's frame path, so a throw in it fails the
+// product instead of escaping the frame loop.
 export function PartMotion() {
   const loaded = useLoadedProduct()
   const invalidate = useThree((state) => state.invalidate)
@@ -26,7 +30,7 @@ export function PartMotion() {
     invalidate()
   }, [invalidate])
 
-  useFrame(() => {
+  useStageFrame('content', () => {
     if (part === undefined || moved.current >= PART_MOVE_FRAMES) {
       return
     }

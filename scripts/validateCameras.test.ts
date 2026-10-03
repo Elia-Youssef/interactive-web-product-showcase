@@ -1,6 +1,6 @@
 // The camera contract check, over contract documents built in memory: the
-// names rule it inherits, the aspect rule, and the limit rules through the
-// one shared assembly. Every case asserts the exact violation messages:
+// names rule it inherits, the aspect rule, and the geometry and limit rules
+// through the one shared assembly. Every case asserts the exact violation messages:
 // the report's wording is part of the contract.
 import { describe, expect, it } from 'vitest'
 import { parseProduct } from '../src/lib/product/index.ts'
@@ -184,6 +184,35 @@ describe('the camera contract check', () => {
     expect(result.violations).toEqual([
       `the CAM_home polar angle 0 lies outside the polar limits ${polarRange}`,
       `the CAM_driver polar angle 0 lies outside the polar limits ${polarRange}`,
+    ])
+  })
+
+  it('reports a camera whose field of view is degenerate, through the one assembly', () => {
+    const structure = readProductStructure(
+      buildFixtureDocument({ cameraPose: poseWith({ fovYDegrees: 0 }) }),
+    )
+    const result = checkCameras(fixture, structure, cameraContract)
+    expect(result.violations).toEqual(
+      ['CAM_home', 'CAM_driver'].map(
+        (name) =>
+          `the camera ${name} has a field of view of 0 rad, outside the open range (0, ${Math.PI})`,
+      ),
+    )
+  })
+
+  it('holds a close-up whose geometry is broken to its geometry alone, beside a sound home', () => {
+    // A close-up with a zero field of view has no orbit to hold to the
+    // limits, so its geometry problem is the one message, while the home
+    // view still derives the limits the other views answer to.
+    const doc = buildFixtureDocument()
+    const camera = nodeNamed(doc, 'CAM_driver').getCamera()
+    if (camera === null) {
+      throw new Error('the fixture CAM_driver carries no camera')
+    }
+    camera.setYFov(0)
+    const result = checkCameras(fixture, readProductStructure(doc), cameraContract)
+    expect(result.violations).toEqual([
+      `the camera CAM_driver has a field of view of 0 rad, outside the open range (0, ${Math.PI})`,
     ])
   })
 })

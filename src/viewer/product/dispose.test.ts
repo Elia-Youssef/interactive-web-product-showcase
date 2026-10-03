@@ -9,7 +9,7 @@ import {
   type Material as ThreeMaterial,
   type Texture as ThreeTexture,
 } from 'three'
-import { readFinishPlan } from '@lib/product'
+import { plannedFinish } from '@lib/product/finishPlan.fixtures'
 import type { ProductFinishMaterials } from './finishMaterials'
 import { disposeProductScene } from './dispose'
 
@@ -108,7 +108,7 @@ function finishesOf(
   sceneMaterials: readonly ThreeMaterial[] = [],
 ): ProductFinishMaterials {
   return {
-    plan: readFinishPlan({}),
+    plan: plannedFinish({}),
     materials: new Map(derived),
     rawMaterials: new Map(raws),
     sceneMaterials: new Set(sceneMaterials),

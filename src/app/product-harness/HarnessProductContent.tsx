@@ -2,6 +2,8 @@ import type { Product as ProductManifest } from '@lib/product'
 import { ProductHotspots } from '@features/hotspots'
 import { ProductFinishes } from '@features/variants'
 import { Product } from '@viewer/product/Product'
+import { HarnessFrameFault } from './HarnessFrameFault'
+import type { HarnessFrameFault as FrameFault } from './frameFaultQuery'
 import { RendererMemoryProbe } from './RendererMemoryProbe'
 import { PartMotion } from './PartMotion'
 import { SceneGraphProbe } from './SceneGraphProbe'
@@ -18,6 +20,8 @@ type HarnessProductContentProps = {
   // mounts one fresh part motion beside the product, which moves the part
   // the first hotspot rides for a few frames and stops.
   readonly moveToken: number
+  // The dev-only frame fault of this mount, or null for none.
+  readonly frameFault: FrameFault | null
 }
 
 // The stage content the dev-only harness shows: the probes the product e2e
@@ -28,17 +32,20 @@ export function HarnessProductContent({
   manifest,
   mounted,
   moveToken,
+  frameFault,
 }: HarnessProductContentProps) {
   return (
     <>
       <RendererMemoryProbe />
       <StageWarmup />
+      {frameFault?.scope === 'stage' && <HarnessFrameFault fault={frameFault} />}
       {manifest !== undefined && mounted && (
         <Product manifest={manifest}>
           <SceneGraphProbe />
           <ProductFinishes />
           <ProductHotspots />
           {moveToken > 0 && <PartMotion key={moveToken} />}
+          {frameFault?.scope === 'product' && <HarnessFrameFault fault={frameFault} />}
         </Product>
       )}
     </>

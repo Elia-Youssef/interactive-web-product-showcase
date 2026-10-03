@@ -1,0 +1,8 @@
+/* The overlay box of one canvas life: the same box the canvas fills, above
+   it. Its empty area passes pointer events through, so orbit and zoom work
+   everywhere the overlay content does not take them. */
+.overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}

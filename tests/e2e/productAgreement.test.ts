@@ -1,15 +1,18 @@
-// The agreement proof: for every shipped product, the frame and the home
-// camera facts the build-time validate step reads from the document equal,
+// The agreement proof: for every shipped product, the frame and the camera
+// facts the build-time validate step reads from the document equal,
 // exactly, what the runtime code measures when the model loads through
-// three's real GLTFLoader. The loader side parses the shipped .glb itself
-// (productGltf.ts), so the proof exercises the runtime's loader path and
-// cannot agree with the document facts by construction; the geometry-class
-// cases at the bottom show the drifts only the real loader can see.
+// three's real GLTFLoader, and both sides fail on the same problems, by the
+// same messages, under both rule sets of the camera contract: the limit
+// rules (camera blocks that bracket each view) and the view geometry rule
+// (each view bent to a degenerate field of view). The loader side parses
+// the .glb itself (productGltf.ts), so the proof exercises the runtime's
+// loader path and cannot agree with the document facts by construction;
+// the drifts only the real loader can see live in productGltfDrift.test.ts.
 import { describe, expect, it } from 'vitest'
 import { MathUtils, Object3D, PerspectiveCamera, Vector3 } from 'three'
 import { fileURLToPath } from 'node:url'
 import { productCameraFactsOf, type ProductCameraFacts } from './productCamera'
-import { parseShippedGltf } from './productGltf'
+import { parseDocumentWithLoader, parseShippedGltf } from './productGltf'
 import { createModelIO } from '../../scripts/modelIo.ts'
 import { readCameraFacts, readMeshBoxes } from '../../scripts/modelFacts.ts'
 import { listShippedSlugs } from '../../scripts/shippedProducts.ts'
@@ -25,9 +28,11 @@ import { cameraLimitConfig } from '../../src/lib/camera/config.ts'
 import { checkCameras, contractViews } from '../../scripts/validateCameras.ts'
 import { readProductStructure } from '../../scripts/structure.ts'
 import { cameraContract } from '../../scripts/validateFixtures.ts'
-import type { CameraLimitsError } from '@lib/camera/errors'
+import type { CameraLimitProblem } from '../../src/lib/camera/limits.ts'
+import type { CameraPlan } from '../../src/viewer/camera/productPlan'
 import type { ModelFrame } from '../../src/viewer/modelFrame'
 import type { ProductRig } from '../../src/viewer/rig/productRig'
+import type { Document, Node } from '@gltf-transform/core'
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url))
 
@@ -80,33 +85,53 @@ function centeredRig(
   const group = new Object3D()
   group.position.set(-frame.centerX, -frame.centerY, -frame.centerZ)
   group.add(parsed.scene)
-  return parseProductRig(
+  const parse = parseProductRig(
     { scene: group, animations: parsed.animations, json: parsed.json },
     manifest,
   )
+  if (parse.kind === 'broken') {
+    throw new Error(`the shipped rig must parse, it broke with: ${JSON.stringify(parse.problems)}`)
+  }
+  return parse.rig
 }
 
-// The CameraLimitsError a plan build throws for the given camera block.
-function planError(
+// The plan the runtime builds for a manifest the case expects to hold.
+function plannedCamera(rig: ProductRig, manifest: Product, frame: ModelFrame): CameraPlan {
+  const build = buildCameraPlan(rig, manifest, frame)
+  if (build.kind === 'broken') {
+    throw new Error(`the shipped plan must build, it broke with: ${JSON.stringify(build.problems)}`)
+  }
+  return build.plan
+}
+
+// The problems a plan build reports for the given camera block, or null
+// when the plan builds.
+function planProblems(
   rig: ProductRig,
   manifest: Product,
   frame: ModelFrame,
-): CameraLimitsError | null {
-  try {
-    buildCameraPlan(rig, manifest, frame)
-    return null
-  } catch (error) {
-    if ((error as { name?: string }).name === 'CameraLimitsError') {
-      return error as CameraLimitsError
-    }
-    throw error
-  }
+): readonly CameraLimitProblem[] | null {
+  const build = buildCameraPlan(rig, manifest, frame)
+  return build.kind === 'broken' ? build.problems : null
 }
 
 // The document of a shipped model, and the frame its mesh boxes span.
 async function shippedDocument(slug: string) {
   const doc = await (await modelIOSoon()).read(`public/models/${slug}/model.glb`)
   return { doc, frame: frameSpanOfMeshBoxes(readMeshBoxes(doc)) }
+}
+
+// The first node of the document by the name, the one the contract and the
+// rig read for a camera name.
+function firstNodeNamed(doc: Document, name: string): Node {
+  const node = doc
+    .getRoot()
+    .listNodes()
+    .find((candidate) => candidate.getName() === name)
+  if (node === undefined) {
+    throw new Error(`the document holds no node ${name}`)
+  }
+  return node
 }
 
 // The distance between a view's position and target, the orbit distance
@@ -181,7 +206,7 @@ describe('the document facts agree with the real loader on every shipped product
     // the view set is the one validate checks.
     const frame = planFrame(documentFrame)
     const rig = centeredRig(parsed, manifest, frame)
-    const plan = buildCameraPlan(rig, manifest, frame)
+    const plan = plannedCamera(rig, manifest, frame)
     const structure = readProductStructure(doc)
     expect([...plan.views.keys()]).toEqual(
       contractViews(manifest, structure).map((view) => view.id),
@@ -234,17 +259,55 @@ describe('the document facts agree with the real loader on every shipped product
         structure,
         cameraContract,
       ).violations
-      const error = planError(rig, manifestWith(bracket.block), frame)
-      if (error === null) {
+      const problems = planProblems(rig, manifestWith(bracket.block), frame)
+      if (problems === null) {
         throw new Error(`the plan built under the ${bracket.name} bracket of ${slug}`)
       }
-      const messages = error.problems.map((problem) => problem.message)
+      const messages = problems.map((problem) => problem.message)
       expect(validateViolations).toEqual(messages)
       // The bracket hits the view it brackets, so the agreement covers that
       // view's own rule, not only a problem some other view raises.
       expect(messages).toContainEqual(expect.stringContaining(`the ${bracket.name} distance`))
     }
   })
+
+  it.each(SHIPPED_SLUGS)(
+    'fails on the same geometry problems for %s on both sides, view by view',
+    async (slug) => {
+      const { manifest } = await shippedManifest(slug)
+      const { doc: shipped } = await shippedDocument(slug)
+      const ids = contractViews(manifest, readProductStructure(shipped)).map((view) => view.id)
+      // One view at a time takes a degenerate field of view in the shipped
+      // document, which both sides then read: validate from the document,
+      // the runtime from the real loader's parse of the same document. The
+      // geometry rule names that view on both sides, by the same message,
+      // and the rules every other view answers to still agree beside it.
+      for (const id of ids) {
+        const { doc, frame: documentFrame } = await shippedDocument(slug)
+        const camera = firstNodeNamed(doc, `CAM_${id}`).getCamera()
+        if (camera === null) {
+          throw new Error(`the CAM_${id} node of ${slug} carries no camera`)
+        }
+        camera.setYFov(0)
+        const validateViolations = checkCameras(
+          manifest,
+          readProductStructure(doc),
+          cameraContract,
+        ).violations
+        const frame = planFrame(documentFrame)
+        const rig = centeredRig(await parseDocumentWithLoader(doc), manifest, frame)
+        const problems = planProblems(rig, manifest, frame)
+        if (problems === null) {
+          throw new Error(`the plan of ${slug} built with a degenerate CAM_${id}`)
+        }
+        const messages = problems.map((problem) => problem.message)
+        expect(validateViolations).toEqual(messages)
+        expect(messages).toContain(
+          `the camera CAM_${id} has a field of view of 0 rad, outside the open range (0, ${Math.PI})`,
+        )
+      }
+    },
+  )
 
   it('brackets a close-up view on the shipped set', async () => {
     // The close-up brackets above run only for a product whose model

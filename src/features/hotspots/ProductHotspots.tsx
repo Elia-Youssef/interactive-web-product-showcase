@@ -4,19 +4,23 @@ import { Vector3 } from 'three'
 import type { ViewerHotspotsAutomation } from '@viewer/automation/viewerAutomation'
 import { useStageProbes } from '@viewer/automation/stageProbesContext'
 import { useLoadedProduct, type LoadedProduct } from '@viewer/product/loadedProduct'
-import { usePresentedFrame } from '@viewer/stageFramesContext'
+import { usePresentedFrame } from '@viewer/stageFrameContext'
 import { useStageOverlay } from '@viewer/overlay/stageOverlayContext'
 import { collectOccluders } from './occluders'
 import { HotspotPlacer } from './placer'
 
 // The canvas side of the hotspots: one child of the loaded product that
-// places its markers, once per presented frame, into the stage's overlay
-// channel. Per frame and per rig hotspot it reads the anchor's world
-// position from its HS_ node, projects it into stage pixels, casts one ray
-// from the camera to the anchor through the product's occluders, and writes
-// one placement, all inside one overlay pass in the frame's stage box. The
-// work runs after the render, so it reads the world and camera matrices
-// that frame used, whichever frame callback wrote them.
+// places its markers, once per presented frame, into the overlay channel
+// of the canvas it renders in. Per frame and per rig hotspot it reads the
+// anchor's world position from its HS_ node, projects it into stage pixels,
+// casts one ray from the camera to the anchor through the product's
+// occluders, and writes one placement, all inside one overlay pass in the
+// frame's stage box. The pass runs in the stage's post-present phase, as
+// the product's content code: only after a frame that presented, so it
+// reads the world and camera matrices that frame used, whichever frame
+// callback wrote them, and a frame that failed or was skipped writes no
+// placement. A pass that throws fails the product like any of its frame
+// work.
 //
 // The occluders are every mesh of the product except the rig's shadow
 // subtree, collected once per load: finishes swap materials, never geometry.
@@ -41,7 +45,7 @@ export function ProductHotspots() {
       ),
     [placer, loaded, occluders, camera, size, overlay],
   )
-  usePresentedFrame(place)
+  usePresentedFrame('content', place)
 
   useEffect(
     () => probes.register('hotspots', () => readHotspotsAutomation(loaded)),
