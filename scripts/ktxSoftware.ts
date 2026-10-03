@@ -1,7 +1,6 @@
-// Resolves the KTX-Software folder that holds the `ktx` command, verifies
-// its version, and puts the folder on this process's PATH only, so the
-// gltf-transform texture stages can spawn `ktx` without a machine-wide
-// PATH change.
+// Resolves the KTX-Software folder that holds the `ktx` command and
+// verifies its version, so the encode stage can spawn `ktx` by absolute
+// path from the verified install.
 //
 // The search order is fixed: the documented environment variable first, so
 // a machine with a custom install wins; then the process PATH; then the
@@ -55,6 +54,11 @@ export class KtxError extends Error {
 
 export function ktxExecutableName(platform: NodeJS.Platform): string {
   return platform === 'win32' ? 'ktx.exe' : 'ktx'
+}
+
+// The absolute path of the ktx command inside a resolved install folder.
+export function ktxExecutablePath(folder: string, platform: NodeJS.Platform): string {
+  return path.join(folder, ktxExecutableName(platform))
 }
 
 // PATH entries are separated by ';' on Windows and ':' elsewhere. Derived
@@ -181,27 +185,8 @@ function describeSource(source: KtxSource): string {
   }
 }
 
-// Prepends the folder to this process's PATH, so child processes (the
-// gltf-transform CLI and its `ktx` spawns) resolve the verified install.
-// Idempotent: an existing later entry is not duplicated in front. Entries
-// join with the delimiter of the injected platform, the same one the PATH
-// walk splits with.
-export function putKtxFolderOnPath(
-  resolution: KtxResolution,
-  env: ProcessEnvLike,
-  platform: NodeJS.Platform,
-): void {
-  const current = env.PATH ?? ''
-  const delimiter = envDelimiter(platform)
-  const entries = current.split(delimiter).filter((entry) => entry !== '')
-  if (entries.includes(resolution.folder)) {
-    return
-  }
-  env.PATH = [resolution.folder, current].filter((entry) => entry !== '').join(delimiter)
-}
-
 function folderHoldsKtx(folder: string, platform: NodeJS.Platform): boolean {
-  return existsSync(path.join(folder, ktxExecutableName(platform)))
+  return existsSync(ktxExecutablePath(folder, platform))
 }
 
 // The real deps against the current process.
@@ -215,7 +200,7 @@ export function defaultKtxDeps(env: ProcessEnvLike = process.env): KtxDeps {
     readVersion: (folder) =>
       new Promise<string>((resolve, reject) => {
         execFile(
-          path.join(folder, ktxExecutableName(process.platform)),
+          ktxExecutablePath(folder, process.platform),
           ['--version'],
           { encoding: 'utf8' },
           (error, stdout, stderr) => {
@@ -230,13 +215,42 @@ export function defaultKtxDeps(env: ProcessEnvLike = process.env): KtxDeps {
   }
 }
 
-// One call for the runner: resolve, verify, and put the folder on this
-// process's PATH before any gltf-transform stage runs.
+// Runs one ktx command from the resolved install and fails loudly on a
+// nonzero exit or a spawn failure, with the command and both streams in the
+// error. The absolute executable path is passed, so the encode stage never
+// depends on the process PATH.
+export async function runKtxCommand(
+  ktxPath: string,
+  args: readonly string[],
+): Promise<{ stdout: string; stderr: string }> {
+  const command = args[0] ?? ''
+  const [exitCode, stdout, stderr] = await new Promise<[number | null, string, string]>(
+    (resolve, reject) => {
+      execFile(ktxPath, [...args], { encoding: 'utf8' }, (error, stdoutText, stderrText) => {
+        if (error === null) {
+          resolve([0, stdoutText, stderrText])
+          return
+        }
+        if (typeof error.code === 'string') {
+          reject(new KtxError(`Failed to run 'ktx ${command}' from '${ktxPath}': ${error.message}`))
+          return
+        }
+        resolve([typeof error.code === 'number' ? error.code : null, stdoutText, stderrText])
+      })
+    },
+  )
+  if (exitCode !== 0) {
+    const output = `${stdout}\n${stderr}`.trim()
+    throw new KtxError(`ktx ${command} failed with exit code ${exitCode ?? 'signal'}:\n${output}`)
+  }
+  return { stdout, stderr }
+}
+
+// One call for the runner: resolve and verify the install before any
+// encode runs, so a missing or too-old ktx fails before work starts.
 export async function prepareKtxSoftware(
   env: ProcessEnvLike = process.env,
 ): Promise<KtxResolution> {
   const deps = defaultKtxDeps(env)
-  const resolution = await resolveKtxSoftware(deps)
-  putKtxFolderOnPath(resolution, env, deps.platform)
-  return resolution
+  return resolveKtxSoftware(deps)
 }
