@@ -7,23 +7,30 @@
 //   pnpm assets:optimize            optimize every product with an export
 //   pnpm assets:optimize <slug>     optimize one product
 //
-// KTX-Software is resolved once per run: the environment variable
-// KTX_SOFTWARE_BIN first, then the process PATH, then the platform default
-// install folder. The resolved folder goes on this process's PATH only.
+// KTX-Software is resolved and verified once per run: the environment
+// variable KTX_SOFTWARE_BIN first, then the process PATH, then the platform
+// default install folder. The encode stage spawns ktx by absolute path
+// from the resolved folder.
 import { fileURLToPath } from 'node:url'
 import { GltfCliError, resolveGltfCliBin, runGltfCli } from './gltfCli.ts'
 import { MODEL_BUDGET_BYTES } from './budgets.ts'
 import { listExportedSlugs } from './exports.ts'
-import { KtxError, prepareKtxSoftware } from './ktxSoftware.ts'
+import {
+  KtxError,
+  ktxExecutablePath,
+  prepareKtxSoftware,
+  runKtxCommand,
+  type KtxResolution,
+} from './ktxSoftware.ts'
 import { createModelIO } from './modelIo.ts'
 import { runOptimizePipeline } from './pipeline.ts'
 import {
   budgetShare,
-  describeTextures,
   fileSizeBytes,
   formatBytes,
   formatKtxResolutionLine,
   formatTextureLine,
+  type TextureReport,
 } from './report.ts'
 import { productPaths, type ProductPaths } from './productPaths.ts'
 import { loadOptimizeSettings, type OptimizeSettings } from './settings.ts'
@@ -61,15 +68,23 @@ async function resolveSlugs(argv: readonly string[]): Promise<string[]> {
 
 // Optimizes one product and prints its report. The settings come from the
 // optional per-product override file; the structure facts are read back
-// from the written file, never assumed.
-async function optimizeProduct(paths: ProductPaths, settings: OptimizeSettings): Promise<void> {
+// from the written file, never assumed, and the texture lines are the
+// run's own, each drawn from the plan entry that encoded it.
+async function optimizeProduct(
+  paths: ProductPaths,
+  settings: OptimizeSettings,
+  ktxResolution: KtxResolution,
+): Promise<void> {
   const io = await createModelIO()
   const beforeStructure = readProductStructure(await io.read(paths.exportGlb))
   const inputBytes = await fileSizeBytes(paths.exportGlb)
-  await runOptimizePipeline({
+  const run = await runOptimizePipeline({
     inputPath: paths.exportGlb,
     outputPath: paths.modelGlb,
     settings,
+    io,
+    runKtx: (args) =>
+      runKtxCommand(ktxExecutablePath(ktxResolution.folder, process.platform), args),
     run: (args) => runGltfCli(resolveGltfCliBin(), args, process.env),
   })
   const outputDoc = await io.read(paths.modelGlb)
@@ -77,7 +92,7 @@ async function optimizeProduct(paths: ProductPaths, settings: OptimizeSettings):
   if (outputBytes === null || inputBytes === null) {
     throw new Error(`Missing file after optimizing '${paths.slug}'`)
   }
-  printRunReport(paths, settings, inputBytes, outputBytes, describeTextures(outputDoc))
+  printRunReport(paths, settings, inputBytes, outputBytes, run.textures)
   const afterStructure = readProductStructure(outputDoc)
   printStructure(afterStructure)
   const losses = [
@@ -95,7 +110,7 @@ function printRunReport(
   settings: OptimizeSettings,
   inputBytes: number,
   outputBytes: number,
-  textures: ReturnType<typeof describeTextures>,
+  textures: readonly TextureReport[],
 ): void {
   writeLine(`product: ${paths.slug}`)
   writeLine(`  input:  ${paths.exportGlb} (${formatBytes(inputBytes)})`)
@@ -138,7 +153,7 @@ export async function main(argv: readonly string[]): Promise<void> {
     if (usedOverride) {
       writeLine(`settings: override ${paths.settingsFile}`)
     }
-    await optimizeProduct(paths, settings)
+    await optimizeProduct(paths, settings, resolution)
   }
 }
 
