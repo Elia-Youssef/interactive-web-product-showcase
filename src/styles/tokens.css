@@ -28,6 +28,8 @@ their minimum below it, switched by the breakpoints at the end of this file.
   --hairline-hover-alpha: 0.2;
   --hairline: rgb(var(--white-rgb) / var(--hairline-alpha));
   --hairline-hover: rgb(var(--white-rgb) / var(--hairline-hover-alpha));
+  /* The scrim behind a modal dialog in the top layer: black at one alpha. */
+  --scrim-alpha: 0.4;
 
   /* Fonts */
   --sans: 'Montserrat', sans-serif;
@@ -112,6 +114,12 @@ their minimum below it, switched by the breakpoints at the end of this file.
   spreading over the stage.
   */
   --size-hotspot-card-max: 360px;
+  /*
+  The widest the collection index dialog lays out: one product per row
+  reads on a single line inside this bound, and the min() with the fill
+  size keeps the dialog inside a phone viewport.
+  */
+  --size-index-dialog-max: 400px;
   /*
   Where the open hotspot card goes: beside its marker, docked into the
   panel only when no side of the marker has room. The phone's panel is a
