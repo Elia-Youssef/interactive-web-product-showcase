@@ -42,3 +42,11 @@ export function parseRoute(pathname: string): Route {
 export function formatProductPath(slug: string): string {
   return `${PRODUCT_PATH_ROOT}${encodeURIComponent(slug)}`
 }
+
+// The one in-app address: the route path plus the query string the app
+// carries on every navigation. The link that renders the address and the
+// navigation that pushes it both format through this function, so a
+// copied href and the click on it land on the same URL.
+export function formatAppHref(path: string, search: string): string {
+  return `${path}${search}`
+}

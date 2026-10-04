@@ -2,6 +2,6 @@
 // Everything else in this folder is internal and reached only through
 // this file.
 
-export { PRODUCT_PATH_ROOT, formatProductPath, parseRoute } from './route'
+export { PRODUCT_PATH_ROOT, formatAppHref, formatProductPath, parseRoute } from './route'
 export type { Route } from './route'
 export { notFoundDocumentTitle, productDocumentTitle } from './title'
