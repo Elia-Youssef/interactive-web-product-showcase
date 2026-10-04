@@ -7,18 +7,12 @@ import {
   productDocumentTitle,
 } from '@lib/routing'
 import { siteCopy } from '@lib/copy/site'
-import { StageAngleReadout, StageZoomControls } from '@features/stage-controls'
-import { ProductExplode } from '@features/explode'
-import { HotspotMarkers, ProductHotspots } from '@features/hotspots'
-import { ProductIndexLabel, ProductPanel } from '@features/product-panel'
-import { ProductFinishes } from '@features/variants'
 import { AppStoreProvider } from '@store/index'
-import { Product } from '@viewer/product/Product'
-import { Stage } from '@viewer/Stage'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { CollectionProvider } from './collection/CollectionProvider'
 import { NotFoundScreen } from './collection/NotFoundScreen'
 import { AppLayout } from './layout/index'
+import { ProductPage } from './product-page/ProductPage'
 import { navigate, useDocumentTitle, useRoutePath } from './routing'
 import { resolveRoutePage } from './routing/routePage.logic'
 
@@ -82,48 +76,6 @@ function NotFoundPage({ collection }: { readonly collection: ProductCollection }
   return (
     <AppLayout
       panel={<NotFoundScreen collectionPath={formatProductPath(collection.first.slug)} />}
-    />
-  )
-}
-
-// The layout with one product's words in its slots and the renderer in its
-// stage slot, showing the current product through the product channel. The
-// stage chrome's angle slot and controls slot carry the stage controls
-// feature, which reads the camera through the store. The finishes, the
-// exploded view and the hotspots extend the product on the stage: the
-// finishes and the exploded view inside it, the hotspots as the canvas
-// child plus the markers in the stage's overlay. The panel's dock is held
-// here and handed to the markers, so an open card that docks renders into
-// the panel (the sheet on phone), and so is the stage chrome, which a
-// floating card keeps clear of.
-function ProductPage({ product }: { readonly product: ProductManifest }) {
-  const [dock, setDock] = useState<HTMLElement | null>(null)
-  const [chrome, setChrome] = useState<HTMLElement | null>(null)
-  return (
-    <AppLayout
-      dockRef={setDock}
-      chromeRef={setChrome}
-      productIndex={<ProductIndexLabel number={product.number} category={product.category} />}
-      panel={<ProductPanel product={product} />}
-      stage={
-        <Stage
-          content={
-            // Keyed on the slug by choice: a route change remounts the
-            // product and every feature extending it, while the page shell
-            // and the renderer stay mounted across the switch. Nothing
-            // built for one product can outlive it, and the coming product
-            // transitions build on that clean mount.
-            <Product key={product.slug} manifest={product}>
-              <ProductFinishes />
-              <ProductHotspots />
-              <ProductExplode />
-            </Product>
-          }
-          overlay={<HotspotMarkers product={product} dock={dock} chrome={chrome} />}
-        />
-      }
-      angleReadout={<StageAngleReadout />}
-      stageControls={<StageZoomControls />}
     />
   )
 }
