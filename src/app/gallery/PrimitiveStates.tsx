@@ -2,8 +2,9 @@
 // data-force-hover attribute the primitives accept, selected through its
 // prop, and focus forced through the gallery's forceFocus class, which
 // composes the focus tokens exactly as the global :focus-visible recipe
-// does. The copy is neutral sample content of realistic length: product
-// copy belongs only in src/products/.
+// does. The interactive controls run in ControlStates; this file holds
+// the words and marks. The copy is neutral sample content of realistic
+// length: product copy belongs only in src/products/.
 
 import type { ReactNode } from 'react'
 import {
@@ -13,21 +14,17 @@ import {
   CloseIcon,
   Divider,
   Eyebrow,
-  IconButton,
   Marker,
   MinusIcon,
   PlusIcon,
   Readout,
   ResetIcon,
-  Slider,
-  Swatch,
-  TextButton,
   Title,
 } from '@ui/index'
+import { controlSections } from './ControlStates'
+import { State, StatesSection } from './States'
 import styles from './gallery.module.css'
 
-// The gallery is a static look review: closing a card and moving a slider
-// have nothing to do here.
 const noOp = () => {}
 
 const cardProps = {
@@ -36,34 +33,6 @@ const cardProps = {
   bullets: ['Two-way crossover', 'Passive radiator', 'Front-firing port'],
   onClose: noOp,
   closeLabel: 'Close',
-}
-
-const sliderProps = {
-  'aria-label': 'Sample amount',
-  value: 0.5,
-  step: 0.01,
-  valueText: '50%',
-  onChange: noOp,
-}
-
-function StatesSection({ name, children }: { name: string; children: ReactNode }) {
-  return (
-    <section className={styles.section}>
-      <Eyebrow>{name}</Eyebrow>
-      <div className={styles.states}>{children}</div>
-    </section>
-  )
-}
-
-function State({ caption, children }: { caption: string; children: ReactNode }) {
-  return (
-    <figure className={styles.state}>
-      {children}
-      <figcaption>
-        <Readout>{caption}</Readout>
-      </figcaption>
-    </figure>
-  )
 }
 
 const eyebrowStates = (
@@ -88,63 +57,6 @@ const cardStates = (
     </State>
     <State caption="close focus">
       <Card {...cardProps} data-force-focus />
-    </State>
-  </>
-)
-
-const textButtonStates = (
-  <>
-    <State caption="default">
-      <TextButton>See inside</TextButton>
-    </State>
-    <State caption="hover">
-      <TextButton data-force-hover>See inside</TextButton>
-    </State>
-    <State caption="selected">
-      <TextButton selected>See inside</TextButton>
-    </State>
-    <State caption="focus">
-      <TextButton className={styles.forceFocus}>See inside</TextButton>
-    </State>
-  </>
-)
-
-const iconButtonStates = (
-  <>
-    <State caption="default">
-      <IconButton aria-label="Zoom in">
-        <PlusIcon />
-      </IconButton>
-    </State>
-    <State caption="hover">
-      <IconButton aria-label="Zoom out" data-force-hover>
-        <MinusIcon />
-      </IconButton>
-    </State>
-    <State caption="focus">
-      <IconButton aria-label="Reset view" className={styles.forceFocus}>
-        <ResetIcon />
-      </IconButton>
-    </State>
-  </>
-)
-
-const swatchStates = (
-  <>
-    <State caption="default">
-      <Swatch color="#9db89d" label="Sage Green" />
-    </State>
-    <State caption="hover">
-      <Swatch color="#9db89d" label="Sage Green" data-force-hover />
-    </State>
-    <State caption="selected">
-      <Swatch color="#2b2e2c" label="Graphite" selected />
-    </State>
-    <State caption="focus">
-      <Swatch color="#9db89d" label="Sage Green" className={styles.forceFocus} />
-    </State>
-    <State caption="selected + focus">
-      <Swatch color="#2b2e2c" label="Graphite" selected className={styles.forceFocus} />
     </State>
   </>
 )
@@ -211,43 +123,15 @@ const readoutStates = (
   </State>
 )
 
-const sliderStates = (
-  <>
-    <State caption="default">
-      <div className={styles.sliderCell}>
-        <Slider {...sliderProps} />
-      </div>
-    </State>
-    <State caption="hover">
-      <div className={styles.sliderCell}>
-        <Slider {...sliderProps} data-force-hover />
-      </div>
-    </State>
-    <State caption="focus">
-      <div className={styles.sliderCell}>
-        <Slider {...sliderProps} className={styles.forceFocus} />
-      </div>
-    </State>
-    <State caption="disabled">
-      <div className={styles.sliderCell}>
-        <Slider {...sliderProps} disabled />
-      </div>
-    </State>
-  </>
-)
-
 const sections: Record<string, ReactNode> = {
   Eyebrow: eyebrowStates,
   Title: titleStates,
   Card: cardStates,
-  TextButton: textButtonStates,
-  IconButton: iconButtonStates,
-  Swatch: swatchStates,
   Icons: iconStates,
   Marker: markerStates,
   Divider: dividerStates,
   Readout: readoutStates,
-  Slider: sliderStates,
+  ...controlSections,
 }
 
 export function PrimitiveStates() {

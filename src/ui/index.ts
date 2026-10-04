@@ -9,6 +9,8 @@ export { Eyebrow } from './Eyebrow'
 export type { EyebrowProps } from './Eyebrow'
 export { IconButton } from './IconButton'
 export type { IconButtonProps } from './IconButton'
+export { IconLink } from './IconLink'
+export type { IconLinkProps } from './IconLink'
 export { Marker } from './Marker'
 export type { MarkerProps } from './Marker'
 export { Readout } from './Readout'
@@ -21,6 +23,7 @@ export { TextButton } from './TextButton'
 export type { TextButtonProps } from './TextButton'
 export { Title } from './Title'
 export type { TitleProps } from './Title'
+export type { LinkComponent, LinkProps } from './link'
 export {
   ChevronLeftIcon,
   ChevronRightIcon,
