@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest'
 import type { vec3 } from '@gltf-transform/core'
 import { parseProduct, type Product } from '../../src/lib/product'
 import type { ProductHotspotFact, ProductHotspotFacts } from './productHotspots'
-import { selectOcclusionSubjects } from './occlusionSubjects'
+import {
+  requireFollowSubjects,
+  selectOcclusionSubjects,
+  type OcclusionSubject,
+} from './occlusionSubjects'
 
 // The selection of the marker occlusion proof's subjects, over fake
 // products and fake hotspot facts: per product, the hotspot whose anchor
@@ -147,5 +151,45 @@ describe('selectOcclusionSubjects', () => {
     const product = fakeProduct('unfactured', ['in_a'])
 
     expect(() => selectOcclusionSubjects([product], new Map())).toThrow(/unfactured/)
+  })
+})
+
+describe('requireFollowSubjects', () => {
+  const subjectOf = (slug: string): OcclusionSubject => {
+    const product = fakeProduct(slug, ['hidden'])
+    const hotspot = product.hotspots[0]
+    if (hotspot === undefined) {
+      throw new Error(`the fake ${slug} carries no hotspot`)
+    }
+    return { product, hotspot, anchor: { x: 0, y: 0, z: 0 }, hidingHeightM: 0.1 }
+  }
+
+  it('keeps only the products with both a plain hotspot and an occlusion subject', () => {
+    const subjects = new Map([
+      ['both', subjectOf('both')],
+      ['no-plain', subjectOf('no-plain')],
+    ])
+    const slugs = requireFollowSubjects(
+      [
+        { slug: 'both', hasPlainHotspot: true },
+        { slug: 'no-plain', hasPlainHotspot: false },
+        { slug: 'no-subject', hasPlainHotspot: true },
+      ],
+      subjects,
+    )
+    expect([...slugs]).toEqual(['both'])
+  })
+
+  it('fails naming what is missing when no product carries both halves', () => {
+    const subjects = new Map([['no-plain', subjectOf('no-plain')]])
+    expect(() =>
+      requireFollowSubjects(
+        [
+          { slug: 'no-plain', hasPlainHotspot: false },
+          { slug: 'no-subject', hasPlainHotspot: true },
+        ],
+        subjects,
+      ),
+    ).toThrow('no product with both a plain hotspot and an occlusion subject')
   })
 })

@@ -16,7 +16,7 @@ import {
 } from './hotspotViews'
 import { expectCardBesideMarker } from './hotspotCardChecks'
 import { driveToHidingView, oppositeAzimuthOf, zoomToDistanceBand } from './hotspotDrives'
-import { selectOcclusionSubjects } from './occlusionSubjects'
+import { requireFollowSubjects, selectOcclusionSubjects } from './occlusionSubjects'
 import { flowFacts } from './hotspotFlowFacts'
 
 // The card of the open hotspot: it is placed beside its marker in every
@@ -39,6 +39,13 @@ const occlusionSubjects = selectOcclusionSubjects(
   flows.map((flow) => flow.subject.product),
   factsBySlug,
 )
+const followSlugs = requireFollowSubjects(
+  flows.map((flow) => ({
+    slug: flow.subject.product.slug,
+    hasPlainHotspot: flow.subject.plains.length > 0,
+  })),
+  occlusionSubjects,
+)
 
 for (const flow of flows) {
   const { product, viewFacts } = flow.subject
@@ -48,7 +55,7 @@ for (const flow of flows) {
   const anyHotspot = product.hotspots[0]
   const occludable = occlusionSubjects.get(slug)
 
-  if (plain !== undefined && occludable !== undefined) {
+  if (plain !== undefined && occludable !== undefined && followSlugs.has(slug)) {
     test(`hotspots ${slug}: the open card of ${plain.title} follows its marker and hides with the marker of ${occludable.hotspot.title} behind the body`, async ({
       page,
       backendPath,

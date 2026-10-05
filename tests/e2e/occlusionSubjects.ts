@@ -81,3 +81,26 @@ function isHidable(
 ): fact is ProductHotspotFact & { readonly hidingHeightM: number } {
   return fact.hidingHeightM !== null && isInsideBox(pointOf(fact.stagePosition), bounds)
 }
+
+// The card follow proof needs one product that has both halves of it: a
+// plain hotspot whose open card follows its marker, and an occlusion
+// subject that hides behind the body. Answers the slugs that carry both and
+// fails at collection, naming what is missing, when none does, so the
+// follow proof never disappears silently when the product that carried it
+// leaves the set.
+export function requireFollowSubjects(
+  products: readonly { readonly slug: string; readonly hasPlainHotspot: boolean }[],
+  subjects: ReadonlyMap<string, OcclusionSubject>,
+): ReadonlySet<string> {
+  const slugs = new Set(
+    products
+      .filter((product) => product.hasPlainHotspot && subjects.has(product.slug))
+      .map((product) => product.slug),
+  )
+  if (slugs.size === 0) {
+    throw new Error(
+      'the product set carries no product with both a plain hotspot and an occlusion subject for the card follow proof',
+    )
+  }
+  return slugs
+}
