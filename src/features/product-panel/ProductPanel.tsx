@@ -6,6 +6,7 @@
 // feature's one offer hook; layout owns the panel container and its
 // hairline, and this is the content inside it.
 
+import type { ReactNode } from 'react'
 import type { Product } from '@lib/product'
 import { siteCopy } from '@lib/copy/site'
 import { selectSelectedVariant, useAppStore } from '@store/index'
@@ -18,9 +19,13 @@ import styles from './ProductPanel.module.css'
 
 export type ProductPanelProps = {
   product: Product
+  // The navigation row slot, after the explode controls: the composition
+  // decides what a product page navigates with, so the panel never
+  // reaches another feature for it.
+  navigationRow?: ReactNode
 }
 
-export function ProductPanel({ product }: ProductPanelProps) {
+export function ProductPanel({ product, navigationRow }: ProductPanelProps) {
   const finishSelected = useAppStore((state) => state.finishSelected)
   const selectedVariant = useAppStore((state) => selectSelectedVariant(state, product.slug))
 
@@ -64,6 +69,7 @@ export function ProductPanel({ product }: ProductPanelProps) {
       </div>
       <ProductExplodeToggle product={product} />
       <ProductExplodeScrub product={product} />
+      {navigationRow}
     </div>
   )
 }

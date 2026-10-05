@@ -2,6 +2,7 @@
 // spellings below are the same rule through one join, so the separator is
 // defined once and a title change is one edit.
 
+import { productName } from '@lib/product'
 import type { Product } from '@lib/product'
 
 function joinTitle(left: string, right: string): string {
@@ -13,7 +14,7 @@ export function productDocumentTitle(
   product: Pick<Product, 'brand' | 'model'>,
   collectionName: string,
 ): string {
-  return joinTitle(`${product.brand} ${product.model}`, collectionName)
+  return joinTitle(productName(product), collectionName)
 }
 
 // The not-found page names the state first: 'Not found | Product Concepts'.

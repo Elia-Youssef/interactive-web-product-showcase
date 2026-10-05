@@ -7,6 +7,7 @@ import {
   productDocumentTitle,
 } from '../../src/lib/routing'
 import { loadCollection } from './productList'
+import { routePath } from './appPaths'
 import { waitForProductReady } from './productSpecs'
 
 // The routing proofs remount the product on every history move: two loads
@@ -14,18 +15,13 @@ import { waitForProductReady } from './productSpecs'
 test.setTimeout(testBudgetMs({ productLoads: 2 }))
 
 // The collection's own order is the expectation, so a product that ships
-// lands here without a change below. The collection holds one product
-// today, so the history flow runs between the product and the not-found
-// screen; a second product extends it to a two-product flow.
+// lands here without a change below. These specs prove the route kinds
+// against the collection's first product and the not-found screen; the
+// product-to-product history flow is the collection spec's walk
+// (tests/e2e/collection.spec.ts).
 const collection = await loadCollection()
 const first = collection.first
 const NOT_FOUND_PATH = '/p/does-not-exist'
-
-// The app path for this project's backend mode: the mode's query rides
-// along on the deep link, exactly as the app's own navigate carries it.
-function routePath(backendPath: string, path: string): string {
-  return path + new URL(backendPath, 'https://app.invalid').search
-}
 
 test('a deep link to a product slug presents it and the title names it', async ({
   page,

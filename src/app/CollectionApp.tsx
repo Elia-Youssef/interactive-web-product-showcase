@@ -57,16 +57,23 @@ function RoutedCollection({ collection }: { readonly collection: ProductCollecti
 
   const page = resolveRoutePage(route, collection)
   return page.kind === 'product' ? (
-    <ProductRoutePage product={page.product} />
+    <ProductRoutePage product={page.product} collection={collection} />
   ) : (
     <NotFoundPage collection={collection} />
   )
 }
 
-// A known product's page: the document title names what is shown.
-function ProductRoutePage({ product }: { readonly product: ProductManifest }) {
+// A known product's page: the document title names what is shown, and the
+// page carries the collection its row navigates.
+function ProductRoutePage({
+  product,
+  collection,
+}: {
+  readonly product: ProductManifest
+  readonly collection: ProductCollection
+}) {
   useDocumentTitle(productDocumentTitle(product, siteCopy.collectionName))
-  return <ProductPage product={product} />
+  return <ProductPage product={product} collection={collection} />
 }
 
 // The not-found page: the app layout keeps the site's frame, the stage

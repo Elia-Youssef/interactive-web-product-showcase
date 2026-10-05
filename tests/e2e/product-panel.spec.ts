@@ -1,6 +1,6 @@
 import { expect, test } from './fixtures'
 import { siteCopy } from '../../src/lib/copy/site'
-import { formatProductIndex } from '../../src/lib/copy/productPanel'
+import { formatProductIndex } from '../../src/lib/product'
 import { loadCollection } from './productList'
 
 // The panel evidence runs on the app itself, over the real manifests. The

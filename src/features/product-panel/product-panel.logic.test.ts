@@ -3,12 +3,7 @@ import type { ProductInput } from '@lib/product'
 import { parseProduct } from '@lib/product'
 import { siteCopy } from '@lib/copy/site'
 import { createAppStore, selectSelectedVariant } from '@store/index'
-import {
-  activeFinish,
-  explodeToggleLabel,
-  formatExplodePercent,
-  formatProductIndex,
-} from '@lib/copy/productPanel'
+import { activeFinish, explodeToggleLabel, formatExplodePercent } from '@lib/copy/productPanel'
 
 // Neutral fixture words, never a real product's: the logic renders whatever the
 // manifest says, and the real words belong to src/products/.
@@ -29,17 +24,6 @@ const sampleManifest = {
 } satisfies ProductInput
 
 const product = parseProduct(sampleManifest, 'sample-one')
-
-// The index formatting table: single digits gain a leading zero, longer
-// numbers pass through untouched.
-test.each([
-  { number: 1, expected: '01' },
-  { number: 9, expected: '09' },
-  { number: 10, expected: '10' },
-  { number: 100, expected: '100' },
-])('formatProductIndex($number) is $expected', ({ number, expected }) => {
-  expect(formatProductIndex(number)).toBe(expected)
-})
 
 // The exploded view's whole-percent table: halves round away from a
 // misreading of the pose, so a value in the upper half of a percent reads

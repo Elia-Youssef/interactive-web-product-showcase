@@ -17,12 +17,6 @@ export function formatExplodePercent(progress: number): string {
   return `${Math.round(progress * 100)}%`
 }
 
-// The collection position as a two-digit index:
-// 1 becomes '01'. Display formatting stays in the display layer.
-export function formatProductIndex(number: number): string {
-  return String(number).padStart(2, '0')
-}
-
 // The finish the panel shows as active: the variant the store selected, or
 // the product default, its first finish, while nothing is selected. A
 // selected variant the product does not offer is a programming error and

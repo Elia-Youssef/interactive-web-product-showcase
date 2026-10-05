@@ -20,6 +20,11 @@ export const siteCopy = {
   zoomInLabel: 'Zoom in',
   zoomOutLabel: 'Zoom out',
   closeLabel: 'Close',
+  previousLabel: 'Previous',
+  nextLabel: 'Next',
+  indexLabel: 'Collection',
+  openIndexLabel: 'Open the collection index',
+  closeIndexLabel: 'Close the index',
   panelLabel: 'Product details',
 } as const
 

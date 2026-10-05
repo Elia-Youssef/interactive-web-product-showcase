@@ -46,6 +46,14 @@ describe('createCollection', () => {
     expect(collection.neighbors('sample-three')?.next.slug).toEqual('sample-one')
   })
 
+  it('makes a two-product collection wrap both products onto each other', () => {
+    const collection = createCollection([sampleOneManifest, sampleTwoManifest])
+    expect(collection.neighbors('sample-one')?.previous.slug).toEqual('sample-two')
+    expect(collection.neighbors('sample-one')?.next.slug).toEqual('sample-two')
+    expect(collection.neighbors('sample-two')?.previous.slug).toEqual('sample-one')
+    expect(collection.neighbors('sample-two')?.next.slug).toEqual('sample-one')
+  })
+
   it('makes a one-product collection its own neighbor', () => {
     const collection = createCollection([sampleOneManifest])
     expect(collection.neighbors('sample-one')?.previous.slug).toEqual('sample-one')
@@ -76,6 +84,39 @@ describe('createCollection', () => {
       product: 'manifests[1]',
       path: 'number',
       message: 'duplicate product number 1',
+    })
+  })
+
+  it('reports no sequence problem when the numbers run 1 to N', () => {
+    const collection = createCollection([sampleThreeManifest, sampleOneManifest, sampleTwoManifest])
+    expect(collection.products.map((product) => product.number)).toEqual([1, 2, 3])
+  })
+
+  it('reports a gap in the numbers, naming the position and the number carried', () => {
+    const error = collectionErrorOf([sampleOneManifest, sampleThreeManifest])
+    expect(error.problems).toContainEqual({
+      product: 'manifests[1]',
+      path: 'number',
+      message: 'expected product number 2, found 3',
+    })
+    expect(error.message).toContain('expected product number 2, found 3')
+  })
+
+  it('reports a collection that starts above 1, naming the missing first number', () => {
+    const error = collectionErrorOf([{ ...sampleTwoManifest, number: 2 }])
+    expect(error.problems).toContainEqual({
+      product: 'manifests[0]',
+      path: 'number',
+      message: 'expected product number 1, found 2',
+    })
+  })
+
+  it('reports a number below 1, named by the schema rule it breaks', () => {
+    const error = collectionErrorOf([{ ...sampleOneManifest, number: 0 }])
+    expect(error.problems).toContainEqual({
+      product: 'sample-one',
+      path: 'number',
+      message: 'Too small: expected number to be >0',
     })
   })
 

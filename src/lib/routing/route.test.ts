@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { formatProductPath, parseRoute } from './route'
+import { formatAppHref, formatProductPath, parseRoute } from './route'
 import type { Route } from './route'
 
 // The whole class of paths in one table: the three kinds, the trailing
@@ -64,5 +64,21 @@ describe('formatProductPath', () => {
       const parsed = parseRoute(formatProductPath(slug))
       expect(parsed).toEqual({ kind: 'product', slug })
     }
+  })
+})
+
+describe('formatAppHref', () => {
+  test('carries the query string on the path', () => {
+    expect(formatAppHref('/p/placeholder-speaker', '?backend=webgl')).toBe(
+      '/p/placeholder-speaker?backend=webgl',
+    )
+  })
+
+  test('formats the bare path when the query is empty', () => {
+    expect(formatAppHref('/p/placeholder-speaker', '')).toBe('/p/placeholder-speaker')
+  })
+
+  test('carries the query on the root path too', () => {
+    expect(formatAppHref('/', '?backend=webgl')).toBe('/?backend=webgl')
   })
 })
