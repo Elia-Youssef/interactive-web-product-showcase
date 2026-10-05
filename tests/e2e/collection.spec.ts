@@ -1,13 +1,26 @@
 import { expect } from '@playwright/test'
 import { test } from './fixtures'
-import { testBudgetMs } from './budgets'
+import { hudDrainBudgetMs, testBudgetMs } from './budgets'
 import { siteCopy } from '../../src/lib/copy/site'
 import { formatProductCounter, formatProductIndex, productName } from '../../src/lib/product'
 import { formatProductPath } from '../../src/lib/routing'
 import { loadCollection } from './productList'
 import { waitForProductReady } from './productSpecs'
 import { routePath } from './appPaths'
-import { expectProduct, neighborsOf, productPathOf, rowControls, urlPath } from './collectionFacts'
+import {
+  dialogTabStops,
+  expectProduct,
+  expectTabHeldInsideDialog,
+  focusedAccessibleName,
+  neighborsOf,
+  openShownCard,
+  plainTabReachesLinks,
+  productPathOf,
+  productWithHotspots,
+  rowControls,
+  urlPath,
+  walkToDialogStop,
+} from './collectionFacts'
 
 // The collection navigation proofs run on the app itself, over the real
 // collection: the counter, the neighbors and the index all read the same
@@ -151,33 +164,13 @@ test('escape over the open index closes the index alone: an open hotspot card st
   backendPath,
 }) => {
   test.setTimeout(testBudgetMs({ productLoads: 1 }))
-  const subject = products.find((product) => product.hotspots.length > 0)
-  if (subject === undefined) {
-    throw new Error('the collection holds no product with hotspots to prove the escape boundary')
-  }
-  const hotspot = subject.hotspots[0]
-  if (hotspot === undefined) {
-    throw new Error('the subject product holds no hotspot')
-  }
+  const subject = productWithHotspots(collection)
 
   await page.goto(productPathOf(backendPath, subject))
   await waitForProductReady(page)
 
-  // The first shown marker opens its card; a marker the view hides leaves
-  // the role tree, so the role query finds a shown one only.
-  let openedCard: string | undefined
-  for (const candidate of subject.hotspots) {
-    const marker = page.getByRole('button', { name: candidate.title })
-    if (await marker.isVisible()) {
-      await marker.click()
-      openedCard = candidate.title
-      break
-    }
-  }
-  if (openedCard === undefined) {
-    throw new Error(`no marker of '${subject.slug}' is shown at the home view`)
-  }
-  const card = page.getByRole('heading', { name: openedCard })
+  const cardTitle = await openShownCard(page, subject)
+  const card = page.getByRole('heading', { name: cardTitle })
   await expect(card).toBeVisible()
 
   await page.getByRole('button', { name: siteCopy.openIndexLabel }).click()
@@ -187,6 +180,56 @@ test('escape over the open index closes the index alone: an open hotspot card st
   await page.keyboard.press('Escape')
   await expect(dialog).toBeHidden()
   await expect(card, 'the card never saw the index its escape').toBeVisible()
+})
+
+test('escape at every stop of the open index closes the index alone, and the next escape closes the card', async ({
+  page,
+  backendPath,
+}) => {
+  test.setTimeout(testBudgetMs({ productLoads: 1 }))
+  const subject = productWithHotspots(collection)
+
+  await page.goto(productPathOf(backendPath, subject))
+  await waitForProductReady(page)
+
+  const cardTitle = await openShownCard(page, subject)
+  const card = page.getByRole('heading', { name: cardTitle })
+  const marker = page.getByRole('button', { name: cardTitle })
+  const dialog = page.getByRole('dialog', { name: siteCopy.indexLabel })
+
+  // The stops of the cycle, enumerated once with the card and the index
+  // open. The platform rests one stop of the cycle on the body, where no
+  // handler scoped to the dialog ever sees the key.
+  await page.getByRole('button', { name: siteCopy.openIndexLabel }).click()
+  await expect(dialog).toBeVisible()
+  const stops = await dialogTabStops(page)
+
+  // One fresh open per stop: at that stop, and only there, Escape closes
+  // the index, returns to the counter and leaves the card open; the card
+  // takes the next Escape.
+  for (const stop of stops) {
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
+    await page.keyboard.press('Escape')
+    await expect(card).toHaveCount(0)
+
+    await marker.click()
+    await expect(card).toBeVisible()
+    await page.getByRole('button', { name: siteCopy.openIndexLabel }).click()
+    await expect(dialog).toBeVisible()
+    await walkToDialogStop(page, stop)
+
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
+    await expect(
+      page.getByRole('button', { name: siteCopy.openIndexLabel }),
+      'focus returns to the counter from every stop',
+    ).toBeFocused()
+    await expect(card, 'the card survives the index escape at every stop').toBeVisible()
+
+    await page.keyboard.press('Escape')
+    await expect(card).toHaveCount(0)
+  }
 })
 
 test('keyboard only: the tab walks the row, enter opens the index, escape closes it back onto the counter', async ({
@@ -199,27 +242,20 @@ test('keyboard only: the tab walks the row, enter opens the index, escape closes
   await waitForProductReady(page)
 
   const { counter, previous, next } = rowControls(page, collection, first)
-  const activeName = () =>
-    page.evaluate(() => {
-      const element = document.activeElement
-      if (element === null) {
-        return null
-      }
-      return element.getAttribute('aria-label') ?? element.textContent ?? element.tagName
-    })
+  const activeName = () => focusedAccessibleName(page)
 
   // The panel's own controls precede the row, so the walk tabs until the
-  // row. What a plain Tab reaches is the platform's own keyboard model:
-  // chromium and firefox tab to links, so there the walk proves the row's
-  // own order, previous link, counter, next link. The webkit build follows
-  // the macOS model and skips links entirely (its walk lands slider, then
-  // counter), so there the walk proves the counter as the row's stop and
-  // leaves the links to the platform's full keyboard access mode.
+  // row. How far a plain tab reaches is the engine's keyboard model over
+  // links, named once in the facts and pinned by the link tabbing spec:
+  // on chromium and firefox the walk proves the row's own order, previous
+  // link, counter, next link; on webkit it proves the counter as the
+  // row's stop and leaves the links to the platform's full keyboard
+  // access mode.
   const previousName = await previous.getAttribute('aria-label')
   if (previousName === null) {
     throw new Error('the previous link carries no accessible name')
   }
-  const linksTabbable = expectedBrowserName !== 'webkit'
+  const linksTabbable = plainTabReachesLinks(expectedBrowserName)
   const rowTarget = linksTabbable ? previousName : siteCopy.openIndexLabel
   for (let tabs = 0; ; tabs++) {
     if (tabs > 30) {
@@ -247,27 +283,33 @@ test('keyboard only: the tab walks the row, enter opens the index, escape closes
   await expect(dialog).toBeVisible()
 
   // The open dialog holds the tab: no stop ever lands on the page's
-  // content. The platform wraps the cycle itself, and its wrap rests one
-  // stop on the body between cycles before re-entering at the top; the
-  // dialog is the platform's own containment, with no hand-written trap.
-  for (let tabs = 0; tabs < 8; tabs++) {
-    await page.keyboard.press('Tab')
-    const stoppedAt = await page.evaluate(() => {
-      const element = document.activeElement
-      if (element === null) {
-        return 'null'
-      }
-      return element.closest('dialog') !== null || element === document.body
-        ? 'held'
-        : `${element.tagName} ${element.getAttribute('aria-label') ?? ''}`
-    })
-    expect(stoppedAt, 'the tab must never land outside the open dialog').toBe('held')
-  }
+  // content, the platform's own containment.
+  await expectTabHeldInsideDialog(page)
 
   // Escape closes the open index back onto the counter, all by keyboard.
   await page.keyboard.press('Escape')
   await expect(dialog).toBeHidden()
   await expect(counter).toBeFocused()
+})
+
+test('the counter lifts its whole readout on hover', async ({ page, backendPath }) => {
+  test.setTimeout(testBudgetMs({ productLoads: 1 }))
+  await page.goto(productPathOf(backendPath, first))
+  await waitForProductReady(page)
+
+  const { counter } = rowControls(page, collection, first)
+  const readout = counter.locator('span')
+  const before = await readout.evaluate((element) => getComputedStyle(element).color)
+
+  await counter.hover()
+  // The lift is one hover transition of the control; the allowance is the
+  // suite's named small-wait budget.
+  await expect
+    .poll(() => readout.evaluate((element) => getComputedStyle(element).color), {
+      timeout: hudDrainBudgetMs,
+    })
+    .toBe('rgb(255, 255, 255)')
+  expect(before).not.toBe('rgb(255, 255, 255)')
 })
 
 test('the not-found page renders no navigation row', async ({ page, backendPath }) => {
