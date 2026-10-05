@@ -23,6 +23,7 @@ export { TextButton } from './TextButton'
 export type { TextButtonProps } from './TextButton'
 export { Title } from './Title'
 export type { TitleProps } from './Title'
+export { useEscapeLayer } from './useEscapeLayer'
 export type { LinkComponent, LinkProps } from './link'
 export {
   ChevronLeftIcon,
