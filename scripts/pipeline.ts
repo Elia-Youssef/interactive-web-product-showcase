@@ -1,4 +1,5 @@
-// The optimize pipeline: in-process KTX2 texture encoding plus the
+// The optimize pipeline: the in-process stages over the Document (the
+// tangent drop and the KTX2 texture encode plan) plus the
 // structure-preserving geometry pass through the gltf-transform CLI.
 //
 // The texture work is one encode plan over the Document (see ktx2Plan.ts):
@@ -8,7 +9,9 @@
 // ktx2Encode.ts). The plan exists so the stage order, the stage set and
 // the per-texture facts are one tested value: the CLI's own optimize ktx2
 // path has a single global --texture-size and always spawns ktx with at
-// least two threads, which is not byte-stable. The geometry pass runs
+// least two threads, which is not byte-stable. The tangent stage runs
+// before the plan is built: it strips attributes only, so the texture
+// positions the plan keys on are unaffected. The geometry pass then runs
 // `optimize` with the structure flags and --texture-compress=false: the
 // plan already encoded every texture, so the geometry stage needs no
 // KTX-Software at all.
@@ -20,6 +23,7 @@ import { executeEncodePlan, type Ktx2Runner } from './ktx2Encode.ts'
 import { buildEncodePlan, type EncodePlan } from './ktx2Plan.ts'
 import { describeTextures, type TextureReport } from './report.ts'
 import type { OptimizeSettings } from './settings.ts'
+import { dropUnusedTangents, type TangentReport } from './tangents.ts'
 
 // The runner the geometry stage is parameterized by: one gltf-transform
 // command. The real runner spawns the CLI; tests record the calls instead.
@@ -60,27 +64,31 @@ export type PipelineParams = {
   run: CliRunner
 }
 
-// The outcome of one pipeline run: the encode plan it executed, and the
-// report of every texture as the encode left it. The report is described
-// from the document the plan was built over, the one document whose
-// texture positions key the plan's entries, so each texture meets its own
-// entry; the written file is not described here, because its geometry
-// pass merges identical textures and shifts the positions after them.
+// The outcome of one pipeline run: the tangent report and the encode plan
+// it executed, and the report of every texture as the encode left it. The
+// report is described from the document the plan was built over, the one
+// document whose texture positions key the plan's entries, so each texture
+// meets its own entry; the written file is not described here, because its
+// geometry pass merges identical textures and shifts the positions after
+// them.
 export type PipelineRun = {
   plan: EncodePlan
   textures: readonly TextureReport[]
+  tangents: TangentReport
 }
 
-// Runs the full pipeline on one product and returns the plan it executed
-// with the texture report drawn from it, so the run report and the tests
-// print and assert from the same value the encoder ran. The plan is built
-// and executed on one in-memory Document, written through a temporary
-// folder, then the geometry pass runs straight to the output path, creating
-// its folder. The temporary folder is removed even when a stage fails.
+// Runs the full pipeline on one product and returns the tangent report and
+// the encode plan it executed with the texture report drawn from it, so
+// the run report and the tests print and assert from the same values the
+// stages ran. The stages run on one in-memory Document, written through a
+// temporary folder, then the geometry pass runs straight to the output
+// path, creating its folder. The temporary folder is removed even when a
+// stage fails.
 export async function runOptimizePipeline(params: PipelineParams): Promise<PipelineRun> {
   const tempDir = await mkdtemp(path.join(tmpdir(), 'optimize-'))
   try {
     const doc = await params.io.read(params.inputPath)
+    const tangents = dropUnusedTangents(doc)
     const plan = buildEncodePlan(doc, params.settings)
     await executeEncodePlan({
       doc,
@@ -94,7 +102,7 @@ export async function runOptimizePipeline(params: PipelineParams): Promise<Pipel
     await params.io.write(afterTextures, doc)
     await mkdir(path.dirname(params.outputPath), { recursive: true })
     await params.run(buildGeometryStageArgs(afterTextures, params.outputPath, params.settings))
-    return { plan, textures }
+    return { plan, textures, tangents }
   } finally {
     await rm(tempDir, { recursive: true, force: true })
   }
