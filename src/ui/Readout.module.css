@@ -1,8 +1,16 @@
-/* The mono readout label. Values are tokens. */
+/* The mono readout label. Inside an interactive control (a button or a
+link) the readout takes the control's color, so a hover on the control
+lifts the whole control and every interactive readout behaves the same.
+Values are tokens. */
 
 .readout {
   font-family: var(--mono);
   font-size: var(--fs-readout);
   font-weight: var(--weight-readout);
   color: var(--label);
+}
+
+button .readout,
+a .readout {
+  color: inherit;
 }
