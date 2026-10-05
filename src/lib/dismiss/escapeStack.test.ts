@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { createEscapeStack } from './escapeStack'
+import { createEscapeStack, type EscapeLayer } from './escapeStack'
 
 // The table drives one stack through a sequence of operations and records
 // the order the layers are asked to dismiss in, so the whole class of
@@ -80,20 +80,22 @@ const cases: readonly {
 
 test.each(cases)('$name', ({ operations, dismissedInOrder }) => {
   const stack = createEscapeStack()
+  // One layer object per name, so registering a name again registers the
+  // same layer, the case the stack moves back to the top.
+  const layers = new Map<string, EscapeLayer>()
   const unregisters = new Map<string, () => void>()
   const dismissed: string[] = []
 
   for (const operation of operations) {
     if (operation.op === 'register') {
-      const layer = operation.layer
-      unregisters.set(
-        layer,
-        stack.register({
-          dismiss: () => {
-            dismissed.push(layer)
-          },
-        }),
-      )
+      const name = operation.layer
+      const layer = layers.get(name) ?? {
+        dismiss: () => {
+          dismissed.push(name)
+        },
+      }
+      layers.set(name, layer)
+      unregisters.set(name, stack.register(layer))
     } else if (operation.op === 'unregister') {
       unregisters.get(operation.layer)?.()
     } else {
