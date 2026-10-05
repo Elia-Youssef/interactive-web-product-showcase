@@ -13,6 +13,7 @@ import {
   recordedKtxRunner,
   textureByName,
 } from './texture.fixtures.ts'
+import { docWithPrimitives, primitiveAt, tangentOf } from './tangents.fixtures.ts'
 
 const settingsWith = (overrides: Partial<OptimizeSettings>): OptimizeSettings => ({
   ...DEFAULT_OPTIMIZE_SETTINGS,
@@ -123,5 +124,35 @@ describe('runOptimizePipeline: the encode plan of one texture per class', () => 
     expect(geometry[2]).toBe(outputPath)
     expect(geometry).toContain('--texture-compress=false')
     expect(geometry).toContain('--compress=meshopt')
+  })
+})
+
+describe('runOptimizePipeline: the tangent stage', () => {
+  it('runs on the document before it is written for the geometry pass', async () => {
+    const doc = docWithPrimitives([{ material: {} }, { material: { normalTexture: true } }])
+    const written: string[] = []
+    const io: ModelDocumentIO = {
+      read: async () => doc,
+      write: async (filePath, writtenDoc) => {
+        expect(writtenDoc).toBe(doc)
+        written.push(filePath)
+      },
+    }
+    const outputDir = await mkdtemp(path.join(tmpdir(), 'pipeline-tangents-'))
+    const { tangents } = await runOptimizePipeline({
+      inputPath: 'raw.glb',
+      outputPath: path.join(outputDir, 'model.glb'),
+      settings: DEFAULT_OPTIMIZE_SETTINGS,
+      io,
+      runKtx: recordedKtxRunner().runKtx,
+      run: recordedCliRunner().run,
+    })
+    expect(tangents.primitivesStripped).toBe(1)
+    expect(tangents.primitivesKept).toBe(1)
+    // The written document is the one the stage stripped: the useless
+    // attribute is gone with its accessor, the needed one stays.
+    expect(tangentOf(primitiveAt(doc, 0))).toBeNull()
+    expect(tangentOf(primitiveAt(doc, 1))).not.toBeNull()
+    expect(doc.getRoot().listAccessors()).toHaveLength(5)
   })
 })
