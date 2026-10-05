@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useSyncExternalStore } from 'react'
 import type { Product } from '@lib/product'
 import type { StageOverlay } from '@viewer/overlay/StageOverlay'
-import { readCardLayout } from './cardLayout'
+import { readCardLayout } from '@lib/hotspots/cardLayout'
 import { readChromeObstacles } from './chromeObstacles'
 import { HotspotCardPresenter, type CardSlot } from './HotspotCardPresenter'
 
@@ -27,7 +27,7 @@ export function useHotspotCard(
     [overlay, product, chrome],
   )
 
-  useEffect(() => overlay.onPass(() => presenter.present()), [overlay, presenter])
+  useEffect(() => overlay.onPass(() => presenter.present(), 'presenter'), [overlay, presenter])
 
   // The chrome's corners change size with their content (a readout, the
   // controls); each change is a change of the obstacles.

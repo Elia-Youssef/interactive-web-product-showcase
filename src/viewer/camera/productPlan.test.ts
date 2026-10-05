@@ -12,6 +12,7 @@ import {
   mountedTree,
   planned,
   raisedFrame,
+  restsAt,
   rigWith,
 } from './productPlanFixtures'
 
@@ -31,8 +32,14 @@ describe('buildCameraPlan', () => {
     closeUp.lookAt(0, 0.1, 0)
     mountedTree([home, closeUp])
 
+    // The close-up's anchor rests at the model center, in the model's own
+    // space, where the close-up looks.
     const plan = planned(
-      buildCameraPlan(rigWith([home, closeUp]), manifestWith(undefined), raisedFrame),
+      buildCameraPlan(
+        rigWith([home, closeUp], restsAt([0, 0.1, 0], ['driver'])),
+        manifestWith(undefined),
+        raisedFrame,
+      ),
     )
 
     expect([...plan.views.keys()]).toEqual(['home', 'driver'])
@@ -61,7 +68,11 @@ describe('buildCameraPlan', () => {
     mountedTree([home, closeUp], centeredFrame)
 
     const plan = planned(
-      buildCameraPlan(rigWith([home, closeUp]), manifestWith(undefined), centeredFrame),
+      buildCameraPlan(
+        rigWith([home, closeUp], restsAt([0, 0, 0], ['driver'])),
+        manifestWith(undefined),
+        centeredFrame,
+      ),
     )
 
     const homeView = plan.views.get('home')
@@ -85,7 +96,11 @@ describe('buildCameraPlan', () => {
     mountedTree([home, closeUp], centeredFrame)
 
     const plan = planned(
-      buildCameraPlan(rigWith([home, closeUp]), manifestWith(undefined), centeredFrame),
+      buildCameraPlan(
+        rigWith([home, closeUp], restsAt([0, 0, 0], ['driver'])),
+        manifestWith(undefined),
+        centeredFrame,
+      ),
     )
 
     expect(plan.clipRange).toEqual({ near: 0.05, far: 40 })
@@ -95,7 +110,7 @@ describe('buildCameraPlan', () => {
     const home = new PerspectiveCamera(25, 1.6, 0.05, 25)
     home.name = 'CAM_home'
     home.position.set(2, 1, 3)
-    home.lookAt(4, 3, 0)
+    home.lookAt(0.1, -0.05, 0)
     mountedTree([home], centeredFrame)
 
     const plan = planned(buildCameraPlan(rigWith([home]), manifestWith(undefined), centeredFrame))
@@ -104,11 +119,11 @@ describe('buildCameraPlan', () => {
     if (view === undefined) {
       throw new Error('the home view must be in the plan')
     }
-    // The ray from (2,1,3) toward (4,3,0) passes closest to the origin at
-    // the origin's projection onto it, so the vector from the target to
-    // the origin is perpendicular to the ray.
+    // The ray from (2,1,3) toward (0.1,-0.05,0) passes closest to the
+    // origin at the origin's projection onto it, so the vector from the
+    // target to the origin is perpendicular to the ray.
     const [tx, ty, tz] = view.target
-    const ray: [number, number, number] = [4 - 2, 3 - 1, 0 - 3]
+    const ray: [number, number, number] = [0.1 - 2, -0.05 - 1, 0 - 3]
     const [rx, ry, rz] = ray
     const dot = -rx * tx - ry * ty - rz * tz
     expect(dot).toBeCloseTo(0, 9)
@@ -169,6 +184,7 @@ describe('buildCameraPlan', () => {
       shadow: new Object3D(),
       clip: new AnimationClip('Explode', 1, []),
       variants: [],
+      anchorRest: restsAt([0, 0, 0], ['driver']),
     }
 
     expect(brokenMessages(buildCameraPlan(rig, manifestWith(undefined), centeredFrame))).toMatch(
@@ -180,13 +196,59 @@ describe('buildCameraPlan', () => {
     const home = new PerspectiveCamera(30, 1.6, 0.05, 25)
     home.name = 'CAM_home'
     home.position.set(0, 0, 1.2)
-    // A close-up authored at the model center itself: the closest point of
-    // its view ray to the center is its own position, so it has no orbit.
+    // A close-up authored at its own anchor: the closest point of its view
+    // ray to the anchor is its own position, so it has no orbit.
     const inside = new PerspectiveCamera(30, 1.6, 0.05, 25)
     inside.name = 'CAM_driver'
     mountedTree([home, inside], centeredFrame)
 
-    const build = buildCameraPlan(rigWith([home, inside]), manifestWith(undefined), centeredFrame)
+    const build = buildCameraPlan(
+      rigWith([home, inside], restsAt([0, 0, 0], ['driver'])),
+      manifestWith(undefined),
+      centeredFrame,
+    )
     expect(brokenProblems(build).map((problem) => problem.rule)).toEqual(['view-orbit-distance'])
+  })
+
+  it('rejects a close-up whose anchor has no rest as a value, never orbiting the center', () => {
+    const home = new PerspectiveCamera(30, 1.6, 0.05, 25)
+    home.name = 'CAM_home'
+    home.position.set(0, 0, 1.2)
+    const closeUp = new PerspectiveCamera(45, 1.6, 0.05, 25)
+    closeUp.name = 'CAM_driver'
+    closeUp.position.set(0, 0, 0.8)
+    mountedTree([home, closeUp], centeredFrame)
+
+    const build = buildCameraPlan(rigWith([home, closeUp]), manifestWith(undefined), centeredFrame)
+    expect(brokenProblems(build)).toEqual([
+      {
+        rule: 'close-up-orbits-its-anchor',
+        message: 'the camera CAM_driver has no HS_driver anchor at rest to orbit',
+      },
+    ])
+  })
+
+  it('orbits a close-up around its anchor rest, moved into stage space by the frame center', () => {
+    // The anchor rests at (0.25, 0.1, 0.25) in the model's own space; the
+    // centering group moves it to (0.25, 0, 0.25) in stage space, and the
+    // close-up looking down -Z from (0.25, 0, 1) orbits it at 0.75.
+    const home = new PerspectiveCamera(30, 1.6, 0.05, 25)
+    home.name = 'CAM_home'
+    home.position.set(0, 0.1, 1.4)
+    const closeUp = new PerspectiveCamera(30, 1.6, 0.05, 25)
+    closeUp.name = 'CAM_driver'
+    closeUp.position.set(0.25, 0.1, 1)
+    mountedTree([home, closeUp])
+
+    const plan = planned(
+      buildCameraPlan(
+        rigWith([home, closeUp], restsAt([0.25, 0.1, 0.25], ['driver'])),
+        manifestWith(undefined),
+        raisedFrame,
+      ),
+    )
+
+    expect(plan.views.get('driver')?.position).toEqual([0.25, 0, 1])
+    expect(plan.views.get('driver')?.target).toEqual([0.25, 0, 0.25])
   })
 })

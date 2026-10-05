@@ -31,6 +31,7 @@ function loadedSample(): LoadedProduct {
       shadow: new Object3D(),
       clip: new AnimationClip('Explode', 1, []),
       variants: [],
+      anchorRest: new Map(),
     },
     parser: {
       json: {},

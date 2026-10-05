@@ -1,5 +1,6 @@
 import { AnimationClip, Group, Object3D, type PerspectiveCamera } from 'three'
 import type { CameraLimitProblem } from '@lib/camera/limits'
+import type { Vec3 } from '@lib/camera/view'
 import { parseProduct } from '@lib/product'
 import { sampleOneManifest } from '@lib/product/fixtures'
 import type { ModelFrame } from '../modelFrame'
@@ -17,9 +18,13 @@ export function manifestWith(camera: { minDistance?: number; maxDistance?: numbe
   return parseProduct({ ...sampleOneManifest, camera }, 'sample-one.test')
 }
 
-// A rig for the builder: only its cameras enter the plan, so the rest holds
-// minimal stand-ins.
-export function rigWith(cameras: readonly PerspectiveCamera[]): ProductRig {
+// A rig for the builder: only its cameras and the rests of the anchors its
+// close-ups orbit enter the plan, so the rest holds minimal stand-ins. A
+// rig of a home view alone has no anchor to carry.
+export function rigWith(
+  cameras: readonly PerspectiveCamera[],
+  anchorRest: ReadonlyMap<string, Vec3> = new Map(),
+): ProductRig {
   return {
     parts: new Map(),
     hotspots: [],
@@ -27,29 +32,38 @@ export function rigWith(cameras: readonly PerspectiveCamera[]): ProductRig {
     shadow: new Object3D(),
     clip: new AnimationClip('Explode', 1, []),
     variants: [],
+    anchorRest,
+  }
+}
+
+// The measured frame of a cube model: its center, and the bounds and the
+// circumscribed radius a cube of the given half edge has around it.
+export function cubeFrame(center: Vec3, halfEdge: number): ModelFrame {
+  return {
+    centerX: center[0],
+    centerY: center[1],
+    centerZ: center[2],
+    radius: Math.sqrt(3) * halfEdge,
+    meshes: 1,
+    triangles: 12,
+    min: [center[0] - halfEdge, center[1] - halfEdge, center[2] - halfEdge],
+    max: [center[0] + halfEdge, center[1] + halfEdge, center[2] + halfEdge],
   }
 }
 
 // A measured frame whose center rides 0.1 above the floor, which the
 // centering group offsets.
-export const raisedFrame: ModelFrame = {
-  centerX: 0,
-  centerY: 0.1,
-  centerZ: 0,
-  radius: 0.4,
-  meshes: 1,
-  triangles: 12,
-}
+export const raisedFrame: ModelFrame = cubeFrame([0, 0.1, 0], 0.2)
 
-// A centered frame: no centering offset, a small radius, so the views orbit
+// A centered frame: no centering offset, a small model, so the views orbit
 // the origin.
-export const centeredFrame: ModelFrame = {
-  centerX: 0,
-  centerY: 0,
-  centerZ: 0,
-  radius: 0.05,
-  meshes: 1,
-  triangles: 12,
+export const centeredFrame: ModelFrame = cubeFrame([0, 0, 0], 0.05)
+
+// The rests of the anchors the named close-ups orbit, all at one point of
+// the model's own space: a close-up whose anchor rests at the model center
+// orbits that center, as a close-up framing the whole model would.
+export function restsAt(point: Vec3, viewIds: readonly string[]): ReadonlyMap<string, Vec3> {
+  return new Map(viewIds.map((id) => [id, point]))
 }
 
 // Mounts the cameras under a centering group offset, the way the loaded

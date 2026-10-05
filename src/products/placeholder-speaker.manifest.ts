@@ -34,10 +34,10 @@ export const manifest = {
     },
   ],
   explode: { label: 'See inside' },
-  // The driver close-up orbits its target at 0.363 stage units, closer than
-  // the 0.5 ratio minimum of the home distance would allow. The authored
-  // minimum sits below that orbit distance and above the model's 0.243
-  // radius, so the close-up stays reachable and the camera never enters
-  // the model.
-  camera: { minDistance: 0.35 },
+  // The driver close-up orbits its target at 0.2957 stage units under the
+  // anchor pivot, closer than the 0.5 ratio minimum of the home distance
+  // would allow. The authored minimum sits below that orbit distance and
+  // above the model's 0.2846 reach from the pivot, so the close-up stays
+  // reachable and the camera never enters the model.
+  camera: { minDistance: 0.29 },
 } satisfies ProductInput

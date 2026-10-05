@@ -11,11 +11,12 @@ import {
 } from '@gltf-transform/extensions'
 import { authoredCameraAspect } from '../src/lib/camera/config.ts'
 import { cameraContractProblems } from '../src/lib/camera/contract.ts'
+import { viewPivotOf } from '../src/lib/camera/pivot.ts'
 import type { CameraContract } from './manifestIo.ts'
 
 // The camera contract the check suites run, as the real module export: one
 // fixture, imported by every suite that calls the camera check.
-export const cameraContract: CameraContract = { cameraContractProblems }
+export const cameraContract: CameraContract = { cameraContractProblems, viewPivotOf }
 
 // Where the fixture hotspots hang. The two kinds are distinct tags, not one
 // string, so parenting to a node literally named 'scene' stays expressible
@@ -224,4 +225,19 @@ export function nodeNamed(doc: Document, name: string): GltfNode {
     throw new Error(`the fixture node ${name} is missing`)
   }
   return node
+}
+
+// Hangs the named node under an unnamed wrapper, the kind quantization
+// inserts, whose scale overflows the node's world matrix to infinity: a
+// node whose rest position cannot be read.
+export function hangUnreadable(doc: Document, name: string): void {
+  const node = nodeNamed(doc, name)
+  const parent = node.getParentNode()
+  if (parent === null) {
+    throw new Error(`the fixture ${name} hangs in the scene root`)
+  }
+  const wrapper = doc.createNode('').setScale([Number.MAX_VALUE, 1, 1])
+  parent.removeChild(node)
+  parent.addChild(wrapper)
+  wrapper.addChild(node.setTranslation([Number.MAX_VALUE, 0, 0]))
 }

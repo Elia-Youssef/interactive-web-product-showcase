@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { OverlayElement } from './StageOverlay'
+import type { OverlayElement, OverlayPassPhase } from './StageOverlay'
 import { StageOverlay } from './StageOverlay'
 
 function element(): OverlayElement {
@@ -102,7 +102,7 @@ describe('StageOverlay', () => {
       const a = overlay.placementOf('a')
       const b = overlay.placementOf('b')
       seen.push(`${a?.kind ?? 'none'} ${b?.kind ?? 'none'}`)
-    })
+    }, 'presenter')
 
     overlay.pass({ width: 800, height: 600 }, (place) => {
       place('a', { kind: 'placed', x: 1, y: 2 })
@@ -161,12 +161,85 @@ describe('StageOverlay', () => {
     let runs = 0
     const release = overlay.onPass(() => {
       runs += 1
-    })
+    }, 'observer')
     overlay.pass({ width: 1, height: 1 }, () => {})
     release()
     overlay.pass({ width: 1, height: 1 }, () => {})
 
     expect(runs).toBe(1)
     expect(() => release()).toThrow('stale')
+  })
+
+  // The pass order over every way the listeners can have subscribed: the
+  // presenters in their subscription order, then the observers in theirs,
+  // so an observer reads what every presenter placed, even one that
+  // subscribed before it or subscribed again after a resize released it.
+  const orderRows: readonly {
+    readonly name: string
+    readonly subscriptions: readonly (readonly [string, OverlayPassPhase])[]
+    readonly order: readonly string[]
+  }[] = [
+    {
+      name: 'a presenter subscribed first runs before an observer',
+      subscriptions: [
+        ['card', 'presenter'],
+        ['probe', 'observer'],
+      ],
+      order: ['card', 'probe'],
+    },
+    {
+      name: 'an observer subscribed first still runs after a presenter',
+      subscriptions: [
+        ['probe', 'observer'],
+        ['card', 'presenter'],
+      ],
+      order: ['card', 'probe'],
+    },
+    {
+      name: 'presenters and observers each keep their own subscription order',
+      subscriptions: [
+        ['probe-1', 'observer'],
+        ['card-1', 'presenter'],
+        ['probe-2', 'observer'],
+        ['card-2', 'presenter'],
+      ],
+      order: ['card-1', 'card-2', 'probe-1', 'probe-2'],
+    },
+  ]
+
+  it.each(orderRows)('$name', ({ subscriptions, order }) => {
+    const overlay = new StageOverlay()
+    const ran: string[] = []
+    for (const [name, phase] of subscriptions) {
+      overlay.onPass(() => ran.push(name), phase)
+    }
+
+    overlay.pass({ width: 1, height: 1 }, () => {})
+
+    expect(ran).toEqual(order)
+  })
+
+  it('runs a presenter that subscribed again after an observer before that observer', () => {
+    const overlay = new StageOverlay()
+    const ran: string[] = []
+    const releaseCard = overlay.onPass(() => ran.push('card'), 'presenter')
+    overlay.onPass(() => ran.push('probe'), 'observer')
+    releaseCard()
+    overlay.onPass(() => ran.push('card'), 'presenter')
+
+    overlay.pass({ width: 1, height: 1 }, () => {})
+
+    expect(ran).toEqual(['card', 'probe'])
+  })
+
+  it('lets an observer read what a presenter placed in the same pass', () => {
+    const overlay = new StageOverlay()
+    const seen: string[] = []
+    overlay.onPass(() => seen.push(overlay.placementOf('card')?.kind ?? 'none'), 'observer')
+    overlay.onPass(() => overlay.place('card', { kind: 'placed', x: 5, y: 6 }), 'presenter')
+
+    overlay.pass({ width: 1, height: 1 }, () => {})
+
+    expect(seen).toEqual(['placed'])
   })
 })

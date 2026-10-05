@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { angleReadoutText, zoomReadoutText } from './stage-controls.logic'
+import { angleReadoutText, zoomReadoutText } from './stageReadouts'
 
 describe('angleReadoutText', () => {
   it('formats whole degrees over the full turn', () => {

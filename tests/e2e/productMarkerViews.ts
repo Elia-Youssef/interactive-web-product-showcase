@@ -4,6 +4,7 @@ import { projectToStageBox, viewDepthOf } from './hotspotPlacement'
 import type { AuthoredView, ProductCameraFacts } from './productCamera'
 import type { ProductHotspotFacts } from './productHotspots'
 import { isBlocked } from './productMesh'
+import type { Mesh } from 'three'
 import { containedScale } from './stageCamera'
 
 // Which markers the shipped model shows from its views on one stage,
@@ -102,8 +103,18 @@ function turnedView(view: AuthoredView, angle: number): AuthoredView {
   return { ...view, position, azimuthDegrees: view.azimuthDegrees + (angle * 180) / Math.PI }
 }
 
-function markersShownIn(
-  facts: ProductHotspotFacts,
+// The anchors and the occluders the visibility rule reads, in stage space:
+// the shipped model at rest (the hotspot facts), or posed at one explode
+// progress.
+export type MarkerScene = {
+  readonly hotspots: readonly { readonly id: string; readonly stagePosition: vec3 }[]
+  readonly occluders: Mesh[]
+}
+
+// The markers one view shows of the scene on the stage, by the runtime's
+// visibility rule restated (see markerViewsOf).
+export function markersShownIn(
+  facts: MarkerScene,
   view: AuthoredView,
   stage: MarkerStage,
 ): ReadonlySet<string> {

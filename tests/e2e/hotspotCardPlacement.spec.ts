@@ -2,6 +2,9 @@ import { expect, test } from './fixtures'
 import type { Page } from '@playwright/test'
 import { siteCopy } from '../../src/lib/copy/site'
 import { waitForProductReady } from './productSpecs'
+import { waitForExplodeRestingAt } from './explodeRest'
+import { readMarkerExtentTokens } from './markerExtentTokens'
+import { readScrubMarkerFacts, SCRUB_TARGETS } from './scrubMarkerFacts'
 import { loadCollection } from './productList'
 import { settledFrames } from './stageSettle'
 import { expectOrbitAtRest, readCamera, stageAspectOfCanvas } from './stageCamera'
@@ -20,8 +23,13 @@ import { expectMarkerClearOfCard, placedMarkerTitles } from './hotspotCardChecks
 // lands on it, its focus ring is drawn where the card is not) and the open
 // marker stays selected. Where the layout floats cards, a floating card
 // hangs beside its marker inside the stage; where it docks them (the
-// phone's sheet), the card is in the panel. A close-up hotspot is open at
-// home after Reset, which returns the camera home and keeps the card open.
+// phone's sheet), the card is in the panel. A close-up hotspot opens at
+// home the way the flow allows it: close-ups apply only to the assembled
+// product, so the hotspot opened while the product is scrubbed fully open
+// opens its card with no camera move, and scrubbing back to the assembled
+// pose moves no camera either, which leaves the card open at home with the
+// product assembled. That path needs the marker shown at the fully
+// exploded pose on the layout's stage, by the scrub facts.
 //
 // The app page presents the collection's first product, so the cases run
 // for every product it can present. A marker shows only while its keep-out
@@ -33,13 +41,16 @@ import { expectMarkerClearOfCard, placedMarkerTitles } from './hotspotCardChecks
 
 const collection = await loadCollection()
 const { flowsAt, markerViewsAt } = await flowFacts()
+const extent = await readMarkerExtentTokens()
+const explodeLabel = collection.first.explode.label ?? siteCopy.defaultExplodeLabel
 
 type OpenView = {
   readonly name: string
   // The authored view the camera rests at with the card open.
   readonly view: AuthoredView
-  // Presses Reset after opening: the close-up hotspot open at home.
-  readonly viaReset: boolean
+  // Opens the hotspot with the product exploded and then reassembles it:
+  // the close-up hotspot open at home.
+  readonly openedExploded: boolean
 }
 
 // The markers the open view shows: the hotspot's close-up when the case
@@ -52,12 +63,38 @@ function shownIn(markerViews: MarkerViews, open: OpenView, hotspotId: string): R
   return shown
 }
 
-function openViewsOf(flow: HotspotFlow, hotspotId: string): readonly OpenView[] {
+// The views a hotspot can be open at, and how the flow reaches each: a
+// plain hotspot opens at home, a close-up hotspot at its close-up, and at
+// home when its marker shows at the fully exploded pose, where it is
+// opened before the product reassembles.
+function openViewsOf(
+  flow: HotspotFlow,
+  hotspotId: string,
+  shownExploded: ReadonlySet<string>,
+): readonly OpenView[] {
   const closeUp = flow.subject.viewOf(hotspotId)
-  const home = { name: 'home', view: flow.subject.viewFacts.home, viaReset: closeUp !== null }
-  return closeUp === null
-    ? [home]
-    : [{ name: 'its close-up', view: closeUp, viaReset: false }, home]
+  const home = { name: 'home', view: flow.subject.viewFacts.home, openedExploded: false }
+  if (closeUp === null) {
+    return [home]
+  }
+  const atCloseUp = { name: 'its close-up', view: closeUp, openedExploded: false }
+  return shownExploded.has(hotspotId) ? [atCloseUp, { ...home, openedExploded: true }] : [atCloseUp]
+}
+
+// The hotspots whose markers home shows at the fully exploded pose on the
+// stage, by the scrub facts' last target.
+async function shownExplodedAt(
+  flow: HotspotFlow,
+  box: Parameters<typeof readScrubMarkerFacts>[3]['box'],
+): Promise<ReadonlySet<string>> {
+  const facts = await readScrubMarkerFacts(
+    flow.subject.product,
+    flow.subject.viewFacts.center,
+    flow.subject.viewFacts.home,
+    { box, extent },
+  )
+  const last = SCRUB_TARGETS.length - 1
+  return new Set([...facts].filter(([, shown]) => shown[last] === true).map(([id]) => id))
 }
 
 for (const contract of viewportContracts) {
@@ -66,17 +103,25 @@ for (const contract of viewportContracts) {
   if (markerViews === undefined) {
     throw new Error(`no marker views for ${collection.first.slug}`)
   }
-  const cases = flowsAt(stage)
-    .filter((flow) => flow.subject.product.slug === collection.first.slug)
-    .flatMap((flow) =>
-      flow.subject.product.hotspots
-        .filter((hotspot) => markerViews.home.has(hotspot.id))
-        .flatMap((hotspot) =>
-          openViewsOf(flow, hotspot.id)
-            .filter((open) => shownIn(markerViews, open, hotspot.id).has(hotspot.id))
-            .map((open) => ({ flow, hotspot, open })),
-        ),
-    )
+  const flows = flowsAt(stage).filter((flow) => flow.subject.product.slug === collection.first.slug)
+  const cases: {
+    readonly flow: HotspotFlow
+    readonly hotspot: HotspotFlow['subject']['product']['hotspots'][number]
+    readonly open: OpenView
+  }[] = []
+  for (const flow of flows) {
+    const shownExploded = await shownExplodedAt(flow, stage)
+    for (const hotspot of flow.subject.product.hotspots) {
+      if (!markerViews.home.has(hotspot.id)) {
+        continue
+      }
+      for (const open of openViewsOf(flow, hotspot.id, shownExploded)) {
+        if (shownIn(markerViews, open, hotspot.id).has(hotspot.id)) {
+          cases.push({ flow, hotspot, open })
+        }
+      }
+    }
+  }
   if (cases.length === 0) {
     throw new Error(
       `no hotspot of ${collection.first.slug} opens on the ${contract.width}x${contract.height} stage at a view that shows its marker`,
@@ -95,13 +140,26 @@ for (const contract of viewportContracts) {
       await waitForProductReady(page)
       await settledFrames(page)
 
+      // The scrub sets the explode by its value, so no click on panel
+      // content can land on a layout the docking card is still shifting.
+      const explodeScrub = page.getByRole('slider', { name: explodeLabel })
+      if (open.openedExploded) {
+        await explodeScrub.fill('1')
+        await waitForExplodeRestingAt(page, 1)
+      }
       await markerOf(page, hotspot.title).click()
       await expect(cardHeadingOf(page, hotspot.title)).toBeVisible()
-      if (open.viaReset) {
-        await settledFrames(page)
-        await page.getByRole('button', { name: siteCopy.resetLabel }).click()
+      if (open.openedExploded) {
+        await explodeScrub.fill('0')
+        await waitForExplodeRestingAt(page, 0)
       }
       await settledFrames(page)
+      if (open.openedExploded) {
+        // The scrub is panel content, so using it scrolls the panel to it,
+        // as it would for a visitor, who scrolls back to the open card once
+        // the stage rests, wherever the card's slot settled.
+        await cardHeadingOf(page, hotspot.title).scrollIntoViewIfNeeded()
+      }
       await expectAtView(page, flow, open)
 
       await expect(

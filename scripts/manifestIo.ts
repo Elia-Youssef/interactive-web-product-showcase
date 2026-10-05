@@ -9,11 +9,11 @@
 //   module resolves its own imports without extensions for the browser
 //   bundle, which plain Node cannot execute, so it goes through jiti, the
 //   TypeScript loader the tooling already carries.
-// - loadCameraContract loads the camera contract's rule assembly the same
-//   way: it is the one camera module whose import tree carries
-//   extensionless imports. The camera modules with no such import (the
-//   authored data, the frame function) the scripts import natively, so no
-//   module loads two ways in one run.
+// - loadCameraContract loads the camera contract's rule assembly and its
+//   pivot rule the same way: they are the camera modules whose import trees
+//   carry extensionless imports. The camera modules with no such import
+//   (the authored data, the frame function, the view geometry) the scripts
+//   import natively, so no module loads two ways in one run.
 //
 // The jiti loaders read their export through one boundary guard: the
 // module's shape is never trusted, so a module of the wrong shape fails
@@ -23,6 +23,7 @@ import { pathToFileURL } from 'node:url'
 import { createJiti } from 'jiti'
 import type { parseProduct } from '../src/lib/product/index.ts'
 import type { cameraContractProblems } from '../src/lib/camera/contract.ts'
+import type { viewPivotOf } from '../src/lib/camera/pivot.ts'
 import { isMissingFileError } from './fsErrors.ts'
 
 export type ParseProduct = typeof parseProduct
@@ -117,13 +118,18 @@ export async function loadParseProduct(): Promise<ParseProduct> {
 // scripts import natively instead.
 export type CameraContract = {
   readonly cameraContractProblems: typeof cameraContractProblems
+  readonly viewPivotOf: typeof viewPivotOf
 }
 
-// The boundary guard kind: a function. The narrowed signature is the camera
-// domain module's own contract, pinned by its unit tests.
+// The boundary guard kinds: a function. The narrowed signatures are the
+// camera domain modules' own contracts, pinned by their unit tests.
 function isContractProblemsFunction(
   value: unknown,
 ): value is CameraContract['cameraContractProblems'] {
+  return typeof value === 'function'
+}
+
+function isViewPivotFunction(value: unknown): value is CameraContract['viewPivotOf'] {
   return typeof value === 'function'
 }
 
@@ -139,16 +145,18 @@ function contractExport<T>(
   return value.value
 }
 
-// Loads the camera contract's rule assembly from its own module.
+// Loads the camera contract's rule assembly and its pivot rule, each from
+// its own module.
 export async function loadCameraContract(): Promise<CameraContract> {
   const jiti = createJiti(import.meta.url)
-  const cameraFile = '../src/lib/camera/contract.ts'
-  const module: unknown = await jiti.import(cameraFile)
+  const contractModule: unknown = await jiti.import('../src/lib/camera/contract.ts')
+  const pivotModule: unknown = await jiti.import('../src/lib/camera/pivot.ts')
   return {
     cameraContractProblems: contractExport(
-      module,
+      contractModule,
       'cameraContractProblems',
       isContractProblemsFunction,
     ),
+    viewPivotOf: contractExport(pivotModule, 'viewPivotOf', isViewPivotFunction),
   }
 }

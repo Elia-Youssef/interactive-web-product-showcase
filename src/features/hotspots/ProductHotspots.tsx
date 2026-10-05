@@ -7,7 +7,7 @@ import { useLoadedProduct, type LoadedProduct } from '@viewer/product/loadedProd
 import { usePresentedFrame } from '@viewer/stageFrameContext'
 import { useStageOverlay } from '@viewer/overlay/stageOverlayContext'
 import { collectOccluders } from './occluders'
-import { readMarkerExtent } from './cardLayout'
+import { readMarkerExtent } from '@lib/hotspots/cardLayout'
 import { MarkerExtentSource } from './markerExtentSource'
 import { HotspotPlacer } from './placer'
 

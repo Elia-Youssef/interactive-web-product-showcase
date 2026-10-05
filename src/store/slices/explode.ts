@@ -1,6 +1,7 @@
 import {
   applyExplodeEvent,
   applyExplodeReadoutEvent,
+  explodeTargetOf,
   initialExplodeReadout,
   initialExplodeStatus,
   type ExplodeEvent,
@@ -17,11 +18,13 @@ export type ExplodeSliceState = {
   explodeReadout: ExplodeReadout
 }
 
+// The presented view's lifetime and its published readout. The toggle and
+// the scrub, which move the target, are composed actions of the store
+// (createAppStore), because leaving the assembled pose is also a hotspot
+// flow event, written in the same update.
 export type ExplodeSlice = ExplodeSliceState & {
   explodeAttach: (product: string) => void
   explodeDetach: (product: string) => void
-  explodeToggle: (product: string) => void
-  explodeScrub: (product: string, target: number) => void
   explodePublishReadout: (event: ExplodeReadoutEvent) => void
 }
 
@@ -39,8 +42,6 @@ export function createExplodeSlice(set: SetExplodeState): ExplodeSlice {
     explodeReadout: initialExplodeReadout,
     explodeAttach: (product) => apply({ kind: 'attached', product }),
     explodeDetach: (product) => apply({ kind: 'detached', product }),
-    explodeToggle: (product) => apply({ kind: 'toggled', product }),
-    explodeScrub: (product, target) => apply({ kind: 'scrubbed', product, target }),
     explodePublishReadout: (event) => {
       set((state) => ({ explodeReadout: applyExplodeReadoutEvent(state.explodeReadout, event) }))
     },
@@ -68,8 +69,7 @@ export function selectExplodeAttached(state: ExplodeSliceState, product: string)
 // The target progress of one product's exploded view, 0 while it has no
 // attached view.
 export function selectExplodeTarget(state: ExplodeSliceState, product: string): number {
-  const status = state.explodeStatus
-  return status.kind === 'active' && status.product === product ? status.target : 0
+  return explodeTargetOf(state.explodeStatus, product)
 }
 
 // Whether one product's exploded view counts as open, false while it has

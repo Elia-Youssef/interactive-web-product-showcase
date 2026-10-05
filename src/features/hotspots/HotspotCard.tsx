@@ -5,7 +5,7 @@ import { siteCopy } from '@lib/copy/site'
 import { Card } from '@ui/index'
 import type { StageOverlay } from '@viewer/overlay/StageOverlay'
 import type { CardSlot, HotspotCardPresenter } from './HotspotCardPresenter'
-import { CARD_OVERLAY_KEY } from './hotspotKeys'
+import { CARD_OVERLAY_KEY } from '@lib/hotspots/hotspotKeys'
 import styles from './HotspotCard.module.css'
 
 export type HotspotCardProps = {

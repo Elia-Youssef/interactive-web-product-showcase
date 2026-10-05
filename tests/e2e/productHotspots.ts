@@ -4,7 +4,9 @@ import { getBounds, type mat4, type Node as GltfNode, type vec3 } from '@gltf-tr
 import type { Product } from '../../src/lib/product'
 import { HOTSPOT_PREFIX } from '../../src/lib/product/contractNames.ts'
 import { createModelIO } from '../../scripts/modelIo.ts'
-import { isBlocked, readOccluderMeshes, type Triangle } from './productMesh'
+import { isBlocked, readOccluderMeshes } from './productMesh'
+import type { Mesh } from 'three'
+import { parseDocumentWithLoader } from './productGltf'
 
 // The authored hotspot facts of a shipped product, computed in Node straight
 // from the `.glb` the site ships. The spec derives its geometry expectations
@@ -34,9 +36,9 @@ export type ProductHotspotFacts = {
   // The bounds of the occluding meshes, the shadow plane excluded, in stage
   // space: the body the occlusion argument is checked against.
   readonly occluderBounds: { readonly min: vec3; readonly max: vec3 }
-  // The occluding meshes' stage-space triangles, the ones the runtime's
+  // The occluding meshes in stage space, the ones the runtime's
   // occluder raycast sees.
-  readonly occluders: readonly Triangle[]
+  readonly occluders: Mesh[]
 }
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url))
@@ -78,7 +80,7 @@ export async function readProductHotspotFacts(
     (sceneBounds.min[1] + sceneBounds.max[1]) / 2,
     (sceneBounds.min[2] + sceneBounds.max[2]) / 2,
   ]
-  const meshes = readOccluderMeshes(doc, center)
+  const meshes = readOccluderMeshes((await parseDocumentWithLoader(doc)).scene, center)
 
   // The authored home view: its orbit target and distance, which the hiding
   // height's orbit poses hang from.
@@ -97,7 +99,7 @@ export async function readProductHotspotFacts(
       id: anchor.id,
       stagePosition: anchor.stagePosition,
       hidingHeightM: hidingHeightFor(anchor.stagePosition, others, {
-        triangles: meshes.triangles,
+        meshes: meshes.meshes,
         homeTarget,
         homeDistance,
       }),
@@ -107,7 +109,7 @@ export async function readProductHotspotFacts(
   return {
     hotspots,
     occluderBounds: { min: meshes.min, max: meshes.max },
-    occluders: meshes.triangles,
+    occluders: meshes.meshes,
   }
 }
 
@@ -200,7 +202,7 @@ function widestRunMiddle(holding: readonly number[]): number | null {
 // The orbit poses of one hiding-height candidate: the camera origin per
 // distance factor and azimuth offset, and the rays they cast.
 type HidingContext = {
-  readonly triangles: readonly Triangle[]
+  readonly meshes: Mesh[]
   readonly homeTarget: vec3
   readonly homeDistance: number
 }
@@ -223,11 +225,11 @@ function hidesAnchorButOthers(
         height,
         context.homeTarget[2] + horizontal * Math.cos(viewAzimuth),
       ]
-      if (!isBlocked(origin, anchor, context.triangles)) {
+      if (!isBlocked(origin, anchor, context.meshes)) {
         return false
       }
       for (const other of others) {
-        if (isBlocked(origin, other.stagePosition, context.triangles)) {
+        if (isBlocked(origin, other.stagePosition, context.meshes)) {
           return false
         }
       }

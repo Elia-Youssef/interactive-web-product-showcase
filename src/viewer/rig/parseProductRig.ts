@@ -9,6 +9,7 @@ import {
   type Product,
   type RigProblem,
 } from '@lib/product'
+import { anchorRestsOf } from './anchorRest'
 import { jsonNodeNames } from './gltfJson'
 import type { ProductRig, ProductHotspot } from './productRig'
 
@@ -46,6 +47,8 @@ export type RigParse =
 // Parses the loaded product into its rig, or reports every contract problem
 // the model has, listed at once. This is the runtime guarantee every later
 // feature reads; the validate step checks the same contract at build time.
+// The parse runs on the loaded scene before anything poses it, so the rig
+// carries the anchors' authored rest positions.
 //
 // The contract names are the node table of the glTF JSON, the same facts
 // the validate step reads. The runtime graph cannot be trusted for them
@@ -76,6 +79,7 @@ export function parseProductRig(source: ProductSource, manifest: Product): RigPa
       shadow: present(shadow, 'the shadow node'),
       clip: present(clip, 'the explode clip'),
       variants: readVariantNames(source.json),
+      anchorRest: anchorRestsOf(source.scene, hotspots),
     },
   }
 }

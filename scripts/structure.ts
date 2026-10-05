@@ -8,7 +8,8 @@ import { KHRMaterialsVariants, type MappingList } from '@gltf-transform/extensio
 import { HOTSPOT_PREFIX } from '../src/lib/product/contractNames.ts'
 import { readCameraFacts, readGeometryFacts, readMeshBoxes } from './modelFacts.ts'
 import type { CameraFact, GeometryFacts } from './modelFacts.ts'
-import type { MeshBox } from '../src/lib/camera/frame.ts'
+import { isMat4, transformPointOf } from '../src/lib/camera/frame.ts'
+import type { MeshBox, Vec3 } from '../src/lib/camera/frame.ts'
 
 // The extension a file must carry to prove the optimize step ran its
 // Meshopt pass. The reader decodes the compressed accessors, so the
@@ -21,6 +22,11 @@ export type HotspotAnchor = {
   // The nearest named ancestor: the PART_ node the hotspot rides with.
   // null when the hotspot hangs directly in the scene root.
   parentName: string | null
+  // The anchor's rest position, in the document's model space: the origin
+  // of its world matrix as the document authors it, before any animation.
+  // null when the world matrix is not a finite 4x4 matrix, which the
+  // hotspot check reports, so the position is never guessed.
+  restPosition: Vec3 | null
 }
 
 export type ProductStructure = {
@@ -99,13 +105,7 @@ export function readProductStructure(doc: Document): ProductStructure {
       .listNodes()
       .map((node) => node.getName())
       .filter((name) => name !== ''),
-    hotspotAnchors: root
-      .listNodes()
-      .filter(isHotspotNode)
-      .map((node) => ({
-        name: node.getName(),
-        parentName: nearestNamedAncestor(node),
-      })),
+    hotspotAnchors: readHotspotAnchors(doc),
     cameraNames: cameraFacts.map((fact) => fact.name),
     variantNames: variantsExtension.listVariants().map((variant) => variant.getName()),
     mappingCount: readMappingCount(doc),
@@ -119,6 +119,45 @@ export function readProductStructure(doc: Document): ProductStructure {
     geometry: readGeometryFacts(doc),
     meshBoxes: readMeshBoxes(doc),
   }
+}
+
+// Every HS_ node of the document, in node order, with the part it rides
+// and its rest position.
+export function readHotspotAnchors(doc: Document): HotspotAnchor[] {
+  return doc
+    .getRoot()
+    .listNodes()
+    .filter(isHotspotNode)
+    .map((node) => ({
+      name: node.getName(),
+      parentName: nearestNamedAncestor(node),
+      restPosition: restPositionOf(node),
+    }))
+}
+
+// The rest position of a node: its world matrix's origin, read only from a
+// finite 4x4 matrix. The transform is the shared point transform every
+// document fact uses, so an anchor reads the way a camera position does.
+function restPositionOf(node: Node): Vec3 | null {
+  const matrix = node.getWorldMatrix()
+  if (!isMat4(matrix) || !matrix.every((element) => Number.isFinite(element))) {
+    return null
+  }
+  return transformPointOf(matrix, [0, 0, 0])
+}
+
+// The rest position of every hotspot anchor with a readable one, keyed by
+// the hotspot id after the HS_ prefix: the anchors the close-up views
+// orbit. An anchor without a readable rest is left out, so the pivot rule
+// reports its close-up instead of orbiting a guessed point.
+export function anchorRestsOf(anchors: readonly HotspotAnchor[]): ReadonlyMap<string, Vec3> {
+  const rests = new Map<string, Vec3>()
+  for (const anchor of anchors) {
+    if (anchor.restPosition !== null) {
+      rests.set(anchor.name.slice(HOTSPOT_PREFIX.length), anchor.restPosition)
+    }
+  }
+  return rests
 }
 
 function countByName(anchors: readonly HotspotAnchor[]): Map<string, number> {

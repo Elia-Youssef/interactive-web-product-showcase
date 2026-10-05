@@ -21,7 +21,7 @@ export function useHotspotSelectionEffects({
   readonly selected: string | null
   readonly close: () => void
 }): void {
-  const hotspotCleared = useAppStore((state) => state.hotspotCleared)
+  const hotspotLeft = useAppStore((state) => state.hotspotLeft)
 
   useEffect(() => {
     if (selected === null) {
@@ -41,7 +41,7 @@ export function useHotspotSelectionEffects({
       return
     }
     return () => {
-      hotspotCleared(slug)
+      hotspotLeft(slug)
     }
-  }, [presented, slug, hotspotCleared])
+  }, [presented, slug, hotspotLeft])
 }

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { orbitAnglesOf, orbitViewOfAuthoredCamera, positionOfOrbitAngles, type Vec3 } from './view'
+import {
+  orbitAnglesOf,
+  orbitViewOfAuthoredCamera,
+  pivotDepthOf,
+  positionOfOrbitAngles,
+  type Vec3,
+} from './view'
 
 // The conventions are the ones the camera controls use: azimuth around +Y
 // from +Z, polar from +Y. The tests hold them against independently
@@ -47,6 +53,74 @@ describe('orbitViewOfAuthoredCamera', () => {
     const view = orbitViewOfAuthoredCamera({ position, forward, fovY: 1 }, [0, 0, 0])
 
     expect(view.target).toEqual([0, 0, 0])
+  })
+
+  // One function serves every pivot: the model center for home and an
+  // anchor's rest for a close-up are the same projection onto the ray. The
+  // depth is how far ahead of the camera the pivot projects; a negative
+  // depth puts the target behind the eye, which the geometry rule rejects.
+  const rows: readonly {
+    readonly name: string
+    readonly position: Vec3
+    readonly forward: Vec3
+    readonly pivot: Vec3
+    readonly target: Vec3
+    readonly depth: number
+  }[] = [
+    {
+      name: 'a pivot off the ray projects onto it',
+      position: [2, 1, 3],
+      forward: [0, 0, -1],
+      pivot: [4, 3, 0],
+      target: [2, 1, 0],
+      depth: 3,
+    },
+    {
+      name: 'an anchor beside the ray and ahead of the camera',
+      position: [0, 2, 4],
+      forward: [0, 0, -1],
+      pivot: [1.5, 0.5, 1],
+      target: [0, 2, 1],
+      depth: 3,
+    },
+    {
+      name: 'an anchor below a downward ray',
+      position: [1, 1, 1],
+      forward: [0, -1, 0],
+      pivot: [2, -2, 3],
+      target: [1, -2, 1],
+      depth: 3,
+    },
+    {
+      name: 'an anchor on the ray is its own projection',
+      position: [0, 0, 5],
+      forward: [0, 0, -1],
+      pivot: [0, 0, 1],
+      target: [0, 0, 1],
+      depth: 4,
+    },
+    {
+      name: 'an anchor behind the camera projects behind the eye',
+      position: [0, 0, 5],
+      forward: [0, 0, -1],
+      pivot: [2, 3, 9],
+      target: [0, 0, 9],
+      depth: -4,
+    },
+    {
+      name: 'an anchor at a right angle to the ray projects onto the camera',
+      position: [1, 2, 3],
+      forward: [0, 1, 0],
+      pivot: [4, 2, 8],
+      target: [1, 2, 3],
+      depth: 0,
+    },
+  ]
+
+  it.each(rows)('$name', ({ position, forward, pivot, target, depth }) => {
+    const ray = { position, forward, fovY: 0.5 }
+    expect(orbitViewOfAuthoredCamera(ray, pivot).target).toEqual(target)
+    expect(pivotDepthOf(ray, pivot)).toBe(depth)
   })
 })
 

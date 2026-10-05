@@ -1,7 +1,7 @@
 import { expect, test } from './fixtures'
 import type { Locator, Page } from '@playwright/test'
 import { siteCopy } from '../../src/lib/copy/site'
-import { zoomReadoutText } from '../../src/features/stage-controls/stage-controls.logic'
+import { zoomReadoutText } from '../../src/lib/copy/stageReadouts'
 import { loadCollection } from './productList'
 import { readProductCameraFacts } from './productCamera'
 import { waitForProductReady } from './productSpecs'

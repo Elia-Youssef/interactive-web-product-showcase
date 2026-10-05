@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { viewGeometryProblems } from './geometry'
-import type { AuthoredCameraRay, Vec3 } from './view'
+import type { AuthoredCameraRay, ViewPivot } from './view'
 
-const CENTER: Vec3 = [0, 0, 0]
+const MODEL_CENTER: ViewPivot = { point: [0, 0, 0], subject: 'the model center' }
 
 // A sound view: in front of the model, looking at it.
 const SOUND: AuthoredCameraRay = { position: [0, 0, 4], forward: [0, 0, -1], fovY: 0.5 }
 
-function problemsOf(ray: AuthoredCameraRay) {
-  return viewGeometryProblems({ id: 'driver', ray }, CENTER)
+function problemsOf(ray: AuthoredCameraRay, pivot: ViewPivot = MODEL_CENTER) {
+  return viewGeometryProblems({ id: 'driver', ray, pivot })
 }
 
 type Row = {
@@ -69,7 +69,7 @@ const rows: Row[] = [
   },
   {
     name: 'a non-finite orbit distance from a target that overflows it',
-    ray: { position: [0, 0, Number.MAX_VALUE], forward: [0, 0, 1], fovY: 0.5 },
+    ray: { position: [0, 0, -Number.MAX_VALUE], forward: [0, 0, 1], fovY: 0.5 },
     expected: [
       { rule: 'finite-views', message: 'the camera CAM_driver has a non-finite orbit distance' },
     ],
@@ -87,9 +87,62 @@ const rows: Row[] = [
   },
 ]
 
+// The pivot the orbit target is projected from must project in front of
+// the camera: behind it the target would sit behind the eye, beside it the
+// camera would orbit its own position. Each problem names the pivot.
+const anchorRows: readonly {
+  readonly name: string
+  readonly pivot: ViewPivot
+  readonly expected: readonly { readonly rule: string; readonly message: string }[]
+}[] = [
+  {
+    name: 'an anchor in front of the camera',
+    pivot: { point: [0.2, 0.1, 1], subject: 'the HS_driver anchor' },
+    expected: [],
+  },
+  {
+    name: 'an anchor just in front of the camera',
+    pivot: { point: [0.5, 0, 3.999], subject: 'the HS_driver anchor' },
+    expected: [],
+  },
+  {
+    name: 'an anchor behind the camera',
+    pivot: { point: [1, 2, 6], subject: 'the HS_driver anchor' },
+    expected: [
+      {
+        rule: 'view-pivot-ahead',
+        message:
+          'the camera CAM_driver orbits the HS_driver anchor, which projects 2 behind it on its view ray',
+      },
+    ],
+  },
+  {
+    name: 'an anchor beside the camera, at a right angle to its ray',
+    pivot: { point: [1, 0, 4], subject: 'the HS_driver anchor' },
+    expected: [
+      {
+        rule: 'view-orbit-distance',
+        message:
+          'the camera CAM_driver orbits its own position: its view ray passes the HS_driver anchor at a right angle',
+      },
+    ],
+  },
+  {
+    name: 'a non-finite anchor',
+    pivot: { point: [0, Number.NaN, 1], subject: 'the HS_driver anchor' },
+    expected: [
+      { rule: 'finite-views', message: 'the camera CAM_driver has a non-finite orbit target' },
+    ],
+  },
+]
+
 describe('viewGeometryProblems', () => {
   it.each(rows)('$name', ({ ray, expected }) => {
     expect(problemsOf(ray)).toEqual(expected)
+  })
+
+  it.each(anchorRows)('$name', ({ pivot, expected }) => {
+    expect(problemsOf(SOUND, pivot)).toEqual(expected)
   })
 
   it('reports every broken authored fact once, before any derived orbit fact', () => {

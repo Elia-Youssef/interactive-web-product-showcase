@@ -41,13 +41,17 @@ export type CameraLimitProblem = {
   readonly message: string
 }
 
-// The orbit angles of one named view: the CAM_ identity a problem names,
-// and the two values the limit rules check. Every view of the plan is
-// checked, the home view included.
+// The orbit numbers of one named view: the CAM_ identity a problem names,
+// the orbit distance and polar angle the limit rules check, the model's
+// reach from the view's orbit target (its farthest point from it), and
+// what the target was projected from, as the reach rule names it. Every
+// view of the plan is checked, the home view included.
 export type ViewOrbit = {
   readonly id: string
   readonly distance: number
   readonly polar: number
+  readonly reach: number
+  readonly pivot: string
 }
 
 // The distance limits of a product: each authored side wins; a side the
@@ -78,13 +82,10 @@ function degreesToRadians(degrees: number): number {
 }
 
 // The distance rules: every view's orbit distance must lie within [min, max]
-// (a view exactly at a limit is within), and the minimum must exceed the
-// model frame's radius, so the camera never enters the model. A problem
-// names the view it failed on.
+// (a view exactly at a limit is within). A problem names the view it failed on.
 export function distanceLimitProblems(
   range: DistanceRange,
   views: readonly ViewOrbit[],
-  radius: number,
 ): readonly CameraLimitProblem[] {
   const problems: CameraLimitProblem[] = []
   for (const view of views) {
@@ -94,12 +95,6 @@ export function distanceLimitProblems(
         message: `the CAM_${view.id} distance ${view.distance} lies outside the distance limits [${range.min}, ${range.max}]`,
       })
     }
-  }
-  if (range.min <= radius) {
-    problems.push({
-      rule: 'minimum-clears-the-model',
-      message: `the minimum distance ${range.min} does not exceed the model radius ${radius}`,
-    })
   }
   return problems
 }
@@ -117,6 +112,31 @@ export function polarLimitProblems(
       problems.push({
         rule: 'view-within-polar-limits',
         message: `the CAM_${view.id} polar angle ${view.polar} lies outside the polar limits [${polar.min}, ${polar.max}]`,
+      })
+    }
+  }
+  return problems
+}
+
+// The reach rule: for every view, home included, the minimum distance must
+// exceed the model's farthest point from that view's orbit target, so no
+// orbit or dolly within the limits can bring the camera into the product.
+// A minimum exactly at the reach puts the camera on the model's surface,
+// so it fails. The model's radius around its center is the special case of
+// a target at the center, and no target reaches less far than the radius,
+// so this one rule covers what a radius rule would. A problem names the
+// product, the view, the pivot and both numbers.
+export function reachLimitProblems(
+  range: DistanceRange,
+  views: readonly ViewOrbit[],
+  product: string,
+): readonly CameraLimitProblem[] {
+  const problems: CameraLimitProblem[] = []
+  for (const view of views) {
+    if (range.min <= view.reach) {
+      problems.push({
+        rule: 'minimum-clears-reach',
+        message: `the ${product} CAM_${view.id} minimum distance ${range.min} does not exceed the model reach ${view.reach} from its orbit target, projected from ${view.pivot}`,
       })
     }
   }

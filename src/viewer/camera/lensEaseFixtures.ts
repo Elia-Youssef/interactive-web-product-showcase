@@ -19,7 +19,7 @@ import { presentPlan } from './stageCameraApi'
 import { stageCameraConfig } from './config'
 import type { CameraPlan, CameraView } from './productPlan'
 import { buildCameraPlan } from './productPlan'
-import { centeredFrame, rigWith } from './productPlanFixtures'
+import { centeredFrame, restsAt, rigWith } from './productPlanFixtures'
 
 // The staging of the eased lens ride tests: the plan with three differently
 // lensed views, and the real controls installed and constructed the way
@@ -90,9 +90,9 @@ export const STAGE_ASPECT = 1.6
 // The plan under test: a home lens of 25 degrees and two close-ups in the
 // low teens, the shape of a product whose hotspot views magnify. All three
 // cameras sit on the +Z axis looking at the origin, so a move between them
-// eases the distance and the zoom and nothing else. The clip planes differ
-// per view, so the one plan clip range is visible in what the presentation
-// sets.
+// eases the distance and the zoom and nothing else; both close-ups orbit
+// anchors resting at the origin. The clip planes differ per view, so the
+// one plan clip range is visible in what the presentation sets.
 function planOf(): CameraPlan {
   const home = new PerspectiveCamera(25, STAGE_ASPECT, 0.2, 50)
   home.name = 'CAM_home'
@@ -104,7 +104,7 @@ function planOf(): CameraPlan {
   midView.name = 'CAM_shell'
   midView.position.set(0, 0, 0.96)
   const build = buildCameraPlan(
-    rigWith([home, closeUp, midView]),
+    rigWith([home, closeUp, midView], restsAt([0, 0, 0], ['driver', 'shell'])),
     parseProduct(sampleOneManifest, 'sample-one.test'),
     centeredFrame,
   )

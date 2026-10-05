@@ -55,6 +55,7 @@ const CLOSE_UP_VIEW: AuthoredView = { ...HOME_VIEW, distance: 0.5 }
 function viewFactsOf(closeUpIds: readonly string[]): ProductCameraFacts {
   return {
     center: [0, 0, 0],
+    stageBounds: { min: [-0.5, -0.5, -0.5], max: [0.5, 0.5, 0.5] },
     home: HOME_VIEW,
     closeUps: new Map(closeUpIds.map((id) => [id, CLOSE_UP_VIEW])),
   }

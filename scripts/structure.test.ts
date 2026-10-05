@@ -189,8 +189,8 @@ describe('the geometry stage keeps the Blender contract', () => {
       ]),
     )
     expect(structure.hotspotAnchors).toEqual([
-      { name: 'HS_dial', parentName: 'PART_base' },
-      { name: 'HS_grille', parentName: 'PART_base' },
+      { name: 'HS_dial', parentName: 'PART_base', restPosition: [0, 0, 0] },
+      { name: 'HS_grille', parentName: 'PART_base', restPosition: [0, 0, 0] },
     ])
     expect(structure.cameraNames).toEqual(['CAM_home', 'CAM_driver'])
     expect(structure.variantNames).toEqual(['sage', 'graphite'])

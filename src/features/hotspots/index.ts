@@ -7,3 +7,4 @@
 
 export { ProductHotspots } from './ProductHotspots'
 export { HotspotMarkers } from './HotspotMarkers'
+export { CARD_OVERLAY_KEY, overlayKey } from '@lib/hotspots/hotspotKeys'

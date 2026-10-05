@@ -1,7 +1,7 @@
 import type { Product } from '@lib/product'
 import { Marker } from '@ui/index'
 import type { StageOverlay } from '@viewer/overlay/StageOverlay'
-import { overlayKey } from './hotspotKeys'
+import { overlayKey } from '@lib/hotspots/hotspotKeys'
 import styles from './HotspotMarkers.module.css'
 
 export type HotspotAnchorProps = {

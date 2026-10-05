@@ -7,11 +7,14 @@
 //
 // The canvas side writes one presented frame's placements as one pass, in
 // the overlay box that frame used. Once every placement of the pass is
-// written, the pass listeners run: overlay content that positions itself
-// against the placed elements (the open hotspot card) decides there, over
-// the complete set of the frame, with no frame of its own. The last pass's
-// box and every key's last placement stay readable, so such content can
-// also decide between frames, when its own size changes.
+// written, the pass listeners run in two phases. The presenters run first:
+// overlay content that positions itself against the placed elements (the
+// open hotspot card) decides there, over the complete set of the frame,
+// with no frame of its own. The observers run after every presenter, so
+// what they read is the frame's final placements, whichever order the
+// listeners subscribed in. The last pass's box and every key's last
+// placement stay readable, so a presenter can also decide between frames,
+// when its own size changes.
 
 // The surface the channel writes: exactly the two style properties a
 // placement moves. A real element's style satisfies it, and so does a test
@@ -53,6 +56,10 @@ export type OverlayPlace = (key: string, placement: OverlayPlacement) => void
 
 export type OverlayPassListener = () => void
 
+// The phase a pass listener runs in: a presenter places elements of its own
+// from the pass, an observer only reads the pass's final placements.
+export type OverlayPassPhase = 'presenter' | 'observer'
+
 export type OverlayPassRelease = () => void
 
 export class StageOverlay {
@@ -61,7 +68,10 @@ export class StageOverlay {
   // element registers is not lost, and a remounted element re-enters at the
   // key's current placement.
   private placements = new Map<string, OverlayPlacement>()
-  private passListeners = new Set<OverlayPassListener>()
+  private readonly passListeners: Readonly<Record<OverlayPassPhase, Set<OverlayPassListener>>> = {
+    presenter: new Set(),
+    observer: new Set(),
+  }
   private passBox: OverlayBox | null = null
   // The one write function a pass hands its writer, bound once, so a frame's
   // pass allocates no closure.
@@ -108,23 +118,28 @@ export class StageOverlay {
   }
 
   // Writes one presented frame's placements as one pass in the given box:
-  // the writer places every key of the frame, then each pass listener runs
-  // once, in subscription order, with the whole set written.
+  // the writer places every key of the frame, then every presenter runs
+  // once, in subscription order, with the whole set written, then every
+  // observer runs once, in subscription order, after the presenters.
   pass(box: OverlayBox, writeAll: (place: OverlayPlace) => void): void {
     this.passBox = box
     writeAll(this.placeInPass)
-    for (const listener of this.passListeners) {
+    for (const listener of this.passListeners.presenter) {
+      listener()
+    }
+    for (const listener of this.passListeners.observer) {
       listener()
     }
   }
 
-  // Holds the listener for as long as the caller keeps it and returns the
-  // release of this one subscription. A release that no longer holds its
-  // listener fails loudly, like a stale mount release.
-  onPass(listener: OverlayPassListener): OverlayPassRelease {
-    this.passListeners.add(listener)
+  // Holds the listener in its phase for as long as the caller keeps it and
+  // returns the release of this one subscription. A release that no longer
+  // holds its listener fails loudly, like a stale mount release.
+  onPass(listener: OverlayPassListener, phase: OverlayPassPhase): OverlayPassRelease {
+    const listeners = this.passListeners[phase]
+    listeners.add(listener)
     return () => {
-      if (!this.passListeners.delete(listener)) {
+      if (!listeners.delete(listener)) {
         throw new Error('the release of an overlay pass listener is stale')
       }
     }

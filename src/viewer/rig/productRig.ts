@@ -1,4 +1,5 @@
 import type { AnimationClip, Camera, Object3D } from 'three'
+import type { Vec3 } from '@lib/camera/view'
 
 // One resolved hotspot of the rig: the manifest hotspot id, its HS_<id>
 // node and the PART_ node the hotspot rides on.
@@ -12,7 +13,7 @@ export type ProductHotspot = {
 // Every lookup a later feature would redo by name over the scene graph is
 // resolved and typed here, once, at parse time: the parts of the exploded
 // view, the hotspots and the parts they ride, the cameras, the shadow, the
-// explode clip and the finish variants.
+// explode clip, the finish variants and the anchors' rest positions.
 export type ProductRig = {
   // Every PART_* node, by full node name.
   readonly parts: ReadonlyMap<string, Object3D>
@@ -27,4 +28,8 @@ export type ProductRig = {
   readonly clip: AnimationClip
   // The KHR_materials_variants names in declaration order.
   readonly variants: readonly string[]
+  // Every hotspot anchor's rest position by hotspot id, read from the node
+  // transforms at parse time, in the loaded scene's own space (see
+  // anchorRest.ts): the points the close-up views orbit.
+  readonly anchorRest: ReadonlyMap<string, Vec3>
 }

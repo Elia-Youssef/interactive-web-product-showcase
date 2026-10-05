@@ -1,6 +1,7 @@
 import type { Locator, Page } from '@playwright/test'
 import { expect } from './fixtures'
 import { markerOf, stagePixelEpsilon } from './hotspotViews'
+import { focusVisibly } from './measurementFocus'
 
 // The expectations the card specs hold the open hotspot card to, read from
 // the page's own layout and hit testing, never from the viewer's placement
@@ -209,23 +210,4 @@ async function expectRingUncovered(marker: Locator, title: string): Promise<void
   }, RING_SAMPLES)
   expect(ring.width, `${title} must draw a focus ring`).toBeGreaterThan(0)
   expect(ring.covered, `the card must cover no part of the focus ring of ${title}`).toEqual([])
-}
-
-// Gives the marker keyboard focus with its ring drawn. A script focus draws
-// the ring only when the focus it moves from was a keyboard focus, so one
-// Tab from the document first makes the focus a keyboard one on every
-// engine; the check then holds the ring state itself.
-export async function focusVisibly(page: Page, marker: Locator): Promise<void> {
-  await page.evaluate(() => {
-    const active = document.activeElement
-    if (active instanceof HTMLElement) {
-      active.blur()
-    }
-  })
-  await page.keyboard.press('Tab')
-  const visible = await marker.evaluate((element) => {
-    element.focus()
-    return element.matches(':focus-visible')
-  })
-  expect(visible, 'the marker must take keyboard focus with its ring drawn').toBe(true)
 }

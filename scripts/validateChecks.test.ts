@@ -11,6 +11,7 @@ import {
   buildDocument,
   addRootNode,
   cameraContract,
+  hangUnreadable,
   nodeNamed,
   type DocumentOptions,
 } from './validateFixtures.ts'
@@ -131,6 +132,14 @@ describe('the validate checks on a contract document', () => {
     const result = checkHotspots(fixture, readProductStructure(doc))
     expect(result.violations).toEqual([
       'hotspot HS_driver is parented to SHADOW, expected a PART_ node',
+    ])
+  })
+
+  it('reports an HS_ node whose rest position cannot be read', () => {
+    const doc = buildFixtureDocument()
+    hangUnreadable(doc, 'HS_driver')
+    expect(checkHotspots(fixture, readProductStructure(doc)).violations).toEqual([
+      'hotspot HS_driver has a world matrix that is not a finite 4x4 matrix, so its rest position cannot be read',
     ])
   })
 

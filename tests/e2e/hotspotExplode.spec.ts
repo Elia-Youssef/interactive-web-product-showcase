@@ -2,12 +2,12 @@ import type { Page } from '@playwright/test'
 import type { Product } from '../../src/lib/product'
 import { siteCopy } from '../../src/lib/copy/site'
 import { expect, test } from './fixtures'
-import { testBodyBudgetMs } from './budgets'
 import { projectToStageBox, type Point3 } from './hotspotPlacement'
 import { stagePixelEpsilon } from './hotspotViews'
-import { expectPoll, harnessPath, harnessProducts, waitForProductReady } from './productSpecs'
+import { harnessPath, harnessProducts, waitForProductReady } from './productSpecs'
 import type { CameraRead } from './stageCamera'
 import { settledFrames } from './stageSettle'
+import { waitForExplodeRestingAt } from './explodeRest'
 
 // The hotspots and the exploded view together. The explode writes the part
 // poses in a content frame step, before the present, and the marker pass
@@ -45,7 +45,7 @@ for (const product of products) {
       await readsThroughMotion(page, product),
       'while the explode opens',
     )
-    await expectExplodeRestingAt(page, 1)
+    await waitForExplodeRestingAt(page, 1)
     await expectShownMarkersOnLastFrame(page, product, 'with the explode open')
 
     await page.getByRole('slider', { name: explodeLabel }).fill('0.5')
@@ -54,7 +54,7 @@ for (const product of products) {
       await readsThroughMotion(page, product),
       'while the scrub moves the explode',
     )
-    await expectExplodeRestingAt(page, 0.5)
+    await waitForExplodeRestingAt(page, 0.5)
     await expectShownMarkersOnLastFrame(page, product, 'after a scrub to the middle')
   })
 }
@@ -207,14 +207,6 @@ function expectShownMarkersOnProjection(product: Product, sample: StageSample, w
       `${at} marker y ${marker.centerY} against projection ${sample.canvas.y + projected.y}`,
     ).toBeLessThanOrEqual(stagePixelEpsilon)
   }
-}
-
-// The explode at rest on the target: the spring has stopped, and the
-// applied progress lands exactly on the target it was asked for.
-async function expectExplodeRestingAt(page: Page, target: number): Promise<void> {
-  await expectPoll(page, () => window.__viewer?.explode?.target, testBodyBudgetMs).toBe(target)
-  await expectPoll(page, () => window.__viewer?.explode?.moving, testBodyBudgetMs).toBe(false)
-  await expectPoll(page, () => window.__viewer?.explode?.t, testBodyBudgetMs).toBe(target)
 }
 
 // Every shown marker on the projection of the pose the motion ended on, and

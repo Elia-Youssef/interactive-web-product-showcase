@@ -5,7 +5,7 @@ import { loadCollection } from './productList'
 import { expectPoll, harnessPath, productLoadBudgetMs, waitForProductReady } from './productSpecs'
 import { renderedFramesOf, settledFrames } from './stageSettle'
 import { siteCopy } from '../../src/lib/copy/site'
-import { formatExplodePercent } from '../../src/features/product-panel/product-panel.logic'
+import { formatExplodePercent } from '../../src/lib/copy/productPanel'
 
 // The exploded view's scrub control: the slider under the toggle and its
 // mono readout, on the app's panel, with the remount proof on the dev

@@ -4,7 +4,7 @@
 // manifest in normal case and the CSS uppercases it, so screen readers read
 // words instead of spelled-out letters.
 
-import { formatProductIndex } from './product-panel.logic'
+import { formatProductIndex } from '@lib/copy/productPanel'
 import styles from './ProductIndexLabel.module.css'
 
 export type ProductIndexLabelProps = {

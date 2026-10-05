@@ -95,6 +95,7 @@ export function fakeLoad(): {
         shadow: scene.group,
         clip: new AnimationClip('Explode', 1, []),
         variants: [SAGE, GRAPHITE],
+        anchorRest: new Map(),
       },
       parser: {
         json: {},

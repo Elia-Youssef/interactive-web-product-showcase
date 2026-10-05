@@ -1,6 +1,6 @@
-import type { CardMetrics } from '@lib/hotspots/cardPlacement'
-import type { MarkerExtent } from '@lib/hotspots/markerBox'
-import { parseCardDockPolicy, type CardDockPolicy } from '@lib/hotspots/cardPresentation'
+import type { CardMetrics } from './cardPlacement'
+import type { MarkerExtent } from './markerBox'
+import { parseCardDockPolicy, type CardDockPolicy } from './cardPresentation'
 
 // The card layout as the stylesheets declare it, read from computed custom
 // properties, so no length and no breakpoint is written twice: the dock

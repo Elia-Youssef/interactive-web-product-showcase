@@ -9,6 +9,7 @@ import type { HarnessFrameFault as FrameFault } from './frameFaultQuery'
 import { RendererMemoryProbe } from './RendererMemoryProbe'
 import { PartMotion } from './PartMotion'
 import { PresentedAnchorsProbe } from './PresentedAnchorsProbe'
+import { CardVisibilityProbe } from './CardVisibilityProbe'
 import { SceneGraphProbe } from './SceneGraphProbe'
 import { StageWarmup } from './StageWarmup'
 
@@ -50,6 +51,7 @@ export function HarnessProductContent({
           <ProductFinishes />
           <ProductHotspots />
           <ProductExplode />
+          <CardVisibilityProbe />
           {moveToken > 0 && <PartMotion key={moveToken} />}
           {frameFault?.scope === 'product' && <HarnessFrameFault fault={frameFault} />}
         </Product>

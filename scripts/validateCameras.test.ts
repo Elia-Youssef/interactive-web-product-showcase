@@ -10,6 +10,7 @@ import { readProductStructure } from './structure.ts'
 import {
   buildDocument,
   cameraContract,
+  hangUnreadable,
   nodeNamed,
   PASSING_CAMERA_POSE,
   type CameraPose,
@@ -157,13 +158,23 @@ describe('the camera contract check', () => {
     expect(result.warnings).toEqual([`camera CAM_side has no manifest hotspot 'side'`])
   })
 
-  it('reports an authored minimum that does not clear the model radius', () => {
-    const manifest = manifestWith({ camera: { minDistance: 1 } })
+  it('reports an authored minimum that does not exceed the model reach from every view', () => {
+    // Both fixture views look down -Z from (1, 1, 4) at the target (1, 1, 0),
+    // where the model's farthest corner is sqrt(2) away: a minimum at or
+    // under that reach fails on every view, one above it passes.
     const structure = readProductStructure(buildFixtureDocument())
-    const result = checkCameras(manifest, structure, cameraContract)
-    expect(result.violations).toEqual([
-      'the minimum distance 1 does not exceed the model radius 1.4142135623730951',
-    ])
+    const reachProblems = (minDistance: number) => [
+      `the fixture-speaker CAM_home minimum distance ${minDistance} does not exceed the model reach ${Math.SQRT2} from its orbit target, projected from the model center`,
+      `the fixture-speaker CAM_driver minimum distance ${minDistance} does not exceed the model reach ${Math.SQRT2} from its orbit target, projected from the HS_driver anchor`,
+    ]
+    for (const minDistance of [1, Math.SQRT2]) {
+      const manifest = manifestWith({ camera: { minDistance } })
+      expect(checkCameras(manifest, structure, cameraContract).violations).toEqual(
+        reachProblems(minDistance),
+      )
+    }
+    const clear = manifestWith({ camera: { minDistance: 1.5 } })
+    expect(checkCameras(clear, structure, cameraContract).violations).toEqual([])
   })
 
   it('reports every view outside the polar limits, by its view', () => {
@@ -214,5 +225,74 @@ describe('the camera contract check', () => {
     expect(result.violations).toEqual([
       `the camera CAM_driver has a field of view of 0 rad, outside the open range (0, ${Math.PI})`,
     ])
+  })
+
+  it('holds a close-up to the reach from its own anchor, which the home view does not see', () => {
+    // The driver close-up looks down -Z from (2, 2, 3) at its anchor at
+    // (2, 2, 0), off the model's corner: 3 away, where the model reaches
+    // sqrt(8). The fallback minimum of 2 the home view sets clears the
+    // home's own reach but not the close-up's; an authored 2.9 clears both.
+    const doc = buildFixtureDocument()
+    nodeNamed(doc, 'HS_driver').setTranslation([2, 2, 0])
+    nodeNamed(doc, 'CAM_driver').setTranslation([2, 2, 3])
+    const structure = readProductStructure(doc)
+
+    expect(checkCameras(fixture, structure, cameraContract).violations).toEqual([
+      `the fixture-speaker CAM_driver minimum distance 2 does not exceed the model reach ${Math.sqrt(8)} from its orbit target, projected from the HS_driver anchor`,
+    ])
+    const cleared = manifestWith({ camera: { minDistance: 2.9 } })
+    expect(checkCameras(cleared, structure, cameraContract).violations).toEqual([])
+  })
+
+  it('reports a close-up whose anchor is missing as a problem, never orbiting the model center', () => {
+    const doc = buildDocument({ hotspotNames: ['HS_knob'] })
+    expect(checkCameras(fixture, readProductStructure(doc), cameraContract).violations).toEqual([
+      'the camera CAM_driver has no HS_driver anchor at rest to orbit',
+    ])
+  })
+
+  it('reports a close-up whose anchor has no readable rest position', () => {
+    // The anchor's world matrix overflows to infinity under an unnamed
+    // wrapper, so its rest cannot be read: the hotspot check names the
+    // matrix and the close-up has no anchor to orbit.
+    const doc = buildFixtureDocument()
+    hangUnreadable(doc, 'HS_driver')
+    expect(checkCameras(fixture, readProductStructure(doc), cameraContract).violations).toEqual([
+      'the camera CAM_driver has no HS_driver anchor at rest to orbit',
+    ])
+  })
+
+  it('holds the placeholder speaker between its close-up reach and its close-up distance', async () => {
+    // Under the anchor pivot the speaker's driver close-up orbits its
+    // target 0.2957 away, where the model reaches 0.2846: the authored
+    // minimum must exceed the one and stay under the other, through the
+    // real assembly over the shipped model.
+    const { createModelIO } = await import('./modelIo.ts')
+    const { manifest: speakerManifest } =
+      await import('../src/products/placeholder-speaker.manifest.ts')
+    const io = await createModelIO()
+    const doc = await io.read('public/models/placeholder-speaker/model.glb')
+    const structure = readProductStructure(doc)
+    const withMinimum = (minDistance: number) =>
+      checkCameras(
+        parseProduct({ ...speakerManifest, camera: { minDistance } }, 'placeholder-speaker'),
+        structure,
+        cameraContract,
+      ).violations
+
+    expect(withMinimum(0.28)).toEqual([
+      expect.stringMatching(
+        /^the placeholder-speaker CAM_driver minimum distance 0\.28 does not exceed the model reach 0\.2846\d* from its orbit target, projected from the HS_driver anchor$/,
+      ),
+    ])
+    expect(withMinimum(0.3)).toEqual([
+      expect.stringMatching(
+        /^the CAM_driver distance 0\.2957\d* lies outside the distance limits \[0\.3, /,
+      ),
+    ])
+    expect(
+      checkCameras(parseProduct(speakerManifest, 'placeholder-speaker'), structure, cameraContract)
+        .violations,
+    ).toEqual([])
   })
 })

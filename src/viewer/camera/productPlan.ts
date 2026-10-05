@@ -5,7 +5,9 @@ import { cameraContractProblems } from '@lib/camera/contract'
 import { cameraLimitConfig } from '@lib/camera/config'
 import type { DistanceRange, PolarRange } from '@lib/camera/limits'
 import { orbitViewOfAuthoredCamera } from '@lib/camera/view'
+import { viewPivotOf } from '@lib/camera/pivot'
 import type { AuthoredCameraRay, NamedCameraRay, Vec3 } from '@lib/camera/view'
+import { boundsInStageSpace, inStageSpace } from '@lib/camera/frame'
 import { clipRangeOf } from '@lib/camera/lens'
 import type { ClipRange } from '@lib/camera/lens'
 import type { ModelFrame } from '../modelFrame'
@@ -50,10 +52,12 @@ export type CameraPlanBuild =
   | { readonly kind: 'planned'; readonly plan: CameraPlan }
   | { readonly kind: 'broken'; readonly problems: readonly CameraLimitProblem[] }
 
-// The product presentation centers the model on the origin, so the model
-// center the views orbit is the stage-space origin. The rays read below are
-// stage-space too, so one space holds the whole check: the center the
-// assembly projects onto and the rays it projects are the model's own.
+// The product presentation centers the model on the origin (PresentedProduct
+// mounts the scene under a group offset by the frame center), so the model
+// center the home view orbits is the stage-space origin. The rays read
+// below are stage-space too, and the anchor rests and the bounds, which the
+// rig and the frame carry in the scene's own space, move into stage space
+// by the same center, so one space holds the whole check.
 const MODEL_CENTER_IN_STAGE: Vec3 = [0, 0, 0]
 
 // Builds the camera plan of a loaded product, or reports every rule the
@@ -71,7 +75,7 @@ export function buildCameraPlan(
   frame: ModelFrame,
 ): CameraPlanBuild {
   const problems: CameraLimitProblem[] = []
-  const { views, rays, home } = collectViews(rig, problems)
+  const { views, rays, home } = collectViews(rig, frame, problems)
   if (home === null) {
     // The rig parse fails a product without CAM_home, so reaching this
     // point without a home view is a caller contract break, not authored
@@ -80,9 +84,10 @@ export function buildCameraPlan(
   }
 
   const check = cameraContractProblems({
+    product: manifest.slug,
     views: rays,
     homeId: CAMERA_HOME_ID,
-    frame: { center: MODEL_CENTER_IN_STAGE, radius: frame.radius },
+    bounds: boundsInStageSpace(frame, centerOf(frame)),
     authoredDistanceLimits: manifest.camera ?? {},
     limits: cameraLimitConfig,
   })
@@ -125,10 +130,19 @@ type CollectedViews = {
 // and its named ray for the contract assembly. A camera that is not
 // perspective is a problem of its own; the home view and its authored
 // aspect are carried out for the plan.
-function collectViews(rig: ProductRig, problems: CameraLimitProblem[]): CollectedViews {
+function collectViews(
+  rig: ProductRig,
+  frame: ModelFrame,
+  problems: CameraLimitProblem[],
+): CollectedViews {
   const views = new Map<string, CameraView>()
   const rays: NamedCameraRay[] = []
   let home: CollectedHome | null = null
+
+  const anchorRests = new Map<string, Vec3>()
+  for (const [id, rest] of rig.anchorRest) {
+    anchorRests.set(id, inStageSpace(rest, centerOf(frame)))
+  }
 
   for (const [id, camera] of rig.cameras) {
     if (!(camera instanceof PerspectiveCamera)) {
@@ -148,16 +162,27 @@ function collectViews(rig: ProductRig, problems: CameraLimitProblem[]): Collecte
       forward: [forward.x, forward.y, forward.z],
       fovY: MathUtils.degToRad(camera.fov),
     }
+    const choice = viewPivotOf(id, MODEL_CENTER_IN_STAGE, anchorRests)
+    if (choice.kind === 'broken') {
+      problems.push(choice.problem)
+      continue
+    }
+    const pivot = choice.pivot
     const view: CameraView = {
-      ...orbitViewOfAuthoredCamera(ray, MODEL_CENTER_IN_STAGE),
+      ...orbitViewOfAuthoredCamera(ray, pivot.point),
       near: camera.near,
       far: camera.far,
     }
     views.set(id, view)
-    rays.push({ id, ray })
+    rays.push({ id, ray, pivot })
     if (id === CAMERA_HOME_ID) {
       home = { view, aspect: camera.aspect }
     }
   }
   return { views, rays, home }
+}
+
+// The frame center the presentation's centering group moves the scene by.
+function centerOf(frame: ModelFrame): Vec3 {
+  return [frame.centerX, frame.centerY, frame.centerZ]
 }

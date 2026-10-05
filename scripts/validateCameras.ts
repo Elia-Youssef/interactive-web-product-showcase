@@ -13,10 +13,12 @@ import {
   authoredCameraAspect,
   cameraLimitConfig,
 } from '../src/lib/camera/config.ts'
-import { frameSpanOfMeshBoxes } from '../src/lib/camera/frame.ts'
+import { boundsInStageSpace, frameSpanOfMeshBoxes, inStageSpace } from '../src/lib/camera/frame.ts'
+import type { FrameSpan, Vec3 } from '../src/lib/camera/frame.ts'
 import type { NamedCameraRay } from '../src/lib/camera/view.ts'
 import type { CameraFact } from './modelFacts.ts'
-import type { ProductStructure } from './structure.ts'
+import { anchorRestsOf, type ProductStructure } from './structure.ts'
+import type { CameraLimitProblem } from '../src/lib/camera/limits.ts'
 import type { CameraContract } from './manifestIo.ts'
 import { checkResult, type CheckResult } from './validateChecks.ts'
 
@@ -88,51 +90,77 @@ function cameraAspectViolations(structure: ProductStructure): string[] {
 }
 
 // The view rules over every view, through the one shared rule assembly:
-// each view's geometry, then each view within the distance limits, the
-// minimum outside the model, each view within the polar limits. The
-// assembly's messages name the camera they fail on, so they are reported
-// as they come.
+// each view's pivot, then each view's geometry, each view within the
+// distance limits, each view's reach inside the minimum, each view within
+// the polar limits. The messages name the camera they fail on, so they are
+// reported as they come.
 function viewRuleViolations(
   manifest: Product,
   structure: ProductStructure,
   contract: CameraContract,
 ): string[] {
-  const views = contractViews(manifest, structure)
+  if (structure.meshBoxes.length === 0) {
+    return ['the model holds no meshes to frame, the views have nothing to orbit']
+  }
+  const frame = frameSpanOfMeshBoxes(structure.meshBoxes)
+  const { views, problems } = contractViews(manifest, structure, frame, contract)
+  const pivotViolations = problems.map((problem) => problem.message)
   if (!views.some((view) => view.id === CAMERA_HOME_ID)) {
     // The names rule above reports a missing CAM_home and the aspect rule a
     // home that is not perspective; without a home view the limits have no
     // distance to derive from.
-    return []
-  }
-  if (structure.meshBoxes.length === 0) {
-    return ['the model holds no meshes to frame, the views have nothing to orbit']
+    return pivotViolations
   }
   const check = contract.cameraContractProblems({
+    product: manifest.slug,
     views,
     homeId: CAMERA_HOME_ID,
-    frame: frameSpanOfMeshBoxes(structure.meshBoxes),
+    bounds: boundsInStageSpace(frame, frame.center),
     authoredDistanceLimits: manifest.camera ?? {},
     limits: cameraLimitConfig,
   })
-  return check.kind === 'broken' ? check.problems.map((problem) => problem.message) : []
+  const contractViolations =
+    check.kind === 'broken' ? check.problems.map((problem) => problem.message) : []
+  return [...pivotViolations, ...contractViolations]
 }
 
 // The views the view rules check: the set the runtime rig resolves and
 // the plan presents. That is the home view, then one close-up per manifest
 // hotspot whose CAM_<id> camera the model carries, in manifest order, each
-// the first camera of its name. A CAM_ camera named after no hotspot is a
-// view the site can never present, so it is nobody's violation; a camera
-// that is not perspective has no view at all, and the aspect rule reports
-// it.
-export function contractViews(manifest: Product, structure: ProductStructure): NamedCameraRay[] {
+// the first camera of its name, with the pivot the one pivot rule chooses.
+// Every point is moved into the stage space the plan checks in, by the
+// frame center, so both sides run the assembly over the same numbers. A
+// CAM_ camera named after no hotspot is a view the site can never present,
+// so it is nobody's violation; a camera that is not perspective has no view
+// at all, and the aspect rule reports it. A view whose pivot cannot be
+// chosen is a problem, and no view.
+export function contractViews(
+  manifest: Product,
+  structure: ProductStructure,
+  frame: FrameSpan,
+  contract: CameraContract,
+): { readonly views: NamedCameraRay[]; readonly problems: CameraLimitProblem[] } {
   const views: NamedCameraRay[] = []
+  const problems: CameraLimitProblem[] = []
+  const anchorRests = new Map<string, Vec3>()
+  for (const [id, rest] of anchorRestsOf(structure.hotspotAnchors)) {
+    anchorRests.set(id, inStageSpace(rest, frame.center))
+  }
+  const modelCenter = inStageSpace(frame.center, frame.center)
   for (const id of [CAMERA_HOME_ID, ...manifest.hotspots.map((hotspot) => hotspot.id)]) {
     const ray = firstCameraNamed(structure.cameraFacts, `${CAMERA_PREFIX}${id}`)?.ray ?? null
-    if (ray !== null) {
-      views.push({ id, ray })
+    if (ray === null) {
+      continue
     }
+    const choice = contract.viewPivotOf(id, modelCenter, anchorRests)
+    if (choice.kind === 'broken') {
+      problems.push(choice.problem)
+      continue
+    }
+    const stageRay = { ...ray, position: inStageSpace(ray.position, frame.center) }
+    views.push({ id, ray: stageRay, pivot: choice.pivot })
   }
-  return views
+  return { views, problems }
 }
 
 function firstCameraNamed(facts: readonly CameraFact[], name: string): CameraFact | undefined {

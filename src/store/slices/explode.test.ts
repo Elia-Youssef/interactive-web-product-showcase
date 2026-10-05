@@ -1,30 +1,22 @@
 import { expect, test } from 'vitest'
 import { ExplodeRangeError } from '@lib/explode'
+import { createAppStore } from '../createAppStore'
 import {
-  createExplodeSlice,
   selectExplodeAttached,
   selectExplodeOpen,
   selectExplodeReadout,
   selectExplodeTarget,
-  type ExplodeSliceState,
 } from './explode'
-import { initialExplodeReadout, initialExplodeStatus } from './explode.logic'
 
 const PRODUCT = 'sample-one'
 const OTHER_PRODUCT = 'sample-two'
 
-// A minimal set wired by hand, so the slice is tested on its own, without
-// the composition around it.
+// The explode state on a real store: the slice holds the view's lifetime
+// and readout, and the store composes the toggle and the scrub, so the
+// tests drive every explode action where the app drives it.
 function makeSlice() {
-  let state: ExplodeSliceState = {
-    explodeStatus: initialExplodeStatus,
-    explodeReadout: initialExplodeReadout,
-  }
-  const slice = createExplodeSlice((updater) => {
-    state = { ...state, ...updater(state) }
-  })
-
-  return { slice, read: () => state }
+  const store = createAppStore()
+  return { slice: store.getState(), read: () => store.getState() }
 }
 
 test('a fresh slice holds no view: nothing is attached, every read is closed', () => {

@@ -1,5 +1,5 @@
-// The model frame as pure math: the center and radius a loaded model is
-// framed by, computed from one box per mesh. The computation is exactly
+// The model frame as pure math: the bounds, center and radius a loaded
+// model is framed by, computed from one box per mesh. The computation is exactly
 // three's non-precise Box3.setFromObject semantics (the geometry bounding
 // box's eight corners transformed by the mesh's world matrix, the union of
 // the transformed boxes, the circumscribed sphere of the union), so the
@@ -51,9 +51,16 @@ export type MeshBox = {
   readonly matrix: Mat4
 }
 
-// The frame of a model: the center of its bounding box and the radius of
-// the circumscribed sphere around that center.
-export type FrameSpan = {
+// The axis-aligned bounding box of a model: its smallest and its largest
+// corner.
+export type ModelBounds = {
+  readonly min: Vec3
+  readonly max: Vec3
+}
+
+// The frame of a model: its bounding box, the center of that box, and the
+// radius of the circumscribed sphere around the center.
+export type FrameSpan = ModelBounds & {
   readonly center: Vec3
   readonly radius: number
 }
@@ -91,6 +98,8 @@ export function frameSpanOfMeshBoxes(meshBoxes: readonly MeshBox[]): FrameSpan {
   return {
     center,
     radius: Math.sqrt(size[0] * size[0] + size[1] * size[1] + size[2] * size[2]) * 0.5,
+    min,
+    max,
   }
 }
 
@@ -126,4 +135,30 @@ export function transformPointOf(m: Mat4, [x, y, z]: Vec3): Vec3 {
     x * m[1] + y * m[5] + z * m[9] + m[13],
     x * m[2] + y * m[6] + z * m[10] + m[14],
   ]
+}
+
+// The model's reach from a point: the largest distance from the point to
+// any point of the bounding box, which one of the box's eight corners
+// attains, per axis the side farther from the point.
+export function farthestPointFrom(bounds: ModelBounds, point: Vec3): number {
+  const dx = Math.max(Math.abs(point[0] - bounds.min[0]), Math.abs(point[0] - bounds.max[0]))
+  const dy = Math.max(Math.abs(point[1] - bounds.min[1]), Math.abs(point[1] - bounds.max[1]))
+  const dz = Math.max(Math.abs(point[2] - bounds.min[2]), Math.abs(point[2] - bounds.max[2]))
+  return Math.sqrt(dx * dx + dy * dy + dz * dz)
+}
+
+// A point of the model's own space in stage space. The presentation centers
+// the model on the origin, so every point moves by the frame center. The
+// runtime plan, the build-time validate step and the specs' camera facts
+// move their points into stage space through this one function, so the
+// contract assembly reads the same numbers on every side, rounding
+// included.
+export function inStageSpace(point: Vec3, center: Vec3): Vec3 {
+  return [point[0] - center[0], point[1] - center[1], point[2] - center[2]]
+}
+
+// The model's bounds in stage space, moved by the frame center like every
+// other point.
+export function boundsInStageSpace(bounds: ModelBounds, center: Vec3): ModelBounds {
+  return { min: inStageSpace(bounds.min, center), max: inStageSpace(bounds.max, center) }
 }

@@ -13,7 +13,7 @@ import {
   readCamera,
   stageAspectOnSide,
 } from './stageCamera'
-import { zoomReadoutText } from '../../src/features/stage-controls/stage-controls.logic'
+import { zoomReadoutText } from '../../src/lib/copy/stageReadouts'
 // The collection's first product, as the app builds it from the manifests.
 const first = (await loadCollection()).first
 

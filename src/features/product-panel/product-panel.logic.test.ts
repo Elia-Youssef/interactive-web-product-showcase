@@ -8,7 +8,7 @@ import {
   explodeToggleLabel,
   formatExplodePercent,
   formatProductIndex,
-} from './product-panel.logic'
+} from '@lib/copy/productPanel'
 
 // Neutral fixture words, never a real product's: the logic renders whatever the
 // manifest says, and the real words belong to src/products/.
