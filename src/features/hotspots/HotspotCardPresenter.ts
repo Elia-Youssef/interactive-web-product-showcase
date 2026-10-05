@@ -2,8 +2,8 @@ import type { BoxSize } from '@lib/hotspots/cardPlacement'
 import type { StagePoint, StageRect } from '@lib/hotspots/markerBox'
 import { presentHotspotCard, type CardPresentation } from '@lib/hotspots/cardPresentation'
 import type { OverlayBox, OverlayPlacement, StageOverlay } from '@viewer/overlay/StageOverlay'
-import type { CardLayout } from './cardLayout'
-import { CARD_OVERLAY_KEY, overlayKey } from './hotspotKeys'
+import type { CardLayout } from '@lib/hotspots/cardLayout'
+import { CARD_OVERLAY_KEY, overlayKey } from '@lib/hotspots/hotspotKeys'
 
 // The one owner of where the open hotspot card goes, for one product's
 // markers on one stage. It decides through the pure presentation rule, from

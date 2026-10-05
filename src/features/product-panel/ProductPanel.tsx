@@ -13,7 +13,7 @@ import { useFinishOffer } from '@features/variants'
 import { Divider, Eyebrow, Readout, Swatch, Title } from '@ui/index'
 import { ProductExplodeScrub } from './ProductExplodeScrub'
 import { ProductExplodeToggle } from './ProductExplodeToggle'
-import { activeFinish } from './product-panel.logic'
+import { activeFinish } from '@lib/copy/productPanel'
 import styles from './ProductPanel.module.css'
 
 export type ProductPanelProps = {

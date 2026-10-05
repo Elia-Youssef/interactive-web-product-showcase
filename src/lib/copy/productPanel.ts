@@ -1,5 +1,5 @@
-import type { Product } from '@lib/product'
-import { siteCopy } from '@lib/copy/site'
+import type { Product } from '../product'
+import { siteCopy } from './site'
 
 // The finish one swatch of the panel carries.
 export type PanelFinish = Product['finishes'][number]

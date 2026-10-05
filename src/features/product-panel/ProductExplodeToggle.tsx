@@ -1,7 +1,7 @@
 import type { Product } from '@lib/product'
 import { selectExplodeAttached, selectExplodeOpen, useAppStore } from '@store/index'
 import { TextButton } from '@ui/index'
-import { explodeToggleLabel } from './product-panel.logic'
+import { explodeToggleLabel } from '@lib/copy/productPanel'
 
 // The exploded view toggle, the panel section after the swatches: a text
 // button whose pressed state is the product's exploded view, named by the

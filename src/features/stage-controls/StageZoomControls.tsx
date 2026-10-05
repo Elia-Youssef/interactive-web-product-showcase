@@ -10,7 +10,7 @@ import { zoomPercentOfDistance } from '@lib/camera/zoom'
 import { siteCopy } from '@lib/copy/site'
 import { selectCameraReadout, useAppStore } from '@store/index'
 import { IconButton, MinusIcon, PlusIcon, Readout, TextButton } from '@ui/index'
-import { zoomReadoutText } from './stage-controls.logic'
+import { zoomReadoutText } from '@lib/copy/stageReadouts'
 import styles from './stage-controls.module.css'
 
 export function StageZoomControls() {

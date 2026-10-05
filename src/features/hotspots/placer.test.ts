@@ -1,4 +1,13 @@
-import { BoxGeometry, Group, Mesh, Object3D, PerspectiveCamera } from 'three'
+import {
+  BoxGeometry,
+  BufferGeometry,
+  Float32BufferAttribute,
+  Group,
+  Mesh,
+  MeshBasicMaterial,
+  Object3D,
+  PerspectiveCamera,
+} from 'three'
 import { describe, expect, it } from 'vitest'
 import { HotspotPlacer } from './placer'
 import type { OverlayPlacement } from '@viewer/overlay/StageOverlay'
@@ -56,6 +65,34 @@ function placedAt(distanceM: number, occluderZM: number | null): OverlayPlacemen
 }
 
 describe('HotspotPlacer', () => {
+  it('places an anchor behind a FrontSide triangle viewed from its back face', () => {
+    const geometry = new BufferGeometry()
+    geometry.setAttribute('position', new Float32BufferAttribute([-1, -1, 1, 0, 1, 1, 1, -1, 1], 3))
+    const material = new MeshBasicMaterial()
+    const mesh = new Mesh(geometry, material)
+    mesh.updateMatrixWorld(true)
+    const camera = new PerspectiveCamera()
+    camera.position.set(0, 0, 2)
+    camera.updateMatrixWorld(true)
+    const node = new Object3D()
+    node.updateMatrixWorld(true)
+    const placements: OverlayPlacement[] = []
+    try {
+      new HotspotPlacer().place(
+        [{ id: 'example', node, part: node }],
+        [mesh],
+        camera,
+        STAGE,
+        EXTENT,
+        (_key, placement) => placements.push(placement),
+      )
+      expect(placements).toEqual([{ kind: 'placed', x: 400, y: 300 }])
+    } finally {
+      geometry.dispose()
+      material.dispose()
+    }
+  })
+
   describe('against an occluder between the camera and the anchor', () => {
     for (const distanceM of DISTANCES_M) {
       it(`hides the marker at ${distanceM} m camera-to-anchor distance`, () => {

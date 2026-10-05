@@ -15,7 +15,7 @@ import {
 import { Readout, Slider } from '@ui/index'
 import { explodeScrubStep } from './config'
 import styles from './ProductExplodeScrub.module.css'
-import { explodeToggleLabel, formatExplodePercent } from './product-panel.logic'
+import { explodeToggleLabel, formatExplodePercent } from '@lib/copy/productPanel'
 
 export function ProductExplodeScrub({ product }: { product: Product }) {
   const explodeScrub = useAppStore((state) => state.explodeScrub)

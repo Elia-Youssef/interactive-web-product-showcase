@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import type { StageRect } from '@lib/hotspots/markerBox'
 import type { CardDockPolicy } from '@lib/hotspots/cardPresentation'
 import { StageOverlay, type OverlayElement } from '@viewer/overlay/StageOverlay'
-import type { CardLayout } from './cardLayout'
+import type { CardLayout } from '@lib/hotspots/cardLayout'
 import { HotspotCardPresenter } from './HotspotCardPresenter'
-import { CARD_OVERLAY_KEY, overlayKey } from './hotspotKeys'
+import { CARD_OVERLAY_KEY, overlayKey } from '@lib/hotspots/hotspotKeys'
 
 // The presenter over a real overlay channel and page-read stand-ins: two
 // markers, a floating card element the overlay writes, passes written the

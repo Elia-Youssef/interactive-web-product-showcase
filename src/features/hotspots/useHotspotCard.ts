@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useSyncExternalStore } from 'react'
 import type { Product } from '@lib/product'
 import type { StageOverlay } from '@viewer/overlay/StageOverlay'
-import { readCardLayout } from './cardLayout'
+import { readCardLayout } from '@lib/hotspots/cardLayout'
 import { readChromeObstacles } from './chromeObstacles'
 import { HotspotCardPresenter, type CardSlot } from './HotspotCardPresenter'
 

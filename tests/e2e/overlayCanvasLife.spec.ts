@@ -6,7 +6,7 @@ import { pollProductChannel, remountProduct } from './productFailureChannel'
 import { harnessPath, harnessProducts, waitForProductReady } from './productSpecs'
 import { settledFrames } from './stageSettle'
 import { frameFaultMessage } from '../../src/app/product-harness/frameFaultQuery.ts'
-import { overlayKey } from '../../src/features/hotspots/hotspotKeys.ts'
+import { overlayKey } from '../../src/lib/hotspots/hotspotKeys.ts'
 
 // The marker overlay across a canvas life. A present that throws retires
 // the stage's renderer, and the next product life presents on a fresh

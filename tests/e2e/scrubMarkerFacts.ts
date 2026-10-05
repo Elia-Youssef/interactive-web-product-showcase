@@ -1,11 +1,11 @@
-import { Mesh, Vector3, type Object3D } from 'three'
+import { Vector3, type Object3D } from 'three'
 import type { vec3 } from '@gltf-transform/core'
 import type { Product } from '../../src/lib/product'
-import { HOTSPOT_PREFIX, SHADOW_NODE_NAME } from '../../src/lib/product/contractNames.ts'
-import { createExplodePose } from '../../src/features/explode/explodePose'
+import { HOTSPOT_PREFIX } from '../../src/lib/product/contractNames.ts'
+import { createExplodePose } from '../../src/features/explode/index'
 import { parseShippedGltf } from './productGltf'
 import type { AuthoredView } from './productCamera'
-import type { Triangle } from './productMesh'
+import { readOccluderMeshes } from './productMesh'
 import { markersShownIn, type MarkerStage } from './productMarkerViews'
 
 // Which markers the home view shows while the explode scrubs, computed in
@@ -43,7 +43,7 @@ export async function readScrubMarkerFacts(
     id: hotspot.id,
     node: nodeNamed(parsed.scene, `${HOTSPOT_PREFIX}${hotspot.id}`, product.slug),
   }))
-  const meshes = occluderMeshesOf(parsed.scene)
+  const meshes = readOccluderMeshes(parsed.scene, center).meshes
   const pose = createExplodePose(parsed.scene, clip)
   const shown = new Map<string, boolean[]>(anchors.map((anchor) => [anchor.id, []]))
   for (const target of SCRUB_TARGETS) {
@@ -53,9 +53,9 @@ export async function readScrubMarkerFacts(
       {
         hotspots: anchors.map((anchor) => ({
           id: anchor.id,
-          stagePosition: inStage(anchor.node.getWorldPosition(new Vector3()), center),
+          stagePosition: anchor.node.getWorldPosition(new Vector3()).toArray(),
         })),
-        occluders: meshes.flatMap((mesh) => trianglesOf(mesh, center)),
+        occluders: meshes,
       },
       home,
       stage,
@@ -74,48 +74,4 @@ function nodeNamed(scene: Object3D, name: string, slug: string): Object3D {
     throw new Error(`the ${slug} model holds no ${name} node`)
   }
   return node
-}
-
-// Every mesh of the scene except the shadow subtree: the set the runtime's
-// occluder collection walks.
-function occluderMeshesOf(scene: Object3D): readonly Mesh[] {
-  const meshes: Mesh[] = []
-  scene.traverse((node) => {
-    if (node instanceof Mesh && !isUnderShadow(node)) {
-      meshes.push(node)
-    }
-  })
-  return meshes
-}
-
-function isUnderShadow(node: Object3D): boolean {
-  for (let current: Object3D | null = node; current !== null; current = current.parent) {
-    if (current.name === SHADOW_NODE_NAME) {
-      return true
-    }
-  }
-  return false
-}
-
-// The mesh's triangles in stage space at its current world matrix.
-function trianglesOf(mesh: Mesh, center: vec3): readonly Triangle[] {
-  const position = mesh.geometry.getAttribute('position')
-  if (position === undefined) {
-    throw new Error(`the mesh '${mesh.name}' carries no positions`)
-  }
-  const index = mesh.geometry.index
-  const count = index === null ? position.count : index.count
-  const vertex = (at: number): vec3 => {
-    const local = new Vector3().fromBufferAttribute(position, index === null ? at : index.getX(at))
-    return inStage(local.applyMatrix4(mesh.matrixWorld), center)
-  }
-  const triangles: Triangle[] = []
-  for (let face = 0; face + 2 < count; face += 3) {
-    triangles.push([vertex(face), vertex(face + 1), vertex(face + 2)])
-  }
-  return triangles
-}
-
-function inStage(point: Vector3, center: vec3): vec3 {
-  return [point.x - center[0], point.y - center[1], point.z - center[2]]
 }

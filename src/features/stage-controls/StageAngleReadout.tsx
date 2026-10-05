@@ -5,7 +5,7 @@
 import { normalizedAzimuthDegrees } from '@lib/camera/azimuth'
 import { selectCameraReadout, useAppStore } from '@store/index'
 import { Readout } from '@ui/index'
-import { angleReadoutText } from './stage-controls.logic'
+import { angleReadoutText } from '@lib/copy/stageReadouts'
 
 export function StageAngleReadout() {
   const readout = useAppStore(selectCameraReadout)

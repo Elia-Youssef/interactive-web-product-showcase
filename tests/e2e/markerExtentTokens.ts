@@ -3,7 +3,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseStylesheet } from '../../tooling/styleParse.ts'
 import { tokenSourcePath } from '../../tooling/tokenSource.ts'
-import { readMarkerExtent } from '../../src/features/hotspots/cardLayout'
+import { readMarkerExtent } from '../../src/lib/hotspots/cardLayout'
 import type { MarkerExtent } from '../../src/lib/hotspots/markerBox'
 
 // The marker extent the stylesheets declare, read in Node for the specs

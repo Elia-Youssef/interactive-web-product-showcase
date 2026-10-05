@@ -3,3 +3,4 @@
 // Product; nothing reaches its internals.
 
 export { ProductExplode } from './ProductExplode'
+export { createExplodePose } from './explodePose'

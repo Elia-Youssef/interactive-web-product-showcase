@@ -1,12 +1,12 @@
 import type { Page } from '@playwright/test'
 import { siteCopy } from '../../src/lib/copy/site'
 import { expect } from './fixtures'
+import { focusVisibly } from './measurementFocus'
 import { markerOf, stagePixelEpsilon } from './hotspotViews'
 import {
   boxOf,
   cardSideOf,
   expectCardInsideStage,
-  focusVisibly,
   openCardOf,
   tokenPx,
   type Box,

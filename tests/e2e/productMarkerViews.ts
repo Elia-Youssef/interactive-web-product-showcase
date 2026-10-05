@@ -3,7 +3,8 @@ import type { MarkerExtent } from '../../src/lib/hotspots/markerBox'
 import { projectToStageBox, viewDepthOf } from './hotspotPlacement'
 import type { AuthoredView, ProductCameraFacts } from './productCamera'
 import type { ProductHotspotFacts } from './productHotspots'
-import { isBlocked, type Triangle } from './productMesh'
+import { isBlocked } from './productMesh'
+import type { Mesh } from 'three'
 import { containedScale } from './stageCamera'
 
 // Which markers the shipped model shows from its views on one stage,
@@ -107,7 +108,7 @@ function turnedView(view: AuthoredView, angle: number): AuthoredView {
 // progress.
 export type MarkerScene = {
   readonly hotspots: readonly { readonly id: string; readonly stagePosition: vec3 }[]
-  readonly occluders: readonly Triangle[]
+  readonly occluders: Mesh[]
 }
 
 // The markers one view shows of the scene on the stage, by the runtime's
