@@ -4,4 +4,3 @@
 
 export { CollectionNavRow } from './CollectionNavRow'
 export type { CollectionNavRowProps } from './CollectionNavRow'
-export { stepLabel } from './collection.logic'

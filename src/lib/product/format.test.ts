@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { formatProductCounter, formatProductIndex, productName } from './format'
+import { formatProductCounter, formatProductIndex, productName, stepLabel } from './format'
 
 // The index formatting table: single digits gain a leading zero, longer
 // numbers pass through untouched.
@@ -31,5 +31,15 @@ describe('formatProductCounter', () => {
 describe('productName', () => {
   test('joins the brand and the model with one space', () => {
     expect(productName({ brand: 'Sample', model: 'Speaker' })).toBe('Sample Speaker')
+  })
+})
+
+// The step label names the direction and the product it reaches.
+describe('stepLabel', () => {
+  test('joins the direction word and the product name', () => {
+    expect(stepLabel('Previous', { brand: 'Sample', model: 'Speaker' })).toBe(
+      'Previous: Sample Speaker',
+    )
+    expect(stepLabel('Next', { brand: 'Forma', model: 'One' })).toBe('Next: Forma One')
   })
 })

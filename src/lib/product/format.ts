@@ -21,3 +21,9 @@ export function formatProductIndex(number: number): string {
 export function formatProductCounter(number: number, count: number): string {
   return `${formatProductIndex(number)} / ${formatProductIndex(count)}`
 }
+
+// The accessible name of a previous or next link: the direction word and
+// the product the step reaches, 'Previous: Sample Speaker'.
+export function stepLabel(label: string, product: Pick<Product, 'brand' | 'model'>): string {
+  return `${label}: ${productName(product)}`
+}

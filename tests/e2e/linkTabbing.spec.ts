@@ -6,7 +6,7 @@ import { routePath } from './appPaths'
 import { focusedAccessibleName, neighborsOf, plainTabReachesLinks } from './collectionFacts'
 import { loadCollection } from './productList'
 import { waitForProductReady } from './productSpecs'
-import { stepLabel } from '../../src/features/collection'
+import { stepLabel } from '../../src/lib/product'
 
 // The engines' keyboard model over links, as a fact of its own: what the
 // collection spec's keyboard walk may assume about a plain tab. The walk

@@ -1,12 +1,11 @@
 import { useRef, useState } from 'react'
 import type { Product, ProductCollection } from '@lib/product'
-import { formatProductCounter } from '@lib/product'
+import { formatProductCounter, stepLabel } from '@lib/product'
 import { formatProductPath } from '@lib/routing'
 import { siteCopy } from '@lib/copy/site'
 import { ChevronLeftIcon, ChevronRightIcon, IconLink, Readout } from '@ui/index'
 import type { LinkComponent } from '@ui/index'
 import { CollectionIndexDialog } from './CollectionIndexDialog'
-import { stepLabel } from './collection.logic'
 import styles from './CollectionNavRow.module.css'
 
 export type CollectionNavRowProps = {
