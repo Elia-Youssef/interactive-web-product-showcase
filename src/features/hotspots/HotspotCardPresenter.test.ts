@@ -68,7 +68,7 @@ describe('HotspotCardPresenter', () => {
     pass(overlay, { width: 800, height: 600 }, { driver: { x: 400, y: 300 }, knob: null })
     presenter.show('driver')
     presenter.measure(card)
-    overlay.onPass(() => presenter.present())
+    overlay.onPass(() => presenter.present(), 'presenter')
 
     // The knob lands where the right-side card would cover it: the card
     // takes the left side in the same pass.
@@ -195,7 +195,7 @@ describe('HotspotCardPresenter', () => {
 
   it('reads the page on a selection, a measure and a stage resize, and not on a pass of the same stage box', () => {
     const { overlay, presenter, reads } = setup()
-    overlay.onPass(() => presenter.present())
+    overlay.onPass(() => presenter.present(), 'presenter')
     pass(overlay, { width: 800, height: 600 }, { driver: { x: 400, y: 300 }, knob: null })
     presenter.show('driver')
     presenter.measure(card)
@@ -213,7 +213,7 @@ describe('HotspotCardPresenter', () => {
   it('docks an open card once a resized stage crosses into a docking layout', () => {
     const policy: { current: CardDockPolicy } = { current: 'when-crowded' }
     const { overlay, presenter } = setup(policy)
-    overlay.onPass(() => presenter.present())
+    overlay.onPass(() => presenter.present(), 'presenter')
     pass(overlay, { width: 800, height: 600 }, { driver: { x: 400, y: 300 }, knob: null })
     presenter.show('driver')
     presenter.measure(card)
