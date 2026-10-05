@@ -18,6 +18,9 @@ hover lift, with no surface of its own. Values are tokens. */
   border: none;
   background: none;
   cursor: pointer;
+  /* The color the readout inherits, the label gray the links beside it
+     carry, lifted to white on hover. */
+  color: var(--label);
   transition: color var(--duration-hover);
 }
 
