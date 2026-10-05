@@ -1,12 +1,12 @@
 // The stage chrome's controls: zoom out, the live zoom percentage, zoom in,
-// and Reset on one surface pill. The buttons ask the store's camera channel
-// to zoom by a step or to return to the home view; the stage camera
-// executes the requests, so the pill is the same on both backends and
-// tracks whichever product is presented. Under 640px the pinch zooms, so
+// and Reset on one surface pill. The zoom buttons ask the store's camera
+// channel to zoom by a step, and Reset asks the store to reset the stage,
+// which closes any open hotspot card and returns to the home view; the
+// stage camera executes the requests, so the pill is the same on both
+// backends and tracks whichever product is presented. Under 640px the pinch zooms, so
 // the buttons and the percentage drop and Reset stays.
 
 import { zoomPercentOfDistance } from '@lib/camera/zoom'
-import { CAMERA_HOME_ID } from '@lib/product'
 import { siteCopy } from '@lib/copy/site'
 import { selectCameraReadout, useAppStore } from '@store/index'
 import { IconButton, MinusIcon, PlusIcon, Readout, TextButton } from '@ui/index'
@@ -16,6 +16,7 @@ import styles from './stage-controls.module.css'
 export function StageZoomControls() {
   const readout = useAppStore(selectCameraReadout)
   const cameraRequest = useAppStore((state) => state.cameraRequest)
+  const stageReset = useAppStore((state) => state.stageReset)
 
   if (readout.kind !== 'live') {
     return null
@@ -42,9 +43,7 @@ export function StageZoomControls() {
           <PlusIcon />
         </IconButton>
       </span>
-      <TextButton onClick={() => cameraRequest({ kind: 'view', viewId: CAMERA_HOME_ID })}>
-        {siteCopy.resetLabel}
-      </TextButton>
+      <TextButton onClick={stageReset}>{siteCopy.resetLabel}</TextButton>
     </div>
   )
 }

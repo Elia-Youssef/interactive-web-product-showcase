@@ -26,6 +26,12 @@ export type ExplodeStatus = IdleExplodeStatus | ActiveExplodeStatus
 
 export const initialExplodeStatus: ExplodeStatus = { kind: 'idle' }
 
+// The target progress of one product's view, 0 while that product has no
+// attached view: an unattached product is presented assembled.
+export function explodeTargetOf(status: ExplodeStatus, product: string): number {
+  return status.kind === 'active' && status.product === product ? status.target : 0
+}
+
 // The published applied progress of one product's exploded view, as the
 // chrome displays it: idle while nothing publishes, live with the progress
 // the pose last applied, for the one product whose view presents. It is

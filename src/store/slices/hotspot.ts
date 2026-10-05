@@ -1,40 +1,19 @@
-import {
-  applyHotspotEvent,
-  initialHotspotStatus,
-  type HotspotEvent,
-  type HotspotStatus,
-} from './hotspot.logic'
+import { initialHotspotStatus, selectionOf, type HotspotStatus } from '@lib/hotspots/flow'
 
-export { selectionAfterToggle } from './hotspot.logic'
-export type { HotspotStatus } from './hotspot.logic'
+export type { HotspotStatus } from '@lib/hotspots/flow'
 
+// The hotspot slice holds the flow's one status. Every write goes through
+// the flow's composed actions (createAppStore), which apply one transition
+// per event together with the camera request it owes, so the slice itself
+// carries no action.
 export type HotspotSliceState = {
   hotspotStatus: HotspotStatus
 }
 
-export type HotspotSlice = HotspotSliceState & {
-  hotspotToggled: (product: string, hotspot: string) => void
-  hotspotCleared: (product: string) => void
-}
+export type HotspotSlice = HotspotSliceState
 
-// The slice only ever writes its own fields, so it asks for a set narrowed
-// to its own state. The full store's set satisfies this structurally.
-type SetHotspotState = (updater: (state: HotspotSliceState) => Partial<HotspotSliceState>) => void
-
-export function createHotspotSlice(set: SetHotspotState): HotspotSlice {
-  const apply = (event: HotspotEvent) => {
-    set((state) => ({ hotspotStatus: applyHotspotEvent(state.hotspotStatus, event) }))
-  }
-
-  return {
-    hotspotStatus: initialHotspotStatus,
-    hotspotToggled: (product, hotspot) => apply({ kind: 'toggled', product, hotspot }),
-    hotspotCleared: (product) => apply({ kind: 'cleared', product }),
-  }
-}
-
-export function selectHotspotStatus(state: HotspotSliceState): HotspotStatus {
-  return state.hotspotStatus
+export function createHotspotSlice(): HotspotSlice {
+  return { hotspotStatus: initialHotspotStatus }
 }
 
 // The selected hotspot of one product, or null while that product holds no
@@ -42,6 +21,5 @@ export function selectHotspotStatus(state: HotspotSliceState): HotspotStatus {
 // renders the next product's markers unpressed instead of reaching the last
 // product's selection.
 export function selectSelectedHotspot(state: HotspotSliceState, product: string): string | null {
-  const status = state.hotspotStatus
-  return status.kind === 'selected' && status.product === product ? status.hotspot : null
+  return selectionOf(state.hotspotStatus, product)?.hotspot ?? null
 }

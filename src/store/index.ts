@@ -3,12 +3,7 @@ export { AppStoreProvider } from './AppStoreProvider'
 export { useAppStore, useAppStoreApi } from './useAppStore'
 export { selectRendererBackend, selectRendererStatus, type RendererStatus } from './slices/renderer'
 export { selectFinishStatus, selectSelectedVariant, type FinishStatus } from './slices/finish'
-export {
-  selectHotspotStatus,
-  selectSelectedHotspot,
-  selectionAfterToggle,
-  type HotspotStatus,
-} from './slices/hotspot'
+export { selectSelectedHotspot, type HotspotStatus } from './slices/hotspot'
 export { selectProductFailed, selectProductStatus, type ProductStatus } from './slices/product'
 export {
   selectCameraOutcomes,

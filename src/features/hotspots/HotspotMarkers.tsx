@@ -50,7 +50,7 @@ export function HotspotMarkers({ product, dock, chrome }: HotspotMarkersProps) {
           overlay={overlay}
           hotspot={hotspot}
           selected={flow.selected === hotspot.id}
-          onToggle={() => flow.toggle(hotspot.id)}
+          onToggle={() => flow.press(hotspot.id)}
         />
       ))}
       {slot !== null && open !== null && (
