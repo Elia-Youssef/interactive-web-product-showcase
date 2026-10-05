@@ -22,6 +22,8 @@ function frameAt(center: [number, number, number]): ModelFrame {
     radius: 0.4,
     meshes: 1,
     triangles: 12,
+    min: [center[0] - 0.4, center[1] - 0.4, center[2] - 0.4],
+    max: [center[0] + 0.4, center[1] + 0.4, center[2] + 0.4],
   }
 }
 
@@ -72,9 +74,10 @@ describe('the plan checks one space', () => {
         fovY: (30 * Math.PI) / 180,
       }
       const modelSpace = cameraContractProblems({
-        views: [{ id: 'home', ray }],
+        product: 'sample-one',
+        views: [{ id: 'home', ray, pivot: { point: center, subject: 'the model center' } }],
         homeId: 'home',
-        frame: { center, radius: modelFrame.radius },
+        bounds: { min: modelFrame.min, max: modelFrame.max },
         authoredDistanceLimits: cameraBlock,
         limits: cameraLimitConfig,
       })

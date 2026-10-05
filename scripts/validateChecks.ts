@@ -92,7 +92,7 @@ export function checkManifest(slug: string, manifest: Product): CheckResult {
 
 // Every manifest hotspot needs its HS_<id> node, parented by nearest named
 // ancestor to a PART_ node, so the hotspot rides along in the exploded
-// view.
+// view, with a readable rest position for its close-up to orbit.
 export function checkHotspots(manifest: Product, structure: ProductStructure): CheckResult {
   const violations: string[] = []
   const anchorsByName = new Map(structure.hotspotAnchors.map((anchor) => [anchor.name, anchor]))
@@ -101,6 +101,12 @@ export function checkHotspots(manifest: Product, structure: ProductStructure): C
     if (anchor === undefined) {
       violations.push(`no ${HOTSPOT_PREFIX}${hotspot.id} node for manifest hotspot '${hotspot.id}'`)
       continue
+    }
+    if (anchor.restPosition === null) {
+      violations.push(
+        `hotspot ${HOTSPOT_PREFIX}${hotspot.id} has a world matrix that is not a finite 4x4 matrix, ` +
+          'so its rest position cannot be read',
+      )
     }
     if (anchor.parentName === null || !anchor.parentName.startsWith(PART_PREFIX)) {
       violations.push(

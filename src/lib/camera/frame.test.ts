@@ -4,7 +4,7 @@
 // semantics: the union of the transformed corners and the box's
 // circumscribed sphere.
 import { describe, expect, it } from 'vitest'
-import { frameSpanOfMeshBoxes } from './frame'
+import { farthestPointFrom, frameSpanOfMeshBoxes } from './frame'
 import type { MeshBox } from './frame'
 
 const IDENTITY: MeshBox['matrix'] = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
@@ -14,10 +14,12 @@ function boxAt(min: [number, number, number], max: [number, number, number]): Me
 }
 
 describe('frameSpanOfMeshBoxes', () => {
-  it('frames one box by its center and half diagonal', () => {
+  it('frames one box by its center and half diagonal and reports min and max', () => {
     const span = frameSpanOfMeshBoxes([boxAt([0, 0, 0], [2, 2, 0])])
     expect(span.center).toEqual([1, 1, 0])
     expect(span.radius).toBe(Math.sqrt(8) * 0.5)
+    expect(span.min).toEqual([0, 0, 0])
+    expect(span.max).toEqual([2, 2, 0])
   })
 
   it('unions every box, not only the first', () => {
@@ -73,5 +75,31 @@ describe('frameSpanOfMeshBoxes', () => {
     expect(() =>
       frameSpanOfMeshBoxes([{ min: [1, 1, 1], max: [0, 0, 0], matrix: IDENTITY }]),
     ).toThrow('a frame needs at least one mesh box that bounds something')
+  })
+})
+
+// The model's reach from a point: the farthest corner of the box, per axis
+// the far side, checked against every corner by brute force.
+describe('farthestPointFrom', () => {
+  const bounds = { min: [-1, -2, -3], max: [1, 2, 3] } as const
+
+  function cornerDistance(corner: readonly number[], point: readonly number[]): number {
+    const [dx = 0, dy = 0, dz = 0] = corner.map((value, axis) => value - (point[axis] ?? 0))
+    return Math.sqrt(dx * dx + dy * dy + dz * dz)
+  }
+
+  const corners = [-1, 1].flatMap((x) =>
+    [-2, 2].flatMap((y) => [-3, 3].map((z) => [x, y, z] as const)),
+  )
+
+  it.each([
+    { name: 'the box center reaches the half diagonal', point: [0, 0, 0] as const },
+    { name: 'a corner reaches the full diagonal', point: [1, 2, 3] as const },
+    { name: 'a point outside reaches the far corner', point: [5, 0, 0] as const },
+    { name: 'an off-center point inside', point: [0.5, -1.2, 2.8] as const },
+    { name: 'a far point in every axis', point: [10, -5, 2] as const },
+  ])('$name', ({ point }) => {
+    const farthest = Math.max(...corners.map((corner) => cornerDistance(corner, point)))
+    expect(farthestPointFrom(bounds, point)).toBe(farthest)
   })
 })

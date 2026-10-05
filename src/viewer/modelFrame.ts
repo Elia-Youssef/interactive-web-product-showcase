@@ -1,11 +1,12 @@
 import { Line, Mesh, Points } from 'three'
 import type { BufferGeometry, Object3D } from 'three'
 import { frameSpanOfMeshBoxes, isMat4 } from '@lib/camera/frame'
-import type { MeshBox } from '@lib/camera/frame'
+import type { MeshBox, Vec3 } from '@lib/camera/frame'
 
-// What it takes to frame a loaded model: the center of its bounding box, the
-// radius of the bounding sphere around it, and the shape counts the store's
-// ready status carries. Measured once, on load, in the model's own space.
+// What it takes to frame a loaded model: its bounding box, the center of
+// that box, the radius of the bounding sphere around it, and the shape
+// counts the store's ready status carries. Measured once, on load, in the
+// model's own space.
 
 export type ModelFrame = {
   // The center of the bounding box, in the model's own space.
@@ -16,6 +17,9 @@ export type ModelFrame = {
   readonly radius: number
   readonly meshes: number
   readonly triangles: number
+  // The corners of the bounding box, in the model's own space.
+  readonly min: Vec3
+  readonly max: Vec3
 }
 
 // Measures a loaded model subtree. One box per geometry-carrying object
@@ -56,6 +60,8 @@ export function measureModelFrame(root: Object3D): ModelFrame {
     radius: span.radius,
     meshes,
     triangles,
+    min: span.min,
+    max: span.max,
   }
 }
 

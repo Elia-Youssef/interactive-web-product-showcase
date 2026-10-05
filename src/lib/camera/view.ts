@@ -2,7 +2,8 @@
 // and the orbit angles of a camera position around a target. Vectors are
 // readonly tuples; exact values, no rounding. The spherical conventions are
 // the ones camera-controls and three's Spherical use: azimuth around +Y
-// measured from +Z, polar from +Y.
+// measured from +Z, polar from +Y. The module imports nothing at runtime,
+// so the build-time scripts run it straight from its .ts file.
 
 export type Vec3 = readonly [number, number, number]
 
@@ -14,12 +15,21 @@ export type AuthoredCameraRay = {
   readonly fovY: number
 }
 
+// The point one view orbits, and what that point is, in the words a problem
+// names it by ('the model center', 'the HS_driver anchor'). Every view
+// carries one: the rule that chooses it lives in ./pivot.
+export type ViewPivot = {
+  readonly point: Vec3
+  readonly subject: string
+}
+
 // One authored view of a product: the view id the camera carries after the
-// CAM_ prefix ('home', 'driver'), the identity a problem names, and the
-// camera's authored ray.
+// CAM_ prefix ('home', 'driver'), the identity a problem names, the
+// camera's authored ray, and the pivot its orbit target is projected from.
 export type NamedCameraRay = {
   readonly id: string
   readonly ray: AuthoredCameraRay
+  readonly pivot: ViewPivot
 }
 
 // The orbit view the controls present for an authored camera: where the
@@ -39,16 +49,25 @@ export type OrbitAngles = {
 
 // The orbit view of an authored camera: the authored position and vertical
 // fov are kept, and the target is the point on the authored view ray closest
-// to the model center, so the controls orbit the product while holding the
+// to the given pivot (the model center for home, or a hotspot anchor at rest
+// for a close-up), so the controls orbit the subject while holding the
 // authored direction. The same function serves the home view and every
 // close-up view.
-export function orbitViewOfAuthoredCamera(authored: AuthoredCameraRay, center: Vec3): OrbitView {
-  const along = dot(sub(center, authored.position), authored.forward)
+export function orbitViewOfAuthoredCamera(authored: AuthoredCameraRay, pivot: Vec3): OrbitView {
   return {
     position: authored.position,
-    target: add(authored.position, scale(authored.forward, along)),
+    target: add(authored.position, scale(authored.forward, pivotDepthOf(authored, pivot))),
     fovY: authored.fovY,
   }
+}
+
+// How far ahead of the camera the pivot projects onto its view ray, along
+// the authored forward: positive in front of the eye, zero beside it,
+// negative behind it. The orbit target is the camera position moved by
+// exactly this depth, so the geometry rule reads the same number the
+// target is built from.
+export function pivotDepthOf(authored: AuthoredCameraRay, pivot: Vec3): number {
+  return dot(sub(pivot, authored.position), authored.forward)
 }
 
 // The orbit angles of a camera position around a target: the azimuth from

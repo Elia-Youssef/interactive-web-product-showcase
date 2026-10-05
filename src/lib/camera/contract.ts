@@ -1,8 +1,9 @@
 // The camera contract of a product, as one rule assembly: every authored
-// view, the model frame and the manifest's authored distance limits go in,
-// and the check comes out: the contract holding, with the resolved distance
-// and polar limits the check ran, so the caller presents exactly what it
-// checked, or every problem the authored camera data has.
+// view with its pivot, the model's bounds and the manifest's authored
+// distance limits go in, and the check comes out: the contract holding,
+// with the resolved distance and polar limits the check ran, so the caller
+// presents exactly what it checked, or every problem the authored camera
+// data has.
 //
 // The runtime plan and the build-time validate step run this one assembly
 // over the same view set, so a view that passes validate is a view the
@@ -11,6 +12,7 @@
 import {
   distanceLimitProblems,
   polarLimitProblems,
+  reachLimitProblems,
   resolvedDistanceLimits,
   resolvedPolarRange,
 } from './limits'
@@ -22,20 +24,23 @@ import type {
   ViewOrbit,
 } from './limits'
 import type { CameraLimitConfig } from './config'
-import type { FrameSpan } from './frame'
+import { farthestPointFrom } from './frame'
+import type { ModelBounds } from './frame'
 import { viewGeometryProblems } from './geometry'
 import { orbitAnglesOf, orbitViewOfAuthoredCamera } from './view'
-import type { NamedCameraRay, Vec3 } from './view'
+import type { NamedCameraRay } from './view'
 
-// The facts one contract check reads: every authored view of the product
-// (the home view among them) as a named camera ray in the space the frame
-// is measured in, the id of the home view the fallback limits derive from,
-// the frame of the model the views look at, the distance limits the
-// manifest authors, and the limit configuration of the project.
+// The facts one contract check reads: the product the problems name, every
+// authored view of it (the home view among them) as a named camera ray
+// with its pivot, in the space the bounds are measured in, the id of the
+// home view the fallback limits derive from, the bounds of the model the
+// views look at, the distance limits the manifest authors, and the limit
+// configuration of the project.
 export type CameraContractInput = {
+  readonly product: string
   readonly views: readonly NamedCameraRay[]
   readonly homeId: string
-  readonly frame: FrameSpan
+  readonly bounds: ModelBounds
   readonly authoredDistanceLimits: AuthoredDistanceLimits
   readonly limits: CameraLimitConfig
 }
@@ -54,8 +59,8 @@ export type CameraContractCheck =
   | { readonly kind: 'broken'; readonly problems: readonly CameraLimitProblem[] }
 
 // Checks every authored view's geometry, then every view with a sound
-// geometry against the distance and polar limits: each view outside the
-// distance limits, the minimum distance inside the model, each view outside
+// geometry against the limits: each view outside the distance limits, each
+// view whose reach the minimum distance does not exceed, each view outside
 // the polar limits. The home view is one of the views and answers to the
 // same rules; it alone sets the fallback distance limits, so a home whose
 // geometry is broken leaves no limit to derive and no limit rule runs: its
@@ -64,7 +69,6 @@ export type CameraContractCheck =
 // problems name it. A close-up the limits would clamp away is as broken as
 // a home that fails them, so no view is exempt.
 export function cameraContractProblems(input: CameraContractInput): CameraContractCheck {
-  const center = input.frame.center
   if (!input.views.some((view) => view.id === input.homeId)) {
     // Both callers resolve the home view before the check and fail a
     // product without one by its own rule, so a view list without it is a
@@ -74,11 +78,11 @@ export function cameraContractProblems(input: CameraContractInput): CameraContra
   const geometry: CameraLimitProblem[] = []
   const orbits: ViewOrbit[] = []
   for (const view of input.views) {
-    const problems = viewGeometryProblems(view, center)
+    const problems = viewGeometryProblems(view)
     if (problems.length > 0) {
       geometry.push(...problems)
     } else {
-      orbits.push(viewOrbitOf(view, center))
+      orbits.push(viewOrbitOf(view, input.bounds))
     }
   }
   const home = orbits.find((orbit) => orbit.id === input.homeId)
@@ -92,7 +96,8 @@ export function cameraContractProblems(input: CameraContractInput): CameraContra
   const polarRange = resolvedPolarRange(input.limits)
   const problems = [
     ...geometry,
-    ...distanceLimitProblems(distanceRange, orbits, input.frame.radius),
+    ...distanceLimitProblems(distanceRange, orbits),
+    ...reachLimitProblems(distanceRange, orbits, input.product),
     ...polarLimitProblems(polarRange, orbits),
   ]
   return problems.length > 0
@@ -100,11 +105,17 @@ export function cameraContractProblems(input: CameraContractInput): CameraContra
     : { kind: 'holds', distanceRange, polarRange }
 }
 
-// The orbit numbers of one view with a sound geometry around the frame
-// center: the orbit target projected from the view's ray, then the distance
-// and polar angle the rules read.
-function viewOrbitOf(view: NamedCameraRay, center: Vec3): ViewOrbit {
-  const orbit = orbitViewOfAuthoredCamera(view.ray, center)
+// The orbit numbers of one view with a sound geometry: the orbit target
+// projected from the view's pivot onto its ray, the distance and polar
+// angle the limits read, and the model's reach from that target.
+function viewOrbitOf(view: NamedCameraRay, bounds: ModelBounds): ViewOrbit {
+  const orbit = orbitViewOfAuthoredCamera(view.ray, view.pivot.point)
   const angles = orbitAnglesOf(orbit.position, orbit.target)
-  return { id: view.id, distance: angles.distance, polar: angles.polar }
+  return {
+    id: view.id,
+    distance: angles.distance,
+    polar: angles.polar,
+    reach: farthestPointFrom(bounds, orbit.target),
+    pivot: view.pivot.subject,
+  }
 }

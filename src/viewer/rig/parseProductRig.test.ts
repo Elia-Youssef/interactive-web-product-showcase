@@ -215,6 +215,7 @@ test('the parsed rig resolves every contract part the manifest and tree agree on
   expect(rig.shadow.name).toBe('SHADOW')
   expect(rig.clip.name).toBe('Explode')
   expect(rig.variants).toEqual(['sage', 'graphite'])
+  expect([...rig.anchorRest.keys()]).toEqual(['driver', 'shell'])
 })
 
 test('the rig summary is the plain data the store and the hook report', () => {

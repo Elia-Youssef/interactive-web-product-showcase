@@ -114,6 +114,7 @@ function homeOnlyRig(): ProductRig {
     shadow: new Object3D(),
     clip: new AnimationClip('Explode', 1, []),
     variants: [],
+    anchorRest: new Map(),
   }
 }
 
@@ -124,6 +125,8 @@ const centeredFrame: ModelFrame = {
   radius: 0.05,
   meshes: 1,
   triangles: 12,
+  min: [-0.05, -0.05, -0.05],
+  max: [0.05, 0.05, 0.05],
 }
 
 describe('planPresentation', () => {
