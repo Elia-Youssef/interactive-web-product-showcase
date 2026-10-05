@@ -9,7 +9,8 @@ import {
   driveToHidingView,
   oppositeAzimuthOf,
 } from './hotspotDrives'
-import { markerOf, occludableFact, pointOf, requireCamera } from './hotspotViews'
+import { markerOf, requireCamera } from './hotspotViews'
+import { selectOcclusionSubjects } from './occlusionSubjects'
 import { flowFacts } from './hotspotFlowFacts'
 
 // The pulse animations of one marker, read through the Web Animations API.
@@ -37,12 +38,16 @@ function pulseStartTimes(page: Parameters<typeof markerOf>[0], title: string): P
 
 const { flows, factsBySlug } = await flowFacts()
 
+// The pulse proof's round trip passes the hiding view of the subject the
+// selection resolved at collection, where the title names the hotspot: a
+// product without one runs no round trip.
+const occlusionSubjects = selectOcclusionSubjects(
+  flows.map((flow) => flow.subject.product),
+  factsBySlug,
+)
+
 for (const flow of flows) {
   const { product } = flow.subject
-  const facts = factsBySlug.get(product.slug)
-  if (facts === undefined) {
-    throw new Error(`no hotspot facts for ${product.slug}`)
-  }
   // The press proof's contrast comes from the product set, per hotspot
   // kind: a hotspot without a close-up, whose opening is no camera move,
   // and one with, whose opening moves the camera. No product is required to
@@ -51,6 +56,7 @@ for (const flow of flows) {
   const plain = flow.subject.plains[0]
   const closeUp = flow.subject.closeUps[0]
   const slug = product.slug
+  const occluded = occlusionSubjects.get(slug)
 
   if (plain !== undefined) {
     test(`hotspots ${slug}: pressing the marker without a close-up presses it alone in the red token, and the camera stays put`, async ({
@@ -154,60 +160,53 @@ for (const flow of flows) {
     })
   }
 
-  test(`hotspots ${slug}: each marker pulses exactly once after load, and an occlusion round trip replays nothing`, async ({
-    page,
-    backendPath,
-  }) => {
-    // One load and four camera drives: the occlusion round trip to the
-    // hiding view and back home, each an azimuth drive and a polar drive.
-    test.setTimeout(testBudgetMs({ productLoads: 1, cameraDrives: 4 }))
-    await page.goto(harnessPath(backendPath, slug))
-    await waitForProductReady(page)
-    await settledFrames(page)
-
-    const startTimesAtLoad = new Map<string, number[]>()
-    for (const hotspot of product.hotspots) {
-      const times = await pulseStartTimes(page, hotspot.title)
-      expect(times, `${hotspot.title} must run exactly one pulse after load`).toHaveLength(1)
-      startTimesAtLoad.set(hotspot.title, times)
-    }
-
-    // The round trip: to the body's hiding view and back. Hiding is
-    // visibility, never display, so the pulse animation survives it and
-    // never restarts. The hiding view is the same geometry the placement
-    // spec drives: the opposite azimuth, at the camera height the facts
-    // found by raycasting the shipped meshes.
-    const occluded = occludableFact(facts)
-    const occludedTitle = product.hotspots.find((h) => h.id === occluded.id)?.title
-    if (occludedTitle === undefined) {
-      throw new Error(`no manifest hotspot '${occluded.id}'`)
-    }
-    const hidingHeightM = occluded.hidingHeightM
-    if (hidingHeightM === null) {
-      throw new Error(`the facts found no hiding height for ${occluded.id}`)
-    }
-    const cameraAtHome = await requireCamera(page)
-    const hidingPolar = Math.acos((hidingHeightM - cameraAtHome.target.y) / cameraAtHome.distance)
-    await driveToHidingView(
+  if (occluded !== undefined) {
+    test(`hotspots ${slug}: each marker pulses exactly once after load, and an occlusion round trip past the hiding view of ${occluded.hotspot.title} replays nothing`, async ({
       page,
-      oppositeAzimuthOf(cameraAtHome, pointOf(occluded.stagePosition)),
-      hidingPolar,
-    )
-    await expect(
-      markerOf(page, occludedTitle),
-      'the round trip must pass a hiding view',
-    ).toBeHidden()
-    await dragToAzimuth(page, cameraAtHome.azimuth)
-    await dragToPolarAtMost(page, cameraAtHome.polar)
-    await settledFrames(page)
+      backendPath,
+    }) => {
+      // One load and four camera drives: the occlusion round trip to the
+      // hiding view and back home, each an azimuth drive and a polar drive.
+      test.setTimeout(testBudgetMs({ productLoads: 1, cameraDrives: 4 }))
+      await page.goto(harnessPath(backendPath, slug))
+      await waitForProductReady(page)
+      await settledFrames(page)
 
-    for (const hotspot of product.hotspots) {
-      const times = await pulseStartTimes(page, hotspot.title)
-      expect(times, `${hotspot.title} must still carry its one pulse after the round trip`).toEqual(
-        startTimesAtLoad.get(hotspot.title),
+      const startTimesAtLoad = new Map<string, number[]>()
+      for (const hotspot of product.hotspots) {
+        const times = await pulseStartTimes(page, hotspot.title)
+        expect(times, `${hotspot.title} must run exactly one pulse after load`).toHaveLength(1)
+        startTimesAtLoad.set(hotspot.title, times)
+      }
+
+      // The round trip: to the body's hiding view and back. Hiding is
+      // visibility, never display, so the pulse animation survives it and
+      // never restarts. The hiding view is the same geometry the placement
+      // spec drives: the opposite azimuth, at the camera height the facts
+      // found by raycasting the shipped meshes.
+      const occludedTitle = occluded.hotspot.title
+      const cameraAtHome = await requireCamera(page)
+      const hidingPolar = Math.acos(
+        (occluded.hidingHeightM - cameraAtHome.target.y) / cameraAtHome.distance,
       )
-    }
-  })
+      await driveToHidingView(page, oppositeAzimuthOf(cameraAtHome, occluded.anchor), hidingPolar)
+      await expect(
+        markerOf(page, occludedTitle),
+        'the round trip must pass a hiding view',
+      ).toBeHidden()
+      await dragToAzimuth(page, cameraAtHome.azimuth)
+      await dragToPolarAtMost(page, cameraAtHome.polar)
+      await settledFrames(page)
+
+      for (const hotspot of product.hotspots) {
+        const times = await pulseStartTimes(page, hotspot.title)
+        expect(
+          times,
+          `${hotspot.title} must still carry its one pulse after the round trip`,
+        ).toEqual(startTimesAtLoad.get(hotspot.title))
+      }
+    })
+  }
 
   test(`hotspots ${slug}: reduced motion resolves the pulse to none`, async ({
     page,
