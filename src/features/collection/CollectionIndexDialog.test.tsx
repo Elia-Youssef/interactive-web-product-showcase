@@ -44,10 +44,11 @@ function textContent(html: string): string {
 test('the dialog is named by its heading through aria-labelledby', () => {
   const html = renderDialog('sample-one')
 
-  expect(html).toMatch(/<dialog [^>]*aria-labelledby="([^"]+)"/)
-  const labelledby = html.match(/aria-labelledby="([^"]+)"/)?.[1]
-  expect(labelledby).toBeDefined()
-  expect(html).toContain(`id="${labelledby as string}"`)
+  const labelledby = html.match(/<dialog [^>]*aria-labelledby="([^"]+)"/)?.[1]
+  if (labelledby === undefined) {
+    throw new Error('the dialog names no heading')
+  }
+  expect(html).toContain(`id="${labelledby}"`)
   expect(html).toContain(siteCopy.indexLabel)
 })
 

@@ -1,8 +1,8 @@
 import { useId, useRef } from 'react'
-import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
+import type { SyntheticEvent } from 'react'
 import type { Product } from '@lib/product'
 import { siteCopy } from '@lib/copy/site'
-import { CloseIcon, IconButton } from '@ui/index'
+import { CloseIcon, IconButton, useEscapeLayer } from '@ui/index'
 import type { LinkComponent } from '@ui/index'
 import { CollectionIndexEntries } from './CollectionIndexEntries'
 import { useModalDialog } from './useModalDialog'
@@ -21,12 +21,13 @@ export type CollectionIndexDialogProps = {
 }
 
 // The collection index overlay: a native modal dialog, so the top layer,
-// the inert background, the focus containment and Escape are the
-// platform's own on every engine, with no hand-written focus trap. The
-// Escape it handles stays its own: the keydown stops at the dialog, so a
-// listener further out (an open hotspot card's) never acts on it, while
-// the cancel that keydown is the default action of still closes the
-// dialog.
+// the inert background and the focus containment are the platform's own
+// on every engine, with no hand-written focus trap. Escape is not the
+// dialog's alone: the surface registers as a layer with the escape owner
+// while it is open, so the key closes the topmost open surface only,
+// wherever focus rests, and the open hotspot card below waits its turn.
+// The platform cancel never closes the dialog on its own authority: it is
+// suppressed, and the owner's dispatch closes it through the one close.
 export function CollectionIndexDialog({
   open,
   onClose,
@@ -37,11 +38,10 @@ export function CollectionIndexDialog({
   const dialogRef = useRef<HTMLDialogElement>(null)
   const headingId = useId()
   useModalDialog(dialogRef, open)
+  useEscapeLayer(open, onClose)
 
-  const consumeEscape = (event: ReactKeyboardEvent<HTMLDialogElement>) => {
-    if (event.key === 'Escape') {
-      event.stopPropagation()
-    }
+  const suppressCancel = (event: SyntheticEvent<HTMLDialogElement>) => {
+    event.preventDefault()
   }
 
   return (
@@ -50,7 +50,7 @@ export function CollectionIndexDialog({
       className={styles.dialog}
       aria-labelledby={headingId}
       onClose={onClose}
-      onKeyDown={consumeEscape}
+      onCancel={suppressCancel}
     >
       <div className={styles.header}>
         <h2 id={headingId} className={styles.heading}>
