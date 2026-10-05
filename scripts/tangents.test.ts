@@ -25,6 +25,28 @@ describe('dropUnusedTangents', () => {
     expect(primitive.getIndices()).not.toBeNull()
   })
 
+  it('strips the morph target TANGENT with its base, and keeps it with a kept base', () => {
+    const doc = docWithPrimitives([{ material: {} }, { material: { normalTexture: true } }])
+    const targetTangents = [0, 1].map((index) => {
+      const accessor = doc
+        .createAccessor()
+        .setType('VEC3')
+        .setArray(new Float32Array([0, 0, 0, 0, 0, 0, 0, 0, 0]))
+      const target = doc.createPrimitiveTarget().setAttribute('TANGENT', accessor)
+      primitiveAt(doc, index).addTarget(target)
+      return accessor
+    })
+    const strippedBytes =
+      (tangentOf(primitiveAt(doc, 0))?.getByteLength() ?? 0) +
+      (targetTangents[0]?.getByteLength() ?? 0)
+    const report = dropUnusedTangents(doc)
+    expect(report.accessorBytesRemoved).toBe(strippedBytes)
+    expect(primitiveAt(doc, 0).listTargets()[0]?.getAttribute('TANGENT')).toBeNull()
+    expect(targetTangents[0]?.isDisposed()).toBe(true)
+    expect(primitiveAt(doc, 1).listTargets()[0]?.getAttribute('TANGENT')).toBe(targetTangents[1])
+    expect(targetTangents[1]?.isDisposed()).toBe(false)
+  })
+
   it('strips TANGENT from a primitive with no material', () => {
     const doc = docWithPrimitives([{ material: null }])
     const primitive = primitiveAt(doc, 0)

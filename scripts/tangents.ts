@@ -96,6 +96,15 @@ export function dropUnusedTangents(doc: Document): TangentReport {
       }
       primitive.setAttribute(TANGENT_ATTRIBUTE, null)
       orphaned.add(tangent)
+      // A morph target may only displace attributes its base carries, so
+      // the targets lose their TANGENT with the base.
+      for (const target of primitive.listTargets()) {
+        const targetTangent = target.getAttribute(TANGENT_ATTRIBUTE)
+        if (targetTangent !== null) {
+          target.setAttribute(TANGENT_ATTRIBUTE, null)
+          orphaned.add(targetTangent)
+        }
+      }
       primitivesStripped += 1
     }
   }
