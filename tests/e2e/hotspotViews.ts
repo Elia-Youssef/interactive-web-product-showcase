@@ -3,8 +3,7 @@ import { siteCopy } from '../../src/lib/copy/site'
 import { expect } from './fixtures'
 import { readCamera } from './stageCamera'
 import { harnessStageBox } from './lookHarness'
-import { isInsideBox, projectToStageBox, type Point3 } from './hotspotPlacement'
-import type { ProductHotspotFacts } from './productHotspots'
+import { projectToStageBox, type Point3 } from './hotspotPlacement'
 
 // The reads and expectations of the hotspot specs: the camera and probe
 // reads, the marker and card locators, and the expectations that hold the
@@ -92,35 +91,6 @@ export function titleOf(
     throw new Error(`no manifest hotspot '${id}'`)
   }
   return title
-}
-
-// The anchor a body can hide: the one whose authored position lies inside
-// the occluding meshes' bounds, found by geometry, not by name.
-export function occludableFact(facts: ProductHotspotFacts) {
-  const fact = facts.hotspots.find((entry) =>
-    isInsideBox(pointOf(entry.stagePosition), factsBoundsOf(facts)),
-  )
-  if (fact === undefined) {
-    throw new Error('no hotspot anchor lies inside the body bounds to occlude')
-  }
-  return fact
-}
-
-// The facts' occluder bounds as points, so the geometry helpers read one
-// shape.
-export function factsBoundsOf(facts: ProductHotspotFacts): {
-  readonly min: Point3
-  readonly max: Point3
-} {
-  return { min: pointOf(facts.occluderBounds.min), max: pointOf(facts.occluderBounds.max) }
-}
-
-export function pointOf(tuple: readonly [number, number, number]): Point3 {
-  const [x, y, z] = tuple
-  if (x === undefined || y === undefined || z === undefined) {
-    throw new Error('a model fact arrived with a short position')
-  }
-  return { x, y, z }
 }
 
 // Every listed hotspot's marker against the projection of the anchor the

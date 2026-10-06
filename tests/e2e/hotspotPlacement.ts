@@ -1,4 +1,5 @@
 import type { CameraRead } from './stageCamera'
+import type { ProductHotspotFacts } from './productHotspots'
 
 // The projection the hotspot spec checks markers against, restated here from
 // the camera read and the stage box instead of imported from the viewer, so
@@ -132,4 +133,23 @@ export function isInsideBox(
     point.z >= bounds.min.z &&
     point.z <= bounds.max.z
   )
+}
+
+// The point a model fact's position tuple carries, as one shape for the
+// geometry helpers. A short tuple is a broken fact, not an empty corner.
+export function pointOf(tuple: readonly [number, number, number]): Point3 {
+  const [x, y, z] = tuple
+  if (x === undefined || y === undefined || z === undefined) {
+    throw new Error('a model fact arrived with a short position')
+  }
+  return { x, y, z }
+}
+
+// The facts' occluder bounds as points, so the geometry helpers read one
+// shape.
+export function factsBoundsOf(facts: ProductHotspotFacts): {
+  readonly min: Point3
+  readonly max: Point3
+} {
+  return { min: pointOf(facts.occluderBounds.min), max: pointOf(facts.occluderBounds.max) }
 }

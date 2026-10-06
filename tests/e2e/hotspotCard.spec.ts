@@ -1,5 +1,4 @@
 import { expect, test } from './fixtures'
-import type { Product } from '../../src/lib/product'
 import { expectPoll, harnessPath, waitForProductReady } from './productSpecs'
 import { productLoadBudgetMs, testBudgetMs } from './budgets'
 import { dragOnCanvas } from './stageCamera'
@@ -12,13 +11,12 @@ import {
   harnessCanvasDrivePoint,
   harnessStageAspect,
   markerOf,
-  occludableFact,
   requireCamera,
   requireHotspots,
 } from './hotspotViews'
 import { expectCardBesideMarker } from './hotspotCardChecks'
 import { driveToHidingView, oppositeAzimuthOf, zoomToDistanceBand } from './hotspotDrives'
-import type { ProductHotspotFacts } from './productHotspots'
+import { requireFollowSubjects, selectOcclusionSubjects } from './occlusionSubjects'
 import { flowFacts } from './hotspotFlowFacts'
 
 // The card of the open hotspot: it is placed beside its marker in every
@@ -34,18 +32,30 @@ import { flowFacts } from './hotspotFlowFacts'
 
 const { flows, factsBySlug } = await flowFacts()
 
+// The follow test's hiding half opens the occludable hotspot's card, so the
+// subjects are resolved at collection, where the test's title names the
+// hotspot: a product without one runs no follow test.
+const occlusionSubjects = selectOcclusionSubjects(
+  flows.map((flow) => flow.subject.product),
+  factsBySlug,
+)
+const followSlugs = requireFollowSubjects(
+  flows.map((flow) => ({
+    slug: flow.subject.product.slug,
+    hasPlainHotspot: flow.subject.plains.length > 0,
+  })),
+  occlusionSubjects,
+)
+
 for (const flow of flows) {
   const { product, viewFacts } = flow.subject
   const slug = product.slug
   const closeUp = flow.subject.closeUps[0]
   const plain = flow.subject.plains[0]
   const anyHotspot = product.hotspots[0]
-  // The follow test's hiding half opens the occludable hotspot's card, so
-  // the subject is resolved at collection, where the test's title names it.
-  const occludable =
-    plain === undefined ? undefined : occludableSubjectOf(product, factsBySlug.get(slug))
+  const occludable = occlusionSubjects.get(slug)
 
-  if (plain !== undefined && occludable !== undefined) {
+  if (plain !== undefined && occludable !== undefined && followSlugs.has(slug)) {
     test(`hotspots ${slug}: the open card of ${plain.title} follows its marker and hides with the marker of ${occludable.hotspot.title} behind the body`, async ({
       page,
       backendPath,
@@ -210,33 +220,4 @@ for (const flow of flows) {
       expect(backHome.distance).toBeCloseTo(home.distance, 6)
     })
   }
-}
-
-// The occludable hotspot as the hiding half of the follow test drives it:
-// the manifest hotspot whose anchor lies inside the body bounds, with the
-// camera height the facts found for hiding it. Both resolve at collection,
-// where the test's title names the hotspot; a product that owes this proof
-// but offers no occludable anchor or no hiding height fails here instead of
-// dropping it.
-type OccludableSubject = {
-  readonly hotspot: Product['hotspots'][number]
-  readonly hidingHeightM: number
-}
-
-function occludableSubjectOf(
-  product: Product,
-  facts: ProductHotspotFacts | undefined,
-): OccludableSubject {
-  if (facts === undefined) {
-    throw new Error(`no hotspot facts for ${product.slug}`)
-  }
-  const fact = occludableFact(facts)
-  const hotspot = product.hotspots.find((entry) => entry.id === fact.id)
-  if (hotspot === undefined) {
-    throw new Error(`no manifest hotspot '${fact.id}'`)
-  }
-  if (fact.hidingHeightM === null) {
-    throw new Error(`the facts found no hiding height for ${fact.id}`)
-  }
-  return { hotspot, hidingHeightM: fact.hidingHeightM }
 }
