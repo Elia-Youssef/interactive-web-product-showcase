@@ -1,5 +1,6 @@
-import { Line, Material, Mesh, Points } from 'three'
+import { Line, Material, Mesh, Points, Vector2 } from 'three'
 import type { Object3D } from 'three'
+import { uniform } from 'three/tsl'
 import {
   finishDerivedKey,
   finishEntryMaterialIndexes,
@@ -20,6 +21,77 @@ import { mappedSceneNodes, type GltfAssociation } from './mappedSceneNodes'
 // carries at that moment, and hands all of it to the parser, so the model
 // load resolves with all of them ready and a switch never loads and never has
 // to re-derive.
+//
+// After the derivation, every material instance the product can render is
+// prepared for the node renderer:
+//
+// 1. Its own program cache key (Material.customProgramCacheKey). The node
+//    renderer dedupes a material's node builder state, its uniform buffers
+//    and its change monitor by the material's feature flags alone: numbers
+//    in the key collapse to set and unset, so two materials that differ only
+//    in a continuous value share one builder state, and a shared state
+//    carries the first material's value nodes for every sharer.
+//
+// 2. An anisotropy value node of its own, when the material is anisotropic
+//    without an anisotropy map. The shared uniform the node renderer uses
+//    otherwise holds the anisotropy vector of whichever material refreshed
+//    last, updated once per material and render, so a later render object of
+//    an earlier material reads another material's vector into its own uniform
+//    buffer, where the value freezes once the stage is at rest. The rendered
+//    anisotropy then depends on the load. A per-material static node removes
+//    the shared slot: the vector is the material's own constant.
+function markMaterialOwnership(material: Material): void {
+  material.customProgramCacheKey = () => material.uuid
+}
+
+// The node material reads the render-time anisotropy vector from
+// `anisotropyNode` when it is set (three's MeshPhysicalNodeMaterial), with
+// the same polar form the shared uniform would carry. The classic material
+// type does not declare the field, so the accessor is structural, carrying
+// the anisotropy surface the file's materials are built with.
+type MaterialWithAnisotropy = Material & {
+  anisotropy?: number
+  anisotropyRotation?: number
+  anisotropyMap?: unknown
+  anisotropyNode?: unknown
+}
+
+function markAnisotropyOwnership(material: Material): void {
+  const carrier = material as MaterialWithAnisotropy
+  const anisotropy = carrier.anisotropy
+  const hasMap = carrier.anisotropyMap !== null && carrier.anisotropyMap !== undefined
+  if (anisotropy === undefined || anisotropy <= 0 || hasMap || carrier.anisotropyNode != null) {
+    return
+  }
+  const rotation = carrier.anisotropyRotation ?? 0
+  carrier.anisotropyNode = uniform(
+    new Vector2(anisotropy * Math.cos(rotation), anisotropy * Math.sin(rotation)),
+  )
+}
+
+// Prepares one material instance: its own builder state, and its own
+// anisotropy value where the file carries one.
+function markMaterial(material: Material): void {
+  markMaterialOwnership(material)
+  markAnisotropyOwnership(material)
+}
+
+// Prepares every material of a parsed scene, single or per-group array: each
+// material instance the scene carries leaves the walk as the owner of its
+// node builder state and of its anisotropy value.
+export function markSceneMaterials(scene: Object3D): void {
+  scene.traverse((node) => {
+    if (node instanceof Mesh || node instanceof Line || node instanceof Points) {
+      if (Array.isArray(node.material)) {
+        for (const material of node.material) {
+          markMaterial(material)
+        }
+        return
+      }
+      markMaterial(node.material)
+    }
+  })
+}
 
 // What the glTF loader recorded about one object it built is declared with
 // the scene walk that reads it, in mappedSceneNodes, and imported by the
@@ -207,6 +279,9 @@ class FinishMaterialsResolver {
   }
 
   async afterRoot(result: GltfResultLike): Promise<void> {
+    // The scene's materials are prepared before the plan is read, so a file
+    // with broken finish mappings prepares its carried materials all the same.
+    markSceneMaterials(result.scene)
     // The plan read validates the file's mappings: a mapping that names an
     // unknown variant or material is recorded as the load's broken outcome,
     // with every problem named by its mesh and primitive, so the product
@@ -225,11 +300,21 @@ class FinishMaterialsResolver {
       }
       rawMaterials.set(index, dependency)
     }
+    const materials = deriveFinishMaterials(result.scene, plan, rawMaterials, this.parser)
+    // The derivations sit in the loader's own clone cache, one per distinct
+    // geometry flag set, and a clone loses the preparation its source got
+    // (Material.copy copies values, not the instance's own fields), so the
+    // table is prepared after the derivation. The scene walk covers the
+    // meshes' parse-time materials again; both walks are idempotent.
+    markSceneMaterials(result.scene)
+    for (const material of materials.values()) {
+      markMaterial(material)
+    }
     result.userData[FINISH_MATERIALS_KEY] = {
       kind: 'resolved',
       finishes: {
         plan,
-        materials: deriveFinishMaterials(result.scene, plan, rawMaterials, this.parser),
+        materials,
         rawMaterials,
         sceneMaterials: collectSceneMaterials(result.scene),
       },
