@@ -1,13 +1,8 @@
 import type { Page } from '@playwright/test'
 
-// The page-side driver of a per-frame drag: it delivers one pointer step
-// per rendering phase, posted from a task that runs just after each
-// phase's render, so every presented frame is followed by exactly one
-// dispatched step and the next frame applies it, whatever order the page's
-// own callbacks and the stage's render loop registered in. The steps are
-// synthetic pointer events on the canvas, which camera-controls handles
-// like real ones: the same pointerdown registration, the same per-step
-// dragging application and the same move-start events.
+// A finite per-frame drag holds its pointer down after the last step, so
+// the recorder can acknowledge the final applied frame before release
+// changes the camera's damping. Every move advances the pointer once.
 
 // The driver state the install leaves on the window. Test-only.
 type DragDriverState = {
@@ -15,7 +10,7 @@ type DragDriverState = {
   // The stage's frame count at each move's dispatch: the move applies at
   // the very next rendered frame, which the frame recorder labels with the
   // same counter.
-  appliedAtFrames: number[]
+  dispatchedAtFrames: number[]
   moveCount: number
   stop(): void
 }
@@ -36,6 +31,8 @@ export type PerFrameDragOptions = {
   readonly startY: number
   // The pointer step along x, one per rendering phase.
   readonly dxPerFrame: number
+  // Stop sending moves at this count, holding the pointer until stop.
+  readonly moveLimit: number
 }
 
 // The dispatch half of the page-side driver, self-contained for
@@ -72,7 +69,7 @@ function dragDispatchBootstrap(options: PerFrameDragOptions): void {
 // dispatches the pointerup. The stage must be idle at the install, so the
 // driver's callback registers ahead of the stage's and keeps that order.
 function dragLoopBootstrap(options: PerFrameDragOptions): void {
-  const { startX, dxPerFrame } = options
+  const { startX, dxPerFrame, moveLimit } = options
   if (window.__perFrameDrag !== undefined || window.__dragDispatch === undefined) {
     throw new Error('the drag driver needs its dispatch helper and a free window')
   }
@@ -81,7 +78,7 @@ function dragLoopBootstrap(options: PerFrameDragOptions): void {
   let started = false
   const state: DragDriverState = {
     dispatchTimesMs: window.__dragTimes ?? [],
-    appliedAtFrames: [],
+    dispatchedAtFrames: [],
     moveCount: 0,
     stop: (): void => {
       running = false
@@ -89,7 +86,7 @@ function dragLoopBootstrap(options: PerFrameDragOptions): void {
     },
   }
   const tick = (): void => {
-    if (!running) {
+    if (!running || state.moveCount === moveLimit) {
       return
     }
     // Re-register before dispatching: the down's invalidation makes the
@@ -98,13 +95,11 @@ function dragLoopBootstrap(options: PerFrameDragOptions): void {
     requestAnimationFrame(tick)
     const type = started ? 'pointermove' : 'pointerdown'
     if (type === 'pointermove') {
-      state.appliedAtFrames.push(window.__viewer?.renderedFrames ?? -1)
+      state.dispatchedAtFrames.push(window.__viewer?.renderedFrames ?? -1)
+      state.moveCount += 1
     }
     dispatch(type, 1, startX + state.moveCount * dxPerFrame)
     started = true
-    if (type === 'pointermove') {
-      state.moveCount += 1
-    }
   }
   window.__perFrameDrag = state
   requestAnimationFrame(tick)
@@ -115,6 +110,9 @@ export async function installPerFrameDragDriver(
   page: Page,
   options: PerFrameDragOptions,
 ): Promise<void> {
+  if (!Number.isSafeInteger(options.moveLimit) || options.moveLimit < 1) {
+    throw new Error('the drag move limit must be a positive safe integer')
+  }
   await page.evaluate(dragDispatchBootstrap, options)
   await page.evaluate(dragLoopBootstrap, options)
 }
@@ -122,7 +120,7 @@ export async function installPerFrameDragDriver(
 // Stops the driver and hands the dispatch times and the move count back.
 export async function stopPerFrameDragDriver(page: Page): Promise<{
   readonly dispatchTimesMs: readonly number[]
-  readonly appliedAtFrames: readonly number[]
+  readonly dispatchedAtFrames: readonly number[]
   readonly moveCount: number
 }> {
   const result = await page.evaluate(() => {
@@ -132,9 +130,9 @@ export async function stopPerFrameDragDriver(page: Page): Promise<{
     }
     driver.stop()
     const dispatchTimesMs = [...(window.__dragTimes ?? [])]
-    const appliedAtFrames = [...driver.appliedAtFrames]
+    const dispatchedAtFrames = [...driver.dispatchedAtFrames]
     const moveCount = driver.moveCount
-    return { dispatchTimesMs, appliedAtFrames, moveCount }
+    return { dispatchTimesMs, dispatchedAtFrames, moveCount }
   })
   await page.evaluate(() => {
     delete window.__perFrameDrag
@@ -147,4 +145,19 @@ export async function stopPerFrameDragDriver(page: Page): Promise<{
 // How many moves the driver has dispatched so far, for the polls.
 export function dispatchedMoves(page: Page): Promise<number> {
   return page.evaluate(() => window.__perFrameDrag?.moveCount ?? -1)
+}
+
+// Only a recorded frame strictly after dispatch acknowledges an applied
+// move. A finite driver keeps dragging active while the caller polls this
+// boundary, then stops the recorder before releasing the pointer.
+export function recordedDragMoves(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const driver = window.__perFrameDrag
+    const recorder = window.__moveRecorder
+    if (driver === undefined || recorder === undefined) {
+      throw new Error('the drag driver and camera recorder must both be installed')
+    }
+    const recordedFrame = recorder.records.at(-1)?.frames ?? -1
+    return driver.dispatchedAtFrames.filter((frame) => frame < recordedFrame).length
+  })
 }

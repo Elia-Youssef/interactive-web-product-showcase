@@ -6,7 +6,7 @@ import { settledFrames } from './stageSettle'
 import { testBodyBudgetMs } from './budgets'
 import { installCameraFrameRecorder, stopCameraFrameRecording } from './cameraFrameRecorder'
 import {
-  dispatchedMoves,
+  recordedDragMoves,
   installPerFrameDragDriver,
   stopPerFrameDragDriver,
 } from './cameraPerFrameDrag'
@@ -58,15 +58,16 @@ test('a drag with a step per presented frame trails as frame-gap stepping predic
     startX,
     startY,
     dxPerFrame: DX_PER_FRAME,
+    moveLimit: MOVES,
   })
   await expect
-    .poll(() => dispatchedMoves(page), {
-      message: 'the driver must deliver one step per presented frame',
+    .poll(() => recordedDragMoves(page), {
+      message: 'the recorder must acknowledge every dispatched step while dragging',
       timeout: testBodyBudgetMs,
     })
-    .toBeGreaterThanOrEqual(MOVES)
-  const driver = await stopPerFrameDragDriver(page)
+    .toBe(MOVES)
   const recording = await stopCameraFrameRecording(page)
+  const driver = await stopPerFrameDragDriver(page)
 
   // The pairing: move k applies at the first presented frame after its
   // dispatch. The recorder labels its records with the stage's own frame
@@ -75,16 +76,13 @@ test('a drag with a step per presented frame trails as frame-gap stepping predic
   const applying = new Map<number, number[]>()
   let replayedMoves = 0
   for (let k = 0; k < driver.moveCount; k += 1) {
-    const at = driver.appliedAtFrames[k]
+    const at = driver.dispatchedAtFrames[k]
     if (at === undefined) {
       throw new Error(`the driver must record the frame count of move ${k + 1}'s dispatch`)
     }
-    // The moves dispatched in the moments before the recorder stopped can
-    // have no recorded frame; they are dropped, and the size assertion
-    // below keeps the drag long enough to be the experiment.
     const index = recording.records.findIndex((record) => record.frames > at)
     if (index === -1) {
-      break
+      throw new Error(`the recorder must acknowledge move ${k + 1} before pointer release`)
     }
     const queue = applying.get(index) ?? []
     queue.push(k)
@@ -157,10 +155,7 @@ test('a drag with a step per presented frame trails as frame-gap stepping predic
   }
 
   // The drag moved the camera by its whole travel, eased out to the end.
-  expect(
-    replayedMoves,
-    'the replay must cover the moves the recorder held frames for',
-  ).toBeGreaterThanOrEqual(MOVES)
+  expect(replayedMoves, 'the replay must cover the moves the recorder held frames for').toBe(MOVES)
   const travelEnd = Math.abs(replayedMoves * thetaPerMove)
   expect(travelEnd, 'the drag must have traveled').toBeGreaterThan(0.1)
   await settledFrames(page)
