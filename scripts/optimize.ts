@@ -29,11 +29,13 @@ import {
   fileSizeBytes,
   formatBytes,
   formatKtxResolutionLine,
+  formatTangentLine,
   formatTextureLine,
   type TextureReport,
 } from './report.ts'
 import { productPaths, type ProductPaths } from './productPaths.ts'
 import { loadOptimizeSettings, type OptimizeSettings } from './settings.ts'
+import type { TangentReport } from './tangents.ts'
 import {
   findSingleAnimationViolations,
   findStructureLosses,
@@ -92,7 +94,7 @@ async function optimizeProduct(
   if (outputBytes === null || inputBytes === null) {
     throw new Error(`Missing file after optimizing '${paths.slug}'`)
   }
-  printRunReport(paths, settings, inputBytes, outputBytes, run.textures)
+  printRunReport(paths, settings, inputBytes, outputBytes, run.textures, run.tangents)
   const afterStructure = readProductStructure(outputDoc)
   printStructure(afterStructure)
   const losses = [
@@ -111,6 +113,7 @@ function printRunReport(
   inputBytes: number,
   outputBytes: number,
   textures: readonly TextureReport[],
+  tangents: TangentReport,
 ): void {
   writeLine(`product: ${paths.slug}`)
   writeLine(`  input:  ${paths.exportGlb} (${formatBytes(inputBytes)})`)
@@ -122,6 +125,7 @@ function printRunReport(
     `  settings: textureMaxSize ${settings.textureMaxSize}, ` +
       `occlusionTextureMaxSize ${settings.occlusionTextureMaxSize}`,
   )
+  writeLine(`  ${formatTangentLine(tangents)}`)
   writeLine('  textures:')
   for (const texture of textures) {
     writeLine(`    ${formatTextureLine(texture, settings)}`)

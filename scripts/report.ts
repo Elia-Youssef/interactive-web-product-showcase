@@ -11,6 +11,7 @@ import { isMissingFileError } from './fsErrors.ts'
 import { formatKtxVersion, type KtxResolution } from './ktxSoftware.ts'
 import type { EncodePlan, EncodeStage, TextureSizeRule } from './ktx2Plan.ts'
 import type { OptimizeSettings } from './settings.ts'
+import type { TangentReport } from './tangents.ts'
 
 // The one run-report line for the resolved install: the version printed
 // once, parsed and rendered, never the raw multiword tool output.
@@ -91,6 +92,18 @@ export function formatBytes(bytes: number): string {
     unit += 1
   } while (value >= 1024 && unit < units.length - 1)
   return `${value.toFixed(2)} ${units[unit] ?? 'GB'}`
+}
+
+// The one run-report line for the tangent stage: how many primitives lost
+// TANGENT, out of those that carried one into the stage, and the
+// uncompressed accessor bytes the stage removed from the document the
+// pipeline writes.
+export function formatTangentLine(report: TangentReport): string {
+  return (
+    `tangents: ${report.primitivesStripped} of ` +
+    `${report.primitivesStripped + report.primitivesKept} primitives stripped, ` +
+    `${formatBytes(report.accessorBytesRemoved)} of tangent accessors removed`
+  )
 }
 
 // The share of the budget a file uses, in percent, rounded for display.
