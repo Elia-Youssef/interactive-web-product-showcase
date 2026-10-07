@@ -33,6 +33,54 @@ content joins it in step 8 and wins through DOM order. */
   border-block-start: var(--hairline-width) solid var(--hairline);
 }
 
+/*
+The product switch transition section: the transition fills whatever box
+holds it, so it gets a stage-sized one of its own, with the phase
+stepper, the reduced-motion toggle and the callback log under it.
+*/
+.transition {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0 var(--space-12) var(--space-12);
+}
+
+.transitionStage {
+  position: relative;
+  block-size: var(--height-stage-tablet);
+}
+
+/* The slot holds the transition alone and builds no box of its own, so
+   the surface inside it is the box the transition draws in. */
+.transitionSlot {
+  display: contents;
+}
+
+.transitionControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.transitionToggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--sans);
+  font-size: var(--fs-body);
+  font-weight: var(--weight-body);
+  color: var(--muted);
+}
+
+.transitionLog {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
 .stack {
   display: grid;
   gap: var(--space-10);
