@@ -5,7 +5,7 @@ import { loadCollection } from './productList'
 import { expectPoll, harnessPath, productLoadBudgetMs, waitForProductReady } from './productSpecs'
 import { renderedFramesOf, settledFrames } from './stageSettle'
 import { siteCopy } from '../../src/lib/copy/site'
-import { formatExplodePercent } from '../../src/lib/copy/productPanel'
+import { explodeScrubName, formatExplodePercent } from '../../src/lib/copy/productPanel'
 
 // The exploded view's scrub control: the slider under the toggle and its
 // mono readout, on the app's panel, with the remount proof on the dev
@@ -17,9 +17,10 @@ import { formatExplodePercent } from '../../src/lib/copy/productPanel'
 const product = (await loadCollection()).first
 
 const toggleLabel = product.explode.label ?? siteCopy.defaultExplodeLabel
+const scrubName = explodeScrubName(product)
 
 const readoutOf = (page: Page) => page.locator('[data-explode-readout]')
-const sliderOf = (page: Page) => page.getByRole('slider', { name: toggleLabel })
+const sliderOf = (page: Page) => page.getByRole('slider', { name: scrubName })
 
 test('before the product is presented the slider is disabled and reads 0%', async ({ page }) => {
   await page.goto('/')
@@ -32,6 +33,18 @@ test('before the product is presented the slider is disabled and reads 0%', asyn
   await expect(slider).toHaveValue('0')
   await expect(slider).toHaveAttribute('aria-valuetext', '0%')
   await expect(readoutOf(page)).toHaveText('0%')
+})
+
+test('the two controls of the section are named apart', async ({ page }) => {
+  await page.goto('/')
+  await waitForExplodeMounted(page)
+
+  // Each name answers for exactly one control: the toggle's word names no
+  // slider, the scrub name names no button.
+  await expect(page.getByRole('button', { name: toggleLabel })).toBeVisible()
+  await expect(page.getByRole('slider', { name: scrubName })).toBeVisible()
+  await expect(page.getByRole('slider', { name: toggleLabel })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: scrubName })).toHaveCount(0)
 })
 
 test('a scrub to the middle opens the view to the target and reads 50%', async ({ page }) => {
