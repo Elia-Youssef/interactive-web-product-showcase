@@ -56,15 +56,23 @@ test('the finish list carries the site heading and one swatch per finish', () =>
   expect(html).toContain('aria-label="Sage Green"')
 })
 
-test('the initial store state renders the product default as the active finish', () => {
+test('the swatches are one single-choice radio group named by the site heading', () => {
+  const html = renderPanel()
+
+  expect(html).toContain('role="radiogroup"')
+  expect(html).toContain('aria-label="Choose your finish"')
+  expect((html.match(/role="radio"/g) ?? []).length).toBe(2)
+})
+
+test('the initial store state renders the product default as the checked finish', () => {
   const html = renderPanel()
 
   // What a static render can prove: the idle store, before any offer, and
   // its fallback to the product default, the first finish. Nothing here
   // reaches a store-driven state, because no effect runs in this render.
-  expect(html).toContain('aria-pressed="true"')
+  expect(html).toContain('aria-checked="true"')
   expect(html).toContain('Graphite')
-  expect(html.match(/aria-pressed="true"/g)).toHaveLength(1)
+  expect(html.match(/aria-checked="true"/g)).toHaveLength(1)
 })
 
 test('the explode toggle sits after the swatches, named by the manifest, disabled while detached', () => {
@@ -83,8 +91,8 @@ test('the explode toggle sits after the swatches, named by the manifest, disable
   // effects, so the store holds no attached view and the toggle renders
   // disabled: a click before the model is presented cannot arm anything.
   // The swatch group precedes it, as the panel order has it.
-  expect(html).toContain('role="group"')
-  expect(html.indexOf('role="group"')).toBeLessThan(html.indexOf('See inside</button>'))
+  expect(html).toContain('role="radiogroup"')
+  expect(html.indexOf('role="radiogroup"')).toBeLessThan(html.indexOf('See inside</button>'))
   expect(html).toContain('aria-pressed="false"')
   expect(html).toContain('disabled')
   expect(html).toContain('See inside</button>')

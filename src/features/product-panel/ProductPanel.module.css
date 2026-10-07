@@ -47,8 +47,3 @@ a token. */
 .activeFinish {
   text-transform: uppercase;
 }
-
-.swatches {
-  display: flex;
-  gap: var(--space-4);
-}

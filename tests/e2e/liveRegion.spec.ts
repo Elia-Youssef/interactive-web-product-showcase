@@ -26,7 +26,7 @@ test('a finish selection is announced by the shell live region', async ({ page }
   const region = page.locator('[data-live-announcement]')
   await expect(region).toHaveText('')
 
-  await page.getByRole('button', { name: to.label }).click()
+  await page.getByRole('radio', { name: to.label }).click()
 
   await expect(region).toHaveText(to.label)
 })

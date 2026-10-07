@@ -38,9 +38,11 @@ test('the finish list shows the heading, one swatch per finish and the default l
   }
 
   await expect(page.getByText(siteCopy.finishHeading)).toBeVisible()
+  const group = page.getByRole('radiogroup', { name: siteCopy.finishHeading })
+  await expect(group).toBeVisible()
   for (const finish of product.finishes) {
-    await expect(page.getByRole('button', { name: finish.label })).toHaveAttribute(
-      'aria-pressed',
+    await expect(page.getByRole('radio', { name: finish.label })).toHaveAttribute(
+      'aria-checked',
       finish.variant === active.variant ? 'true' : 'false',
     )
   }
@@ -58,14 +60,62 @@ test('clicking a swatch moves the selected state and the active label', async ({
     throw new Error('a second finish must exist for the swatch switch')
   }
 
-  const target = page.getByRole('button', { name: to.label })
-  const previous = page.getByRole('button', { name: from.label })
+  const target = page.getByRole('radio', { name: to.label })
+  const previous = page.getByRole('radio', { name: from.label })
 
   await target.click()
 
-  await expect(target).toHaveAttribute('aria-pressed', 'true')
-  await expect(previous).toHaveAttribute('aria-pressed', 'false')
+  await expect(target).toHaveAttribute('aria-checked', 'true')
+  await expect(previous).toHaveAttribute('aria-checked', 'false')
   await expect(page.locator('[data-active-finish]')).toHaveText(to.label)
+})
+
+test('the arrow keys move the choice with the focus across the swatches, wrapping at the ends', async ({
+  page,
+}) => {
+  test.skip(product.finishes.length < 2, 'a product with one finish has nothing to step to')
+
+  await page.goto(APP_URL)
+
+  const radios = product.finishes.map((finish) => page.getByRole('radio', { name: finish.label }))
+  const first = radios[0]
+  if (first === undefined) {
+    throw Error('the schema guarantees at least one finish')
+  }
+
+  // The checked radio is the group one tab stop: Tab lands there, an arrow
+  // moves the choice with the focus, and the walk wraps at the ends, so a
+  // step past the last comes back to the first.
+  await first.focus()
+  await expect(first).toBeFocused()
+  await expect(first).toHaveAttribute('aria-checked', 'true')
+
+  for (let step = 1; step < product.finishes.length; step++) {
+    await page.keyboard.press('ArrowRight')
+    const current = radios[step]
+    if (current === undefined) {
+      throw new Error('the walk left the finish list')
+    }
+    await expect(current).toBeFocused()
+    await expect(current).toHaveAttribute('aria-checked', 'true')
+    await expect(first).toHaveAttribute('aria-checked', 'false')
+    await expect(page.locator('[data-active-finish]')).toHaveText(
+      product.finishes[step]?.label ?? '',
+    )
+  }
+
+  await page.keyboard.press('ArrowRight')
+  await expect(first).toBeFocused()
+  await expect(first).toHaveAttribute('aria-checked', 'true')
+
+  // Back again, the same rule the other way.
+  await page.keyboard.press('ArrowLeft')
+  const last = radios[radios.length - 1]
+  if (last === undefined) {
+    throw new Error('the finish list holds no last finish')
+  }
+  await expect(last).toBeFocused()
+  await expect(last).toHaveAttribute('aria-checked', 'true')
 })
 
 test('the top bar shows the product index label', async ({ page }) => {
