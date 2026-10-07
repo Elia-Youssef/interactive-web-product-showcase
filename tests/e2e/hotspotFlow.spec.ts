@@ -150,6 +150,13 @@ for (const flow of flows) {
         await closeBy(page, closeUp.title)
         await expect(cardHeadingOf(page, closeUp.title)).toHaveCount(0)
         await expect(markerOf(page, closeUp.title)).toHaveAttribute('aria-pressed', 'false')
+        // The card's close returns focus to the marker that opened it, by
+        // whichever way the card closed, so a keyboard visitor never drops
+        // to the body with the card.
+        await expect(
+          markerOf(page, closeUp.title),
+          `${way} must return focus to the activating marker`,
+        ).toBeFocused()
 
         await settledFrames(page)
         const camera = await requireCamera(page)
@@ -178,6 +185,10 @@ for (const flow of flows) {
           markerOf(page, plain.title),
           `${way} must clear the pressed state`,
         ).toHaveAttribute('aria-pressed', 'false')
+        await expect(
+          markerOf(page, plain.title),
+          `${way} must return focus to the activating marker`,
+        ).toBeFocused()
         expect(
           await renderedFrames(page),
           `closing by ${way} must render no frame: no camera move is owed`,

@@ -10,8 +10,9 @@ import styles from './CollectionIndexDialog.module.css'
 
 export type CollectionIndexDialogProps = {
   readonly open: boolean
-  // The one close of the dialog: the row's own close, which returns focus
-  // to the counter with it.
+  // The one close of the dialog: every close path, the header button and
+  // the escape owner included, goes through it, and the row's focus return
+  // puts focus back on the counter with it.
   readonly onClose: () => void
   readonly products: readonly Product[]
   readonly currentSlug: string

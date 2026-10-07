@@ -11,7 +11,10 @@ export type HotspotAnchorProps = {
   readonly overlay: StageOverlay
   readonly hotspot: Product['hotspots'][number]
   readonly selected: boolean
-  readonly onToggle: () => void
+  // The press of the marker, handed the marker button itself: the flow's
+  // focus return carries the activating control, so the card's close puts
+  // focus back where the card was opened from.
+  readonly onToggle: (marker: HTMLButtonElement) => void
 }
 
 // The anchor of one hotspot: the wrapper the stage overlay centers on the
@@ -32,7 +35,11 @@ export function HotspotAnchor({ overlay, hotspot, selected, onToggle }: HotspotA
       }}
       className={styles.anchor}
     >
-      <Marker label={hotspot.title} active={selected} onClick={onToggle} />
+      <Marker
+        label={hotspot.title}
+        active={selected}
+        onClick={(event) => onToggle(event.currentTarget)}
+      />
     </div>
   )
 }
