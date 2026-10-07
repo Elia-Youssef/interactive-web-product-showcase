@@ -193,6 +193,31 @@ describe('HotspotCardPresenter', () => {
     expect(element.style.transform).toBe('translate(170px, 250px)')
   })
 
+  it('keeps the card clear of its subject, from the extent the pass publishes', () => {
+    const { overlay, presenter, element } = setup()
+    overlay.onPass(() => presenter.present(), 'presenter')
+    overlay.pass({ width: 800, height: 600 }, (place, placeBox) => {
+      place(overlayKey('driver'), { kind: 'placed', x: 400, y: 300 })
+      place(overlayKey('knob'), { kind: 'hidden' })
+      placeBox(overlayKey('driver'), { left: 500, top: 280, right: 780, bottom: 340 })
+    })
+    presenter.show('driver')
+    presenter.measure(card)
+
+    // The subject covers the right side, so the card takes the left.
+    expect(element.style.transform).toBe('translate(170px, 250px)')
+
+    // A pass that publishes the subject clear of the right side floats the
+    // card back to it, and a pass with no subject published leaves the last
+    // box standing.
+    overlay.pass({ width: 800, height: 600 }, (place, placeBox) => {
+      place(overlayKey('driver'), { kind: 'placed', x: 400, y: 300 })
+      place(overlayKey('knob'), { kind: 'hidden' })
+      placeBox(overlayKey('driver'), { left: 500, top: 400, right: 780, bottom: 460 })
+    })
+    expect(element.style.transform).toBe('translate(430px, 250px)')
+  })
+
   it('reads the page on a selection, a measure and a stage resize, and not on a pass of the same stage box', () => {
     const { overlay, presenter, reads } = setup()
     overlay.onPass(() => presenter.present(), 'presenter')

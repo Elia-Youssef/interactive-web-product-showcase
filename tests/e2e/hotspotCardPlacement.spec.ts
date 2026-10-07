@@ -167,7 +167,13 @@ for (const contract of viewportContracts) {
         'the open marker stays selected on the stage',
       ).toHaveAttribute('aria-pressed', 'true')
       await expect(cardHeadingOf(page, hotspot.title)).toBeVisible()
-      await expectCardWhereTheLayoutPutsIt(page, contract.hotspotCard, hotspot.title, titles)
+      await expectCardWhereTheLayoutPutsIt(
+        page,
+        contract.hotspotCard,
+        hotspot.title,
+        titles,
+        hotspot.id,
+      )
       const placed = await placedMarkerTitles(page, titles)
       expect(placed.length, 'the open view must show at least one marker').toBeGreaterThan(0)
       for (const title of placed) {

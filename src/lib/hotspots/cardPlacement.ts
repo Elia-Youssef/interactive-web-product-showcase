@@ -2,11 +2,13 @@
 // card floats beside its marker on the first side, in preference order,
 // whose box stays inside the stage, covers no placed marker (neither its
 // hit box nor the focus ring drawn around it, so every marker stays
-// pressable and its keyboard focus stays visible) and covers no obstacle
+// pressable and its keyboard focus stays visible), covers no obstacle
 // (the stage chrome painted over the overlay, so nothing hides the card's
-// own controls). When no side qualifies the card docks. All lengths are CSS
-// pixels in the stage box, y running down, the space the marker projection
-// answers in.
+// own controls) and covers none of its subject (the part the open hotspot
+// describes, whose projected extent is an obstacle like any other, so the
+// card never hides what it is about). When no side qualifies the card docks.
+// All lengths are CSS pixels in the stage box, y running down, the space the
+// marker projection answers in.
 //
 // The math is exact: a box that only touches the stage edge is inside it,
 // and a box that only touches a keep-out box or an obstacle does not cover
@@ -45,6 +47,9 @@ export type CardPlacementInput = {
   // Every placed marker, the selected one included: the card covers none of
   // their keep-out boxes, its own marker's ring among them.
   readonly placedMarkers: readonly StagePoint[]
+  // The projected extent of the open hotspot's subject, the part its anchor
+  // rides on, or null while the canvas side has published none.
+  readonly subject: StageRect | null
   // The boxes over the stage the card must leave uncovered.
   readonly obstacles: readonly StageRect[]
   readonly card: BoxSize
@@ -63,6 +68,7 @@ export function placeHotspotCard(input: CardPlacementInput): CardPlacement {
     if (
       isRectInsideStage(box, input.stage) &&
       !coversAnyMarker(box, input) &&
+      !(input.subject !== null && overlaps(box, input.subject)) &&
       !input.obstacles.some((obstacle) => overlaps(box, obstacle))
     ) {
       return { kind: 'beside', side, box }

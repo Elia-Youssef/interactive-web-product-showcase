@@ -48,8 +48,22 @@ const finish: ViewerFinish = {
 const hotspots: ViewerHotspotsAutomation = {
   product: 'forma-one',
   hotspots: [
-    { id: 'driver', position: { x: 0.02, y: 0.11, z: 0.2 } },
-    { id: 'knob', position: { x: 0, y: 0.25, z: 0 } },
+    {
+      id: 'driver',
+      position: { x: 0.02, y: 0.11, z: 0.2 },
+      subject: {
+        min: { x: 0, y: 0, z: 0.18 },
+        max: { x: 0.04, y: 0.22, z: 0.22 },
+      },
+    },
+    {
+      id: 'knob',
+      position: { x: 0, y: 0.25, z: 0 },
+      subject: {
+        min: { x: -0.03, y: 0.22, z: -0.03 },
+        max: { x: 0.03, y: 0.28, z: 0.03 },
+      },
+    },
   ],
 }
 

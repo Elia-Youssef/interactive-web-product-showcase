@@ -76,6 +76,70 @@ function viewTransform(
   }
 }
 
+// A world-space axis-aligned box: the extent of a subject on the stage, as
+// the rig or a bounding-volume measurement answers it.
+export type WorldBox = {
+  readonly minX: number
+  readonly minY: number
+  readonly minZ: number
+  readonly maxX: number
+  readonly maxY: number
+  readonly maxZ: number
+}
+
+// The stage rect a projection fills, mutable so a per-frame caller reuses
+// one target instead of allocating. Structurally a StageRect.
+export type StageRectTarget = {
+  left: number
+  top: number
+  right: number
+  bottom: number
+}
+
+// The screen extent of a world box: the axis-aligned stage rect that covers
+// the projections of the box's eight corners, filled into the target. A box
+// the camera looks through can have corners behind its plane, whose
+// projections mean nothing; only the corners in front answer, and a box with
+// none of them in front is not on the stage and answers false.
+export function projectBoxExtent(
+  box: WorldBox,
+  camera: CameraMatrices,
+  stage: StageBox,
+  target: StageRectTarget,
+): boolean {
+  let seen = false
+  for (let corner = 0; corner < 8; corner += 1) {
+    const point = {
+      x: (corner & 1) === 0 ? box.minX : box.maxX,
+      y: (corner & 2) === 0 ? box.minY : box.maxY,
+      z: (corner & 4) === 0 ? box.minZ : box.maxZ,
+    }
+    const view = viewTransform(point, camera.viewMatrix)
+    const p = camera.projectionMatrix
+    const clipX = at(p, 0) * view.x + at(p, 4) * view.y + at(p, 8) * view.z + at(p, 12)
+    const clipY = at(p, 1) * view.x + at(p, 5) * view.y + at(p, 9) * view.z + at(p, 13)
+    const clipW = at(p, 3) * view.x + at(p, 7) * view.y + at(p, 11) * view.z + at(p, 15)
+    if (clipW <= 0) {
+      continue
+    }
+    const x = ((clipX / clipW + 1) / 2) * stage.width
+    const y = ((1 - clipY / clipW) / 2) * stage.height
+    if (!seen) {
+      target.left = x
+      target.right = x
+      target.top = y
+      target.bottom = y
+      seen = true
+      continue
+    }
+    target.left = Math.min(target.left, x)
+    target.right = Math.max(target.right, x)
+    target.top = Math.min(target.top, y)
+    target.bottom = Math.max(target.bottom, y)
+  }
+  return seen
+}
+
 // One matrix element, at the row-major offset the column-major storage puts
 // it: index = column * 4 + row. A matrix that arrives short is a broken
 // caller and fails loudly here, once, instead of computing with undefined.

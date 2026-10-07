@@ -7,12 +7,13 @@ import { CARD_OVERLAY_KEY, overlayKey } from '@lib/hotspots/hotspotKeys'
 
 // The one owner of where the open hotspot card goes, for one product's
 // markers on one stage. It decides through the pure presentation rule, from
-// the stage overlay's last pass (the stage box and every marker's
-// placement), the layout the stylesheets declare, the stage chrome boxes,
-// and the floating card's measured size. It decides at the end of every
-// overlay pass, after the frame's markers are written, and when the card's
-// selection, its size or the chrome changes, which happens with no frame at
-// all: opening a card renders nothing on the stage.
+// the stage overlay's last pass (the stage box, every marker's placement,
+// and the projected extent of the selected hotspot's subject), the layout
+// the stylesheets declare, the stage chrome boxes, and the floating card's
+// measured size. It decides at the end of every overlay pass, after the
+// frame's markers are written, and when the card's selection, its size or
+// the chrome changes, which happens with no frame at all: opening a card
+// renders nothing on the stage.
 //
 // The layout and the chrome boxes change only with the stage box (a
 // breakpoint is crossed by resizing, and the chrome sits at the stage
@@ -132,6 +133,7 @@ export class HotspotCardPresenter {
         stage: this.overlay.lastPassBox(),
         marker: marker !== null && marker.kind === 'placed' ? marker : null,
         placedMarkers: this.placedMarkers,
+        subject: this.overlay.boxOf(overlayKey(selected)),
         obstacles: page.obstacles,
         card: this.cardSize,
         metrics: page.layout.metrics,
