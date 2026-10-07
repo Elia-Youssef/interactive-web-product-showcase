@@ -27,6 +27,20 @@ export function readControlsEndOrbit(controls: CameraControlsImpl): OrbitAngles 
   return orbitAnglesOf([position.x, position.y, position.z], [target.x, target.y, target.z])
 }
 
+// The distance the controls' current transition ends at, or the live
+// distance at rest: the state a zoom step reads and clamps. The scratch
+// vectors are the caller's, reused across reads, so a reader that runs per
+// controls update allocates nothing.
+export function readControlsEndDistance(
+  controls: CameraControlsImpl,
+  scratch: { readonly position: Vector3; readonly target: Vector3 },
+): number {
+  const position = controls.getPosition(scratch.position, true)
+  const target = controls.getTarget(scratch.target, true)
+  return orbitAnglesOf([position.x, position.y, position.z], [target.x, target.y, target.z])
+    .distance
+}
+
 // The distance limits of a plan at one stage aspect, by the aspect rule:
 // every distance scales by the same factor, so the zoom percentage is the
 // same at any aspect.

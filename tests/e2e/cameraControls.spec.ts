@@ -218,7 +218,7 @@ test('neither a right drag nor a shift drag pans the camera', async ({ page, bac
   expect(afterShift.target.z).toBeCloseTo(before.target.z, 9)
 })
 
-test('the zoom buttons move the percentage by one step and clamp at 0 and 100', async ({
+test('the zoom buttons move the percentage by one step and wait disabled at their limits', async ({
   page,
   backendPath,
 }) => {
@@ -259,17 +259,30 @@ test('the zoom buttons move the percentage by one step and clamp at 0 and 100', 
       .toBeLessThanOrEqual(Math.ceil(restPercentPoints))
   }
 
+  // Inside the limits both buttons work: the home percent is strictly
+  // between the ends, so either step moves the camera.
   await expectShownPercent(homePercent, 'the readout shows the home percent')
+  await expect(zoomIn(page)).toBeEnabled()
+  await expect(zoomOut(page)).toBeEnabled()
+
   await zoomIn(page).click()
   await expectShownPercent(homePercent + step, 'one press moves the readout one step')
   await zoomIn(page).click()
   await expectShownPercent(homePercent + 2 * step, 'the second press moves one step again')
-  // The step clamps at 100: one more press holds the limit.
+  // The step clamps at 100: one more press reaches the limit.
   await zoomIn(page).click()
   await expectShownPercent(100, 'the third press clamps at the minimum distance')
-  await zoomIn(page).click()
+
+  // At the limit the camera's own state says so: zoom in has reached the
+  // minimum distance, and its button waits disabled, muted like the other
+  // waiting controls.
+  await expect(zoomIn(page)).toBeDisabled()
+  await expect(zoomOut(page)).toBeEnabled()
+  await expect(zoomIn(page)).toHaveCSS('color', 'rgb(160, 160, 160)')
+  // The button state reads the move's end, which is exact at the limit
+  // before the live distance has finished easing into it; the read waits
+  // for the rest the way every live-camera check does.
   await settledFrames(page)
-  await expectShownPercent(100, 'one more press holds the clamp')
   const fullest = await readCamera(page)
   if (fullest === null) {
     throw new Error('the live stage camera must be readable')
@@ -279,13 +292,17 @@ test('the zoom buttons move the percentage by one step and clamp at 0 and 100', 
   // Back down through the same steps to the other clamp.
   await zoomOut(page).click()
   await expectShownPercent(100 - step, 'one press out moves the readout one step')
+  await expect(zoomIn(page)).toBeEnabled()
   for (let press = 0; press < 10; press += 1) {
     await zoomOut(page).click()
   }
   await expectShownPercent(0, 'the presses out clamp at the maximum distance')
-  await zoomOut(page).click()
+
+  // At the outer limit zoom out waits, and its inward twin works again.
+  await expect(zoomOut(page)).toBeDisabled()
+  await expect(zoomIn(page)).toBeEnabled()
+  await expect(zoomOut(page)).toHaveCSS('color', 'rgb(160, 160, 160)')
   await settledFrames(page)
-  await expectShownPercent(0, 'one more press out holds the clamp')
   const emptiest = await readCamera(page)
   if (emptiest === null) {
     throw new Error('the live stage camera must be readable')

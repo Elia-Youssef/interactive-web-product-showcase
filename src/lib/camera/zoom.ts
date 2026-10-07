@@ -29,3 +29,19 @@ export function steppedZoomPercent(
   const stepped = percent + direction * stepPercent
   return Math.min(Math.max(stepped, 0), 100)
 }
+
+// Whether one zoom step in the direction can still move the camera: the
+// move steps from the current percent through the same clamp, so a step
+// whose clamped target is the percent it starts from moves nothing. The
+// zoom buttons read this from the distance the camera holds and the limits
+// it enforces, so a control waits disabled exactly while its press would
+// do nothing, never by a rounded percent.
+export function zoomStepMoves(
+  distance: number,
+  range: DistanceRange,
+  direction: 1 | -1,
+  stepPercent: number,
+): boolean {
+  const percent = zoomPercentOfDistance(distance, range)
+  return steppedZoomPercent(percent, direction, stepPercent) !== percent
+}

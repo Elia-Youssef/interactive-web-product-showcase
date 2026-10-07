@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import type { CameraControlsImpl } from '@react-three/drei'
+import { Vector3 } from 'three'
 import {
   hasUnhandledCameraRequest,
   selectCameraRequestChannel,
@@ -16,6 +17,7 @@ import {
   stepZoomBy,
   transitionToView,
 } from './stageCameraApi'
+import { readControlsEndDistance } from './controls'
 
 // The store bridge of the stage camera, both directions. Out: the live
 // readouts, published as the controls update, so the chrome's readouts
@@ -36,11 +38,15 @@ export function useCameraReadoutPublish(
     if (controls === null) {
       return
     }
+    // The end distance's scratch vectors, created once per mount and reused
+    // by every publish, so the per-update read allocates nothing.
+    const scratch = { position: new Vector3(), target: new Vector3() }
     const publish = () => {
       store.getState().cameraPublishReadout({
         kind: 'live',
         azimuth: controls.azimuthAngle,
         distance: controls.distance,
+        endDistance: readControlsEndDistance(controls, scratch),
         minDistance: controls.minDistance,
         maxDistance: controls.maxDistance,
       })
