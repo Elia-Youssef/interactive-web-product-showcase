@@ -33,6 +33,13 @@ test('before the product is presented the slider is disabled and reads 0%', asyn
   await expect(slider).toHaveValue('0')
   await expect(slider).toHaveAttribute('aria-valuetext', '0%')
   await expect(readoutOf(page)).toHaveText('0%')
+
+  // The waiting toggle reads as a waiting control: muted, a different word
+  // of the palette than the label color a rest button carries, so the
+  // disabled state is visible and not color-alone (the cursor with it).
+  const toggle = page.getByRole('button', { name: toggleLabel })
+  await expect(toggle).toBeDisabled()
+  await expect(toggle).toHaveCSS('color', 'rgb(160, 160, 160)')
 })
 
 test('the two controls of the section are named apart', async ({ page }) => {
