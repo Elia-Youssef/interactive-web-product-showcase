@@ -53,6 +53,12 @@ export function testBudgetMs({
 // above the drain it waits for.
 export const hudDrainBudgetMs = 10_000
 
+// The allowance for one product switch motion to land its callback on the
+// gallery page: the token move is 600ms at full pace, and the specs slow
+// it to 3s to prove the callback waits for the animation's real end. Four
+// times that slow move, with room for the matrix's slowest browser.
+export const transitionMoveBudgetMs = 12_000
+
 // The window a claim of "nothing renders at rest" waits through between its
 // two frame-count reads. The stage renders only on invalidations, and the
 // longest motion the specs leave running into such a window is the explode
