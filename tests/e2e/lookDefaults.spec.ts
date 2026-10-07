@@ -2,9 +2,8 @@ import { SRGBColorSpace } from 'three'
 import { resolveProductLook } from '../../src/lib/product'
 import { lookDefaults } from '../../src/viewer/look/config'
 import { expect, test } from './fixtures'
-import { testBodyBudgetMs } from './budgets'
-import { lookHarnessPath } from './lookHarness'
-import { expectPoll, harnessProducts, waitForProductReady } from './productSpecs'
+import { expectAppliedLook, lookHarnessPath } from './lookHarness'
+import { harnessProducts, waitForProductReady } from './productSpecs'
 
 // The product's look at ready, on every matrix project: every product
 // reports ready with its manifest's look block applied as authored and the
@@ -32,36 +31,7 @@ for (const product of products) {
     await page.goto(lookHarnessPath(backendPath, product.slug))
     await waitForProductReady(page)
 
-    // The applied look, read from the live renderer, scene and material:
-    // the values are the resolved look, and the shadow material carries
-    // the compositing flags (blend, no depth write). Tone mapping has no
-    // per-material flag in the node renderer: the output pass tone maps the
-    // whole frame once, and the shadow's baked black is a fixed point of it.
-    await expectPoll(
-      page,
-      () => {
-        const look = window.__viewer?.look ?? null
-        if (look === null) {
-          return null
-        }
-        return {
-          exposure: look.exposure,
-          environmentIntensity: look.environmentIntensity,
-          environmentRotationDeg: look.environmentRotationDeg,
-          shadow: look.shadow,
-        }
-      },
-      testBodyBudgetMs,
-    ).toEqual({
-      exposure: look.exposure,
-      environmentIntensity: look.environmentIntensity,
-      environmentRotationDeg: look.environmentRotationDeg,
-      shadow: {
-        opacity: look.shadowOpacity,
-        transparent: true,
-        depthWrite: false,
-      },
-    })
+    await expectAppliedLook(page, look)
   })
 
   test(`the ${product.slug} textures match their glTF slots on color space`, async ({

@@ -1,11 +1,13 @@
 import type { Page } from '@playwright/test'
+import { resolveProductLook, type Product, type ProductLookBlock } from '../../src/lib/product'
+import { lookDefaults } from '../../src/viewer/look/config'
 import { expect, test } from './fixtures'
-import { harnessStageBox, lookHarnessPath } from './lookHarness'
+import { expectAppliedLook, harnessStageBox, lookHarnessPath } from './lookHarness'
 import type { RegionBox } from './stagePixels'
 import { decodeScreenshotRGBA } from './stagePixels'
 import { boxChannelSum, countDifferingPixels, countDifferingPixelsByDirection } from './lookPixels'
-import { testBodyBudgetMs, testBudgetMs } from './budgets'
-import { expectPoll, harnessProducts, waitForProductReady } from './productSpecs'
+import { testBudgetMs } from './budgets'
+import { harnessProducts, waitForProductReady } from './productSpecs'
 import { settledStageCapture } from './stageCapture'
 
 // The look overrides, driven through the harness look parameter and proven
@@ -27,11 +29,17 @@ const products = await harnessProducts()
 async function settledDecoded(
   page: Page,
   backendPath: string,
-  slug: string,
-  look?: unknown,
+  product: Product,
+  look?: ProductLookBlock,
 ): Promise<{ decoded: Awaited<ReturnType<typeof decodeScreenshotRGBA>>; box: RegionBox }> {
-  await page.goto(lookHarnessPath(backendPath, slug, look))
+  // The harness replaces the whole look block. Send a complete look so each
+  // comparison changes only the requested field, including on products with
+  // authored values that differ from the defaults. Read those controls back
+  // before the pixels are captured.
+  const applied = resolveProductLook({ ...product.look, ...look }, lookDefaults)
+  await page.goto(lookHarnessPath(backendPath, product.slug, applied))
   await waitForProductReady(page)
+  await expectAppliedLook(page, applied)
   const box = await harnessStageBox(page)
   const decoded = await decodeScreenshotRGBA(page, await settledStageCapture(page))
   return { decoded, box }
@@ -50,41 +58,17 @@ for (const product of products) {
   const prefix = `the ${product.slug} look`
 
   test(`${prefix} overrides are applied when it reports ready`, async ({ page, backendPath }) => {
-    await page.goto(
-      lookHarnessPath(backendPath, product.slug, {
-        exposure: 2,
-        environmentIntensity: 0,
-        environmentRotationDeg: 180,
-        shadowOpacity: 0.5,
-      }),
-    )
-    await waitForProductReady(page)
-
-    await expectPoll(
-      page,
-      () => {
-        const look = window.__viewer?.look ?? null
-        if (look === null) {
-          return null
-        }
-        return {
-          exposure: look.exposure,
-          environmentIntensity: look.environmentIntensity,
-          environmentRotationDeg: look.environmentRotationDeg,
-          shadow: look.shadow,
-        }
-      },
-      testBodyBudgetMs,
-    ).toEqual({
+    // This angle does not survive the radians round trip bit for bit, so
+    // every product exercises the readback's unit conversion.
+    const look = {
       exposure: 2,
       environmentIntensity: 0,
-      environmentRotationDeg: 180,
-      shadow: {
-        opacity: 0.5,
-        transparent: true,
-        depthWrite: false,
-      },
-    })
+      environmentRotationDeg: 120,
+      shadowOpacity: 0.5,
+    }
+    await page.goto(lookHarnessPath(backendPath, product.slug, look))
+    await waitForProductReady(page)
+    await expectAppliedLook(page, look)
   })
 
   test(`${prefix} exposure 2 against 1 brightens the stage beyond its noise`, async ({
@@ -94,10 +78,10 @@ for (const product of products) {
     // Three product loads (reference, reload, effect) and the pixel work
     // between them: the budget module's derivation for that count.
     test.setTimeout(testBudgetMs({ productLoads: 3 }))
-    const reference = await settledDecoded(page, backendPath, product.slug)
+    const reference = await settledDecoded(page, backendPath, product, { exposure: 1 })
     const again = await determinismPair(page)
-    const reload = await settledDecoded(page, backendPath, product.slug)
-    const exposed = await settledDecoded(page, backendPath, product.slug, { exposure: 2 })
+    const reload = await settledDecoded(page, backendPath, product, { exposure: 1 })
+    const exposed = await settledDecoded(page, backendPath, product, { exposure: 2 })
 
     const inPage = countDifferingPixels(reference.decoded, again, reference.box)
     const crossLoad = countDifferingPixels(reference.decoded, reload.decoded, reference.box)
@@ -130,10 +114,10 @@ for (const product of products) {
     // Three product loads (reference, reload, effect) and the pixel work
     // between them: the budget module's derivation for that count.
     test.setTimeout(testBudgetMs({ productLoads: 3 }))
-    const reference = await settledDecoded(page, backendPath, product.slug)
+    const reference = await settledDecoded(page, backendPath, product, { environmentIntensity: 1 })
     const again = await determinismPair(page)
-    const reload = await settledDecoded(page, backendPath, product.slug)
-    const unlit = await settledDecoded(page, backendPath, product.slug, {
+    const reload = await settledDecoded(page, backendPath, product, { environmentIntensity: 1 })
+    const unlit = await settledDecoded(page, backendPath, product, {
       environmentIntensity: 0,
     })
 
@@ -164,10 +148,12 @@ for (const product of products) {
     // Three product loads (reference, reload, effect) and the pixel work
     // between them: the budget module's derivation for that count.
     test.setTimeout(testBudgetMs({ productLoads: 3 }))
-    const reference = await settledDecoded(page, backendPath, product.slug)
+    const reference = await settledDecoded(page, backendPath, product, {
+      environmentRotationDeg: 0,
+    })
     const again = await determinismPair(page)
-    const reload = await settledDecoded(page, backendPath, product.slug)
-    const rotated = await settledDecoded(page, backendPath, product.slug, {
+    const reload = await settledDecoded(page, backendPath, product, { environmentRotationDeg: 0 })
+    const rotated = await settledDecoded(page, backendPath, product, {
       environmentRotationDeg: 180,
     })
 
@@ -204,9 +190,9 @@ for (const product of products) {
     // contribution when the shadow's alpha behind it rises. That silhouette
     // is not separable per pixel without a mask, so the oracle reads the
     // masses, not every pixel's direction.
-    const opaque = await settledDecoded(page, backendPath, product.slug, { shadowOpacity: 1 })
-    const half = await settledDecoded(page, backendPath, product.slug, { shadowOpacity: 0.5 })
-    const none = await settledDecoded(page, backendPath, product.slug, { shadowOpacity: 0 })
+    const opaque = await settledDecoded(page, backendPath, product, { shadowOpacity: 1 })
+    const half = await settledDecoded(page, backendPath, product, { shadowOpacity: 0.5 })
+    const none = await settledDecoded(page, backendPath, product, { shadowOpacity: 0 })
 
     const fullToHalf = countDifferingPixelsByDirection(opaque.decoded, half.decoded, opaque.box)
     expect(
