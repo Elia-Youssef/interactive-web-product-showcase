@@ -163,6 +163,23 @@ export function checkGeometry(structure: ProductStructure): CheckResult {
 // Finishes are the pairing of manifest and KHR_materials_variants, in both
 // directions: a manifest finish with no variant cannot be shown, and a
 // variant with no manifest finish could never appear on the site.
+// The material contract the render path depends on: anisotropy enters as
+// authored strength only. A texture-driven anisotropy reads through a
+// shared uniform the render path cannot keep per material, so a product
+// that needs it is rejected here with a named material until it is
+// supported.
+export function checkMaterials(structure: ProductStructure): CheckResult {
+  const violations = structure.anisotropyTextureMaterialNames.map(
+    (name) =>
+      `anisotropy texture on material '${name}': only authored anisotropy strength is supported`,
+  )
+  const detail =
+    structure.anisotropyTextureMaterialNames.length === 0
+      ? 'no anisotropy textures'
+      : `${structure.anisotropyTextureMaterialNames.length} anisotropy textures`
+  return checkResult('materials', detail, violations)
+}
+
 export function checkFinishes(manifest: Product, structure: ProductStructure): CheckResult {
   const violations: string[] = []
   const manifestVariants = manifest.finishes.map((finish) => finish.variant)

@@ -52,6 +52,7 @@ describe('the validate step on every shipped product', () => {
       'cameras',
       'geometry',
       'finishes',
+      'materials',
       'explode',
       'encoding',
       'budgets',
@@ -174,6 +175,7 @@ describe('the validate step on a temp root, one side missing', () => {
       'cameras',
       'geometry',
       'finishes',
+      'materials',
       'explode',
       'encoding',
       'budgets',
@@ -189,7 +191,7 @@ describe('the validate step on a temp root, one side missing', () => {
     expect(manifest?.violations).toEqual([
       'manifest missing: expected src/products/orphan-speaker.manifest.ts',
     ])
-    for (const name of ['hotspots', 'cameras', 'geometry', 'finishes', 'explode']) {
+    for (const name of ['hotspots', 'cameras', 'geometry', 'finishes', 'materials', 'explode']) {
       expect(validation.checks.find((check) => check.name === name)?.status, name).toBe('skipped')
     }
   })

@@ -4,7 +4,7 @@
 // resolves HS_ parents by name, past the unnamed wrapper nodes that Meshopt
 // quantization inserts, so nothing depends on mesh placement.
 import type { Document, Node } from '@gltf-transform/core'
-import { KHRMaterialsVariants, type MappingList } from '@gltf-transform/extensions'
+import { KHRMaterialsVariants, type Anisotropy, type MappingList } from '@gltf-transform/extensions'
 import { HOTSPOT_PREFIX } from '../src/lib/product/contractNames.ts'
 import { readCameraFacts, readGeometryFacts, readMeshBoxes } from './modelFacts.ts'
 import type { CameraFact, GeometryFacts } from './modelFacts.ts'
@@ -38,6 +38,10 @@ export type ProductStructure = {
   animationNames: string[]
   unlitMaterialNames: string[]
   occlusionMaterialNames: string[]
+  // The materials whose anisotropy reads through a texture: the one
+  // anisotropy form the render contract does not support, so the validate
+  // step rejects it and an authored strength stays the only way in.
+  anisotropyTextureMaterialNames: string[]
   meshoptCompressed: boolean
   // The camera, mesh and geometry facts the camera and model contracts'
   // rules read, as plain data; the document itself never leaves the model
@@ -92,12 +96,17 @@ export function readProductStructure(doc: Document): ProductStructure {
   const cameraFacts = readCameraFacts(doc)
   const unlitMaterialNames: string[] = []
   const occlusionMaterialNames: string[] = []
+  const anisotropyTextureMaterialNames: string[] = []
   for (const material of root.listMaterials()) {
     if (material.getExtension('KHR_materials_unlit') !== null) {
       unlitMaterialNames.push(material.getName())
     }
     if (material.getOcclusionTexture() !== null) {
       occlusionMaterialNames.push(material.getName())
+    }
+    const anisotropy = material.getExtension<Anisotropy>('KHR_materials_anisotropy')
+    if (anisotropy !== null && anisotropy.getAnisotropyTexture() !== null) {
+      anisotropyTextureMaterialNames.push(material.getName())
     }
   }
   return {
@@ -112,6 +121,7 @@ export function readProductStructure(doc: Document): ProductStructure {
     animationNames: root.listAnimations().map((animation) => animation.getName()),
     unlitMaterialNames,
     occlusionMaterialNames,
+    anisotropyTextureMaterialNames,
     meshoptCompressed: root
       .listExtensionsUsed()
       .some((extension) => extension.extensionName === MESHOPT_EXTENSION),

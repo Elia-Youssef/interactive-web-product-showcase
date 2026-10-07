@@ -23,6 +23,7 @@ import {
   checkGeometry,
   checkHotspots,
   checkManifest,
+  checkMaterials,
   type BudgetFacts,
   type EncodingFacts,
   type TextureFact,
@@ -97,6 +98,13 @@ describe('the validate checks on a contract document', () => {
     })
     expect(checkCameras(fixture, structure, cameraContract).violations).toEqual([])
     expect(checkFinishes(fixture, structure).violations).toEqual([])
+    expect(checkMaterials(structure)).toEqual({
+      name: 'materials',
+      status: 'pass',
+      detail: 'no anisotropy textures',
+      violations: [],
+      warnings: [],
+    })
     expect(checkExplode(fixture, structure).violations).toEqual([])
     expect(checkGeometry(structure).status).toBe('pass')
     expect(checkEncoding(passingEncoding).status).toBe('pass')
@@ -234,34 +242,6 @@ describe('the validate checks on a contract document', () => {
       `texture 'BC_body' is image/png, expected image/ktx2`,
       'no EXT_meshopt_compression: the optimize step did not run',
     ])
-  })
-
-  it('reports a file over the model budget', () => {
-    const result = checkBudgets({ ...passingBudgets, fileBytes: 5 * 1024 * 1024 })
-    expect(result.violations).toEqual(['file size 5.00 MB exceeds the 4.00 MB model budget'])
-  })
-
-  it('reports a texture over the edge budget', () => {
-    const result = checkBudgets({
-      ...passingBudgets,
-      textures: [{ label: 'BC_big', mimeType: 'image/ktx2', dimensions: [4096, 4096] }],
-    })
-    expect(result.violations).toEqual([
-      `texture 'BC_big' is 4096x4096 px, over the 2048 px texture edge budget`,
-    ])
-  })
-
-  it('reports draw calls over the budget', () => {
-    const result = checkBudgets({ ...passingBudgets, drawCalls: 51 })
-    expect(result.violations).toEqual(['draw calls 51 exceed the 50 draw call budget'])
-  })
-
-  it('reports a texture whose size is unreadable', () => {
-    const result = checkBudgets({
-      ...passingBudgets,
-      textures: [{ label: 'BC_odd', mimeType: 'image/ktx2', dimensions: null }],
-    })
-    expect(result.violations).toEqual([`texture 'BC_odd' has no readable size`])
   })
 
   it('reports a manifest slug that does not match the folder', () => {

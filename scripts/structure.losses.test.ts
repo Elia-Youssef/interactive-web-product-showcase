@@ -32,6 +32,7 @@ function structureWith(hotspotAnchors: readonly HotspotAnchor[]): ProductStructu
     animationNames: [],
     unlitMaterialNames: [],
     occlusionMaterialNames: [],
+    anisotropyTextureMaterialNames: [],
     meshoptCompressed: false,
     cameraFacts: [],
     meshBoxes: [],

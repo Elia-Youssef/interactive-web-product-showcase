@@ -25,6 +25,7 @@ describe('the one-clip rule without a name', () => {
     animationNames,
     unlitMaterialNames: [],
     occlusionMaterialNames: [],
+    anisotropyTextureMaterialNames: [],
     meshoptCompressed: true,
     cameraFacts: [],
     meshBoxes: [],

@@ -18,6 +18,7 @@ import {
   checkGeometry,
   checkHotspots,
   checkManifest,
+  checkMaterials,
   checkResult,
   skippedCheck,
   type BudgetFacts,
@@ -141,6 +142,7 @@ export async function validateShippedProduct(
       checkCameras(manifest, structure, contract),
       checkGeometry(structure),
       checkFinishes(manifest, structure),
+      checkMaterials(structure),
       checkExplode(manifest, structure),
     )
   } else {
@@ -150,6 +152,7 @@ export async function validateShippedProduct(
       skippedCheck('cameras', reason),
       skippedCheck('geometry', reason),
       skippedCheck('finishes', reason),
+      skippedCheck('materials', reason),
       skippedCheck('explode', reason),
     )
   }
