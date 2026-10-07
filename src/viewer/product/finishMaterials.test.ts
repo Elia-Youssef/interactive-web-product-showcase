@@ -10,90 +10,98 @@ import {
 } from 'three'
 import { markSceneMaterials } from './finishMaterials'
 
-// The material preparation the load runs before the node renderer sees a
-// material: every instance owns its program cache key, and every anisotropic
-// material without a map owns its anisotropy vector as a static value node.
-// The ownership is what keeps one material's uniform values from rendering
-// under another material: the node renderer otherwise updates the shared
-// anisotropy uniform once per material and render, so a render object whose
-// own update was skipped reads whichever material refreshed last.
+// What the material preparation guarantees to the renderer: every anisotropic
+// material a product carries renders its own anisotropy vector, from a value
+// node of its own, and no two material instances share a builder state. The
+// guarantee is what keeps one material's uniform values from rendering under
+// another material: the renderer dedupes builder states by feature flags
+// alone, and a shared state carries the first material's value nodes for
+// every sharer.
 
-// The structural read of the value node the preparation sets on a classic
-// material: the classic type carries no anisotropy node field at all, so the
-// untouched materials read back undefined.
-type AnisotropyCarrier = Material & { anisotropyNode?: { value?: Vector2 } | null }
-
-function anisotropyValueOf(material: Material): Vector2 | undefined {
-  return (material as AnisotropyCarrier).anisotropyNode?.value
+// The structural reads of the fields the preparation sets: the classic
+// material type does not declare them, but the renderer reads them from the
+// material's own properties.
+type AnisotropyCarrier = Material & {
+  anisotropyNode?: { value?: Vector2 }
+  customProgramCacheKey?: () => string
 }
 
-test('a prepared scene gives every material its own program cache key', () => {
-  const scene = new Object3D()
-  const steel = new MeshPhysicalMaterial()
-  const trim = new MeshPhysicalMaterial()
-  scene.add(new Mesh(undefined, steel), new Mesh(undefined, trim))
+function anisotropyNodeOf(material: Material): { value?: Vector2 } | undefined {
+  return (material as AnisotropyCarrier).anisotropyNode
+}
 
-  markSceneMaterials(scene)
+function programCacheKeyOf(material: Material): string | undefined {
+  return (material as AnisotropyCarrier).customProgramCacheKey?.()
+}
 
-  expect(steel.customProgramCacheKey()).not.toBe(trim.customProgramCacheKey())
-})
-
-test('an anisotropic material carries its own vector node, not a shared one', () => {
-  const scene = new Object3D()
+test('every prepared material carries its own anisotropy value node', () => {
   const shell = new MeshPhysicalMaterial({ anisotropy: 0.5 })
   shell.anisotropyRotation = Math.PI / 2
   const knurl = new MeshPhysicalMaterial({ anisotropy: 0.6 })
   knurl.anisotropyRotation = Math.PI / 2
+  const scene = new Object3D()
   scene.add(new Mesh(undefined, shell), new Mesh(undefined, knurl))
 
   markSceneMaterials(scene)
 
-  const shellVector = anisotropyValueOf(shell)
-  const knurlVector = anisotropyValueOf(knurl)
-  expect(shellVector).not.toBe(knurlVector)
-  expect(shellVector?.x).toBeCloseTo(0, 12)
-  expect(shellVector?.y).toBeCloseTo(0.5, 12)
-  expect(knurlVector?.x).toBeCloseTo(0, 12)
-  expect(knurlVector?.y).toBeCloseTo(0.6, 12)
+  const shellNode = anisotropyNodeOf(shell)
+  const knurlNode = anisotropyNodeOf(knurl)
+  expect(shellNode).toBeDefined()
+  expect(knurlNode).toBeDefined()
+  expect(shellNode).not.toBe(knurlNode)
+  expect(shellNode?.value?.x).toBeCloseTo(0, 12)
+  expect(shellNode?.value?.y).toBeCloseTo(0.5, 12)
+  expect(knurlNode?.value?.x).toBeCloseTo(0, 12)
+  expect(knurlNode?.value?.y).toBeCloseTo(0.6, 12)
+})
+
+test('no two prepared materials share a builder state', () => {
+  const steel = new MeshPhysicalMaterial({ anisotropy: 0.5 })
+  const trim = new MeshPhysicalMaterial({ anisotropy: 0.5 })
+  const plain = new MeshPhysicalMaterial()
+  const scene = new Object3D()
+  scene.add(new Mesh(undefined, steel), new Mesh(undefined, trim), new Mesh(undefined, plain))
+
+  markSceneMaterials(scene)
+
+  expect(programCacheKeyOf(steel)).not.toBe(programCacheKeyOf(trim))
+  expect(programCacheKeyOf(steel)).not.toBe(programCacheKeyOf(plain))
 })
 
 test('the preparation reaches the materials of a material array', () => {
-  const scene = new Object3D()
   const first = new MeshPhysicalMaterial({ anisotropy: 0.5 })
   const second = new MeshStandardMaterial()
+  const scene = new Object3D()
   scene.add(new Mesh(undefined, [first, second]))
 
   markSceneMaterials(scene)
 
-  expect(anisotropyValueOf(first)).toBeDefined()
-  expect((second as AnisotropyCarrier).anisotropyNode).toBeUndefined()
+  expect(anisotropyNodeOf(first)).toBeDefined()
+  expect(programCacheKeyOf(first)).toBeDefined()
+  expect(anisotropyNodeOf(second)).toBeUndefined()
 })
 
-test('a material without anisotropy and one with a map stay on the shared path', () => {
-  const scene = new Object3D()
-  const plain = new MeshPhysicalMaterial()
+test('a material with an anisotropy texture is rejected at the validate boundary and left alone here', () => {
   const mapped = new MeshPhysicalMaterial({ anisotropy: 0.5 })
   mapped.anisotropyMap = new Texture()
-  const nothing = new MeshStandardMaterial()
-  scene.add(new Mesh(undefined, plain), new Mesh(undefined, mapped), new Mesh(undefined, nothing))
+  const scene = new Object3D()
+  scene.add(new Mesh(undefined, mapped))
 
   markSceneMaterials(scene)
 
-  expect(anisotropyValueOf(plain)).toBeUndefined()
-  expect(anisotropyValueOf(mapped)).toBeUndefined()
-  expect((nothing as AnisotropyCarrier).anisotropyNode).toBeUndefined()
+  expect(anisotropyNodeOf(mapped)).toBeUndefined()
 })
 
 test('the preparation is idempotent: a marked material keeps its node and key', () => {
-  const scene = new Object3D()
   const steel = new MeshPhysicalMaterial({ anisotropy: 0.5 })
+  const scene = new Object3D()
   scene.add(new Mesh(undefined, steel))
 
   markSceneMaterials(scene)
-  const firstKey = steel.customProgramCacheKey()
-  const firstNode = anisotropyValueOf(steel)
+  const firstKey = programCacheKeyOf(steel)
+  const firstNode = anisotropyNodeOf(steel)
   markSceneMaterials(scene)
 
-  expect(steel.customProgramCacheKey()).toBe(firstKey)
-  expect(anisotropyValueOf(steel)).toBe(firstNode)
+  expect(programCacheKeyOf(steel)).toBe(firstKey)
+  expect(anisotropyNodeOf(steel)).toBe(firstNode)
 })
