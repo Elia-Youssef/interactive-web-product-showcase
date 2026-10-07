@@ -88,6 +88,8 @@ export function buildCameraPlan(
     views: rays,
     homeId: CAMERA_HOME_ID,
     bounds: boundsInStageSpace(frame, centerOf(frame)),
+    explodedBounds:
+      rig.explodedBounds === null ? null : boundsInStageSpace(rig.explodedBounds, centerOf(frame)),
     authoredDistanceLimits: manifest.camera ?? {},
     limits: cameraLimitConfig,
   })

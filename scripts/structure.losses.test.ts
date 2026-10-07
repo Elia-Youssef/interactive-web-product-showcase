@@ -36,6 +36,8 @@ function structureWith(hotspotAnchors: readonly HotspotAnchor[]): ProductStructu
     meshoptCompressed: false,
     cameraFacts: [],
     meshBoxes: [],
+    explodedBounds: null,
+    animationChannels: [],
     geometry: noGeometry,
   }
 }

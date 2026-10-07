@@ -116,6 +116,10 @@ function viewRuleViolations(
     views,
     homeId: CAMERA_HOME_ID,
     bounds: boundsInStageSpace(frame, frame.center),
+    explodedBounds:
+      structure.explodedBounds === null
+        ? null
+        : boundsInStageSpace(structure.explodedBounds, frame.center),
     authoredDistanceLimits: manifest.camera ?? {},
     limits: cameraLimitConfig,
   })

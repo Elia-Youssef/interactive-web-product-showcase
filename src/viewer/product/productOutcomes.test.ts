@@ -115,6 +115,7 @@ function homeOnlyRig(): ProductRig {
     clip: new AnimationClip('Explode', 1, []),
     variants: [],
     anchorRest: new Map(),
+    explodedBounds: null,
   }
 }
 

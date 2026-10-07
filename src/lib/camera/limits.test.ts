@@ -46,6 +46,7 @@ describe('distanceLimitProblems', () => {
   // The orbit distance of one named view, at the authored aspect.
   const view = (id: string, distance: number): ViewOrbit => ({
     id,
+    target: [0, 0, 0],
     distance,
     polar: 1.2,
     reach: 0.5,
@@ -109,6 +110,7 @@ describe('polarLimitProblems', () => {
 
   const view = (id: string, polarAngle: number): ViewOrbit => ({
     id,
+    target: [0, 0, 0],
     distance: 1.5,
     polar: polarAngle,
     reach: 0.5,
@@ -156,8 +158,14 @@ describe('resolvedPolarRange', () => {
 
 describe('reachLimitProblems', () => {
   // One view's orbit with its reach and the pivot its target came from.
-  const view = (id: string, reach: number, pivot: string): ViewOrbit => ({
+  const view = (
+    id: string,
+    reach: number,
+    pivot: string,
+    target: readonly [number, number, number] = [0, 0, 0],
+  ): ViewOrbit => ({
     id,
+    target,
     distance: 1.5,
     polar: 1.2,
     reach,

@@ -144,7 +144,7 @@ export function readGeometryFacts(doc: Document): GeometryFacts {
 // targets, in the loader's own order: the accessor bounds with the
 // normalized scale multiplied in, then each target's largest absolute
 // displacement per component added to the box on both sides.
-function primitiveBox(primitive: {
+export function primitiveBox(primitive: {
   getAttribute: (semantic: string) => Accessor | null
   listTargets: () => readonly MorphTarget[]
 }): { min: Vec3; max: Vec3 } | null {
@@ -207,7 +207,7 @@ type MorphTarget = {
 // the reciprocals it multiplies a normalized accessor's values with. A
 // normalized accessor of any other component type is refused, the way the
 // loader refuses it.
-function normalizedScaleOf(accessor: Accessor): number {
+export function normalizedScaleOf(accessor: Accessor): number {
   if (!accessor.getNormalized()) {
     return 1
   }
