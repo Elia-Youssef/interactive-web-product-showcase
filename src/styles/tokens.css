@@ -97,6 +97,12 @@ their minimum below it, switched by the breakpoints at the end of this file.
   --offset-swatch-ring: 3px;
   --size-bullet-dot: 6px;
   --size-icon-button: var(--size-hit-min);
+  /*
+  The box of a visually hidden element, such as the app shell's live
+  region: a one pixel window the page paints nothing through, while the
+  element's words stay in the accessibility tree.
+  */
+  --size-visually-hidden: 1px;
   --size-hotspot-dot: 10px;
   --size-hotspot-ring: 28px;
   --size-hotspot-hit: var(--size-hit-min);

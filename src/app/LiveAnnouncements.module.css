@@ -1,0 +1,11 @@
+/* The live region's box: out of the layout, a one pixel window the page
+paints nothing through, while the words stay in the accessibility tree.
+Values are tokens. */
+
+.region {
+  position: absolute;
+  inline-size: var(--size-visually-hidden);
+  block-size: var(--size-visually-hidden);
+  overflow: hidden;
+  pointer-events: none;
+}
