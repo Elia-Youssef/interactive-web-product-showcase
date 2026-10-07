@@ -1,11 +1,10 @@
 import { expect, test } from './fixtures'
 import type { Page } from '@playwright/test'
 import { siteCopy } from '../../src/lib/copy/site'
-import { waitForProductReady } from './productSpecs'
 import { waitForExplodeRestingAt } from './explodeRest'
 import { readMarkerExtentTokens } from './markerExtentTokens'
 import { readScrubMarkerFacts, SCRUB_TARGETS } from './scrubMarkerFacts'
-import { loadCollection } from './productList'
+import { expectProduct, productPathOf } from './collectionFacts'
 import { settledFrames } from './stageSettle'
 import { expectOrbitAtRest, readCamera, stageAspectOfCanvas } from './stageCamera'
 import { cardHeadingOf, markerOf } from './hotspotViews'
@@ -31,18 +30,15 @@ import { expectMarkerClearOfCard, placedMarkerTitles } from './hotspotCardChecks
 // product assembled. That path needs the marker shown at the fully
 // exploded pose on the layout's stage, by the scrub facts.
 //
-// The app page presents the collection's first product, so the cases run
-// for every product it can present. A marker shows only while its keep-out
+// The cases run for every routed product. A marker shows only while its keep-out
 // box fits the stage, so which markers a view shows depends on the layout's
 // stage: the cases come from the facts on each layout's own stage. A case
 // is a hotspot whose marker home shows (it is pressed there), open at a
 // view that still shows its own marker (the card hangs off it), and every
 // layout keeps at least one case, so no layout passes on an empty set.
 
-const collection = await loadCollection()
 const { flowsAt, markerViewsAt } = await flowFacts()
 const extent = await readMarkerExtentTokens()
-const explodeLabel = collection.first.explode.label ?? siteCopy.defaultExplodeLabel
 
 type OpenView = {
   readonly name: string
@@ -99,18 +95,21 @@ async function shownExplodedAt(
 
 for (const contract of viewportContracts) {
   const stage = stageBoxOf(contract)
-  const markerViews = markerViewsAt(stage).get(collection.first.slug)
-  if (markerViews === undefined) {
-    throw new Error(`no marker views for ${collection.first.slug}`)
-  }
-  const flows = flowsAt(stage).filter((flow) => flow.subject.product.slug === collection.first.slug)
+  const viewsBySlug = markerViewsAt(stage)
+  const flows = flowsAt(stage)
   const cases: {
     readonly flow: HotspotFlow
     readonly hotspot: HotspotFlow['subject']['product']['hotspots'][number]
     readonly open: OpenView
   }[] = []
   for (const flow of flows) {
+    const product = flow.subject.product
+    const markerViews = viewsBySlug.get(product.slug)
+    if (markerViews === undefined) {
+      throw new Error(`no marker views for ${product.slug}`)
+    }
     const shownExploded = await shownExplodedAt(flow, stage)
+    const firstCase = cases.length
     for (const hotspot of flow.subject.product.hotspots) {
       if (!markerViews.home.has(hotspot.id)) {
         continue
@@ -121,14 +120,15 @@ for (const contract of viewportContracts) {
         }
       }
     }
-  }
-  if (cases.length === 0) {
-    throw new Error(
-      `no hotspot of ${collection.first.slug} opens on the ${contract.width}x${contract.height} stage at a view that shows its marker`,
-    )
+    if (cases.length === firstCase) {
+      throw new Error(
+        `no hotspot of ${product.slug} opens on the ${contract.width}x${contract.height} stage at a view that shows its marker`,
+      )
+    }
   }
   for (const { flow, hotspot, open } of cases) {
     const { product } = flow.subject
+    const explodeLabel = product.explode.label ?? siteCopy.defaultExplodeLabel
     const titles = product.hotspots.map((entry) => entry.title)
     const where = contract.hotspotCard === 'docks' ? 'docks in the sheet' : 'stays on the stage'
     test(`card placement at ${contract.width}x${contract.height}: ${product.slug} ${hotspot.title} open at ${open.name} leaves every placed marker clear and ${where}`, async ({
@@ -136,8 +136,8 @@ for (const contract of viewportContracts) {
       backendPath,
     }) => {
       await page.setViewportSize({ width: contract.width, height: contract.height })
-      await page.goto(backendPath)
-      await waitForProductReady(page)
+      await page.goto(productPathOf(backendPath, product))
+      await expectProduct(page, product)
       await settledFrames(page)
 
       // The scrub sets the explode by its value, so no click on panel

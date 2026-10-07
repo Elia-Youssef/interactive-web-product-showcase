@@ -1,8 +1,7 @@
 import { expect, test } from './fixtures'
 import type { Page } from '@playwright/test'
 import { siteCopy } from '../../src/lib/copy/site'
-import { waitForProductReady } from './productSpecs'
-import { loadCollection } from './productList'
+import { expectProduct, productPathOf } from './collectionFacts'
 import { settledFrames } from './stageSettle'
 import { expectOrbitAtRest, readCamera, renderedFrames, stageAspectOfCanvas } from './stageCamera'
 import { cardHeadingOf, markerOf } from './hotspotViews'
@@ -16,10 +15,9 @@ import { stageBoxOf, viewportContracts } from './layoutContracts'
 // home and closing a plain one moves nothing; one card is open at a time;
 // under reduced motion the close-up and the return land on the next
 // rendered frame; and a card that docks or changes while docked comes into
-// the visitor's view however far the sheet was scrolled. The app page presents the collection's first product, so
-// the cases run for every product it can present.
+// the visitor's view however far the sheet was scrolled. Each routed
+// product runs the cases its authored views and visible markers support.
 
-const collection = await loadCollection()
 const { flowsAt, markerViewsAt } = await flowFacts()
 const dockingLayouts = viewportContracts.filter((contract) => contract.hotspotCard === 'docks')
 
@@ -29,19 +27,17 @@ for (const contract of dockingLayouts) {
   // come from the facts on this layout's stage: the switches whose target
   // this stage shows, and the markers home shows to press.
   const stage = stageBoxOf(contract)
-  const appFlows = flowsAt(stage).filter(
-    (flow) => flow.subject.product.slug === collection.first.slug,
-  )
-  const shownAtHome = markerViewsAt(stage).get(collection.first.slug)?.home
-  if (shownAtHome === undefined || shownAtHome.size === 0) {
-    throw new Error(`${collection.first.slug} shows no marker at home on the ${size} stage`)
-  }
-  for (const flow of appFlows) {
+  const markerViews = markerViewsAt(stage)
+  for (const flow of flowsAt(stage)) {
     const { product, closeUps, plains, switches } = flow.subject
+    const shownAtHome = markerViews.get(product.slug)?.home
+    if (shownAtHome === undefined || shownAtHome.size === 0) {
+      throw new Error(`${product.slug} shows no marker at home on the ${size} stage`)
+    }
     const openDocked = async (page: Page, backendPath: string, title: string) => {
       await page.setViewportSize({ width: contract.width, height: contract.height })
-      await page.goto(backendPath)
-      await waitForProductReady(page)
+      await page.goto(productPathOf(backendPath, product))
+      await expectProduct(page, product)
       await settledFrames(page)
       await markerOf(page, title).click()
       await expectDockedCardOf(page, title)
@@ -88,8 +84,8 @@ for (const contract of dockingLayouts) {
         backendPath,
       }) => {
         await page.setViewportSize({ width: contract.width, height: contract.height })
-        await page.goto(backendPath)
-        await waitForProductReady(page)
+        await page.goto(productPathOf(backendPath, product))
+        await expectProduct(page, product)
         await settledFrames(page)
         await scrollSheetToEnd(page)
         await markerOf(page, hotspot.title).click()
@@ -131,8 +127,8 @@ for (const contract of dockingLayouts) {
       }) => {
         await page.emulateMedia({ reducedMotion: 'reduce' })
         await page.setViewportSize({ width: contract.width, height: contract.height })
-        await page.goto(backendPath)
-        await waitForProductReady(page)
+        await page.goto(productPathOf(backendPath, product))
+        await expectProduct(page, product)
         const before = await settledFrames(page)
         await markerOf(page, closeUp.title).click()
         await nextRenderedFrame(page, before)

@@ -1,7 +1,6 @@
 import { expect, test } from './fixtures'
 import type { Page } from '@playwright/test'
-import { waitForProductReady } from './productSpecs'
-import { loadCollection } from './productList'
+import { expectProduct, productPathOf } from './collectionFacts'
 import { settledFrames } from './stageSettle'
 import { cardHeadingOf, markerOf } from './hotspotViews'
 import { flowFacts } from './hotspotFlowFacts'
@@ -13,13 +12,10 @@ import { expectCardWhereTheLayoutPutsIt } from './hotspotCardOracle'
 // layout, goes where the rule puts it on a phone held sideways (docked, in
 // view, when the short stage leaves no side clear), and hangs beside its
 // marker again once the window is wide. The card stays open throughout; a
-// plain hotspot keeps the camera at home, so only the layout moves. The
-// app page presents the collection's first product, so the cases run for
-// every product it can present.
+// plain hotspot keeps the camera at home, so only the layout moves. Every
+// routed product with a plain hotspot runs the same layout transition.
 
-const collection = await loadCollection()
 const { flows } = await flowFacts()
-const appFlows = flows.filter((flow) => flow.subject.product.slug === collection.first.slug)
 
 const floating = viewportContracts.find((contract) => contract.hotspotCard === 'floats')
 const docking = viewportContracts.find((contract) => contract.hotspotCard === 'docks')
@@ -28,7 +24,7 @@ if (floating === undefined || docking === undefined) {
 }
 const route = [floating, docking, phoneLandscape, floating] as const
 
-for (const flow of appFlows) {
+for (const flow of flows) {
   const { product } = flow.subject
   const titles = product.hotspots.map((hotspot) => hotspot.title)
   for (const plain of flow.subject.plains.slice(0, 1)) {
@@ -39,8 +35,8 @@ for (const flow of appFlows) {
     }) => {
       const [first] = route
       await page.setViewportSize({ width: first.width, height: first.height })
-      await page.goto(backendPath)
-      await waitForProductReady(page)
+      await page.goto(productPathOf(backendPath, product))
+      await expectProduct(page, product)
       await settledFrames(page)
       await markerOf(page, plain.title).click()
       await expect(cardHeadingOf(page, plain.title)).toBeVisible()
