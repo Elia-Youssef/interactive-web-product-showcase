@@ -23,7 +23,10 @@ their minimum below it, switched by the breakpoints at the end of this file.
   --off: #dfe0e2;
   --muted: #a0a0a0;
   --label: #a9aeb0;
-  --red: #de0b00;
+  /* The red appears at a second alpha in the switch band, so it is stored
+     as channels and every use derives from them. */
+  --red-rgb: 222 11 0;
+  --red: rgb(var(--red-rgb));
   --hairline-alpha: 0.1;
   --hairline-hover-alpha: 0.2;
   --hairline: rgb(var(--white-rgb) / var(--hairline-alpha));
@@ -192,6 +195,26 @@ their minimum below it, switched by the breakpoints at the end of this file.
   */
   --duration-hotspot-pulse: calc(1800ms * var(--motion-scale));
   --ease-pulse: ease-out;
+
+  /*
+  The product switch transition: the diagonal ticker band that covers the
+  stage while products swap. The band is oversized and tilted, so its rest
+  pose holds the whole stage inside it: the inset places it centered with
+  half its depth beyond the box top and bottom, and half its length
+  beyond the box left and right. Its travel is its own depth, far enough
+  that no edge of it stays over the stage. Reduced motion cuts the band
+  to a plain crossfade of the same red through the same phases.
+  */
+  --switch-band-inset: -50% -75%;
+  --switch-band-angle: -12deg;
+  --switch-travel: 100%;
+  --switch-rest: 0%;
+  --switch-band-alpha: 0.85;
+  --size-switch-dot: 6px;
+  --duration-switch-move: calc(600ms * var(--motion-scale));
+  --ease-switch: cubic-bezier(0.215, 0.61, 0.355, 1);
+  --duration-switch-marquee: calc(16000ms * var(--motion-scale));
+  --switch-marquee-shift: -50%;
 
   /*
   Stage backdrop. The grid line is --white-rgb at the grid alpha the
