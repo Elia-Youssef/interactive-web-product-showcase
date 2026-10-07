@@ -58,6 +58,26 @@ test('toggling opens and closes the attached view', () => {
   expect(selectExplodeOpen(read(), PRODUCT)).toBe(false)
 })
 
+// The toggle's action stays defined from a partial scrub, where the view is
+// neither open nor assembled: the press completes the open, and the next
+// press closes it, so the pressed state the button announces is the state
+// its press acts in.
+test('a toggle after a partial scrub completes the open, and the next press closes', () => {
+  const { slice, read } = makeSlice()
+
+  slice.explodeAttach(PRODUCT)
+  slice.explodeScrub(PRODUCT, 0.4)
+  expect(selectExplodeOpen(read(), PRODUCT)).toBe(false)
+
+  slice.explodeToggle(PRODUCT)
+  expect(selectExplodeTarget(read(), PRODUCT)).toBe(1)
+  expect(selectExplodeOpen(read(), PRODUCT)).toBe(true)
+
+  slice.explodeToggle(PRODUCT)
+  expect(selectExplodeTarget(read(), PRODUCT)).toBe(0)
+  expect(selectExplodeOpen(read(), PRODUCT)).toBe(false)
+})
+
 test('a toggle with no attached view moves nothing', () => {
   const { slice, read } = makeSlice()
 
@@ -83,7 +103,9 @@ test('a scrub sets any target in the range for the attached view', () => {
   slice.explodeAttach(PRODUCT)
   slice.explodeScrub(PRODUCT, 0.4)
   expect(selectExplodeTarget(read(), PRODUCT)).toBe(0.4)
-  expect(selectExplodeOpen(read(), PRODUCT)).toBe(true)
+  // A partial scrub is neither open nor assembled: the pressed state stays
+  // the fully exploded state, and the slider speaks for the partial view.
+  expect(selectExplodeOpen(read(), PRODUCT)).toBe(false)
 
   slice.explodeScrub(PRODUCT, 0)
   expect(selectExplodeTarget(read(), PRODUCT)).toBe(0)

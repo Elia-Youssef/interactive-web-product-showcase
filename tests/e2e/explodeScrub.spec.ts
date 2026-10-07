@@ -40,11 +40,12 @@ test('the two controls of the section are named apart', async ({ page }) => {
   await waitForExplodeMounted(page)
 
   // Each name answers for exactly one control: the toggle's word names no
-  // slider, the scrub name names no button.
+  // slider, the scrub name names no button. The match is the whole name,
+  // not a piece of it, which is what a screen reader reads a control by.
   await expect(page.getByRole('button', { name: toggleLabel })).toBeVisible()
   await expect(page.getByRole('slider', { name: scrubName })).toBeVisible()
-  await expect(page.getByRole('slider', { name: toggleLabel })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: scrubName })).toHaveCount(0)
+  await expect(page.getByRole('slider', { name: toggleLabel, exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: scrubName, exact: true })).toHaveCount(0)
 })
 
 test('a scrub to the middle opens the view to the target and reads 50%', async ({ page }) => {
@@ -67,14 +68,18 @@ test('a scrub to the middle opens the view to the target and reads 50%', async (
   await expect(slider).toHaveAttribute('aria-valuetext', '50%')
 
   // The pressed state after a partial scrub belongs to the slice alone:
-  // open is a target above zero, so a middle scrub reads pressed.
+  // open is the fully exploded target and nothing less, so a middle scrub
+  // reads not pressed, and the slider's own value speaks for the partial
+  // view.
   await expect(page.getByRole('button', { name: toggleLabel })).toHaveAttribute(
     'aria-pressed',
-    'true',
+    'false',
   )
 })
 
-test('the toggle after a scrub drives the target and the thumb follows', async ({ page }) => {
+test('the toggle after a partial scrub completes the open, and the next press closes', async ({
+  page,
+}) => {
   await page.goto('/')
   await waitForExplodeMounted(page)
 
@@ -85,16 +90,31 @@ test('the toggle after a scrub drives the target and the thumb follows', async (
 
   await page.getByRole('button', { name: toggleLabel }).click()
 
-  // The slider's value is the target, so the thumb is on the toggle's value
-  // at once, before the spring has moved. One read, no poll: a poll would
-  // wait out the spring and hide the difference between the target and the
-  // applied progress.
-  expect(await slider.inputValue()).toBe('0')
+  // The toggle acts from every state: from a partial scrub its press
+  // completes the open. The slider's value is the target, so the thumb is
+  // on the toggle's value at once, before the spring has moved. One read,
+  // no poll: a poll would wait out the spring and hide the difference
+  // between the target and the applied progress.
+  expect(await slider.inputValue()).toBe('1')
 
-  await expectPoll(page, () => window.__viewer?.explode?.target, testBodyBudgetMs).toBe(0)
+  await expectPoll(page, () => window.__viewer?.explode?.target, testBodyBudgetMs).toBe(1)
   await expectPoll(page, () => window.__viewer?.explode?.moving, testBodyBudgetMs).toBe(false)
+  await expectPoll(page, () => window.__viewer?.explode?.t, testBodyBudgetMs).toBe(1)
+  await expect(readoutOf(page)).toHaveText('100%')
+  await expect(page.getByRole('button', { name: toggleLabel })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+
+  // The next press closes onto the assembled rest, like the plain toggle.
+  await page.getByRole('button', { name: toggleLabel }).click()
+  expect(await slider.inputValue()).toBe('0')
   await expectPoll(page, () => window.__viewer?.explode?.t, testBodyBudgetMs).toBe(0)
   await expect(readoutOf(page)).toHaveText('0%')
+  await expect(page.getByRole('button', { name: toggleLabel })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  )
 })
 
 test('during the spring the readout and the value text say the applied progress', async ({

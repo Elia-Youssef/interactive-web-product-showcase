@@ -2,6 +2,7 @@ import { expect, test } from 'vitest'
 import { ExplodeRangeError } from '@lib/explode'
 import {
   applyExplodeEvent,
+  explodeOpenOf,
   initialExplodeStatus,
   type ExplodeEvent,
   type ExplodeStatus,
@@ -10,8 +11,8 @@ import {
 const PRODUCT = 'sample-one'
 const OTHER_PRODUCT = 'sample-two'
 
-function active(product: string, target: number, open: boolean): ExplodeStatus {
-  return { kind: 'active', product, target, open }
+function active(product: string, target: number): ExplodeStatus {
+  return { kind: 'active', product, target }
 }
 
 // The transition table as test data, one row per cell, in the shape the
@@ -26,9 +27,9 @@ type TransitionCase = {
   identical?: boolean
 }
 
-const OPEN = active(PRODUCT, 1, true)
-const CLOSED = active(PRODUCT, 0, false)
-const PART_OPEN = active(PRODUCT, 0.4, true)
+const OPEN = active(PRODUCT, 1)
+const CLOSED = active(PRODUCT, 0)
+const PART_OPEN = active(PRODUCT, 0.4)
 
 const table: TransitionCase[] = [
   {
@@ -89,6 +90,12 @@ const table: TransitionCase[] = [
     expected: CLOSED,
   },
   {
+    name: 'attached mid-way + toggled(product) completes the open at the far end',
+    from: PART_OPEN,
+    event: { kind: 'toggled', product: PRODUCT },
+    expected: OPEN,
+  },
+  {
     name: 'idle + toggled(product) leaves the status alone: no attached view cannot move',
     from: initialExplodeStatus,
     event: { kind: 'toggled', product: PRODUCT },
@@ -110,7 +117,7 @@ const table: TransitionCase[] = [
     identical: true,
   },
   {
-    name: 'attached + scrubbed(product, 0.4) sets the target, open past zero',
+    name: 'attached + scrubbed(product, 0.4) sets the target alone',
     from: CLOSED,
     event: { kind: 'scrubbed', product: PRODUCT, target: 0.4 },
     expected: PART_OPEN,
@@ -122,7 +129,7 @@ const table: TransitionCase[] = [
     expected: CLOSED,
   },
   {
-    name: 'attached + scrubbed(product, same target, same open) returns the same status object',
+    name: 'attached + scrubbed(product, same target) returns the same status object',
     from: PART_OPEN,
     event: { kind: 'scrubbed', product: PRODUCT, target: 0.4 },
     expected: PART_OPEN,
@@ -178,4 +185,21 @@ test('a scrub out of range throws the typed error itself', () => {
 test('detach after open, then attach, is assembled again', () => {
   const detachedOnce = applyExplodeEvent(OPEN, { kind: 'detached', product: PRODUCT })
   expect(applyExplodeEvent(detachedOnce, { kind: 'attached', product: PRODUCT })).toEqual(CLOSED)
+})
+
+// The pressed state is the far end of the target and nothing less: a view
+// counts as open only fully, so the toggle's announcement is the binary
+// completed state its press acts in, and a partial scrub is neither open
+// nor assembled.
+test.each([
+  { name: 'idle', status: initialExplodeStatus, open: false },
+  { name: 'assembled', status: CLOSED, open: false },
+  { name: 'part-open', status: PART_OPEN, open: false },
+  { name: 'fully open', status: OPEN, open: true },
+])('the view counts as open only fully: $name reads $open', ({ status, open }) => {
+  expect(explodeOpenOf(status, PRODUCT)).toBe(open)
+})
+
+test('the open of another product than the one asked about reads closed', () => {
+  expect(explodeOpenOf(OPEN, OTHER_PRODUCT)).toBe(false)
 })
