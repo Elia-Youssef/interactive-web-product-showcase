@@ -3,10 +3,14 @@
 // Each input is loaded independently, so a product with a broken manifest
 // still gets its model checks, and the other way around.
 import type { NodeIO } from '@gltf-transform/core'
+import { readContractModelFacts } from './contractFacts.ts'
+import type { ContractModelFacts } from './contractFacts.ts'
+import { runContractRules, withRuleMessages } from './contractRules.ts'
 import { countDrawCalls } from './drawCalls.ts'
 import { createModelIO } from './modelIo.ts'
 import type { ParseProduct } from './manifestIo.ts'
 import { loadCameraContract, readManifestFile } from './manifestIo.ts'
+import type { CameraContract } from './manifestIo.ts'
 import { productPaths, repoPath, type ProductPaths } from './productPaths.ts'
 import { describeTextures, fileSizeBytes, formatBytes } from './report.ts'
 import { readProductStructure, type ProductStructure } from './structure.ts'
@@ -86,6 +90,7 @@ async function loadModel(
 ): Promise<{
   check: CheckResult
   structure: ProductStructure | null
+  facts: ContractModelFacts | null
   fileBytes: number | null
   textures: readonly TextureFact[]
   drawCalls: number | null
@@ -96,6 +101,7 @@ async function loadModel(
     return {
       check: checkResult('model', `expected ${shown}`, [`model missing: expected ${shown}`]),
       structure: null,
+      facts: null,
       fileBytes: null,
       textures: [],
       drawCalls: null,
@@ -108,6 +114,7 @@ async function loadModel(
     return {
       check: checkResult('model', shown, [`could not read ${shown}: ${reasonOf(error)}`]),
       structure: null,
+      facts: null,
       fileBytes,
       textures: [],
       drawCalls: null,
@@ -116,10 +123,46 @@ async function loadModel(
   return {
     check: checkResult('model', `${shown} (${formatBytes(fileBytes)})`, []),
     structure: readProductStructure(doc),
+    facts: readContractModelFacts(doc),
     fileBytes,
     textures: describeTextures(doc),
     drawCalls: countDrawCalls(doc),
   }
+}
+
+// The contract groups of one product: the rule table's findings folded
+// into each group's own check, or the groups skipped for want of their
+// input. The model group's entry is replaced in place, ahead of the
+// groups that follow it in the report.
+function contractChecks(
+  manifestSide: Awaited<ReturnType<typeof loadManifest>>,
+  modelSide: Awaited<ReturnType<typeof loadModel>>,
+  contract: CameraContract,
+): CheckResult[] {
+  const manifest = manifestSide.manifest
+  const structure = modelSide.structure
+  if (manifest !== null && structure !== null && modelSide.facts !== null) {
+    const findings = runContractRules({ manifest, structure, facts: modelSide.facts, contract })
+    return [
+      withRuleMessages(modelSide.check, findings, 'model'),
+      checkHotspots(manifest, structure),
+      withRuleMessages(checkCameras(manifest, structure, contract), findings, 'cameras'),
+      withRuleMessages(checkGeometry(structure), findings, 'geometry'),
+      withRuleMessages(checkFinishes(manifest, structure), findings, 'finishes'),
+      withRuleMessages(checkMaterials(structure), findings, 'materials'),
+      withRuleMessages(checkExplode(manifest, structure), findings, 'explode'),
+    ]
+  }
+  const reason = manifest === null ? 'the manifest did not load' : 'the model did not read'
+  return [
+    modelSide.check,
+    skippedCheck('hotspots', reason),
+    skippedCheck('cameras', reason),
+    skippedCheck('geometry', reason),
+    skippedCheck('finishes', reason),
+    skippedCheck('materials', reason),
+    skippedCheck('explode', reason),
+  ]
 }
 
 export async function validateShippedProduct(
@@ -132,31 +175,12 @@ export async function validateShippedProduct(
   const contract = await loadCameraContract()
   const manifestSide = await loadManifest(root, paths, parseProduct)
   const modelSide = await loadModel(io, root, paths)
-  const checks: CheckResult[] = [manifestSide.check, modelSide.check]
+  const checks: CheckResult[] = [
+    manifestSide.check,
+    ...contractChecks(manifestSide, modelSide, contract),
+  ]
 
-  const manifest = manifestSide.manifest
   const structure = modelSide.structure
-  if (manifest !== null && structure !== null) {
-    checks.push(
-      checkHotspots(manifest, structure),
-      checkCameras(manifest, structure, contract),
-      checkGeometry(structure),
-      checkFinishes(manifest, structure),
-      checkMaterials(structure),
-      checkExplode(manifest, structure),
-    )
-  } else {
-    const reason = manifest === null ? 'the manifest did not load' : 'the model did not read'
-    checks.push(
-      skippedCheck('hotspots', reason),
-      skippedCheck('cameras', reason),
-      skippedCheck('geometry', reason),
-      skippedCheck('finishes', reason),
-      skippedCheck('materials', reason),
-      skippedCheck('explode', reason),
-    )
-  }
-
   if (structure !== null && modelSide.fileBytes !== null && modelSide.drawCalls !== null) {
     const encodingFacts: EncodingFacts = {
       textures: modelSide.textures,

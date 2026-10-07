@@ -13,6 +13,7 @@ import {
   authoredCameraAspect,
   cameraLimitConfig,
 } from '../src/lib/camera/config.ts'
+import type { CameraContractInput } from '../src/lib/camera/contract.ts'
 import { boundsInStageSpace, frameSpanOfMeshBoxes, inStageSpace } from '../src/lib/camera/frame.ts'
 import type { FrameSpan, Vec3 } from '../src/lib/camera/frame.ts'
 import type { NamedCameraRay } from '../src/lib/camera/view.ts'
@@ -99,33 +100,66 @@ function viewRuleViolations(
   structure: ProductStructure,
   contract: CameraContract,
 ): string[] {
-  if (structure.meshBoxes.length === 0) {
+  const assembled = cameraAssemblyOf(manifest, structure, contract)
+  if (assembled.kind === 'noMeshes') {
     return ['the model holds no meshes to frame, the views have nothing to orbit']
   }
-  const frame = frameSpanOfMeshBoxes(structure.meshBoxes)
-  const { views, problems } = contractViews(manifest, structure, frame, contract)
-  const pivotViolations = problems.map((problem) => problem.message)
-  if (!views.some((view) => view.id === CAMERA_HOME_ID)) {
+  const pivotViolations = assembled.pivotProblems.map((problem) => problem.message)
+  if (assembled.kind === 'noHome') {
     // The names rule above reports a missing CAM_home and the aspect rule a
     // home that is not perspective; without a home view the limits have no
     // distance to derive from.
     return pivotViolations
   }
-  const check = contract.cameraContractProblems({
-    product: manifest.slug,
-    views,
-    homeId: CAMERA_HOME_ID,
-    bounds: boundsInStageSpace(frame, frame.center),
-    explodedBounds:
-      structure.explodedBounds === null
-        ? null
-        : boundsInStageSpace(structure.explodedBounds, frame.center),
-    authoredDistanceLimits: manifest.camera ?? {},
-    limits: cameraLimitConfig,
-  })
+  const check = contract.cameraContractProblems(assembled.input)
   const contractViolations =
     check.kind === 'broken' ? check.problems.map((problem) => problem.message) : []
   return [...pivotViolations, ...contractViolations]
+}
+
+// The assembled camera check of a product: the assembly input the shared
+// rule contract reads, with the pivot problems found on the way, or the
+// reason no assembly exists. The camera rules beside the assembly read the
+// same input, so an authored minimum's cause is judged by exactly the
+// rules that need one.
+export type CameraAssembly =
+  | {
+      readonly kind: 'assembled'
+      readonly input: CameraContractInput
+      readonly pivotProblems: readonly CameraLimitProblem[]
+    }
+  | { readonly kind: 'noMeshes' }
+  | { readonly kind: 'noHome'; readonly pivotProblems: readonly CameraLimitProblem[] }
+
+export function cameraAssemblyOf(
+  manifest: Product,
+  structure: ProductStructure,
+  contract: CameraContract,
+): CameraAssembly {
+  if (structure.meshBoxes.length === 0) {
+    return { kind: 'noMeshes' }
+  }
+  const frame = frameSpanOfMeshBoxes(structure.meshBoxes)
+  const { views, problems } = contractViews(manifest, structure, frame, contract)
+  if (!views.some((view) => view.id === CAMERA_HOME_ID)) {
+    return { kind: 'noHome', pivotProblems: problems }
+  }
+  return {
+    kind: 'assembled',
+    pivotProblems: problems,
+    input: {
+      product: manifest.slug,
+      views,
+      homeId: CAMERA_HOME_ID,
+      bounds: boundsInStageSpace(frame, frame.center),
+      explodedBounds:
+        structure.explodedBounds === null
+          ? null
+          : boundsInStageSpace(structure.explodedBounds, frame.center),
+      authoredDistanceLimits: manifest.camera ?? {},
+      limits: cameraLimitConfig,
+    },
+  }
 }
 
 // The views the view rules check: the set the runtime rig resolves and
