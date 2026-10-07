@@ -38,6 +38,9 @@ test('the finish list shows the heading, one swatch per finish and the default l
   }
 
   await expect(page.getByText(siteCopy.finishHeading)).toBeVisible()
+  // The finish heading is the section's heading: a visitor navigating by
+  // headings lands here, at the level the page outline gives it.
+  await expect(page.getByRole('heading', { level: 2, name: siteCopy.finishHeading })).toBeVisible()
   const group = page.getByRole('radiogroup', { name: siteCopy.finishHeading })
   await expect(group).toBeVisible()
   for (const finish of product.finishes) {

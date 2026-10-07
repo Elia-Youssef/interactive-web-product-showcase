@@ -50,7 +50,7 @@ export function ProductPanel({ product, navigationRow }: ProductPanelProps) {
       </div>
       <div className={styles.finish}>
         <div className={styles.finishHeading}>
-          <Eyebrow>{siteCopy.finishHeading}</Eyebrow>
+          <Eyebrow level={2}>{siteCopy.finishHeading}</Eyebrow>
           <span className={styles.activeFinish} data-active-finish>
             <Readout>{active.label}</Readout>
           </span>
