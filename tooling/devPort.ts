@@ -7,7 +7,7 @@ export const devPort = {
   variable: 'VIEWER_PORT',
   default: 5290,
   min: 5290,
-  max: 5294,
+  max: 5299,
 } as const
 
 export function resolveDevPort(env: Record<string, string | undefined>): number {
