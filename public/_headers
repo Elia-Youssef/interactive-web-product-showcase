@@ -1,0 +1,21 @@
+# Cache rules for the host. Bundled files carry a content hash in their name,
+# so they never change under one URL. Every other shipped folder keeps stable
+# file names and revalidates. HTML is not listed: it keeps the host default.
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/models/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+/env/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+/basis/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+/fonts/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+/social/*
+  Cache-Control: public, max-age=0, must-revalidate
