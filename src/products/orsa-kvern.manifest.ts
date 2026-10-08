@@ -29,7 +29,7 @@ export const manifest = {
       id: 'burr',
       eyebrow: 'Inside the column',
       title: 'Conical burr',
-      bullets: ['40 mm hardened steel', 'Zero retention cut path'],
+      bullets: ['40 mm hardened steel', 'Zero-retention cut path'],
     },
     {
       id: 'dial',

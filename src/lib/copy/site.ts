@@ -24,7 +24,7 @@ export const siteCopy = {
   nextLabel: 'Next',
   indexLabel: 'Collection',
   openIndexLabel: 'Open the collection index',
-  closeIndexLabel: 'Close the index',
+  closeIndexLabel: 'Close the collection index',
   panelLabel: 'Product details',
 } as const
 

@@ -24,9 +24,9 @@ export const manifest = {
   hotspots: [
     {
       id: 'driver',
-      eyebrow: 'A closer look',
+      eyebrow: 'Inside the cup',
       title: 'Driver and pads',
-      bullets: ['40 mm driver per cup', 'Magnetic knit pads, swap without tools'],
+      bullets: ['40 mm driver per side', 'Magnetic knit pads, swap without tools'],
     },
     {
       id: 'yoke',
@@ -35,6 +35,6 @@ export const manifest = {
       bullets: ['Tilts at the pins', 'Swivels at the crown'],
     },
   ],
-  explode: { label: 'See inside' },
+  explode: { label: 'Pull apart' },
   look: { exposure: 1.1, environmentIntensity: 1.3, environmentRotationDeg: 75 },
 } satisfies ProductInput
