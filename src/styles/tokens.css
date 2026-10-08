@@ -109,7 +109,15 @@ their minimum below it, switched by the breakpoints at the end of this file.
   --size-hotspot-dot: 10px;
   --size-hotspot-ring: 28px;
   --size-hotspot-hit: var(--size-hit-min);
-
+  /*
+  The marker dot's dark rim: the inactive dot is off-white, which reads on
+  every dark surface and vanishes on a light one (a pale finish under a
+  pale dot), so the dot carries a black keyline whose edge answers instead.
+  Light dot on dark surfaces, dark rim on light ones: one marker reads on
+  any surface, and the accent stays the only color.
+  */
+  --marker-dot-rim-width: 1px;
+  --marker-dot-rim: var(--black);
   /*
   The gap between a hotspot marker and the card floating beside it, and the
   stacking of the floating card above the markers, whose placed elements
