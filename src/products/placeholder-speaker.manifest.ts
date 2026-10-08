@@ -8,11 +8,11 @@ import type { ProductInput } from '@lib/product'
 
 export const manifest = {
   slug: 'placeholder-speaker',
-  number: 4,
+  number: 5,
   category: 'Audio',
   brand: 'Sample',
   model: 'Speaker',
-  eyebrow: 'Compact speaker / 004',
+  eyebrow: 'Compact speaker / 005',
   tagline: 'A quiet box that fills the room.',
   intro: ['Sample Speaker holds a slot while the pipeline is proven.'],
   finishes: [
