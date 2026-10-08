@@ -86,12 +86,10 @@ test('a scrub to the middle opens the view to the target and reads 50%', async (
   await expect(slider).toHaveAttribute('aria-valuetext', '50%')
 
   // The pressed state after a partial scrub belongs to the slice alone:
-  // open is the fully exploded target and nothing less, so a middle scrub
-  // reads not pressed, and the slider's own value speaks for the partial
-  // view.
+  // a middle scrub is neither assembled nor open, so the toggle reads mixed.
   await expect(page.getByRole('button', { name: toggleLabel })).toHaveAttribute(
     'aria-pressed',
-    'false',
+    'mixed',
   )
 })
 
@@ -106,6 +104,10 @@ test('the toggle after a partial scrub completes the open, and the next press cl
   await expect(slider).toBeEnabled()
   await slider.fill('0.5')
   await expectPoll(page, () => window.__viewer?.explode?.moving, testBodyBudgetMs).toBe(false)
+  await expect(page.getByRole('button', { name: toggleLabel })).toHaveAttribute(
+    'aria-pressed',
+    'mixed',
+  )
 
   await page.getByRole('button', { name: toggleLabel }).click()
 

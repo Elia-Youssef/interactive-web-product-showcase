@@ -2,7 +2,7 @@ import { expect, test } from 'vitest'
 import { ExplodeRangeError } from '@lib/explode'
 import {
   applyExplodeEvent,
-  explodeOpenOf,
+  explodeViewOf,
   initialExplodeStatus,
   type ExplodeEvent,
   type ExplodeStatus,
@@ -187,19 +187,28 @@ test('detach after open, then attach, is assembled again', () => {
   expect(applyExplodeEvent(detachedOnce, { kind: 'attached', product: PRODUCT })).toEqual(CLOSED)
 })
 
-// The pressed state is the far end of the target and nothing less: a view
-// counts as open only fully, so the toggle's announcement is the binary
-// completed state its press acts in, and a partial scrub is neither open
-// nor assembled.
+// The view state is derived from the target alone: assembled at 0 (and
+// while nothing is attached), fully open at 1, partly open in between, so
+// the toggle's announcement is one value every reader takes.
 test.each([
-  { name: 'idle', status: initialExplodeStatus, open: false },
-  { name: 'assembled', status: CLOSED, open: false },
-  { name: 'part-open', status: PART_OPEN, open: false },
-  { name: 'fully open', status: OPEN, open: true },
-])('the view counts as open only fully: $name reads $open', ({ status, open }) => {
-  expect(explodeOpenOf(status, PRODUCT)).toBe(open)
+  { name: 'idle', status: initialExplodeStatus, view: 'assembled' },
+  { name: 'assembled', status: CLOSED, view: 'assembled' },
+  { name: 'part-open', status: PART_OPEN, view: 'partial' },
+  { name: 'fully open', status: OPEN, view: 'open' },
+])('the view state of $name is $view', ({ status, view }) => {
+  expect(explodeViewOf(status, PRODUCT)).toBe(view)
 })
 
-test('the open of another product than the one asked about reads closed', () => {
-  expect(explodeOpenOf(OPEN, OTHER_PRODUCT)).toBe(false)
+test('the view state of another product than the one asked about is assembled', () => {
+  expect(explodeViewOf(OPEN, OTHER_PRODUCT)).toBe('assembled')
+})
+
+// The press from every state: assembled opens fully, partly open completes
+// the open, fully open closes.
+test.each([
+  { name: 'assembled', from: CLOSED, to: OPEN },
+  { name: 'partly open', from: PART_OPEN, to: OPEN },
+  { name: 'fully open', from: OPEN, to: CLOSED },
+])('a press from $name reaches the next state', ({ from, to }) => {
+  expect(applyExplodeEvent(from, { kind: 'toggled', product: PRODUCT })).toEqual(to)
 })

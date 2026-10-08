@@ -3,7 +3,7 @@ import { ExplodeRangeError } from '@lib/explode'
 import { createAppStore } from '../createAppStore'
 import {
   selectExplodeAttached,
-  selectExplodeOpen,
+  selectExplodeViewState,
   selectExplodeReadout,
   selectExplodeTarget,
 } from './explode'
@@ -24,7 +24,7 @@ test('a fresh slice holds no view: nothing is attached, every read is closed', (
 
   expect(selectExplodeAttached(read(), PRODUCT)).toBe(false)
   expect(selectExplodeTarget(read(), PRODUCT)).toBe(0)
-  expect(selectExplodeOpen(read(), PRODUCT)).toBe(false)
+  expect(selectExplodeViewState(read(), PRODUCT)).toBe('assembled')
 })
 
 test('attaching presents the product assembled and enables its view', () => {
@@ -34,7 +34,7 @@ test('attaching presents the product assembled and enables its view', () => {
 
   expect(selectExplodeAttached(read(), PRODUCT)).toBe(true)
   expect(selectExplodeTarget(read(), PRODUCT)).toBe(0)
-  expect(selectExplodeOpen(read(), PRODUCT)).toBe(false)
+  expect(selectExplodeViewState(read(), PRODUCT)).toBe('assembled')
 })
 
 test('only the attached product reads as attached', () => {
@@ -51,11 +51,11 @@ test('toggling opens and closes the attached view', () => {
   slice.explodeAttach(PRODUCT)
   slice.explodeToggle(PRODUCT)
   expect(selectExplodeTarget(read(), PRODUCT)).toBe(1)
-  expect(selectExplodeOpen(read(), PRODUCT)).toBe(true)
+  expect(selectExplodeViewState(read(), PRODUCT)).toBe('open')
 
   slice.explodeToggle(PRODUCT)
   expect(selectExplodeTarget(read(), PRODUCT)).toBe(0)
-  expect(selectExplodeOpen(read(), PRODUCT)).toBe(false)
+  expect(selectExplodeViewState(read(), PRODUCT)).toBe('assembled')
 })
 
 // The toggle's action stays defined from a partial scrub, where the view is
@@ -67,15 +67,15 @@ test('a toggle after a partial scrub completes the open, and the next press clos
 
   slice.explodeAttach(PRODUCT)
   slice.explodeScrub(PRODUCT, 0.4)
-  expect(selectExplodeOpen(read(), PRODUCT)).toBe(false)
+  expect(selectExplodeViewState(read(), PRODUCT)).toBe('partial')
 
   slice.explodeToggle(PRODUCT)
   expect(selectExplodeTarget(read(), PRODUCT)).toBe(1)
-  expect(selectExplodeOpen(read(), PRODUCT)).toBe(true)
+  expect(selectExplodeViewState(read(), PRODUCT)).toBe('open')
 
   slice.explodeToggle(PRODUCT)
   expect(selectExplodeTarget(read(), PRODUCT)).toBe(0)
-  expect(selectExplodeOpen(read(), PRODUCT)).toBe(false)
+  expect(selectExplodeViewState(read(), PRODUCT)).toBe('assembled')
 })
 
 test('a toggle with no attached view moves nothing', () => {
@@ -103,13 +103,12 @@ test('a scrub sets any target in the range for the attached view', () => {
   slice.explodeAttach(PRODUCT)
   slice.explodeScrub(PRODUCT, 0.4)
   expect(selectExplodeTarget(read(), PRODUCT)).toBe(0.4)
-  // A partial scrub is neither open nor assembled: the pressed state stays
-  // the fully exploded state, and the slider speaks for the partial view.
-  expect(selectExplodeOpen(read(), PRODUCT)).toBe(false)
+  // A partial scrub is neither open nor assembled: the toggle reads mixed.
+  expect(selectExplodeViewState(read(), PRODUCT)).toBe('partial')
 
   slice.explodeScrub(PRODUCT, 0)
   expect(selectExplodeTarget(read(), PRODUCT)).toBe(0)
-  expect(selectExplodeOpen(read(), PRODUCT)).toBe(false)
+  expect(selectExplodeViewState(read(), PRODUCT)).toBe('assembled')
 })
 
 test('a scrub with no attached view moves nothing', () => {
@@ -142,7 +141,7 @@ test('detaching drops the view: the next attach presents assembled again', () =>
   slice.explodeAttach(PRODUCT)
   expect(selectExplodeAttached(read(), PRODUCT)).toBe(true)
   expect(selectExplodeTarget(read(), PRODUCT)).toBe(0)
-  expect(selectExplodeOpen(read(), PRODUCT)).toBe(false)
+  expect(selectExplodeViewState(read(), PRODUCT)).toBe('assembled')
 })
 
 test('a detach for another product leaves the view alone', () => {

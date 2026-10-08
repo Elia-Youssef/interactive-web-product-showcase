@@ -155,6 +155,8 @@ their minimum below it, switched by the breakpoints at the end of this file.
   --offset-hotspot-focus-ring: var(--focus-offset);
   /* Gap between a selected text button and its persistent underline. */
   --offset-text-underline: var(--space-1);
+  /* The underline style of a partly open toggle, apart from the solid pressed one. */
+  --underline-partial: dotted;
 
   /*
   Layout structural sizes.

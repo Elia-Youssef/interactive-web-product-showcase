@@ -11,8 +11,8 @@ export type IdleExplodeStatus = { kind: 'idle' }
 // One presented product's view: the target progress the feature drives the
 // clip toward (0 or 1 from the toggle, any progress in [0, 1] from the
 // scrub control). The target is the one stored fact of the view: the
-// pressed state its toggle announces is the far end of the same target
-// (explodeOpen), so the announced state can never disagree with what the
+// state its toggle announces is derived from the same target
+// (explodeViewOf), so the announced state can never disagree with what the
 // controls act on. The live progress of the motion is the feature driver's
 // own reading, never this state: the store holds what was asked for, not
 // where the clip is. The status exists only while the product is attached,
@@ -36,16 +36,22 @@ export function explodeTargetOf(status: ExplodeStatus, product: string): number 
 // The assembled rest: the target both ends of the toggle return to.
 const ASSEMBLED = 0
 
-// The far end of the view: the target a toggle opens to, and the one state
-// the view counts as open in. A partial scrub is neither open nor
-// assembled, and the slider's own value speaks for it.
+// The far end of the view: the target a press opens to.
 const OPEN = 1
 
-// Whether one product's view counts as open: the pressed state its toggle
-// announces. Open is exactly the fully exploded target, so the announcement
-// is a binary completed state, never a partial one.
-export function explodeOpenOf(status: ExplodeStatus, product: string): boolean {
-  return explodeTargetOf(status, product) === OPEN
+// The three states one product's view can be in, the one answer every
+// reader takes: assembled (target 0, also while nothing is attached),
+// partly open (any target between, reached by a scrub) and fully open. The
+// toggle announces it as unpressed, mixed or pressed, and its press acts
+// from the same value, so the announced state is the state the press acts in.
+export type ExplodeViewState = 'assembled' | 'partial' | 'open'
+
+export function explodeViewOf(status: ExplodeStatus, product: string): ExplodeViewState {
+  const target = explodeTargetOf(status, product)
+  if (target === ASSEMBLED) {
+    return 'assembled'
+  }
+  return target === OPEN ? 'open' : 'partial'
 }
 
 // The published applied progress of one product's exploded view, as the
@@ -141,17 +147,14 @@ function detached(status: ExplodeStatus, product: string): ExplodeStatus {
   return status
 }
 
-// The toggle acts from every state the view can be in: assembled or
-// part-open opens it to the far end, open closes it to the start. The
-// action is defined from a partial scrub too, where the view is neither
-// open nor assembled: the press completes the open, and the next press
-// closes.
+// The press from each state: assembled opens fully, partly open completes
+// the open, fully open closes to the assembled rest.
 function toggled(status: ExplodeStatus, product: string): ExplodeStatus {
   if (status.kind !== 'active' || status.product !== product) {
     return status
   }
-  const opens = !explodeOpenOf(status, product)
-  return { kind: 'active', product, target: opens ? OPEN : ASSEMBLED }
+  const closes = explodeViewOf(status, product) === 'open'
+  return { kind: 'active', product, target: closes ? ASSEMBLED : OPEN }
 }
 
 function scrubbed(status: ExplodeStatus, product: string, target: number): ExplodeStatus {
