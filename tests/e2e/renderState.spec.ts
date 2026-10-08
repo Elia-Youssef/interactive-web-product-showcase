@@ -5,12 +5,15 @@ import { harnessPath, harnessProducts, waitForProductReady } from './productSpec
 import { settledStageCapture } from './stageCapture'
 import { decodeScreenshotRGBA, type DecodedScreenshot } from './stagePixels'
 
-// One settled state per product. A settled stage presents the product's one
-// state: a clean load and a remount of the same product under the same
-// renderer must present the same image, pixel for pixel. A state that flips
-// between clean loads means a material rendered with another material's
-// uniform values, so the flip is caught here for every product and every
-// engine, not for one product or one material property.
+// One settled state per product, as a stability smoke. A clean load and a
+// remount of the same product under the same renderer must present the same
+// image, pixel for pixel, so a settled state that flips between loads fails
+// here for every product and every engine. Four loads do not by themselves
+// prove that no material renders another material's uniform values: whether
+// such a crossing appears depends on the loads, so this spec can pass on
+// broken code. The deterministic proof of that class builds the materials
+// through the renderer's real node builder in finishMaterialsBuild.test.ts;
+// this spec stays as the settled-image smoke for the whole collection.
 //
 // The loads mix page mounts and harness remounts: both load the model fresh
 // through the stage's own cache policy, and both are ways a visitor arrives
@@ -33,7 +36,7 @@ function differingPixels(base: DecodedScreenshot, other: DecodedScreenshot): num
 }
 
 for (const product of await harnessProducts()) {
-  test(`the settled ${product.slug} presents one image across clean loads`, async ({
+  test(`the settled image of ${product.slug} is identical across clean loads and remounts`, async ({
     page,
     backendPath,
   }) => {
