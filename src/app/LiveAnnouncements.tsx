@@ -14,7 +14,7 @@ import styles from './LiveAnnouncements.module.css'
 // derivation of the copy module, fed the page's last announced state.
 export function LiveAnnouncements({ product }: { readonly product: Product }) {
   const selectedVariant = useAppStore((state) => selectSelectedVariant(state, product.slug))
-  const [message, setMessage] = useState('')
+  const [message, setMessage] = useState({ text: '', sequence: 0 })
   const announcedRef = useRef<AnnouncedState | null>(null)
 
   useEffect(() => {
@@ -26,13 +26,15 @@ export function LiveAnnouncements({ product }: { readonly product: Product }) {
     const announcement = nextAnnouncement(announcedRef.current, announced)
     announcedRef.current = announced
     if (announcement !== null) {
-      setMessage(announcement)
+      // Each change inserts a message node, including consecutive products
+      // whose display names match. Equal words still owe an announcement.
+      setMessage((previous) => ({ text: announcement, sequence: previous.sequence + 1 }))
     }
   }, [product, selectedVariant])
 
   return (
     <div className={styles.region} aria-live="polite" aria-atomic="true" data-live-announcement>
-      {message}
+      <span key={message.sequence}>{message.text}</span>
     </div>
   )
 }
