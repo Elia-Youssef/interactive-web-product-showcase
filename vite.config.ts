@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react'
 import { devClientStubPlugin } from './tooling/devClientStub.ts'
 import { devHost, isE2EServer } from './tooling/devHost.ts'
 import { resolveDevPort } from './tooling/devPort.ts'
+import { outputDuplicateGuardPlugin } from './tooling/outputDuplicateGuard.ts'
 import { unitTestGlobs } from './tooling/testRoots.ts'
 
 const port = resolveDevPort(process.env)
@@ -12,6 +13,10 @@ const e2eServer = isE2EServer(process.env)
 export default defineConfig({
   plugins: [
     react(),
+    // The production build ships every payload once: the written output,
+    // public copies included, fails the build on any two files with the
+    // same bytes (tooling/outputDuplicateGuard.ts).
+    outputDuplicateGuardPlugin(),
     // The e2e server serves the stub client in place of Vite's dev client:
     // its modules import the client for style injection alone, and nothing
     // in an e2e run hot-updates, so the client's WebSocket and its

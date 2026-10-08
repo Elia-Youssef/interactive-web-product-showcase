@@ -1,26 +1,30 @@
 // The compressed asset decoding a product needs, wired into the stage's
-// product model loader. Nothing here reaches a CDN: the KTX2 transcoder
-// is served from the transcoder path (src/lib/product/transcoderPath.ts,
-// the one module that defines it; scripts/copyBasis.ts keeps the copies
-// fresh) and the Meshopt decoder is bundled from three's own module.
+// product model loader. Nothing here reaches a CDN: the KTX2 loader fetches
+// the transcoder copies the installed three package carries, which the
+// bundler emits as content-hashed assets on the loader's own URL references
+// and caches under their hash.
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
-import { basisTranscoderPath } from '@lib/product'
 import type { WebGLRenderer } from 'three'
 import type { WebGPURenderer } from 'three/webgpu'
 import { registerFinishMaterialsResolver, type FinishParserLike } from './finishMaterials'
 
-// The transcoder path the wiring points the loader at, carried from its one
-// module so this surface states what it configures.
-export { basisTranscoderPath }
+// The product's KTX2 loader, configured and not yet detected: three's own
+// loader on its default transcoder path, so it fetches the transcoder copies
+// its own URL references name, the one pair the bundler emits. This is the
+// loader's whole configuration; a transcoder path set here would point it
+// at copies the bundler never emits.
+export function productKtx2Loader(): KTX2Loader {
+  return new KTX2Loader()
+}
 
-// Creates the one KTX2 loader of a started renderer: local transcoder path,
+// Creates the one KTX2 loader of a started renderer: the configured loader,
 // then support detection. detectSupport reads the renderer's compressed
 // texture features, which only exist after the awaited renderer.init() that
 // the stage's factory runs; R3F mounts the scene through that factory, so
 // the renderer this receives is always initialized.
 export function createProductKtx2Loader(renderer: WebGLRenderer | WebGPURenderer): KTX2Loader {
-  return new KTX2Loader().setTranscoderPath(basisTranscoderPath).detectSupport(renderer)
+  return productKtx2Loader().detectSupport(renderer)
 }
 
 // The loader surface the product wiring configures, kept structural, so the
