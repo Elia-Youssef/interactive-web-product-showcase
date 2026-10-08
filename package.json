@@ -19,7 +19,8 @@
     "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm assets:validate && pnpm build && pnpm e2e",
     "assets:basis": "node scripts/copyBasis.ts",
     "assets:optimize": "node scripts/optimize.ts",
-    "assets:validate": "node scripts/validate.ts"
+    "assets:validate": "node scripts/validate.ts",
+    "assets:social": "pnpm build && node scripts/socialCapture.ts"
   },
   "dependencies": {
     "@react-three/drei": "10.7.9",
