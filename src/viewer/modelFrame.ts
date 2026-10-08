@@ -70,14 +70,14 @@ export function measureModelFrame(root: Object3D): ModelFrame {
 // and instanced meshes are Mesh subclasses. For every one of these classes
 // the model contract admits, the object carries no bounding box of its own,
 // so Box3 reads the geometry's box, and so does the feed below.
-function carriesGeometry(node: Object3D): node is Mesh | Points | Line {
+export function carriesGeometry(node: Object3D): node is Mesh | Points | Line {
   return node instanceof Mesh || node instanceof Points || node instanceof Line
 }
 
 // The object's box in world space, as three's own non-precise bounds read
 // it: the geometry's bounding box over its position attribute, transformed
 // by the object's world matrix.
-function worldBoxOf(object: Mesh | Points | Line): MeshBox {
+export function worldBoxOf(object: Mesh | Points | Line): MeshBox {
   const box = boxOf(object.geometry)
   const elements = object.matrixWorld.elements
   if (!isMat4(elements)) {

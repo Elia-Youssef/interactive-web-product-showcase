@@ -161,11 +161,15 @@ describe('the camera contract check', () => {
   it('reports an authored minimum that does not exceed the model reach from every view', () => {
     // Both fixture views look down -Z from (1, 1, 4) at the target (1, 1, 0),
     // where the model's farthest corner is sqrt(2) away: a minimum at or
-    // under that reach fails on every view, one above it passes.
+    // under that reach fails on every view, one above it passes. The
+    // fixture clip lifts PART_base by one unit in y, which keeps the
+    // farthest corner at sqrt(2) from the target at the explode's last
+    // key too, so home fails that end of the reach as well.
     const structure = readProductStructure(buildFixtureDocument())
     const reachProblems = (minDistance: number) => [
       `the fixture-speaker CAM_home minimum distance ${minDistance} does not exceed the model reach ${Math.SQRT2} from its orbit target, projected from the model center`,
       `the fixture-speaker CAM_driver minimum distance ${minDistance} does not exceed the model reach ${Math.SQRT2} from its orbit target, projected from the HS_driver anchor`,
+      `the fixture-speaker CAM_home minimum distance ${minDistance} does not exceed the model reach ${Math.SQRT2} at the explode's last key from its orbit target, projected from the model center`,
     ]
     for (const minDistance of [1, Math.SQRT2]) {
       const manifest = manifestWith({ camera: { minDistance } })

@@ -10,6 +10,7 @@ import {
   type RigProblem,
 } from '@lib/product'
 import { anchorRestsOf } from './anchorRest'
+import { explodedBoundsOf } from './explodedBounds'
 import { jsonNodeNames } from './gltfJson'
 import type { ProductRig, ProductHotspot } from './productRig'
 
@@ -70,16 +71,23 @@ export function parseProductRig(source: ProductSource, manifest: Product): RigPa
   if (problems.length > 0) {
     return { kind: 'broken', problems }
   }
+  const resolvedShadow = present(shadow, 'the shadow node')
+  const resolvedClip = present(clip, 'the explode clip')
+  // The anchors' rests are read from the unposed tree before the exploded
+  // bounds sample the clip's end: the sample poses the parts and then
+  // restores them, and the rests belong to the rest pose.
+  const anchorRest = anchorRestsOf(source.scene, hotspots)
   return {
     kind: 'parsed',
     rig: {
       parts,
       hotspots,
       cameras,
-      shadow: present(shadow, 'the shadow node'),
-      clip: present(clip, 'the explode clip'),
+      shadow: resolvedShadow,
+      clip: resolvedClip,
       variants: readVariantNames(source.json),
-      anchorRest: anchorRestsOf(source.scene, hotspots),
+      anchorRest,
+      explodedBounds: explodedBoundsOf(source.scene, resolvedClip, parts, resolvedShadow),
     },
   }
 }

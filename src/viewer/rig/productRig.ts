@@ -1,4 +1,5 @@
 import type { AnimationClip, Camera, Object3D } from 'three'
+import type { ModelBounds } from '@lib/camera/frame'
 import type { Vec3 } from '@lib/camera/view'
 
 // One resolved hotspot of the rig: the manifest hotspot id, its HS_<id>
@@ -32,4 +33,9 @@ export type ProductRig = {
   // transforms at parse time, in the loaded scene's own space (see
   // anchorRest.ts): the points the close-up views orbit.
   readonly anchorRest: ReadonlyMap<string, Vec3>
+  // The bounds of the parts at the explode clip's last key, in the loaded
+  // scene's own space, the shadow subtree excluded (see explodedBounds.ts):
+  // the model half of the home view's reach rule at the explode's end.
+  // null when no part subtree carries geometry to pose.
+  readonly explodedBounds: ModelBounds | null
 }

@@ -1,9 +1,9 @@
 // The one camera contract assembly, over a table: every view's geometry,
 // the home view and a close-up inside and outside each limit, each view's
-// reach against the minimum, the close-up pivot, and the fixed problem
-// order. The runtime plan reports these problems as its broken build; the
-// validate step reports them as violations. The exact rule wording is part
-// of the contract.
+// reach against the minimum, the home view's reach at the explode's last
+// key, the close-up pivot, and the fixed problem order. The runtime plan
+// reports these problems as its broken build; the validate step reports
+// them as violations. The exact rule wording is part of the contract.
 import { describe, expect, it } from 'vitest'
 import { cameraContractProblems } from './contract'
 import { cameraLimitConfig } from './config'
@@ -41,12 +41,17 @@ function view(id: string, ray: AuthoredCameraRay, pivot: ViewPivot = MODEL_CENTE
 
 const FRONT_HOME = view('home', frontRay(4))
 
-function check(views: readonly NamedCameraRay[], authored: AuthoredDistanceLimits = {}) {
+function check(
+  views: readonly NamedCameraRay[],
+  authored: AuthoredDistanceLimits = {},
+  explodedBounds: ModelBounds | null = null,
+) {
   return cameraContractProblems({
     product: 'sample-one',
     views,
     homeId: 'home',
     bounds: BOUNDS,
+    explodedBounds,
     authoredDistanceLimits: authored,
     limits: cameraLimitConfig,
   })

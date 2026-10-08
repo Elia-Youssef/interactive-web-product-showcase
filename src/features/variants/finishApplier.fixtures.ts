@@ -96,6 +96,7 @@ export function fakeLoad(): {
         clip: new AnimationClip('Explode', 1, []),
         variants: [SAGE, GRAPHITE],
         anchorRest: new Map(),
+        explodedBounds: null,
       },
       parser: {
         json: {},

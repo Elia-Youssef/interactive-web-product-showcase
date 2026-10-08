@@ -78,6 +78,7 @@ describe('the plan checks one space', () => {
         views: [{ id: 'home', ray, pivot: { point: center, subject: 'the model center' } }],
         homeId: 'home',
         bounds: { min: modelFrame.min, max: modelFrame.max },
+        explodedBounds: null,
         authoredDistanceLimits: cameraBlock,
         limits: cameraLimitConfig,
       })

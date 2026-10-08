@@ -11,6 +11,7 @@
 
 import {
   distanceLimitProblems,
+  explodedReachLimitProblems,
   polarLimitProblems,
   reachLimitProblems,
   resolvedDistanceLimits,
@@ -34,13 +35,16 @@ import type { NamedCameraRay } from './view'
 // authored view of it (the home view among them) as a named camera ray
 // with its pivot, in the space the bounds are measured in, the id of the
 // home view the fallback limits derive from, the bounds of the model the
-// views look at, the distance limits the manifest authors, and the limit
-// configuration of the project.
+// views look at, the bounds of the parts at the explode's last key (the
+// shadow excluded; null when the model carries no part geometry to pose,
+// and then no exploded rule runs), the distance limits the manifest
+// authors, and the limit configuration of the project.
 export type CameraContractInput = {
   readonly product: string
   readonly views: readonly NamedCameraRay[]
   readonly homeId: string
   readonly bounds: ModelBounds
+  readonly explodedBounds: ModelBounds | null
   readonly authoredDistanceLimits: AuthoredDistanceLimits
   readonly limits: CameraLimitConfig
 }
@@ -61,13 +65,14 @@ export type CameraContractCheck =
 // Checks every authored view's geometry, then every view with a sound
 // geometry against the limits: each view outside the distance limits, each
 // view whose reach the minimum distance does not exceed, each view outside
-// the polar limits. The home view is one of the views and answers to the
-// same rules; it alone sets the fallback distance limits, so a home whose
-// geometry is broken leaves no limit to derive and no limit rule runs: its
-// geometry problems already break the contract. A view whose geometry is
-// broken has no orbit for the limit rules to read, so only its geometry
-// problems name it. A close-up the limits would clamp away is as broken as
-// a home that fails them, so no view is exempt.
+// the polar limits, and the home view's reach also over the parts' bounds
+// at the explode's last key. The home view is one of the views and answers
+// to the same rules; it alone sets the fallback distance limits, so a home
+// whose geometry is broken leaves no limit to derive and no limit rule
+// runs: its geometry problems already break the contract. A view whose
+// geometry is broken has no orbit for the limit rules to read, so only its
+// geometry problems name it. A close-up the limits would clamp away is as
+// broken as a home that fails them, so no view is exempt.
 export function cameraContractProblems(input: CameraContractInput): CameraContractCheck {
   if (!input.views.some((view) => view.id === input.homeId)) {
     // Both callers resolve the home view before the check and fail a
@@ -98,6 +103,9 @@ export function cameraContractProblems(input: CameraContractInput): CameraContra
     ...geometry,
     ...distanceLimitProblems(distanceRange, orbits),
     ...reachLimitProblems(distanceRange, orbits, input.product),
+    ...(input.explodedBounds === null
+      ? []
+      : explodedReachLimitProblems(distanceRange, home, input.explodedBounds, input.product)),
     ...polarLimitProblems(polarRange, orbits),
   ]
   return problems.length > 0
@@ -113,6 +121,7 @@ function viewOrbitOf(view: NamedCameraRay, bounds: ModelBounds): ViewOrbit {
   const angles = orbitAnglesOf(orbit.position, orbit.target)
   return {
     id: view.id,
+    target: orbit.target,
     distance: angles.distance,
     polar: angles.polar,
     reach: farthestPointFrom(bounds, orbit.target),

@@ -116,7 +116,7 @@ describe('the real loader against the geometry classes the contract bans', () =>
     expect(loaderFrame.centerY).toBe(documentFrame.center[1])
     expect(loaderFrame.centerZ).toBe(documentFrame.center[2])
     expect(loaderFrame.radius).toBe(documentFrame.radius)
-    expect(loaderFrame.meshes).toBe(4)
+    expect(loaderFrame.meshes).toBe(5)
   })
 
   it('leaves no fixture files behind', async () => {

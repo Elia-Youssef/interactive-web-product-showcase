@@ -6,6 +6,7 @@
 import { Document, type Node as GltfNode } from '@gltf-transform/core'
 import {
   EXTMeshoptCompression,
+  KHRMaterialsUnlit,
   KHRMaterialsVariants,
   type MappingList,
 } from '@gltf-transform/extensions'
@@ -156,8 +157,33 @@ function addVariants(doc: Document, names: readonly string[]): void {
     mappingList.addMapping(mapping)
   }
   primitive.setExtension('KHR_materials_variants', mappingList)
+  // The assigned material is the first declared finish, the default the
+  // panel names when nothing is selected.
+  primitive.setMaterial(doc.createMaterial(`body-${names[0] ?? 'default'}`))
   mesh.addPrimitive(primitive)
   addSceneNode(doc, doc.createNode('PART_body').setMesh(mesh))
+}
+
+// The shadow plane the contract asks for: a root mesh whose one material
+// is unlit, alpha BLEND, with no variant mapping.
+function addShadow(doc: Document): void {
+  const unlit = doc.createExtension(KHRMaterialsUnlit)
+  const material = doc
+    .createMaterial('MAT_shadow')
+    .setAlphaMode('BLEND')
+    .setExtension('KHR_materials_unlit', unlit.createUnlit())
+  const mesh = doc.createMesh('shadow')
+  const primitive = doc.createPrimitive()
+  // Inside the parts' own box, so the shadow adds its primitive without
+  // moving the frame every camera number reads.
+  primitive.setAttribute(
+    'POSITION',
+    vec3Accessor(doc, [0.2, 0.9, 0, 1.8, 0.9, 0, 0.2, 1.1, 0, 1.8, 1.1, 0]),
+  )
+  primitive.setIndices(quadIndices(doc))
+  primitive.setMaterial(material)
+  mesh.addPrimitive(primitive)
+  addSceneNode(doc, doc.createNode('SHADOW').setMesh(mesh))
 }
 
 function addAnimations(doc: Document, names: readonly string[]): void {
@@ -204,6 +230,7 @@ export function buildDocument(options: DocumentOptions = {}): Document {
   addCameras(doc, cameraNames, cameraPose)
   addHotspots(doc, hotspotNames ?? [], hotspotParent)
   addAnimations(doc, animationNames)
+  addShadow(doc)
   if (meshopt) {
     doc.createExtension(EXTMeshoptCompression)
   }

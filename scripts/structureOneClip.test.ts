@@ -29,6 +29,8 @@ describe('the one-clip rule without a name', () => {
     meshoptCompressed: true,
     cameraFacts: [],
     meshBoxes: [],
+    explodedBounds: null,
+    animationChannels: [],
     geometry: noGeometry,
   })
 

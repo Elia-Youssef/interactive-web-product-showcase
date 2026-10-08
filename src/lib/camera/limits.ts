@@ -5,6 +5,8 @@
 // and the build-time validate step read them from.
 
 import type { CameraLimitConfig } from './config'
+import { farthestPointFrom } from './frame'
+import type { ModelBounds, Vec3 } from './frame'
 
 export type DistanceRange = {
   // The closest the camera may come to the target, in stage units at the
@@ -42,12 +44,14 @@ export type CameraLimitProblem = {
 }
 
 // The orbit numbers of one named view: the CAM_ identity a problem names,
-// the orbit distance and polar angle the limit rules check, the model's
-// reach from the view's orbit target (its farthest point from it), and
-// what the target was projected from, as the reach rule names it. Every
-// view of the plan is checked, the home view included.
+// the orbit target the reach rules measure from, the orbit distance and
+// polar angle the limit rules check, the model's reach from that target
+// (its farthest point from it), and what the target was projected from, as
+// the reach rule names it. Every view of the plan is checked, the home view
+// included.
 export type ViewOrbit = {
   readonly id: string
+  readonly target: Vec3
   readonly distance: number
   readonly polar: number
   readonly reach: number
@@ -141,4 +145,32 @@ export function reachLimitProblems(
     }
   }
   return problems
+}
+
+// The reach rule at the explode's last key: the minimum distance must also
+// exceed the model's farthest point from the home view's orbit target over
+// the parts' bounds at the fully exploded pose, the shadow excluded (the
+// viewer has faded it out by that end of the clip). Home is the one view a
+// visitor orbits while the product is exploded: the close-ups apply only to
+// the assembled product, so the exploded pose is home's clause alone. A
+// problem names the product, the view, the pivot and both numbers, and says
+// which end of the clip it measured.
+export function explodedReachLimitProblems(
+  range: DistanceRange,
+  home: ViewOrbit,
+  explodedBounds: ModelBounds,
+  product: string,
+): readonly CameraLimitProblem[] {
+  const reach = farthestPointFrom(explodedBounds, home.target)
+  if (range.min > reach) {
+    return []
+  }
+  return [
+    {
+      rule: 'minimum-clears-exploded-reach',
+      message:
+        `the ${product} CAM_${home.id} minimum distance ${range.min} does not exceed the model reach ` +
+        `${reach} at the explode's last key from its orbit target, projected from ${home.pivot}`,
+    },
+  ]
 }

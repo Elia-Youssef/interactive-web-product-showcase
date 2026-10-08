@@ -1,5 +1,6 @@
 import { AnimationClip, Group, Object3D, type PerspectiveCamera } from 'three'
 import type { CameraLimitProblem } from '@lib/camera/limits'
+import type { ModelBounds } from '@lib/camera/frame'
 import type { Vec3 } from '@lib/camera/view'
 import { parseProduct } from '@lib/product'
 import { sampleOneManifest } from '@lib/product/fixtures'
@@ -18,12 +19,14 @@ export function manifestWith(camera: { minDistance?: number; maxDistance?: numbe
   return parseProduct({ ...sampleOneManifest, camera }, 'sample-one.test')
 }
 
-// A rig for the builder: only its cameras and the rests of the anchors its
-// close-ups orbit enter the plan, so the rest holds minimal stand-ins. A
-// rig of a home view alone has no anchor to carry.
+// A rig for the builder: only its cameras, the rests of the anchors its
+// close-ups orbit and the exploded bounds the home view's reach rule reads
+// enter the plan, so the rest holds minimal stand-ins. A rig of a home
+// view alone has no anchor to carry.
 export function rigWith(
   cameras: readonly PerspectiveCamera[],
   anchorRest: ReadonlyMap<string, Vec3> = new Map(),
+  explodedBounds: ModelBounds | null = null,
 ): ProductRig {
   return {
     parts: new Map(),
@@ -33,6 +36,7 @@ export function rigWith(
     clip: new AnimationClip('Explode', 1, []),
     variants: [],
     anchorRest,
+    explodedBounds,
   }
 }
 

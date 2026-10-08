@@ -54,7 +54,7 @@ describe('the geometry contract check', () => {
       0,
     )
     const result = checkGeometry(readProductStructure(doc))
-    expect(result.violations).toEqual(['1 of 4 primitives are not triangles'])
+    expect(result.violations).toEqual(['1 of 5 primitives are not triangles'])
   })
 
   it('reports a primitive without positions', () => {
@@ -63,7 +63,7 @@ describe('the geometry contract check', () => {
       primitive.setIndices(quadIndices(doc))
     })
     const result = checkGeometry(readProductStructure(doc))
-    expect(result.violations).toEqual(['1 of 4 primitives carry no positions'])
+    expect(result.violations).toEqual(['1 of 5 primitives carry no positions'])
   })
 
   it('reports morph targets', () => {
@@ -76,7 +76,7 @@ describe('the geometry contract check', () => {
       primitive.addTarget(target)
     })
     const result = checkGeometry(readProductStructure(doc))
-    expect(result.violations).toEqual(['1 of 4 primitives carry morph targets'])
+    expect(result.violations).toEqual(['1 of 5 primitives carry morph targets'])
   })
 
   it('reports a skin', () => {

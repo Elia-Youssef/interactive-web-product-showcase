@@ -185,6 +185,7 @@ describe('buildCameraPlan', () => {
       clip: new AnimationClip('Explode', 1, []),
       variants: [],
       anchorRest: restsAt([0, 0, 0], ['driver']),
+      explodedBounds: null,
     }
 
     expect(brokenMessages(buildCameraPlan(rig, manifestWith(undefined), centeredFrame))).toMatch(

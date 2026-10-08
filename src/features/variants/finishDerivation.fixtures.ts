@@ -173,6 +173,7 @@ export async function parsedLoad(): Promise<{
       clip: new AnimationClip('Explode', 1, []),
       variants: [...VARIANTS],
       anchorRest: new Map(),
+      explodedBounds: null,
     },
     parser: gltf.parser,
     finishes: resolvedFinishes(gltf.userData),

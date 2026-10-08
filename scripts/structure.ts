@@ -6,10 +6,13 @@
 import type { Document, Node } from '@gltf-transform/core'
 import { KHRMaterialsVariants, type Anisotropy, type MappingList } from '@gltf-transform/extensions'
 import { HOTSPOT_PREFIX } from '../src/lib/product/contractNames.ts'
+import { readAnimationFacts } from './animationFacts.ts'
+import type { ChannelFact } from './animationFacts.ts'
+import { explodedBoundsOf } from './explodedBounds.ts'
 import { readCameraFacts, readGeometryFacts, readMeshBoxes } from './modelFacts.ts'
 import type { CameraFact, GeometryFacts } from './modelFacts.ts'
 import { isMat4, transformPointOf } from '../src/lib/camera/frame.ts'
-import type { MeshBox, Vec3 } from '../src/lib/camera/frame.ts'
+import type { MeshBox, ModelBounds, Vec3 } from '../src/lib/camera/frame.ts'
 
 // The extension a file must carry to prove the optimize step ran its
 // Meshopt pass. The reader decodes the compressed accessors, so the
@@ -50,6 +53,13 @@ export type ProductStructure = {
   cameraFacts: CameraFact[]
   geometry: GeometryFacts
   meshBoxes: MeshBox[]
+  // The parts' bounds at the explode clip's last key, the shadow subtree
+  // excluded (null when no part carries geometry): the build-time half of
+  // the home view's reach rule at the explode's end.
+  explodedBounds: ModelBounds | null
+  // Every animation channel of the document, as plain data: the clip's
+  // rule table entries read them beside the bounds they posed.
+  animationChannels: readonly ChannelFact[]
 }
 
 export function isHotspotNode(node: Node): boolean {
@@ -94,6 +104,7 @@ export function readProductStructure(doc: Document): ProductStructure {
   const root = doc.getRoot()
   const variantsExtension = doc.createExtension(KHRMaterialsVariants)
   const cameraFacts = readCameraFacts(doc)
+  const animationChannels = readAnimationFacts(doc)
   const unlitMaterialNames: string[] = []
   const occlusionMaterialNames: string[] = []
   const anisotropyTextureMaterialNames: string[] = []
@@ -128,6 +139,8 @@ export function readProductStructure(doc: Document): ProductStructure {
     cameraFacts,
     geometry: readGeometryFacts(doc),
     meshBoxes: readMeshBoxes(doc),
+    explodedBounds: explodedBoundsOf(doc, animationChannels),
+    animationChannels,
   }
 }
 
