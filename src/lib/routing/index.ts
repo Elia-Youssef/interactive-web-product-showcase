@@ -4,4 +4,4 @@
 
 export { PRODUCT_PATH_ROOT, formatAppHref, formatProductPath, parseRoute } from './route'
 export type { Route } from './route'
-export { notFoundDocumentTitle, productDocumentTitle } from './title'
+export { collectionDocumentTitle, notFoundDocumentTitle, productDocumentTitle } from './title'
