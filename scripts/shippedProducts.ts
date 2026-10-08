@@ -23,7 +23,11 @@ async function listModelSlugs(root: string): Promise<string[]> {
   }
 }
 
-async function listManifestSlugs(root: string): Promise<string[]> {
+// The slugs of the manifest files alone: the products the site has words
+// for. The validate step needs the union with the model folders below; the
+// build steps that write per-product output (the prerender, the social
+// capture) read this list, since a route exists only for a manifest.
+export async function listManifestSlugs(root: string): Promise<string[]> {
   const productsDir = path.join(root, 'src', 'products')
   try {
     const entries = await readdir(productsDir, { withFileTypes: true })

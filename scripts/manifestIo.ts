@@ -1,6 +1,5 @@
-// How the pipeline reaches a product's manifest and the product domain
-// across the src boundary. Three loaders, each for one side of the
-// convention:
+// How the pipeline reaches a product's manifest and the src modules across
+// the src boundary. The loaders, each for one side of the convention:
 //
 // - readManifestFile loads the manifest .ts itself. The file is plain data
 //   whose only import is a type, so Node 24 runs it directly and the type
@@ -9,6 +8,9 @@
 //   module resolves its own imports without extensions for the browser
 //   bundle, which plain Node cannot execute, so it goes through jiti, the
 //   TypeScript loader the tooling already carries.
+// - loadCopyMeta loads the link-preview copy builder (src/lib/copy/meta.ts)
+//   the same way; its import tree reaches the product domain through the
+//   '@lib' alias, so the domain loader carries that alias.
 // - loadCameraContract loads the camera contract's rule assembly and its
 //   pivot rule the same way: they are the camera modules whose import trees
 //   carry extensionless imports. The camera modules with no such import
@@ -19,11 +21,13 @@
 // module's shape is never trusted, so a module of the wrong shape fails
 // here, with the module and the export named, and not later at the value's
 // point of use.
-import { pathToFileURL } from 'node:url'
+import { pathToFileURL, fileURLToPath } from 'node:url'
 import { createJiti } from 'jiti'
 import type { parseProduct } from '../src/lib/product/index.ts'
 import type { cameraContractProblems } from '../src/lib/camera/contract.ts'
 import type { viewPivotOf } from '../src/lib/camera/pivot.ts'
+import type { MetaHeadSet, ProductMetaSet } from '../src/lib/copy/meta.ts'
+import type { Product } from '../src/lib/product/index.ts'
 import { isMissingFileError } from './fsErrors.ts'
 
 export type ParseProduct = typeof parseProduct
@@ -99,15 +103,68 @@ export async function readManifestFile(manifestFile: string): Promise<ManifestLo
   return { kind: 'loaded', manifest: manifest.value }
 }
 
+// The domain loader: jiti with the '@lib' alias the src tree resolves
+// through, so the loaded modules may import each other the way the browser
+// bundle resolves them.
+function createDomainJiti(): ReturnType<typeof createJiti> {
+  return createJiti(import.meta.url, {
+    alias: { '@lib': fileURLToPath(new URL('../src/lib', import.meta.url)) },
+  })
+}
+
 export async function loadParseProduct(): Promise<ParseProduct> {
   const domainFile = '../src/lib/product/index.ts'
-  const jiti = createJiti(import.meta.url)
+  const jiti = createDomainJiti()
   const domain: unknown = await jiti.import(domainFile)
   const parse = namedExport(domain, 'parseProduct', isParseProduct)
   if (parse.kind === 'absent') {
     throw new Error(`expected a 'parseProduct' function export in ${domainFile}`)
   }
   return parse.value
+}
+
+// The copy meta builder's kind: the three functions the build steps call.
+// The narrowed signatures are the copy module's own contract, pinned by its
+// unit tests; a runtime check can only see that the export is a function.
+export type CopyMeta = {
+  readonly siteMetaSet: () => MetaHeadSet
+  readonly productMetaSet: (product: Product) => ProductMetaSet | null
+  readonly socialImagePath: (slug: string) => string
+}
+
+function isSiteMetaSet(value: unknown): value is CopyMeta['siteMetaSet'] {
+  return typeof value === 'function'
+}
+
+function isProductMetaSet(value: unknown): value is CopyMeta['productMetaSet'] {
+  return typeof value === 'function'
+}
+
+function isSocialImagePath(value: unknown): value is CopyMeta['socialImagePath'] {
+  return typeof value === 'function'
+}
+
+function copyExport<T>(
+  module: unknown,
+  exportName: string,
+  isKind: (value: unknown) => value is T,
+): T {
+  const value = namedExport(module, exportName, isKind)
+  if (value.kind === 'absent') {
+    throw new Error(`expected a '${exportName}' export in the copy meta module`)
+  }
+  return value.value
+}
+
+export async function loadCopyMeta(): Promise<CopyMeta> {
+  const copyFile = '../src/lib/copy/meta.ts'
+  const jiti = createDomainJiti()
+  const copyModule: unknown = await jiti.import(copyFile)
+  return {
+    siteMetaSet: copyExport(copyModule, 'siteMetaSet', isSiteMetaSet),
+    productMetaSet: copyExport(copyModule, 'productMetaSet', isProductMetaSet),
+    socialImagePath: copyExport(copyModule, 'socialImagePath', isSocialImagePath),
+  }
 }
 
 // The camera contract's rule assembly, as the type of the module it
