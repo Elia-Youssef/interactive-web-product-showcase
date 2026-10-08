@@ -5,7 +5,7 @@ import { loadCollection } from './productList'
 import { expectPoll, harnessPath, productLoadBudgetMs, waitForProductReady } from './productSpecs'
 import { renderedFramesOf, settledFrames } from './stageSettle'
 import { siteCopy } from '../../src/lib/copy/site'
-import { formatExplodePercent } from '../../src/lib/copy/productPanel'
+import { explodeScrubName, formatExplodePercent } from '../../src/lib/copy/productPanel'
 
 // The exploded view's scrub control: the slider under the toggle and its
 // mono readout, on the app's panel, with the remount proof on the dev
@@ -17,12 +17,16 @@ import { formatExplodePercent } from '../../src/lib/copy/productPanel'
 const product = (await loadCollection()).first
 
 const toggleLabel = product.explode.label ?? siteCopy.defaultExplodeLabel
+const scrubName = explodeScrubName(product)
 
 const readoutOf = (page: Page) => page.locator('[data-explode-readout]')
-const sliderOf = (page: Page) => page.getByRole('slider', { name: toggleLabel })
+const sliderOf = (page: Page) => page.getByRole('slider', { name: scrubName })
 
-test('before the product is presented the slider is disabled and reads 0%', async ({ page }) => {
-  await page.goto('/')
+test('before the product is presented the slider is disabled and reads 0%', async ({
+  page,
+  backendPath,
+}) => {
+  await page.goto(backendPath)
 
   // The panel renders with the route, before any model presents. Nothing is
   // attached, so the control waits like the toggle does, at the assembled
@@ -32,10 +36,38 @@ test('before the product is presented the slider is disabled and reads 0%', asyn
   await expect(slider).toHaveValue('0')
   await expect(slider).toHaveAttribute('aria-valuetext', '0%')
   await expect(readoutOf(page)).toHaveText('0%')
+
+  // The waiting toggle reads as a waiting control: muted, a different word
+  // of the palette than the label color a rest button carries, so the
+  // disabled state is visible and not color-alone (the cursor with it).
+  const toggle = page.getByRole('button', { name: toggleLabel })
+  await expect(toggle).toBeDisabled()
+  await expect(toggle).toHaveCSS('color', 'rgb(160, 160, 160)')
 })
 
-test('a scrub to the middle opens the view to the target and reads 50%', async ({ page }) => {
-  await page.goto('/')
+test('the two controls of the section are named apart', async ({
+  page,
+  expectedBackend,
+  backendPath,
+}) => {
+  await page.goto(backendPath)
+  await waitForExplodeMounted(page)
+  expect(await page.evaluate(() => window.__viewer?.backend)).toBe(expectedBackend)
+
+  // Each name answers for exactly one control: the toggle's word names no
+  // slider, the scrub name names no button. The match is the whole name,
+  // not a piece of it, which is what a screen reader reads a control by.
+  await expect(page.getByRole('button', { name: toggleLabel })).toBeVisible()
+  await expect(page.getByRole('slider', { name: scrubName })).toBeVisible()
+  await expect(page.getByRole('slider', { name: toggleLabel, exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: scrubName, exact: true })).toHaveCount(0)
+})
+
+test('a scrub to the middle opens the view to the target and reads 50%', async ({
+  page,
+  backendPath,
+}) => {
+  await page.goto(backendPath)
   await waitForExplodeMounted(page)
 
   const slider = sliderOf(page)
@@ -54,15 +86,20 @@ test('a scrub to the middle opens the view to the target and reads 50%', async (
   await expect(slider).toHaveAttribute('aria-valuetext', '50%')
 
   // The pressed state after a partial scrub belongs to the slice alone:
-  // open is a target above zero, so a middle scrub reads pressed.
+  // open is the fully exploded target and nothing less, so a middle scrub
+  // reads not pressed, and the slider's own value speaks for the partial
+  // view.
   await expect(page.getByRole('button', { name: toggleLabel })).toHaveAttribute(
     'aria-pressed',
-    'true',
+    'false',
   )
 })
 
-test('the toggle after a scrub drives the target and the thumb follows', async ({ page }) => {
-  await page.goto('/')
+test('the toggle after a partial scrub completes the open, and the next press closes', async ({
+  page,
+  backendPath,
+}) => {
+  await page.goto(backendPath)
   await waitForExplodeMounted(page)
 
   const slider = sliderOf(page)
@@ -72,22 +109,38 @@ test('the toggle after a scrub drives the target and the thumb follows', async (
 
   await page.getByRole('button', { name: toggleLabel }).click()
 
-  // The slider's value is the target, so the thumb is on the toggle's value
-  // at once, before the spring has moved. One read, no poll: a poll would
-  // wait out the spring and hide the difference between the target and the
-  // applied progress.
-  expect(await slider.inputValue()).toBe('0')
+  // The toggle acts from every state: from a partial scrub its press
+  // completes the open. The slider's value is the target, so the thumb is
+  // on the toggle's value at once, before the spring has moved. One read,
+  // no poll: a poll would wait out the spring and hide the difference
+  // between the target and the applied progress.
+  expect(await slider.inputValue()).toBe('1')
 
-  await expectPoll(page, () => window.__viewer?.explode?.target, testBodyBudgetMs).toBe(0)
+  await expectPoll(page, () => window.__viewer?.explode?.target, testBodyBudgetMs).toBe(1)
   await expectPoll(page, () => window.__viewer?.explode?.moving, testBodyBudgetMs).toBe(false)
+  await expectPoll(page, () => window.__viewer?.explode?.t, testBodyBudgetMs).toBe(1)
+  await expect(readoutOf(page)).toHaveText('100%')
+  await expect(page.getByRole('button', { name: toggleLabel })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+
+  // The next press closes onto the assembled rest, like the plain toggle.
+  await page.getByRole('button', { name: toggleLabel }).click()
+  expect(await slider.inputValue()).toBe('0')
   await expectPoll(page, () => window.__viewer?.explode?.t, testBodyBudgetMs).toBe(0)
   await expect(readoutOf(page)).toHaveText('0%')
+  await expect(page.getByRole('button', { name: toggleLabel })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  )
 })
 
 test('during the spring the readout and the value text say the applied progress', async ({
   page,
+  backendPath,
 }) => {
-  await page.goto('/')
+  await page.goto(backendPath)
   await waitForExplodeMounted(page)
 
   await sliderOf(page).fill('1')
@@ -133,9 +186,12 @@ test('during the spring the readout and the value text say the applied progress'
   expect(sample.valueText).toBe(sample.readout)
 })
 
-test('under reduced motion a scrub lands in its one frame, with the readout', async ({ page }) => {
+test('under reduced motion a scrub lands in its one frame, with the readout', async ({
+  page,
+  backendPath,
+}) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
-  await page.goto('/')
+  await page.goto(backendPath)
   await waitForExplodeMounted(page)
   const before = await renderedFramesOf(page)
 

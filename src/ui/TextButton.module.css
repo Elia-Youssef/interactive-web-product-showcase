@@ -29,9 +29,10 @@ persistent off underline. */
   text-underline-offset: var(--offset-text-underline);
 }
 
-/* Disabled: the control waits for the state it acts on. It keeps its label
-color against the hover rule above and never suggests an action. */
+/* Disabled: the control waits for the state it acts on. It mutes to the
+one muted color the disabled controls share, keeps no hover, and never
+suggests an action. Declared after the hover rule, so the wait wins. */
 .button:disabled {
-  color: var(--label);
+  color: var(--muted);
   cursor: default;
 }

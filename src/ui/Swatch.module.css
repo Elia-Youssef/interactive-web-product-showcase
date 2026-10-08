@@ -25,11 +25,11 @@ arrives as a prop; every other value is a token. */
 }
 
 /*
-Selected is the close ring: a gap in --bg at --offset-swatch-ring, then the
+Checked is the close ring: a gap in --bg at --offset-swatch-ring, then the
 off ring at the shared ring width. It is a box-shadow, not an outline, so it
 cannot be mistaken for the focus outline that sits further out.
 */
-.swatch[aria-pressed='true'] {
+.swatch[aria-checked='true'] {
   box-shadow:
     0 0 0 var(--offset-swatch-ring) var(--bg),
     0 0 0 calc(var(--offset-swatch-ring) + var(--focus-width)) var(--off);

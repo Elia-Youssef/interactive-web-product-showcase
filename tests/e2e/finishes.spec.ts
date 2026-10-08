@@ -83,7 +83,7 @@ test(`clicking each swatch of ${product.slug} applies exactly that finish's mate
     const expected = expectations.get(finish.variant)
     expect(expected, `the shipped model declares the variant '${finish.variant}'`).toBeDefined()
 
-    await page.getByRole('button', { name: finish.label }).click()
+    await page.getByRole('radio', { name: finish.label }).click()
     await expect
       .poll(() => page.evaluate(() => window.__viewer?.finish ?? null), {
         timeout: testBodyBudgetMs,
@@ -133,7 +133,7 @@ test('the finish change repaints the model in the manifest direction, past the n
   // HUD's mask box or a pulse.
   const atDefault = await settledStageCapture(page)
   const atDefaultAgain = await settledStageCapture(page)
-  await page.getByRole('button', { name: otherFinish.label }).click()
+  await page.getByRole('radio', { name: otherFinish.label }).click()
   await expect
     .poll(() => page.evaluate(() => window.__viewer?.finish?.applied ?? null), {
       timeout: testBodyBudgetMs,
@@ -234,9 +234,9 @@ test(`a finish switch of ${product.slug} during a continuous drag settles before
   // The first click must be a real switch: the store already holds the
   // default, and a click that selects it again re-runs nothing, so the
   // serialization below would have no first settle to wait for.
-  await page.getByRole('button', { name: secondFinish.label }).click()
+  await page.getByRole('radio', { name: secondFinish.label }).click()
   await appliedWithinBudget(secondFinish.variant)
-  await page.getByRole('button', { name: firstFinish.label }).click()
+  await page.getByRole('radio', { name: firstFinish.label }).click()
   await appliedWithinBudget(firstFinish.variant)
 
   await sweep.stop()

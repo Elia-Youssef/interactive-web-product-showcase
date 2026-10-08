@@ -12,6 +12,7 @@ import { useEffect } from 'react'
 import { CollectionProvider } from './collection/CollectionProvider'
 import { NotFoundScreen } from './collection/NotFoundScreen'
 import { AppLayout } from './layout/index'
+import { LiveAnnouncements } from './LiveAnnouncements'
 import { ProductPage } from './product-page/ProductPage'
 import { navigate, useDocumentTitle, useRoutePath } from './routing'
 import { resolveRoutePage } from './routing/routePage.logic'
@@ -63,7 +64,8 @@ function RoutedCollection({ collection }: { readonly collection: ProductCollecti
   )
 }
 
-// A known product's page: the document title names what is shown, and the
+// A known product's page: the document title names what is shown, the
+// shell's live region speaks the changes the page itself does not, and the
 // page carries the collection its row navigates.
 function ProductRoutePage({
   product,
@@ -73,7 +75,12 @@ function ProductRoutePage({
   readonly collection: ProductCollection
 }) {
   useDocumentTitle(productDocumentTitle(product, siteCopy.collectionName))
-  return <ProductPage product={product} collection={collection} />
+  return (
+    <>
+      <LiveAnnouncements product={product} />
+      <ProductPage product={product} collection={collection} />
+    </>
+  )
 }
 
 // The not-found page: the app layout keeps the site's frame, the stage

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { distanceOfZoomPercent, steppedZoomPercent, zoomPercentOfDistance } from './zoom'
+import {
+  distanceOfZoomPercent,
+  steppedZoomPercent,
+  zoomPercentOfDistance,
+  zoomStepMoves,
+} from './zoom'
 
 const range = { min: 1, max: 4 }
 
@@ -33,6 +38,14 @@ describe('distanceOfZoomPercent', () => {
     expect(distanceOfZoomPercent(0, range)).toBe(4)
     expect(distanceOfZoomPercent(100, range)).toBe(1)
   })
+
+  it.each([
+    { min: 0.2, max: 0.9 },
+    { min: 0.3, max: 1.2 },
+  ])('preserves authored decimal endpoints exactly for $min to $max', (decimalRange) => {
+    expect(distanceOfZoomPercent(0, decimalRange)).toBe(decimalRange.max)
+    expect(distanceOfZoomPercent(100, decimalRange)).toBe(decimalRange.min)
+  })
 })
 
 describe('steppedZoomPercent', () => {
@@ -46,5 +59,32 @@ describe('steppedZoomPercent', () => {
     expect(steppedZoomPercent(5, -1, 10)).toBe(0)
     expect(steppedZoomPercent(100, 1, 10)).toBe(100)
     expect(steppedZoomPercent(0, -1, 10)).toBe(0)
+  })
+})
+
+describe('zoomStepMoves', () => {
+  it('keeps zoom in enabled immediately inside a limit even when the percentage rounds to 100', () => {
+    const distance = range.min + Number.EPSILON
+    expect(distance).toBeGreaterThan(range.min)
+    expect(zoomPercentOfDistance(distance, range)).toBe(100)
+    expect(zoomStepMoves(distance, range, 1)).toBe(true)
+  })
+
+  it('moves from any distance strictly inside the limits, both ways', () => {
+    expect(zoomStepMoves(2.5, range, 1)).toBe(true)
+    expect(zoomStepMoves(2.5, range, -1)).toBe(true)
+    // A step that clamps short of its full size still moves: 95 percent in
+    // lands on the far end, not on itself.
+    expect(zoomStepMoves(distanceOfZoomPercent(95, range), range, 1)).toBe(true)
+  })
+
+  it('moves nothing at the minimum, which zoom in has reached', () => {
+    expect(zoomStepMoves(range.min, range, 1)).toBe(false)
+    expect(zoomStepMoves(range.min, range, -1)).toBe(true)
+  })
+
+  it('moves nothing at the maximum, which zoom out has reached', () => {
+    expect(zoomStepMoves(range.max, range, -1)).toBe(false)
+    expect(zoomStepMoves(range.max, range, 1)).toBe(true)
   })
 })

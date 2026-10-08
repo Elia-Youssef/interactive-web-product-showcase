@@ -65,7 +65,6 @@ describe('the composed flow actions', () => {
       kind: 'active',
       product: FORMA,
       target: 1,
-      open: true,
     })
     expect(store.getState().hotspotStatus).toEqual({
       kind: 'selected',

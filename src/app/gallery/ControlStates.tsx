@@ -120,14 +120,14 @@ const swatchStates = (
     <State caption="hover">
       <Swatch color="#9db89d" label="Sage Green" data-force-hover />
     </State>
-    <State caption="selected">
-      <Swatch color="#2b2e2c" label="Graphite" selected />
+    <State caption="checked">
+      <Swatch color="#2b2e2c" label="Graphite" checked />
     </State>
     <State caption="focus">
       <Swatch color="#9db89d" label="Sage Green" className={styles.forceFocus} />
     </State>
-    <State caption="selected + focus">
-      <Swatch color="#2b2e2c" label="Graphite" selected className={styles.forceFocus} />
+    <State caption="checked + focus">
+      <Swatch color="#2b2e2c" label="Graphite" checked className={styles.forceFocus} />
     </State>
   </>
 )

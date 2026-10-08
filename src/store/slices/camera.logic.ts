@@ -9,12 +9,18 @@
 // the controls' accumulated angle in radians, so full turns survive in the
 // exact value and the display normalizes them. The distances are in stage
 // units at the current stage aspect, the same values the controls enforce.
+// The end distance is where the current transition ends, or the live
+// distance at rest: the state a zoom step reads and clamps. The controls
+// rest within their own threshold of that end, so the live distance sits a
+// hair short of it while the move dies out; a limit the controls reached is
+// exact in the end distance and only near in the live one.
 export type CameraReadout =
   | { readonly kind: 'idle' }
   | {
       readonly kind: 'live'
       readonly azimuth: number
       readonly distance: number
+      readonly endDistance: number
       readonly minDistance: number
       readonly maxDistance: number
     }
@@ -58,6 +64,7 @@ export function applyCameraReadoutEvent(
         kind: 'live',
         azimuth: event.azimuth,
         distance: event.distance,
+        endDistance: event.endDistance,
         minDistance: event.minDistance,
         maxDistance: event.maxDistance,
       }
@@ -71,6 +78,7 @@ function sameLiveReadout(a: CameraReadout, b: LiveCameraReadout): boolean {
     a.kind === 'live' &&
     a.azimuth === b.azimuth &&
     a.distance === b.distance &&
+    a.endDistance === b.endDistance &&
     a.minDistance === b.minDistance &&
     a.maxDistance === b.maxDistance
   )

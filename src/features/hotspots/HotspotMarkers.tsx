@@ -1,10 +1,12 @@
 import type { Product } from '@lib/product'
 import { useStageOverlay } from '@viewer/overlay/stageOverlayContext'
+import { useFocusReturn } from '@ui/index'
 import { HotspotAnchor } from './HotspotAnchor'
 import { HotspotCard } from './HotspotCard'
 import { useHotspotCard } from './useHotspotCard'
 import { useHotspotFlow } from './useHotspotFlow'
 import { useHotspotSelectionEffects } from './useHotspotSelectionEffects'
+import { useHotspotOutsideDismiss } from './useHotspotOutsideDismiss'
 
 export type HotspotMarkersProps = {
   readonly product: Product
@@ -34,6 +36,11 @@ export function HotspotMarkers({ product, dock, chrome }: HotspotMarkersProps) {
     selected: flow.selected,
     close: flow.close,
   })
+  // The open card's focus return: each press hands the hook its marker, so
+  // the card's close, by whichever way, puts focus back on the marker that
+  // opened it.
+  const captureTrigger = useFocusReturn(flow.selected !== null)
+  useHotspotOutsideDismiss(flow.presented && flow.selected !== null, flow.close)
   const card = useHotspotCard(overlay, product, flow.presented ? flow.selected : null, chrome)
 
   if (!flow.presented) {
@@ -50,7 +57,10 @@ export function HotspotMarkers({ product, dock, chrome }: HotspotMarkersProps) {
           overlay={overlay}
           hotspot={hotspot}
           selected={flow.selected === hotspot.id}
-          onToggle={() => flow.press(hotspot.id)}
+          onToggle={(marker) => {
+            captureTrigger(marker)
+            flow.press(hotspot.id)
+          }}
         />
       ))}
       {slot !== null && open !== null && (

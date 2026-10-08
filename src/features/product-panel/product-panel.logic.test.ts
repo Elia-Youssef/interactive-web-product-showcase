@@ -3,7 +3,12 @@ import type { ProductInput } from '@lib/product'
 import { parseProduct } from '@lib/product'
 import { siteCopy } from '@lib/copy/site'
 import { createAppStore, selectSelectedVariant } from '@store/index'
-import { activeFinish, explodeToggleLabel, formatExplodePercent } from '@lib/copy/productPanel'
+import {
+  activeFinish,
+  explodeScrubName,
+  explodeToggleLabel,
+  formatExplodePercent,
+} from '@lib/copy/productPanel'
 
 // Neutral fixture words, never a real product's: the logic renders whatever the
 // manifest says, and the real words belong to src/products/.
@@ -72,6 +77,23 @@ test('the toggle label falls back to the site word when the manifest names none'
   // The schema normalizes the explode block, so a manifest without a label
   // parses with the block present and the label absent.
   expect(explodeToggleLabel(product)).toBe(siteCopy.defaultExplodeLabel)
+})
+
+test.each([
+  { name: 'the manifest own word', labeled: true },
+  { name: 'the site fallback word', labeled: false },
+])('the scrub name is its own name apart from the toggle, over $name', ({ labeled }) => {
+  const subject = labeled
+    ? parseProduct({ ...sampleManifest, explode: { label: 'See inside' } }, 'sample-one')
+    : product
+
+  const toggle = explodeToggleLabel(subject)
+  const scrub = explodeScrubName(subject)
+
+  // The section's two controls never share one name, whatever word the
+  // manifest chose: the slider's name says what it changes about the view.
+  expect(scrub).not.toBe(toggle)
+  expect(scrub).toBe(`${toggle} progress`)
 })
 
 // The cross-product pairs, over a real store: product A sits selected on a

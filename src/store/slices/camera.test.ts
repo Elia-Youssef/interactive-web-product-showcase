@@ -37,6 +37,7 @@ test('publishing a live readout carries the exact camera values', () => {
     kind: 'live',
     azimuth: 2.5,
     distance: 1.75,
+    endDistance: 1.75,
     minDistance: 0.875,
     maxDistance: 4.125,
   })
@@ -46,6 +47,7 @@ test('publishing a live readout carries the exact camera values', () => {
     kind: 'live',
     azimuth: 2.5,
     distance: 1.75,
+    endDistance: 1.75,
     minDistance: 0.875,
     maxDistance: 4.125,
   })
@@ -57,6 +59,7 @@ test('publishing the same live values twice keeps one live readout', () => {
     kind: 'live',
     azimuth: 0.25,
     distance: 2,
+    endDistance: 2,
     minDistance: 1,
     maxDistance: 4,
   } as const
@@ -75,6 +78,7 @@ test('publishing idle clears a live readout', () => {
     kind: 'live',
     azimuth: 1,
     distance: 2,
+    endDistance: 2,
     minDistance: 1,
     maxDistance: 4,
   })

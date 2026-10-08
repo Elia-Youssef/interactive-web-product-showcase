@@ -56,15 +56,23 @@ test('the finish list carries the site heading and one swatch per finish', () =>
   expect(html).toContain('aria-label="Sage Green"')
 })
 
-test('the initial store state renders the product default as the active finish', () => {
+test('the swatches are one single-choice radio group named by the site heading', () => {
+  const html = renderPanel()
+
+  expect(html).toContain('role="radiogroup"')
+  expect(html).toContain('aria-label="Choose your finish"')
+  expect((html.match(/role="radio"/g) ?? []).length).toBe(2)
+})
+
+test('the initial store state renders the product default as the checked finish', () => {
   const html = renderPanel()
 
   // What a static render can prove: the idle store, before any offer, and
   // its fallback to the product default, the first finish. Nothing here
   // reaches a store-driven state, because no effect runs in this render.
-  expect(html).toContain('aria-pressed="true"')
+  expect(html).toContain('aria-checked="true"')
   expect(html).toContain('Graphite')
-  expect(html.match(/aria-pressed="true"/g)).toHaveLength(1)
+  expect(html.match(/aria-checked="true"/g)).toHaveLength(1)
 })
 
 test('the explode toggle sits after the swatches, named by the manifest, disabled while detached', () => {
@@ -83,14 +91,14 @@ test('the explode toggle sits after the swatches, named by the manifest, disable
   // effects, so the store holds no attached view and the toggle renders
   // disabled: a click before the model is presented cannot arm anything.
   // The swatch group precedes it, as the panel order has it.
-  expect(html).toContain('role="group"')
-  expect(html.indexOf('role="group"')).toBeLessThan(html.indexOf('See inside</button>'))
+  expect(html).toContain('role="radiogroup"')
+  expect(html.indexOf('role="radiogroup"')).toBeLessThan(html.indexOf('See inside</button>'))
   expect(html).toContain('aria-pressed="false"')
   expect(html).toContain('disabled')
   expect(html).toContain('See inside</button>')
 })
 
-test('the scrub control sits under the toggle, named by the same word, disabled while detached', () => {
+test('the scrub control sits under the toggle, named apart from it, disabled while detached', () => {
   const html = renderToString(
     <AppStoreProvider>
       <ProductPanel
@@ -103,12 +111,14 @@ test('the scrub control sits under the toggle, named by the same word, disabled 
   )
 
   // The slider follows the toggle and takes its accessible name from the
-  // same manifest word. The static render runs no effects, so nothing is
-  // attached and nothing publishes: the slider is disabled at the assembled
-  // rest and the readout shows 0%.
+  // copy module's scrub name, the toggle's word plus what the slider
+  // changes, so the section's two controls never share one name. The
+  // static render runs no effects, so nothing is attached and nothing
+  // publishes: the slider is disabled at the assembled rest and the
+  // readout shows 0%.
   expect(html).toContain('type="range"')
   expect(html.indexOf('See inside</button>')).toBeLessThan(html.indexOf('type="range"'))
-  expect(html).toContain('aria-label="See inside"')
+  expect(html).toContain('aria-label="See inside progress"')
   expect(html).toContain('value="0"')
   expect(html).toContain('aria-valuetext="0%"')
   expect(html).toContain('data-explode-readout')

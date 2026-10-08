@@ -10,6 +10,14 @@ export function explodeToggleLabel(product: Product): string {
   return product.explode.label ?? siteCopy.defaultExplodeLabel
 }
 
+// The exploded view scrub slider's accessible name: the toggle's word for
+// the view, plus what the slider changes about it. The section's two
+// controls are named apart, so assistive tech reading down the panel
+// never meets two controls under one name.
+export function explodeScrubName(product: Product): string {
+  return `${explodeToggleLabel(product)} progress`
+}
+
 // The exploded view's progress as a whole percent, '0%' to '100%'. The
 // rounding is the display's: the scrub readout and the slider's value text
 // both call this one function, so they can never disagree.

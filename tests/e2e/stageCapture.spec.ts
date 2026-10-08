@@ -32,7 +32,7 @@ test('a stage capture returns with the HUD at rest and repeats pixel-exact acros
     throw new Error('a product with one finish has no finish switch to race the capture with')
   }
 
-  await page.getByRole('button', { name: otherFinish.label }).click()
+  await page.getByRole('radio', { name: otherFinish.label }).click()
   await expect
     .poll(() => page.evaluate(() => window.__viewer?.finish?.applied ?? null), {
       timeout: testBodyBudgetMs,

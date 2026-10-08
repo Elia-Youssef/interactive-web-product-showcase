@@ -11,7 +11,7 @@ import type { Product } from '@lib/product'
 import { siteCopy } from '@lib/copy/site'
 import { selectSelectedVariant, useAppStore } from '@store/index'
 import { useFinishOffer } from '@features/variants'
-import { Divider, Eyebrow, Readout, Swatch, Title } from '@ui/index'
+import { Divider, Eyebrow, Readout, SwatchGroup, Title } from '@ui/index'
 import { ProductExplodeScrub } from './ProductExplodeScrub'
 import { ProductExplodeToggle } from './ProductExplodeToggle'
 import { activeFinish } from '@lib/copy/productPanel'
@@ -50,22 +50,21 @@ export function ProductPanel({ product, navigationRow }: ProductPanelProps) {
       </div>
       <div className={styles.finish}>
         <div className={styles.finishHeading}>
-          <Eyebrow>{siteCopy.finishHeading}</Eyebrow>
+          <Eyebrow level={2}>{siteCopy.finishHeading}</Eyebrow>
           <span className={styles.activeFinish} data-active-finish>
             <Readout>{active.label}</Readout>
           </span>
         </div>
-        <div className={styles.swatches} role="group" aria-label={siteCopy.finishHeading}>
-          {product.finishes.map((finish) => (
-            <Swatch
-              key={finish.variant}
-              color={finish.swatch}
-              label={finish.label}
-              selected={finish.variant === active.variant}
-              onClick={() => finishSelected(product.slug, finish.variant)}
-            />
-          ))}
-        </div>
+        <SwatchGroup
+          label={siteCopy.finishHeading}
+          items={product.finishes.map((finish) => ({
+            key: finish.variant,
+            color: finish.swatch,
+            label: finish.label,
+            checked: finish.variant === active.variant,
+          }))}
+          onSelect={(variant) => finishSelected(product.slug, variant)}
+        />
       </div>
       <ProductExplodeToggle product={product} />
       <ProductExplodeScrub product={product} />

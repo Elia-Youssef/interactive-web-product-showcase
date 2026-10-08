@@ -1,0 +1,7 @@
+/* The single-choice group of swatches: one row, with the gap the panel
+section keeps between its swatches. Values are tokens. */
+
+.group {
+  display: flex;
+  gap: var(--space-4);
+}

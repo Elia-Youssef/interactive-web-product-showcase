@@ -1,9 +1,9 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import type { Product, ProductCollection } from '@lib/product'
 import { formatProductCounter, stepLabel } from '@lib/product'
 import { formatProductPath } from '@lib/routing'
 import { siteCopy } from '@lib/copy/site'
-import { ChevronLeftIcon, ChevronRightIcon, IconLink, Readout } from '@ui/index'
+import { ChevronLeftIcon, ChevronRightIcon, IconLink, Readout, useFocusReturn } from '@ui/index'
 import type { LinkComponent } from '@ui/index'
 import { CollectionIndexDialog } from './CollectionIndexDialog'
 import styles from './CollectionNavRow.module.css'
@@ -25,20 +25,14 @@ export type CollectionNavRowProps = {
 // is navigable without a change here.
 export function CollectionNavRow({ product, collection, link }: CollectionNavRowProps) {
   const [indexOpen, setIndexOpen] = useState(false)
-  const counterRef = useRef<HTMLButtonElement>(null)
+  // The counter hands the shared hook itself before opening the dialog.
+  // Capture focuses the counter, so the native dialog records its opener;
+  // the same hook returns focus when the platform leaves it lost.
+  const captureTrigger = useFocusReturn(indexOpen)
 
   const neighbors = collection.neighbors(product.slug)
   if (neighbors === undefined) {
     throw new Error(`the collection holds no product '${product.slug}' to navigate from`)
-  }
-
-  // The platform returns focus to the trigger when a modal dialog closes,
-  // but only from the focus it moved in: an engine that leaves a pressed
-  // button unfocused has nothing to return to. The counter is the one way
-  // back into the flow, so the row returns focus itself.
-  const closeIndex = () => {
-    setIndexOpen(false)
-    counterRef.current?.focus()
   }
 
   return (
@@ -52,13 +46,15 @@ export function CollectionNavRow({ product, collection, link }: CollectionNavRow
           <ChevronLeftIcon />
         </IconLink>
         <button
-          ref={counterRef}
           type="button"
           className={styles.counter}
           aria-label={siteCopy.openIndexLabel}
           aria-haspopup="dialog"
           aria-expanded={indexOpen}
-          onClick={() => setIndexOpen(true)}
+          onClick={(event) => {
+            captureTrigger(event.currentTarget)
+            setIndexOpen(true)
+          }}
         >
           <Readout>{formatProductCounter(product.number, collection.products.length)}</Readout>
         </button>
@@ -72,7 +68,7 @@ export function CollectionNavRow({ product, collection, link }: CollectionNavRow
       </nav>
       <CollectionIndexDialog
         open={indexOpen}
-        onClose={closeIndex}
+        onClose={() => setIndexOpen(false)}
         products={collection.products}
         currentSlug={product.slug}
         link={link}

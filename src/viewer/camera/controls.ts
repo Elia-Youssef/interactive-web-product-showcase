@@ -1,5 +1,5 @@
 import type { CameraControlsImpl } from '@react-three/drei'
-import { MathUtils, Vector3, type PerspectiveCamera } from 'three'
+import { MathUtils, Spherical, type PerspectiveCamera } from 'three'
 import { containedDistanceScale } from '@lib/camera/aspect'
 import { zoomOfLens } from '@lib/camera/lens'
 import { orbitAnglesOf, positionOfOrbitAngles } from '@lib/camera/view'
@@ -22,9 +22,16 @@ import type { CameraPlan, CameraView } from './productPlan'
 // is the public getters' own default (camera-controls dist/index.d.ts),
 // spelled out in the call so the read's meaning stays in it.
 export function readControlsEndOrbit(controls: CameraControlsImpl): OrbitAngles {
-  const position = controls.getPosition(new Vector3(), true)
-  const target = controls.getTarget(new Vector3(), true)
-  return orbitAnglesOf([position.x, position.y, position.z], [target.x, target.y, target.z])
+  const end = controls.getSpherical(new Spherical(), true)
+  return { azimuth: end.theta, polar: end.phi, distance: end.radius }
+}
+
+// The distance the controls' current transition ends at, or the live
+// distance at rest: the state a zoom step reads and clamps. The scratch
+// spherical value is the caller's, reused across reads, so a reader that runs per
+// controls update allocates nothing.
+export function readControlsEndDistance(controls: CameraControlsImpl, scratch: Spherical): number {
+  return controls.getSpherical(scratch, true).radius
 }
 
 // The distance limits of a plan at one stage aspect, by the aspect rule:

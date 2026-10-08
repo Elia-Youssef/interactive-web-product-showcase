@@ -9,17 +9,18 @@ import { checkExplodeT } from '@lib/explode'
 export type IdleExplodeStatus = { kind: 'idle' }
 
 // One presented product's view: the target progress the feature drives the
-// clip toward (0 or 1 from the toggle, any progress in [0, 1] from a future
-// scrub control), and whether the view counts as open. The live progress of
-// the motion is the feature driver's own reading, never this state: the
-// store holds what was asked for, not where the clip is. The status exists
-// only while the product is attached, and a view that is not attached
-// cannot move.
+// clip toward (0 or 1 from the toggle, any progress in [0, 1] from the
+// scrub control). The target is the one stored fact of the view: the
+// pressed state its toggle announces is the far end of the same target
+// (explodeOpen), so the announced state can never disagree with what the
+// controls act on. The live progress of the motion is the feature driver's
+// own reading, never this state: the store holds what was asked for, not
+// where the clip is. The status exists only while the product is attached,
+// and a view that is not attached cannot move.
 export type ActiveExplodeStatus = {
   kind: 'active'
   product: string
   target: number
-  open: boolean
 }
 
 export type ExplodeStatus = IdleExplodeStatus | ActiveExplodeStatus
@@ -30,6 +31,21 @@ export const initialExplodeStatus: ExplodeStatus = { kind: 'idle' }
 // attached view: an unattached product is presented assembled.
 export function explodeTargetOf(status: ExplodeStatus, product: string): number {
   return status.kind === 'active' && status.product === product ? status.target : 0
+}
+
+// The assembled rest: the target both ends of the toggle return to.
+const ASSEMBLED = 0
+
+// The far end of the view: the target a toggle opens to, and the one state
+// the view counts as open in. A partial scrub is neither open nor
+// assembled, and the slider's own value speaks for it.
+const OPEN = 1
+
+// Whether one product's view counts as open: the pressed state its toggle
+// announces. Open is exactly the fully exploded target, so the announcement
+// is a binary completed state, never a partial one.
+export function explodeOpenOf(status: ExplodeStatus, product: string): boolean {
+  return explodeTargetOf(status, product) === OPEN
 }
 
 // The published applied progress of one product's exploded view, as the
@@ -111,18 +127,11 @@ export function applyExplodeEvent(status: ExplodeStatus, event: ExplodeEvent): E
   }
 }
 
-const ASSEMBLED = { target: 0, open: false } as const
-
 function attached(status: ExplodeStatus, product: string): ExplodeStatus {
-  if (
-    status.kind === 'active' &&
-    status.product === product &&
-    status.target === ASSEMBLED.target &&
-    status.open === ASSEMBLED.open
-  ) {
+  if (status.kind === 'active' && status.product === product && status.target === ASSEMBLED) {
     return status
   }
-  return { kind: 'active', product, target: ASSEMBLED.target, open: ASSEMBLED.open }
+  return { kind: 'active', product, target: ASSEMBLED }
 }
 
 function detached(status: ExplodeStatus, product: string): ExplodeStatus {
@@ -132,12 +141,17 @@ function detached(status: ExplodeStatus, product: string): ExplodeStatus {
   return status
 }
 
+// The toggle acts from every state the view can be in: assembled or
+// part-open opens it to the far end, open closes it to the start. The
+// action is defined from a partial scrub too, where the view is neither
+// open nor assembled: the press completes the open, and the next press
+// closes.
 function toggled(status: ExplodeStatus, product: string): ExplodeStatus {
   if (status.kind !== 'active' || status.product !== product) {
     return status
   }
-  const open = !status.open
-  return { kind: 'active', product, open, target: open ? 1 : 0 }
+  const opens = !explodeOpenOf(status, product)
+  return { kind: 'active', product, target: opens ? OPEN : ASSEMBLED }
 }
 
 function scrubbed(status: ExplodeStatus, product: string, target: number): ExplodeStatus {
@@ -147,9 +161,8 @@ function scrubbed(status: ExplodeStatus, product: string, target: number): Explo
   if (status.kind !== 'active' || status.product !== product) {
     return status
   }
-  const open = target > 0
-  if (status.target === target && status.open === open) {
+  if (status.target === target) {
     return status
   }
-  return { kind: 'active', product, open, target }
+  return { kind: 'active', product, target }
 }
