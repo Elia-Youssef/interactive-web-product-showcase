@@ -143,15 +143,19 @@ test('escape and the close button close the index, and focus returns to the coun
   await page.goto(productPathOf(backendPath, first))
   await waitForProductReady(page)
 
-  const { counter } = rowControls(page, collection, first)
+  const { counter, next } = rowControls(page, collection, first)
   const dialog = page.getByRole('dialog', { name: siteCopy.indexLabel })
 
+  // Pointer activation must capture this opener even when another control
+  // held focus beforehand.
+  await next.focus()
   await counter.click()
   await expect(dialog).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(dialog).toBeHidden()
   await expect(counter).toBeFocused()
 
+  await next.focus()
   await counter.click()
   await expect(dialog).toBeVisible()
   await dialog.getByRole('button', { name: siteCopy.closeIndexLabel }).click()

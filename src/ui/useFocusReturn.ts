@@ -23,8 +23,10 @@ export function focusWasLost(activeElement: Element | null): boolean {
 }
 
 // The opener calls what the hook returns with the activating element,
-// usually the event's currentTarget, while the surface opens. When the
-// hook's active flag falls back to false, the captured trigger receives
+// usually the event's currentTarget, before the surface opens. Capturing
+// focuses that element: a pointer activation need not focus its button,
+// and a native dialog records the focused element as its return target.
+// When the active flag falls back to false, the captured trigger receives
 // focus under the rule above. The flag is watched, not the unmount: a
 // surface whose whole component goes away, a product switch among them,
 // closes nothing that focus could return into.
@@ -45,5 +47,6 @@ export function useFocusReturn(active: boolean): (trigger: HTMLElement) => void 
 
   return useCallback((trigger: HTMLElement) => {
     triggerRef.current = trigger
+    trigger.focus({ preventScroll: true })
   }, [])
 }

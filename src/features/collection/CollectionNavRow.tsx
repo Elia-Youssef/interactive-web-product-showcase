@@ -25,10 +25,9 @@ export type CollectionNavRowProps = {
 // is navigable without a change here.
 export function CollectionNavRow({ product, collection, link }: CollectionNavRowProps) {
   const [indexOpen, setIndexOpen] = useState(false)
-  // The index's focus return: the counter hands the shared hook itself when
-  // it opens the dialog, so the close puts focus back on the counter, on an
-  // engine whose platform has nothing to return to, without a ref of the
-  // row's own.
+  // The counter hands the shared hook itself before opening the dialog.
+  // Capture focuses the counter, so the native dialog records its opener;
+  // the same hook returns focus when the platform leaves it lost.
   const captureTrigger = useFocusReturn(indexOpen)
 
   const neighbors = collection.neighbors(product.slug)
