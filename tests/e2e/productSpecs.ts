@@ -2,6 +2,7 @@ import { expect, type Page } from '@playwright/test'
 import type { Product } from '../../src/lib/product'
 import { productLoadBudgetMs } from './budgets'
 import { loadCollection } from './productList'
+import { resolveE2ETier, sampleProducts } from './tiers'
 
 export { productLoadBudgetMs }
 
@@ -11,6 +12,12 @@ export { productLoadBudgetMs }
 // that joins the set is under test without a change here.
 export async function harnessProducts(): Promise<readonly Product[]> {
   return (await loadCollection()).products
+}
+
+// The products a product independent spec covers: a sample of the shipped
+// set in the tiered run, the whole set under the full switch.
+export async function sampledHarnessProducts(): Promise<readonly Product[]> {
+  return sampleProducts(await harnessProducts(), resolveE2ETier(process.env))
 }
 
 // The harness page URL for this project's backend mode, with the product's

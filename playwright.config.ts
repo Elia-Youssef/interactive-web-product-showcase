@@ -7,6 +7,8 @@ import { testBudgetMs } from './tests/e2e/budgets.ts'
 import { e2eViewport } from './tests/e2e/e2eViewport.ts'
 import { resolveDevPort } from './tooling/devPort.ts'
 import { resolveE2EWorkers } from './tooling/e2eWorkers.ts'
+import { resolveE2ETier, specPattern, specSelection } from './tests/e2e/tiers.ts'
+import type { SpecSelection } from './tests/e2e/tiers.ts'
 
 const port = resolveDevPort(process.env)
 const baseURL = e2eBaseURL(port)
@@ -31,6 +33,20 @@ function projectOptions(row: MatrixAssignment) {
 }
 
 const proofs = gateProofProject()
+const tierMode = resolveE2ETier(process.env)
+
+// The tier and family tables decide which specs a project runs; the gate
+// proofs stay out of every matrix project, whatever the tier.
+function specOptions(selection: SpecSelection) {
+  switch (selection.kind) {
+    case 'all':
+      return { testIgnore: [proofs.testMatch] }
+    case 'only':
+      return { testMatch: [specPattern(selection.specs)], testIgnore: [proofs.testMatch] }
+    case 'except':
+      return { testIgnore: [proofs.testMatch, specPattern(selection.specs)] }
+  }
+}
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -64,7 +80,7 @@ export default defineConfig({
   projects: [
     ...matrixAssignments().map((row) => ({
       name: row.project,
-      testIgnore: [proofs.testMatch],
+      ...specOptions(specSelection(row.project, tierMode)),
       use: projectOptions(row),
     })),
     {

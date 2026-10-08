@@ -8,7 +8,7 @@ import {
   productChannel,
   remountProduct,
 } from './productFailureChannel'
-import { harnessPath, harnessProducts, waitForProductReady } from './productSpecs'
+import { harnessPath, sampledHarnessProducts, waitForProductReady } from './productSpecs'
 import {
   frameFaultMessage,
   harnessScopedFaultPlaces,
@@ -21,7 +21,7 @@ import {
 // only, so the toggle's remount is new, clean content. The page-error gate
 // stays on for every case.
 
-const products = await harnessProducts()
+const products = await sampledHarnessProducts()
 
 for (const product of products) {
   for (const place of harnessScopedFaultPlaces) {
