@@ -8,46 +8,48 @@ import { contractRuleInputOf } from './contractRuleFixtures.ts'
 
 const byKey = new Map(geometryRules.map((rule) => [rule.key, rule]))
 
-function violationsOf(
+async function violationsOf(
   key: string,
   plant: (doc: ReturnType<typeof buildDocument>) => void,
-): readonly string[] {
+): Promise<readonly string[]> {
   const doc = buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] })
   plant(doc)
   const rule = byKey.get(key)
   if (rule === undefined) {
     throw new Error(`the geometry rules hold no ${key}`)
   }
-  return rule.check(contractRuleInputOf(doc)).violations
+  return rule.check(await contractRuleInputOf(doc)).violations
 }
 
 describe('the geometry-group contract rules', () => {
-  it('passes every rule on the valid document', () => {
-    const input = contractRuleInputOf(buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }))
+  it('passes every rule on the valid document', async () => {
+    const input = await contractRuleInputOf(
+      buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }),
+    )
     for (const rule of geometryRules) {
       expect(rule.check(input), rule.key).toEqual({ violations: [], warnings: [] })
     }
   })
 
-  it('the parts rule reports a part that carries a rotation', () => {
+  it('the parts rule reports a part that carries a rotation', async () => {
     expect(
-      violationsOf('parts-root-location-only', (doc) => {
+      await violationsOf('parts-root-location-only', (doc) => {
         nodeNamed(doc, 'PART_knob').setRotation([0, 0, Math.SQRT1_2, Math.SQRT1_2])
       }),
     ).toEqual(['the part PART_knob carries a rotation, parts carry location only'])
   })
 
-  it('the parts rule reports a part that is parented', () => {
+  it('the parts rule reports a part that is parented', async () => {
     expect(
-      violationsOf('parts-root-location-only', (doc) => {
+      await violationsOf('parts-root-location-only', (doc) => {
         nodeNamed(doc, 'PART_base').addChild(nodeNamed(doc, 'PART_knob'))
       }),
     ).toEqual(['the part PART_knob is not a root object, parts parent nowhere'])
   })
 
-  it('the duplicate-sheet rule reports a coincident duplicate triangle', () => {
+  it('the duplicate-sheet rule reports a coincident duplicate triangle', async () => {
     expect(
-      violationsOf('no-duplicate-triangles', (doc) => {
+      await violationsOf('no-duplicate-triangles', (doc) => {
         const primitive = nodeNamed(doc, 'PART_knob').getMesh()?.listPrimitives()[0]
         const indices = primitive?.getIndices() ?? null
         if (indices === null) {
@@ -58,7 +60,7 @@ describe('the geometry-group contract rules', () => {
     ).toEqual(['the mesh of PART_knob holds 1 coincident duplicate triangles, no duplicate sheets'])
   })
 
-  it('the tangent rule reports a normal map without tangents, and passes them present', () => {
+  it('the tangent rule reports a normal map without tangents, and passes them present', async () => {
     const normalMap = (doc: ReturnType<typeof buildDocument>) => {
       const texture = doc
         .createTexture('T_normal')
@@ -70,22 +72,22 @@ describe('the geometry-group contract rules', () => {
       primitive?.setMaterial(material)
       return primitive
     }
-    expect(violationsOf('tangents-with-normal-maps', (doc) => void normalMap(doc))).toEqual([
+    expect(await violationsOf('tangents-with-normal-maps', (doc) => void normalMap(doc))).toEqual([
       'the primitive of PART_knob wears a normal map without a TANGENT attribute',
     ])
     expect(
-      violationsOf('tangents-with-normal-maps', (doc) => {
+      await violationsOf('tangents-with-normal-maps', (doc) => {
         const primitive = normalMap(doc)
         primitive?.setAttribute('TANGENT', vec3Accessor(doc, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]))
       }),
     ).toEqual([])
   })
 
-  it('the tangent rule counts a normal map that only a variant mapping wears', () => {
+  it('the tangent rule counts a normal map that only a variant mapping wears', async () => {
     // The graphite finish's mapped material alone carries the normal map,
     // while the primitive's default stays plain: the mapping counts.
     expect(
-      violationsOf('tangents-with-normal-maps', (doc) => {
+      await violationsOf('tangents-with-normal-maps', (doc) => {
         const texture = doc
           .createTexture('T_normal')
           .setImage(new Uint8Array(8))

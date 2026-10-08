@@ -1,9 +1,14 @@
 // The camera-group rules of the contract, as table entries: cameras are
-// static roll-free root objects that no channel animates, and the authored
+// static roll-free root objects that no channel animates, the authored
 // minimum's cause (a warning: an authored value the default limits never
-// needed is a tolerance with no product cause).
+// needed is a tolerance with no product cause), and the home fit: the
+// stored home camera holds both poses of the product with the contract
+// margin, beyond what the file's own storage can move.
 
 import type { Vec3 } from '../src/lib/camera/frame.ts'
+import { authoredCameraAspect, homeFitMargin } from '../src/lib/camera/config.ts'
+import { homeFitVerdictsOf, round5 } from './homeFit.ts'
+import { translationKeyComponentBound } from './storageBounds.ts'
 import { cameraAssemblyOf } from './validateCameras.ts'
 import type { ContractRule } from './contractRules.ts'
 
@@ -78,7 +83,122 @@ export const cameraRules: readonly ContractRule[] = [
       return { violations: [], warnings: [] }
     },
   },
+  {
+    key: 'home-holds-both-poses',
+    group: 'cameras',
+    check: ({ structure, homeFit, storageBounds }) => {
+      const problem = homeFitProblemOf(structure)
+      if (problem !== null) {
+        return { violations: [problem], warnings: [] }
+      }
+      const home = structure.cameraFacts.find((fact) => fact.name === 'CAM_home')
+      if (home === undefined || home.ray === null) {
+        throw new Error('the home fit named no problem but found no camera ray')
+      }
+      const ray = home.ray
+      const restError = Math.sqrt(3) * storageBounds.positionNormalizedError * homeFit.sigmaMax
+      const verdicts = homeFitVerdictsOf(
+        [
+          {
+            label: 'assembled',
+            points: homeFit.assembled.points,
+            worldError: restError,
+          },
+          {
+            label: 'exploded',
+            points: homeFit.exploded.points,
+            worldError: restError + storageKeyErrorOf(structure, homeFit),
+          },
+        ],
+        ray.position,
+        ray.forward,
+        ray.fovY,
+        authoredCameraAspect,
+        homeFitMargin,
+      )
+      const namesOf = (label: string) =>
+        label === 'assembled' ? homeFit.assembled.nodeNames : homeFit.exploded.nodeNames
+      return {
+        violations: verdicts
+          .filter((verdict) => !verdict.holds)
+          .map(
+            (verdict) =>
+              `the ${verdict.pose} pose keeps ${round5(verdict.free)} of the half frame free at home, ` +
+              `below the ${homeFitMargin} margin by more than the storage allowance ` +
+              `${round5(verdict.allowance)} (bound ${round5(restError)} over the nearest corner ` +
+              `${round5(verdict.nearestDepth)}), bound by the ` +
+              `${namesOf(verdict.pose)[verdict.bindingPoint] ?? 'scene'} mesh`,
+          ),
+        warnings: [],
+      }
+    },
+  },
 ]
+
+// The one problem that stops the home fit before it measures, or null
+// when both poses can be measured and compared: a home camera with no
+// readable ray, or a rotation channel whose storage bound is not derived.
+function homeFitProblemOf(structure: {
+  cameraFacts: readonly {
+    name: string
+    ray: { position: Vec3; forward: Vec3; fovY: number } | null
+  }[]
+  animationChannels: readonly { path: string; targetName: string }[]
+}): string | null {
+  const home = structure.cameraFacts.find((fact) => fact.name === 'CAM_home')
+  if (home === undefined || home.ray === null) {
+    return 'the home fit needs a perspective CAM_home with a stored ray'
+  }
+  const rotationChannels = structure.animationChannels.filter(
+    (channel) => channel.path === 'rotation',
+  )
+  if (rotationChannels.length > 0) {
+    return (
+      `rotation channel bound not implemented: the clip drives rotation on ` +
+      `${rotationChannels.map((channel) => channel.targetName).join(', ')}, ` +
+      'and the storage bound of a rotation output is not derived; ' +
+      'the home fit covers translation keys only'
+    )
+  }
+  return null
+}
+
+// The widest world distance the stored translation keys can sit from their
+// authored values: every key's own filter bound, grown by the world scale
+// of the chain that carries it.
+function storageKeyErrorOf(
+  structure: {
+    animationChannels: readonly {
+      path: string
+      targetName: string
+      components: number
+      keyValues: readonly number[]
+    }[]
+  },
+  homeFit: { parentSigmaByName: ReadonlyMap<string, number> },
+): number {
+  let keyError = 0
+  for (const channel of structure.animationChannels) {
+    if (channel.path !== 'translation') {
+      continue
+    }
+    const parentSigma = homeFit.parentSigmaByName.get(channel.targetName)
+    if (parentSigma === undefined) {
+      continue
+    }
+    for (let key = 0; (key + 1) * channel.components <= channel.keyValues.length; key += 1) {
+      const components = channel.keyValues.slice(
+        key * channel.components,
+        (key + 1) * channel.components,
+      )
+      keyError = Math.max(
+        keyError,
+        Math.sqrt(3) * translationKeyComponentBound(components) * parentSigma,
+      )
+    }
+  }
+  return keyError
+}
 
 // A value in the report at four decimals: enough to read a roll against
 // the tolerance, without the float noise of the arctangent.

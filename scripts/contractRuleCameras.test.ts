@@ -10,13 +10,13 @@ import type { ContractRuleInput } from './contractRules.ts'
 
 const byKey = new Map(cameraRules.map((rule) => [rule.key, rule]))
 
-function inputOf(
+async function inputOf(
   plant: (doc: ReturnType<typeof buildDocument>) => void,
   camera?: { minDistance?: number },
-): ContractRuleInput {
+): Promise<ContractRuleInput> {
   const doc = buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] })
   plant(doc)
-  const input = contractRuleInputOf(doc)
+  const input = await contractRuleInputOf(doc)
   return camera === undefined ? input : { ...input, manifest: ruleFixtureManifest(camera) }
 }
 
@@ -29,25 +29,17 @@ function messagesOf(key: string, input: ContractRuleInput) {
 }
 
 describe('the camera-group contract rules', () => {
-  it('passes every rule on the valid document', () => {
-    const messages = messagesOf(
-      'camera-static-roll-free',
-      inputOf(() => {}),
-    )
+  it('passes every rule on the valid document', async () => {
+    const messages = messagesOf('camera-static-roll-free', await inputOf(() => {}))
     expect(messages).toEqual({ violations: [], warnings: [] })
-    expect(
-      messagesOf(
-        'authored-minimum-needed',
-        inputOf(() => {}),
-      ).warnings,
-    ).toEqual([])
+    expect(messagesOf('authored-minimum-needed', await inputOf(() => {})).warnings).toEqual([])
   })
 
-  it('the static rule reports a rolled camera by the degrees it rolls', () => {
+  it('the static rule reports a rolled camera by the degrees it rolls', async () => {
     const quarterTurn = Math.sin(Math.PI / 8)
     const messages = messagesOf(
       'camera-static-roll-free',
-      inputOf((doc) => {
+      await inputOf((doc) => {
         nodeNamed(doc, 'CAM_home').setRotation([0, 0, quarterTurn, Math.cos(Math.PI / 8)])
       }),
     )
@@ -56,11 +48,11 @@ describe('the camera-group contract rules', () => {
     ])
   })
 
-  it('the static rule reports a parented camera and an animated one', () => {
+  it('the static rule reports a parented camera and an animated one', async () => {
     expect(
       messagesOf(
         'camera-static-roll-free',
-        inputOf((doc) => {
+        await inputOf((doc) => {
           nodeNamed(doc, 'PART_base').addChild(nodeNamed(doc, 'CAM_home'))
         }),
       ).violations,
@@ -68,7 +60,7 @@ describe('the camera-group contract rules', () => {
     expect(
       messagesOf(
         'camera-static-roll-free',
-        inputOf((doc) => {
+        await inputOf((doc) => {
           const animation = doc.getRoot().listAnimations()[0]
           const sampler = animation?.listChannels()[0]?.getSampler()
           if (animation === undefined || sampler === undefined) {
@@ -84,10 +76,10 @@ describe('the camera-group contract rules', () => {
     ).toEqual(['the camera CAM_home is animated, cameras are read at the rest pose'])
   })
 
-  it('the authored-minimum rule warns about one the default limits pass without', () => {
+  it('the authored-minimum rule warns about one the default limits pass without', async () => {
     const messages = messagesOf(
       'authored-minimum-needed',
-      inputOf(() => {}, { minDistance: 1.9 }),
+      await inputOf(() => {}, { minDistance: 1.9 }),
     )
     expect(messages.violations).toEqual([])
     expect(messages.warnings).toEqual([
@@ -96,7 +88,7 @@ describe('the camera-group contract rules', () => {
     ])
   })
 
-  it('the authored-minimum rule stays quiet about a minimum a view needs', () => {
+  it('the authored-minimum rule stays quiet about a minimum a view needs', async () => {
     // The driver close-up moves in to 1.5, below the default minimum of 2:
     // the default limits fail, so an authored minimum has a cause, at 1.5
     // or anywhere under the close-up.
@@ -104,10 +96,67 @@ describe('the camera-group contract rules', () => {
       nodeNamed(doc, 'CAM_driver').setTranslation([1, 1, 1.5])
     }
     expect(
-      messagesOf('authored-minimum-needed', inputOf(moved, { minDistance: 1.5 })).warnings,
+      messagesOf('authored-minimum-needed', await inputOf(moved, { minDistance: 1.5 })).warnings,
     ).toEqual([])
     expect(
-      messagesOf('authored-minimum-needed', inputOf(moved, { minDistance: 1.9 })).warnings,
+      messagesOf('authored-minimum-needed', await inputOf(moved, { minDistance: 1.9 })).warnings,
     ).toEqual([])
+  })
+
+  it('the home-fit rule holds both poses on the valid document', async () => {
+    expect(messagesOf('home-holds-both-poses', await inputOf(() => {})).violations).toEqual([])
+  })
+
+  it('the home-fit rule reports a pose that falls below the margin beyond the storage allowance', async () => {
+    // The body part grown fourfold overflows the home frame outright: the
+    // assembled free share goes negative, orders past what the file's own
+    // storage can spend.
+    const grown = (doc: ReturnType<typeof buildDocument>) => {
+      const mesh = nodeNamed(doc, 'PART_body').getMesh()
+      const position = mesh?.listPrimitives()[0]?.getAttribute('POSITION')
+      position?.setArray(new Float32Array([0, 0, 0, 8, 0, 0, 0, 8, 0, 8, 8, 0]))
+    }
+    // Both poses overflow: the grown part sits in both of them.
+    const violations = messagesOf('home-holds-both-poses', await inputOf(grown)).violations
+    expect(violations).toHaveLength(2)
+    expect(violations[0]).toMatch(
+      /^the assembled pose keeps -\d+\.\d+ of the half frame free at home, .* bound by the PART_body mesh$/,
+    )
+    expect(violations[1]).toMatch(
+      /^the exploded pose keeps -\d+\.\d+ of the half frame free at home, .* bound by the PART_body mesh$/,
+    )
+  })
+
+  it('the home-fit rule reports a rotation channel as an unimplemented bound', async () => {
+    const rotated = (doc: ReturnType<typeof buildDocument>) => {
+      const sampler = doc.getRoot().listAnimations()[0]?.listSamplers()[0]
+      const channel = doc.getRoot().listAnimations()[0]?.listChannels()[0]
+      channel?.setTargetPath('rotation')
+      sampler?.setOutput(
+        doc
+          .createAccessor('rotation-keys')
+          .setType('VEC4')
+          .setArray(new Float32Array([0, 0, 0, 1, 0, 0.5, 0, 1])),
+      )
+    }
+    expect(messagesOf('home-holds-both-poses', await inputOf(rotated)).violations).toEqual([
+      'rotation channel bound not implemented: the clip drives rotation on PART_base, ' +
+        'and the storage bound of a rotation output is not derived; ' +
+        'the home fit covers translation keys only',
+    ])
+  })
+
+  it('the home-fit rule reports a document without a home camera', async () => {
+    const doc = buildDocument({
+      hotspotNames: ['HS_driver', 'HS_knob'],
+      cameraNames: ['CAM_driver'],
+    })
+    const rule = byKey.get('home-holds-both-poses')
+    if (rule === undefined) {
+      throw new Error('the camera rules hold no home-holds-both-poses')
+    }
+    expect(rule.check(await contractRuleInputOf(doc)).violations).toEqual([
+      'the home fit needs a perspective CAM_home with a stored ray',
+    ])
   })
 })

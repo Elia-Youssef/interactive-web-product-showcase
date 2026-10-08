@@ -15,17 +15,17 @@ import { contractRuleInputOf } from './contractRuleFixtures.ts'
 const surfaceRules = [...materialRules, ...finishRules]
 const byKey = new Map(surfaceRules.map((rule) => [rule.key, rule]))
 
-function violationsOf(
+async function violationsOf(
   key: string,
   plant: (doc: ReturnType<typeof buildDocument>) => void,
-): readonly string[] {
+): Promise<readonly string[]> {
   const doc = buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] })
   plant(doc)
   const rule = byKey.get(key)
   if (rule === undefined) {
     throw new Error(`the surface rules hold no ${key}`)
   }
-  return rule.check(contractRuleInputOf(doc)).violations
+  return rule.check(await contractRuleInputOf(doc)).violations
 }
 
 // A closed cube mesh grafted on a part: twelve triangles, every edge
@@ -66,16 +66,18 @@ function bodyVariantList(doc: ReturnType<typeof buildDocument>): MappingList {
 }
 
 describe('the surface contract rules', () => {
-  it('passes every rule on the valid document', () => {
-    const input = contractRuleInputOf(buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }))
+  it('passes every rule on the valid document', async () => {
+    const input = await contractRuleInputOf(
+      buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }),
+    )
     for (const rule of surfaceRules) {
       expect(rule.check(input), rule.key).toEqual({ violations: [], warnings: [] })
     }
   })
 
-  it('the extensions rule reports one outside the allowed set', () => {
+  it('the extensions rule reports one outside the allowed set', async () => {
     expect(
-      violationsOf('only-allowed-extensions', (doc) => {
+      await violationsOf('only-allowed-extensions', (doc) => {
         const strength = doc.createExtension(KHRMaterialsEmissiveStrength)
         doc
           .createMaterial('MAT_glow')
@@ -86,9 +88,9 @@ describe('the surface contract rules', () => {
     ])
   })
 
-  it('the single-sided rule reports a double-sided material on a closed mesh, and passes one on open edges', () => {
+  it('the single-sided rule reports a double-sided material on a closed mesh, and passes one on open edges', async () => {
     expect(
-      violationsOf('single-sided-materials', (doc) => {
+      await violationsOf('single-sided-materials', (doc) => {
         addClosedCube(doc, 'MAT_shell')
         const shell = doc
           .getRoot()
@@ -100,7 +102,7 @@ describe('the surface contract rules', () => {
       "the material 'MAT_shell' is double-sided on the closed mesh of PART_knob, single-sided unless a mesh has open edges",
     ])
     expect(
-      violationsOf('single-sided-materials', (doc) => {
+      await violationsOf('single-sided-materials', (doc) => {
         const graphite = doc
           .getRoot()
           .listMaterials()
@@ -110,9 +112,9 @@ describe('the surface contract rules', () => {
     ).toEqual([])
   })
 
-  it('the opaque rule reports a lit material that is not opaque, and passes the unlit shadow', () => {
+  it('the opaque rule reports a lit material that is not opaque, and passes the unlit shadow', async () => {
     expect(
-      violationsOf('lit-materials-opaque', (doc) => {
+      await violationsOf('lit-materials-opaque', (doc) => {
         const graphite = doc
           .getRoot()
           .listMaterials()
@@ -121,7 +123,7 @@ describe('the surface contract rules', () => {
       }),
     ).toEqual(["the lit material 'body-graphite' is alphaMode MASK, lit materials are opaque"])
     expect(
-      violationsOf('lit-materials-opaque', (doc) => {
+      await violationsOf('lit-materials-opaque', (doc) => {
         const shadow = doc
           .getRoot()
           .listMaterials()
@@ -131,9 +133,9 @@ describe('the surface contract rules', () => {
     ).toEqual([])
   })
 
-  it('the occlusion coverage rule reports a lit material without an occlusion texture, and passes the unlit shadow', () => {
+  it('the occlusion coverage rule reports a lit material without an occlusion texture, and passes the unlit shadow', async () => {
     expect(
-      violationsOf('lit-materials-occluded', (doc) => {
+      await violationsOf('lit-materials-occluded', (doc) => {
         const graphite = doc
           .getRoot()
           .listMaterials()
@@ -145,7 +147,7 @@ describe('the surface contract rules', () => {
         'every lit material samples the shared occlusion image',
     ])
     expect(
-      violationsOf('lit-materials-occluded', (doc) => {
+      await violationsOf('lit-materials-occluded', (doc) => {
         const shadow = doc
           .getRoot()
           .listMaterials()
@@ -155,9 +157,9 @@ describe('the surface contract rules', () => {
     ).toEqual([])
   })
 
-  it('the occlusion identity rule reports occlusion slots on two images', () => {
+  it('the occlusion identity rule reports occlusion slots on two images', async () => {
     expect(
-      violationsOf('one-occlusion-image', (doc) => {
+      await violationsOf('one-occlusion-image', (doc) => {
         const graphite = doc
           .getRoot()
           .listMaterials()
@@ -167,9 +169,9 @@ describe('the surface contract rules', () => {
     ).toEqual(['the occlusion slots sample 2 images (0, 1), one occlusion image across the file'])
   })
 
-  it('the occlusion texCoord rule reports a slot off the second UV set', () => {
+  it('the occlusion texCoord rule reports a slot off the second UV set', async () => {
     expect(
-      violationsOf('occlusion-texcoord-second-set', (doc) => {
+      await violationsOf('occlusion-texcoord-second-set', (doc) => {
         const graphite = doc
           .getRoot()
           .listMaterials()
@@ -181,9 +183,9 @@ describe('the surface contract rules', () => {
     ])
   })
 
-  it('the variant-map rule reports a mapping without variants or a material', () => {
+  it('the variant-map rule reports a mapping without variants or a material', async () => {
     expect(
-      violationsOf('variant-map-well-formed', (doc) => {
+      await violationsOf('variant-map-well-formed', (doc) => {
         const list = bodyVariantList(doc)
         list.addMapping(doc.createExtension(KHRMaterialsVariants).createMapping())
       }),
@@ -193,9 +195,9 @@ describe('the surface contract rules', () => {
     ])
   })
 
-  it('the coverage rule reports a finish no mapping of the primitive covers', () => {
+  it('the coverage rule reports a finish no mapping of the primitive covers', async () => {
     expect(
-      violationsOf('mappings-cover-every-variant', (doc) => {
+      await violationsOf('mappings-cover-every-variant', (doc) => {
         const list = bodyVariantList(doc)
         const mapping = list.listMappings()[1]
         const variant = mapping?.listVariants()[0]
@@ -208,9 +210,9 @@ describe('the surface contract rules', () => {
     ])
   })
 
-  it('the default-finish rule reports a default that is not the first finish', () => {
+  it('the default-finish rule reports a default that is not the first finish', async () => {
     expect(
-      violationsOf('default-is-first-finish', (doc) => {
+      await violationsOf('default-is-first-finish', (doc) => {
         const primitive = nodeNamed(doc, 'PART_body').getMesh()?.listPrimitives()[0]
         const graphite = doc
           .getRoot()

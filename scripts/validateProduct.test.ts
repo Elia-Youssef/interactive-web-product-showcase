@@ -123,12 +123,21 @@ describe('the validate step on a planted product at the old aspect', () => {
       `camera CAM_home carries aspect ratio ${16 / 9}, expected the authored 1600 / 1422`,
       `camera CAM_driver carries aspect ratio ${16 / 9}, expected the authored 1600 / 1422`,
     ])
-    // The planted product is valid except for its camera aspects and its
-    // occlusion texture's storage: the fixture's AO image is a plain PNG,
-    // so the encoding check names it beside the two aspect defects.
+    // The planted document is a raw write, not an optimized file: beside
+    // the two aspect defects the encoding check names its plain PNG, and
+    // the storage rule names its float positions and its unfiltered
+    // translation output, the storage the pipeline never writes.
     const encoding = validation.checks.find((check) => check.name === 'encoding')
     expect(encoding?.violations).toEqual(["texture 'T_ao' is image/png, expected image/ktx2"])
-    expect(countViolations(validation)).toBe(3)
+    const model = validation.checks.find((check) => check.name === 'model')
+    expect(model?.violations).toEqual([
+      "storage-matches-pipeline: the POSITION of the mesh 'PART_base' is stored as component type 5126, not normalized, the pipeline's 14-bit quantize stores normalized Int16",
+      "storage-matches-pipeline: the POSITION of the mesh 'PART_knob' is stored as component type 5126, not normalized, the pipeline's 14-bit quantize stores normalized Int16",
+      "storage-matches-pipeline: the POSITION of the mesh 'body-variants' is stored as component type 5126, not normalized, the pipeline's 14-bit quantize stores normalized Int16",
+      "storage-matches-pipeline: the POSITION of the mesh 'shadow' is stored as component type 5126, not normalized, the pipeline's 14-bit quantize stores normalized Int16",
+      "storage-matches-pipeline: a translation output of the animation 'Explode' is stored with filter none, the pipeline's key filter is EXPONENTIAL at 12 bits",
+    ])
+    expect(countViolations(validation)).toBe(8)
   })
 })
 

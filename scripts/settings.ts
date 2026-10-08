@@ -84,6 +84,19 @@ const ktxThreads = z.literal(1)
 // while the encodes run.
 const ktxJobs = z.literal(4)
 
+// The geometry storage the pipeline fixes, as the gltf-transform CLI's own
+// defaults it runs the geometry stage with (`optimize` quantizes with
+// QUANTIZE_DEFAULTS and compresses with the meshopt writer's per-target
+// filters): positions at 14 quantize bits, which stores a normalized Int16
+// accessor, and animation translation outputs through the EXPONENTIAL
+// filter at 12 bits. The contract's storage bounds are derived from these
+// two numbers (storageBounds.ts), and the validate step holds every file
+// against what they imply (contractRuleModel.ts), so an optimize change
+// that moved either fails the gate instead of silently invalidating the
+// allowance.
+export const POSITION_QUANTIZE_BITS = 14
+export const KEY_FILTER_BITS = 12
+
 // The full settings of one optimize run. Every field is required: the
 // defaults below are the base, and the file override is a partial pick.
 export const optimizeSettingsSchema = z.strictObject({

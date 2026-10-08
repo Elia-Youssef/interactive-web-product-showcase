@@ -2,15 +2,21 @@
 // every check group, and reports what was checked with every violation.
 // Each input is loaded independently, so a product with a broken manifest
 // still gets its model checks, and the other way around.
-import type { NodeIO } from '@gltf-transform/core'
+import type { Document, NodeIO } from '@gltf-transform/core'
 import { readContractModelFacts } from './contractFacts.ts'
 import type { ContractModelFacts } from './contractFacts.ts'
 import { runContractRules, withRuleMessages } from './contractRules.ts'
 import { countDrawCalls } from './drawCalls.ts'
+import { readHomeFitFacts } from './homeFitFacts.ts'
+import type { HomeFitFacts } from './homeFitFacts.ts'
 import { createModelIO } from './modelIo.ts'
 import type { ParseProduct } from './manifestIo.ts'
 import { loadCameraContract, readManifestFile } from './manifestIo.ts'
 import type { CameraContract } from './manifestIo.ts'
+import { deriveStorageBounds } from './storageBounds.ts'
+import type { StorageBounds } from './storageBounds.ts'
+import { readPositionStorage, readTranslationFilters } from './storageFacts.ts'
+import type { StorageFacts } from './storageFacts.ts'
 import { productPaths, repoPath, type ProductPaths } from './productPaths.ts'
 import { describeTextures, fileSizeBytes, formatBytes } from './report.ts'
 import { readProductStructure, type ProductStructure } from './structure.ts'
@@ -80,53 +86,76 @@ async function loadManifest(
 }
 
 // The model side: the file exists, reads back, and yields the facts every
-// model check reads: the structure, the texture reports and the draw-call
-// count. A missing or unreadable model is this group's violation; the
-// model check groups then skip for want of their input.
-async function loadModel(
-  io: NodeIO,
-  root: string,
-  paths: ProductPaths,
-): Promise<{
-  check: CheckResult
-  structure: ProductStructure | null
-  facts: ContractModelFacts | null
-  fileBytes: number | null
-  textures: readonly TextureFact[]
-  drawCalls: number | null
-}> {
+// model check reads: the structure, the contract and home-fit facts, the
+// storage facts (the position storage from the read-back document, the
+// translation filters from the file's own glTF JSON), the derived storage
+// bounds, the texture reports and the draw-call count. A missing or
+// unreadable model is this group's violation; the model check groups then
+// skip for want of their input.
+// The model facts of one product side, as the load answers them: every
+// fact null when the model never loaded, so the contract groups skip for
+// want of their input.
+type ModelSide = {
+  readonly check: CheckResult
+  readonly structure: ProductStructure | null
+  readonly facts: ContractModelFacts | null
+  readonly homeFit: HomeFitFacts | null
+  readonly storage: StorageFacts | null
+  readonly storageBounds: StorageBounds | null
+  readonly fileBytes: number | null
+  readonly textures: readonly TextureFact[]
+  readonly drawCalls: number | null
+}
+
+// The model side when the file is missing or unreadable: the load's own
+// violation, and every fact null.
+function unreadableModel(detail: string, violation: string, fileBytes: number | null): ModelSide {
+  return {
+    check: checkResult('model', detail, [violation]),
+    structure: null,
+    facts: null,
+    homeFit: null,
+    storage: null,
+    storageBounds: null,
+    fileBytes,
+    textures: [],
+    drawCalls: null,
+  }
+}
+
+async function loadModel(io: NodeIO, root: string, paths: ProductPaths): Promise<ModelSide> {
   const shown = repoPath(root, paths.modelGlb)
   const fileBytes = await fileSizeBytes(paths.modelGlb)
   if (fileBytes === null) {
-    return {
-      check: checkResult('model', `expected ${shown}`, [`model missing: expected ${shown}`]),
-      structure: null,
-      facts: null,
-      fileBytes: null,
-      textures: [],
-      drawCalls: null,
-    }
+    return unreadableModel(`expected ${shown}`, `model missing: expected ${shown}`, null)
   }
-  let doc
+  let doc: Document
   try {
     doc = await io.read(paths.modelGlb)
   } catch (error) {
-    return {
-      check: checkResult('model', shown, [`could not read ${shown}: ${reasonOf(error)}`]),
-      structure: null,
-      facts: null,
-      fileBytes,
-      textures: [],
-      drawCalls: null,
-    }
+    return unreadableModel(shown, `could not read ${shown}: ${reasonOf(error)}`, fileBytes)
   }
+  const structure = readProductStructure(doc)
   return {
     check: checkResult('model', `${shown} (${formatBytes(fileBytes)})`, []),
-    structure: readProductStructure(doc),
+    structure,
     facts: readContractModelFacts(doc),
+    homeFit: readHomeFitFacts(doc, structure.animationChannels),
+    storage: await readStorageFacts(paths.modelGlb, doc),
+    storageBounds: await deriveStorageBounds(),
     fileBytes,
     textures: describeTextures(doc),
     drawCalls: countDrawCalls(doc),
+  }
+}
+
+// The storage facts of one written model: the position storage from the
+// read-back document, the translation filters from the file's own glTF
+// JSON, and the derived bounds the file's storage precision implies.
+async function readStorageFacts(modelPath: string, doc: Document): Promise<StorageFacts> {
+  return {
+    positions: readPositionStorage(doc),
+    translationFilters: await readTranslationFilters(modelPath),
   }
 }
 
@@ -141,8 +170,23 @@ function contractChecks(
 ): CheckResult[] {
   const manifest = manifestSide.manifest
   const structure = modelSide.structure
-  if (manifest !== null && structure !== null && modelSide.facts !== null) {
-    const findings = runContractRules({ manifest, structure, facts: modelSide.facts, contract })
+  if (
+    manifest !== null &&
+    structure !== null &&
+    modelSide.facts !== null &&
+    modelSide.homeFit !== null &&
+    modelSide.storage !== null &&
+    modelSide.storageBounds !== null
+  ) {
+    const findings = runContractRules({
+      manifest,
+      structure,
+      facts: modelSide.facts,
+      homeFit: modelSide.homeFit,
+      storage: modelSide.storage,
+      storageBounds: modelSide.storageBounds,
+      contract,
+    })
     return [
       withRuleMessages(modelSide.check, findings, 'model'),
       checkHotspots(manifest, structure),

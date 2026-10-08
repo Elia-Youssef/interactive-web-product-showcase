@@ -10,74 +10,119 @@ import { contractRuleInputOf } from './contractRuleFixtures.ts'
 const byKey = new Map(modelRules.map((rule) => [rule.key, rule]))
 
 // The violations of one rule over a planted document.
-function violationsOf(
+async function violationsOf(
   key: string,
   plant: (doc: ReturnType<typeof buildDocument>) => void,
-): readonly string[] {
+): Promise<readonly string[]> {
   const doc = buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] })
   plant(doc)
   const rule = byKey.get(key)
   if (rule === undefined) {
     throw new Error(`the model rules hold no ${key}`)
   }
-  return rule.check(contractRuleInputOf(doc)).violations
+  return rule.check(await contractRuleInputOf(doc)).violations
 }
 
 describe('the model-group contract rules', () => {
-  it('passes every rule on the valid document', () => {
-    const input = contractRuleInputOf(buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }))
+  it('passes every rule on the valid document', async () => {
+    const input = await contractRuleInputOf(
+      buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }),
+    )
     for (const rule of modelRules) {
       expect(rule.check(input), rule.key).toEqual({ violations: [], warnings: [] })
     }
   })
 
-  it('the contract-names rule reports a node outside the contract names', () => {
+  it('the storage rule reports a position stored another way than the pipeline stores it', async () => {
+    const doc = buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] })
+    const input = await contractRuleInputOf(doc)
+    const rule = byKey.get('storage-matches-pipeline')
+    if (rule === undefined) {
+      throw new Error('the model rules hold no storage-matches-pipeline')
+    }
     expect(
-      violationsOf('nodes-carry-contract-names', (doc) => addRootNode(doc, 'PREVIEW_front')),
+      rule.check({
+        ...input,
+        storage: {
+          ...input.storage,
+          positions: [{ meshName: 'PART_base', componentType: 5126, normalized: false }],
+        },
+      }).violations,
+    ).toEqual([
+      "the POSITION of the mesh 'PART_base' is stored as component type 5126, not normalized, the pipeline's 14-bit quantize stores normalized Int16",
+    ])
+  })
+
+  it('the storage rule reports a translation output stored without the key filter', async () => {
+    const rule = byKey.get('storage-matches-pipeline')
+    if (rule === undefined) {
+      throw new Error('the model rules hold no storage-matches-pipeline')
+    }
+    const input = await contractRuleInputOf(
+      buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }),
+    )
+    expect(
+      rule.check({
+        ...input,
+        storage: {
+          ...input.storage,
+          translationFilters: [{ animationName: 'Explode', filter: null }],
+        },
+      }).violations,
+    ).toEqual([
+      "a translation output of the animation 'Explode' is stored with filter none, the pipeline's key filter is EXPONENTIAL at 12 bits",
+    ])
+  })
+
+  it('the contract-names rule reports a node outside the contract names', async () => {
+    expect(
+      await violationsOf('nodes-carry-contract-names', (doc) => addRootNode(doc, 'PREVIEW_front')),
     ).toEqual(["node 'PREVIEW_front' is outside the contract names PART_, HS_, CAM_ and SHADOW"])
   })
 
-  it('the one-node rule reports a repeated contract name', () => {
+  it('the one-node rule reports a repeated contract name', async () => {
     expect(
-      violationsOf('one-node-per-contract-name', (doc) => addRootNode(doc, 'PART_base')),
+      await violationsOf('one-node-per-contract-name', (doc) => addRootNode(doc, 'PART_base')),
     ).toEqual(["node name 'PART_base' appears 2 times, the contract needs one node per name"])
   })
 
-  it('the one-shadow rule reports a missing shadow and a second one', () => {
-    expect(violationsOf('one-shadow-mesh', (doc) => nodeNamed(doc, 'SHADOW').dispose())).toEqual([
-      'expected exactly one SHADOW mesh, found 0',
-    ])
-    expect(violationsOf('one-shadow-mesh', (doc) => addRootNode(doc, 'SHADOW'))).toEqual([
+  it('the one-shadow rule reports a missing shadow and a second one', async () => {
+    expect(
+      await violationsOf('one-shadow-mesh', (doc) => nodeNamed(doc, 'SHADOW').dispose()),
+    ).toEqual(['expected exactly one SHADOW mesh, found 0'])
+    expect(await violationsOf('one-shadow-mesh', (doc) => addRootNode(doc, 'SHADOW'))).toEqual([
       'expected exactly one SHADOW mesh, found 2',
     ])
   })
 
-  it('the no-extras rule reports extras wherever they sit', () => {
+  it('the no-extras rule reports extras wherever they sit', async () => {
     expect(
-      violationsOf('no-extras', (doc) => nodeNamed(doc, 'PART_base').setExtras({ note: 'x' })),
+      await violationsOf('no-extras', (doc) =>
+        nodeNamed(doc, 'PART_base').setExtras({ note: 'x' }),
+      ),
     ).toEqual(['node PART_base carries extras, no custom property may reach the file'])
   })
 
-  it('the no-lights rule reports a light', () => {
+  it('the no-lights rule reports a light', async () => {
     expect(
-      violationsOf('no-lights', (doc) => {
+      await violationsOf('no-lights', (doc) => {
         const lights = doc.createExtension(KHRLightsPunctual)
         nodeNamed(doc, 'PART_base').setExtension('KHR_lights_punctual', lights.createLight())
       }),
     ).toEqual(['the model carries lights, the site lights the product with its environment only'])
   })
 
-  it('the shadow root rule reports a shadow parented to a part', () => {
+  it('the shadow root rule reports a shadow parented to a part', async () => {
     expect(
-      violationsOf('shadow-root-one-material', (doc) => {
+      await violationsOf('shadow-root-one-material', (doc) => {
         nodeNamed(doc, 'PART_base').addChild(nodeNamed(doc, 'SHADOW'))
       }),
     ).toEqual(['the SHADOW node is not a root object, it must not be parented to a part'])
   })
 
-  it('the shadow material rule reports one that is not unlit blend', () => {
+  it('the shadow material rule reports one that is not unlit blend', async () => {
     expect(
-      violationsOf('shadow-material-unlit-blend', (doc) => {
+      await violationsOf('shadow-material-unlit-blend', (doc) => {
         const material = doc
           .getRoot()
           .listMaterials()
