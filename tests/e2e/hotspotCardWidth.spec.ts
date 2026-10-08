@@ -2,17 +2,21 @@ import { expect, test } from './fixtures'
 import { harnessPath, harnessProducts, waitForProductReady } from './productSpecs'
 import { settledFrames } from './stageSettle'
 import { cardHeadingOf, markerOf } from './hotspotViews'
-import { openCardOf, tokenPx } from './hotspotCardChecks'
+import { tokenPx } from './hotspotCardChecks'
 
 // The floating card lays out at its content's width, clamped by the card
-// width token, for every hotspot of every product. The widths compare
-// exactly: the card and two clones of it lay out under the same parent, so
-// identical content gives identical widths on every engine, read from the
-// resize observer's border box, the layout's own size before any transform
-// or pixel snapping. One clone drops the clamp and measures the content's
-// own width; the other carries a title lengthened past the token and must
-// lay out at exactly the token, which proves the clamp. The copy rules give
-// the title and every bullet one line.
+// width token, for every hotspot of every product. The placement may dock
+// the card on the harness stage (a side clear of the subject is the rule,
+// and a large part can leave none), so the widths are measured on copies of
+// the open card laid out under the overlay box at the floating card's own
+// rule: content width up to the token, the clamp off, and a title
+// lengthened past the token, which must lay out at exactly the token. The
+// copies carry the card's own classes, so the stylesheet's rule is what
+// lays them out, and the widths compare exactly, read from the resize
+// observer's border box, the layout's own size before any transform or
+// pixel snapping. Where the live card does float, its width answers the
+// same number as its copy. The copy rules give the title and every bullet
+// one line.
 
 const products = await harnessProducts()
 
@@ -22,6 +26,7 @@ for (const product of products) {
       page,
       backendPath,
     }) => {
+      await page.setViewportSize({ width: 1280, height: 720 })
       await page.goto(harnessPath(backendPath, product.slug))
       await waitForProductReady(page)
       await settledFrames(page)
@@ -29,35 +34,48 @@ for (const product of products) {
       await markerOf(page, hotspot.title).click()
       await expect(cardHeadingOf(page, hotspot.title)).toBeVisible()
       await settledFrames(page)
-      const card = openCardOf(page)
-      await expect(
-        page.locator('[data-slot="dock"]').getByTestId('hotspot-card'),
-        'the width check reads the floating card, so the card must not be docked',
-      ).toHaveCount(0)
 
-      const widths = await card.evaluate(async (wrapper) => {
-        const parent = wrapper.parentElement
+      const widths = await markerOf(page, hotspot.title).evaluate(async (marker, title) => {
+        const overlayBox = marker.parentElement?.parentElement
+        const wrapper = document.querySelector('[data-testid="hotspot-card"]')
+        if (overlayBox === null || overlayBox === undefined || wrapper === null) {
+          throw new Error(`the open card of ${title} must sit in the page with its marker`)
+        }
         const heading = wrapper.querySelector('h2')
-        if (parent === null || heading === null) {
-          throw new Error('the floating card must have a parent and a title heading')
+        if (heading === null) {
+          throw new Error('the open card must carry a title heading')
         }
-        const unclamped = wrapper.cloneNode(true)
-        const lengthened = wrapper.cloneNode(true)
-        if (!(unclamped instanceof HTMLElement) || !(lengthened instanceof HTMLElement)) {
-          throw new Error('the floating card clones must be elements')
+
+        // The floating card's own layout rule, as the stylesheet writes it,
+        // applied to copies of the open card whatever slot it sits in.
+        const floatingCopy = (source: Element): HTMLElement => {
+          const copy = source.cloneNode(true)
+          if (!(copy instanceof HTMLElement)) {
+            throw new Error('the card copy must be an element')
+          }
+          copy.style.position = 'absolute'
+          copy.style.insetBlockStart = '0'
+          copy.style.insetInlineStart = '0'
+          copy.style.inlineSize = 'max-content'
+          copy.style.maxInlineSize = 'var(--size-hotspot-card-max)'
+          copy.style.visibility = 'hidden'
+          copy.removeAttribute('data-testid')
+          return copy
         }
+        const card = floatingCopy(wrapper)
+        const unclamped = floatingCopy(wrapper)
         unclamped.style.maxInlineSize = 'none'
+        const lengthened = floatingCopy(wrapper)
         const lengthenedHeading = lengthened.querySelector('h2')
         if (lengthenedHeading === null) {
-          throw new Error('the lengthened clone must carry the title heading')
+          throw new Error('the lengthened copy must carry the title heading')
         }
         lengthenedHeading.textContent = `${heading.textContent ?? ''} `.repeat(8).trim()
-        for (const clone of [unclamped, lengthened]) {
-          clone.style.visibility = 'hidden'
-          clone.removeAttribute('data-testid')
-          parent.appendChild(clone)
+        for (const copy of [card, unclamped, lengthened]) {
+          overlayBox.appendChild(copy)
         }
-        const elements = [wrapper, unclamped, lengthened]
+
+        const elements = [card, unclamped, lengthened]
         const sizes = await new Promise<number[]>((resolve) => {
           const observer = new ResizeObserver((entries) => {
             observer.disconnect()
@@ -66,7 +84,7 @@ for (const product of products) {
                 const entry = entries.find((candidate) => candidate.target === element)
                 const size = entry?.borderBoxSize[0]
                 if (size === undefined) {
-                  throw new Error('every observed card must report a border box')
+                  throw new Error('every observed copy must report a border box')
                 }
                 return size.inlineSize
               }),
@@ -76,30 +94,43 @@ for (const product of products) {
             observer.observe(element)
           }
         })
-        unclamped.remove()
-        lengthened.remove()
         // One line box per line: a range over an element's text answers one
         // rectangle per line it lays out on.
-        const lines = [heading, ...wrapper.querySelectorAll('li')].map((element) => {
+        const lines = [card.querySelector('h2'), ...card.querySelectorAll('li')].map((element) => {
+          if (element === null) {
+            throw new Error('the card copy must carry the title heading')
+          }
           const range = document.createRange()
           range.selectNodeContents(element)
           return range.getClientRects().length
         })
-        const [card, content, clamped] = sizes
-        if (card === undefined || content === undefined || clamped === undefined) {
+        for (const copy of elements) {
+          copy.remove()
+        }
+        const [atRule, content, clamped] = sizes
+        if (atRule === undefined || content === undefined || clamped === undefined) {
           throw new Error('the observer must answer all three widths')
         }
-        return { card, content, clamped, lines }
-      })
+        // The live card's own width when it floats: its slot element sits
+        // in this same overlay box.
+        const floating = overlayBox.contains(wrapper) ? wrapper.getBoundingClientRect().width : null
+        return { atRule, content, clamped, lines, floating }
+      }, hotspot.title)
 
       const maxPx = await tokenPx(page, '--size-hotspot-card-max')
       expect(widths.clamped, `a title past the token must lay out at the ${maxPx}px token`).toBe(
         maxPx,
       )
       expect(
-        widths.card,
+        widths.atRule,
         `the card must lay out at its content width clamped by the ${maxPx}px token`,
       ).toBe(Math.min(widths.content, maxPx))
+      if (widths.floating !== null) {
+        expect(
+          widths.floating,
+          'the live floating card answers the same width as its copy at the rule',
+        ).toBe(widths.atRule)
+      }
       expect(widths.lines, 'the title and every bullet lay out on one line').toEqual(
         widths.lines.map(() => 1),
       )

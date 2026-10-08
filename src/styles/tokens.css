@@ -109,6 +109,7 @@ their minimum below it, switched by the breakpoints at the end of this file.
   --size-hotspot-dot: 10px;
   --size-hotspot-ring: 28px;
   --size-hotspot-hit: var(--size-hit-min);
+
   /*
   The gap between a hotspot marker and the card floating beside it, and the
   stacking of the floating card above the markers, whose placed elements
@@ -278,6 +279,19 @@ at build time, so every stylesheet that queries one of these must
     --hotspot-card-dock: always;
   }
 }
+
+/*
+A viewport too short for the sheet under the stacked stage to hold a docked
+card at its full size (a phone held sideways). The band the sheet keeps is
+four tenths of the height less the top bar (the tablet stage's share), so
+it stops holding the full card, its block padding and its handle below
+about 598 px of height; there the docked card takes its compact form, and
+the band scrolls for whatever still exceeds it. The stage never gives the
+band its space instead: the markers of the launch products lose their
+keep-out room on a stage that short (measured: at a 150 px stage, half the
+markers of three products hide), so discovery would pay for the card.
+*/
+@custom-media --vp-short-sheet (height < 598px);
 
 /* Ranged type sizes drop to their minimum below the desktop breakpoint. */
 @media not (--vp-desktop) {

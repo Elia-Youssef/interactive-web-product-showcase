@@ -1,3 +1,5 @@
+@import '../../styles/tokens.css';
+
 /* The open hotspot card in its two slots. Values are tokens. */
 
 /* The floating card: the element the stage overlay places by its top-left
@@ -30,4 +32,27 @@
    tree and the focus order. */
 .dockedHidden {
   visibility: hidden;
+}
+
+/* The compact form of the docked card on a sheet band too short for the
+   full one (a phone held sideways): tighter padding and gaps, and the
+   title at the body size. The card's top lands at the band's top (the
+   dock's scroll rule), so this is the form a visitor reads whole; the
+   band scrolls for anything the copy cap still adds past it. */
+@media (--vp-tablet) and (--vp-short-sheet) {
+  .docked {
+    --card-padding: var(--space-2);
+    --card-gap: var(--space-2);
+    --card-title-size: var(--fs-body);
+    --card-bullet-gap: var(--space-1);
+  }
+}
+
+@media (--vp-phone) and (--vp-short-sheet) {
+  .docked {
+    --card-padding: var(--space-2);
+    --card-gap: var(--space-2);
+    --card-title-size: var(--fs-body);
+    --card-bullet-gap: var(--space-1);
+  }
 }
