@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
-import type { CameraControlsImpl } from '@react-three/drei'
-import { MathUtils, Vector3, type PerspectiveCamera } from 'three'
+import type CameraControlsImpl from 'camera-controls'
+import { MathUtils, Vector3, type PerspectiveCamera } from 'three/webgpu'
 import type { ViewerCameraAutomation } from '../automation/viewerAutomation'
 import { useStageProbes } from '../automation/stageProbesContext'
 

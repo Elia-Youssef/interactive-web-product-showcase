@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useThree } from '@react-three/fiber'
-import { Mesh } from 'three'
+import { Mesh } from 'three/webgpu'
 
 // The dev-only scene-graph read the scene-purity proof uses: how many
 // meshes the stage scene holds, counted at access time. The finishes' own

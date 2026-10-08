@@ -7,7 +7,7 @@ import {
   MeshBasicMaterial,
   Object3D,
   PerspectiveCamera,
-} from 'three'
+} from 'three/webgpu'
 import { describe, expect, it } from 'vitest'
 import { HotspotPlacer } from './placer'
 import type { OverlayPlacement } from '@viewer/overlay/StageOverlay'

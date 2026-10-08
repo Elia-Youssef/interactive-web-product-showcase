@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { AnimationClip, Object3D, VectorKeyframeTrack } from 'three'
+import { AnimationClip, Object3D, VectorKeyframeTrack } from 'three/webgpu'
 import { ExplodeRangeError } from '@lib/explode'
 import { createExplodePose } from './explodePose'
 

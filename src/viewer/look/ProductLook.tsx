@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo } from 'react'
 import { useThree } from '@react-three/fiber'
-import { MathUtils, Mesh, type Material, type Object3D } from 'three'
+import { MathUtils, Mesh, type Material, type Object3D } from 'three/webgpu'
 import { resolveProductLook } from '@lib/product'
 import { useStageProbes } from '../automation/stageProbesContext'
 import { useLoadedProduct } from '../product/loadedProduct'

@@ -42,6 +42,11 @@ export type FinishApplier = {
   // selections are ignored. It is disposed with the loaded product it
   // applies to.
   readonly dispose: () => void
+  // Resolves once the first application, the precompile included, has
+  // finished or failed, or once the applier is disposed before it could:
+  // the presentation's ready settle waits for it. It never rejects; a
+  // failed application reaches the owner's failure channel.
+  readonly firstApplied: Promise<void>
 }
 
 export function createFinishApplier(owner: FinishApplierOwner): FinishApplier {
@@ -54,6 +59,7 @@ export function createFinishApplier(owner: FinishApplierOwner): FinishApplier {
   // The precompile rides the first application, once per applier.
   let firstApplication = true
   let disposed = false
+  const firstApplied = oneShotSignal()
 
   const step = async (): Promise<void> => {
     if (disposed || requested === null) {
@@ -62,7 +68,11 @@ export function createFinishApplier(owner: FinishApplierOwner): FinishApplier {
     const variant = requested
     if (firstApplication) {
       firstApplication = false
-      await applyFirstFinish({ loaded, variant, settle })
+      try {
+        await applyFirstFinish({ loaded, variant, settle })
+      } finally {
+        firstApplied.mark()
+      }
       return
     }
     await applyFinish({ loaded, variant, settle })
@@ -92,9 +102,20 @@ export function createFinishApplier(owner: FinishApplierOwner): FinishApplier {
 
   const dispose = (): void => {
     disposed = true
+    firstApplied.mark()
   }
 
-  return { apply, readFinish, dispose }
+  return { apply, readFinish, dispose, firstApplied: firstApplied.settled }
+}
+
+// A signal that settles once: its promise resolves on the first mark, and
+// a later mark changes nothing.
+function oneShotSignal(): { readonly settled: Promise<void>; readonly mark: () => void } {
+  let mark: () => void = () => undefined
+  const settled = new Promise<void>((resolve) => {
+    mark = resolve
+  })
+  return { settled, mark }
 }
 
 // The material name every mapped mesh primitive carries, read from the

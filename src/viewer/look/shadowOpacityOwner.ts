@@ -1,4 +1,4 @@
-import type { Material } from 'three'
+import type { Material } from 'three/webgpu'
 
 // The one owner of the shadow material's opacity. The loader authors an
 // opacity, the product's look scales it by its shadow factor, and the

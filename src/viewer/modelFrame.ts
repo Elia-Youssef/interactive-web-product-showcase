@@ -1,5 +1,5 @@
-import { Line, Mesh, Points } from 'three'
-import type { BufferGeometry, Object3D } from 'three'
+import { Line, Mesh, Points } from 'three/webgpu'
+import type { BufferGeometry, Object3D } from 'three/webgpu'
 import { frameSpanOfMeshBoxes, isMat4 } from '@lib/camera/frame'
 import type { MeshBox, Vec3 } from '@lib/camera/frame'
 

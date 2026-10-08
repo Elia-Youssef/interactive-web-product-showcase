@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { Mesh, MeshBasicMaterial, Scene, SRGBColorSpace, DataTexture } from 'three'
+import { Mesh, MeshBasicMaterial, Scene, SRGBColorSpace, DataTexture } from 'three/webgpu'
 import { createLookReader } from './lookReader'
 
 // The structural renderer stand-in the reader takes.

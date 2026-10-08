@@ -1,4 +1,4 @@
-import { Group, Mesh, type Material } from 'three'
+import { Group, Mesh, type Material } from 'three/webgpu'
 import { precompilePairs } from '@lib/product'
 import type { LoadedProduct } from '@viewer/product/loadedProduct'
 import type { MappedSceneNode } from '@viewer/product/mappedSceneNodes'

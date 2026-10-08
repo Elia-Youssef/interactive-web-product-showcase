@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PerspectiveCamera } from 'three'
+import { PerspectiveCamera } from 'three/webgpu'
 import { buildCameraPlan } from './productPlan'
 import {
   brokenMessages,

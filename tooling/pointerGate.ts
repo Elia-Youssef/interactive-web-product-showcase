@@ -14,8 +14,8 @@ import type { PointerFinding } from './pointerRules.ts'
 // and no text rule reads it.
 const binaryProbeLength = 8000
 
-// Every owned file, a vendored one included, is a valid reference target;
-// only the files the project authors are scanned, by the gated-file rule.
+// Every owned file is a valid reference target; only the files the project
+// authors are scanned, by the gated-file rule.
 export function scanGatedFilesForPointers(root: string): PointerFinding[] {
   const entries = readLocalOnlyEntries(root)
   const ownedFiles = listOwnedFiles(root)

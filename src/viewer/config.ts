@@ -1,5 +1,5 @@
 import type { Frameloop } from '@react-three/fiber'
-import { NeutralToneMapping, SRGBColorSpace } from 'three'
+import { NeutralToneMapping, SRGBColorSpace } from 'three/webgpu'
 
 // The stage's fixed settings, declared once. Every tunable names its unit or
 // kind, and nothing reaches the renderer that is not written here.

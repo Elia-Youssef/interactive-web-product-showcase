@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MeshBasicMaterial } from 'three'
+import { MeshBasicMaterial } from 'three/webgpu'
 import { createShadowOpacityHolder, createShadowOpacityOwner } from './shadowOpacityOwner'
 
 // The owner composes the shadow's opacity over the three writers' inputs.

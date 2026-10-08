@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useThree } from '@react-three/fiber'
-import { MathUtils, PerspectiveCamera } from 'three'
+import { MathUtils, PerspectiveCamera } from 'three/webgpu'
 import { usePresentedFrame } from '@viewer/stageFrameContext'
 
 // The dev-only lens recorder the eased-lens proof reads: once started, it

@@ -7,7 +7,7 @@ import {
   PerspectiveCamera,
   Scene,
   Vector2,
-} from 'three'
+} from 'three/webgpu'
 import { GLSLNodeBuilder, NodeFrame, UniformNode, WebGPURenderer } from 'three/webgpu'
 import type { Node } from 'three/webgpu'
 import { lights } from 'three/tsl'

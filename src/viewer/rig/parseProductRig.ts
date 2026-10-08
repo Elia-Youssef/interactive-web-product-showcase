@@ -1,4 +1,4 @@
-import { Camera, type AnimationClip, type Object3D } from 'three'
+import { Camera, type AnimationClip, type Object3D } from 'three/webgpu'
 import {
   CAMERA_HOME_ID,
   CAMERA_PREFIX,

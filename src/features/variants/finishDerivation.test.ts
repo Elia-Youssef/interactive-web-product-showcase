@@ -1,4 +1,4 @@
-import { Mesh, type Object3D } from 'three'
+import { Mesh, type Object3D } from 'three/webgpu'
 import { expect, test } from 'vitest'
 import {
   finishEntryMaterialIndexes,

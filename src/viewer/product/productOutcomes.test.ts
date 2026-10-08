@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { AnimationClip, Object3D, PerspectiveCamera } from 'three'
+import { AnimationClip, Object3D, PerspectiveCamera } from 'three/webgpu'
 import { parseProduct } from '@lib/product'
 import { sampleOneManifest } from '@lib/product/fixtures'
 import type { ModelFrame } from '../modelFrame'
@@ -8,7 +8,6 @@ import type { ProductRig } from '../rig/productRig'
 import { plannedFinish } from '@lib/product/finishPlan.fixtures'
 import type { FinishResolution } from './finishMaterials'
 import type { LoadedModel, ProductModelLoad } from './productModelLoads'
-import { loadProductModel } from './productModelLoads'
 import { openProduct, planPresentation } from './productOutcomes'
 
 const manifest = parseProduct(sampleOneManifest, 'sample-one.test')
@@ -155,27 +154,5 @@ describe('planPresentation', () => {
         expect.objectContaining({ rule: 'view-within-distance-limits' }),
       ]),
     })
-  })
-})
-
-describe('loadProductModel', () => {
-  it('settles a rejected load as the load failure naming the model URL', async () => {
-    const url = '/models/sample-one/model.glb'
-    const load = await loadProductModel(
-      { loadAsync: () => Promise.reject(new TypeError('Failed to fetch')) },
-      url,
-    )
-
-    expect(load).toEqual({
-      kind: 'failed',
-      failure: { kind: 'load', url, message: 'Failed to fetch' },
-    })
-  })
-
-  it('settles a load that resolves as the loaded model', async () => {
-    const model = loadedModel(validTree())
-    const load = await loadProductModel({ loadAsync: () => Promise.resolve(model) }, '/m.glb')
-
-    expect(load).toEqual({ kind: 'loaded', model })
   })
 })

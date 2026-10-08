@@ -1,4 +1,4 @@
-import { AnimationClip, Group, Object3D, type PerspectiveCamera } from 'three'
+import { AnimationClip, Group, Object3D, type PerspectiveCamera } from 'three/webgpu'
 import type { CameraLimitProblem } from '@lib/camera/limits'
 import type { ModelBounds } from '@lib/camera/frame'
 import type { Vec3 } from '@lib/camera/view'

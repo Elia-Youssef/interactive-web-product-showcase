@@ -1,5 +1,5 @@
-import { Mesh } from 'three'
-import type { Object3D } from 'three'
+import { Mesh } from 'three/webgpu'
+import type { Object3D } from 'three/webgpu'
 import type { LoadedProduct } from '@viewer/product/loadedProduct'
 
 // The occluders of a loaded product: every mesh of its scene except the

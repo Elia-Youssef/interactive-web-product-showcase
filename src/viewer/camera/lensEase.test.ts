@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { MathUtils, Vector3 } from 'three'
+import { MathUtils, Vector3 } from 'three/webgpu'
 import { DomRectStandIn, STAGE_ASPECT, staged, STEP, STEP_BUDGET, viewOf } from './lensEaseFixtures'
 import {
   easeTo,

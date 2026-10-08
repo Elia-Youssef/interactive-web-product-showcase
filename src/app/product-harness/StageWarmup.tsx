@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { DataTexture } from 'three'
+import { DataTexture } from 'three/webgpu'
 import { useStageFrame } from '@viewer/stageFrameContext'
 
 // How many rendered frames the warm-up mesh stays in the scene for: one

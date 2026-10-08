@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, expect, test, vi } from 'vitest'
-import { Spherical } from 'three'
+import { Spherical } from 'three/webgpu'
 import { DomRectStandIn, staged } from './lensEaseFixtures'
 import { readControlsEndDistance } from './controls'
 import { zoomStepMoves } from '@lib/camera/zoom'

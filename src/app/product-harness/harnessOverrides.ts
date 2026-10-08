@@ -1,5 +1,5 @@
-import type { z } from 'zod'
-import { issuesFromZod } from '@lib/validation'
+import type { z } from 'zod/mini'
+import { issuesFromZod, parseWithMessages } from '@lib/validation'
 import {
   productCameraSchema,
   productLookSchema,
@@ -51,7 +51,7 @@ export function harnessOverrides(query: string): HarnessOverrideParse {
   }
 }
 
-function parseBlock<Schema extends z.ZodType>(
+function parseBlock<Schema extends z.ZodMiniType>(
   params: URLSearchParams,
   name: string,
   schema: Schema,
@@ -66,7 +66,7 @@ function parseBlock<Schema extends z.ZodType>(
   } catch {
     return { kind: 'invalid', reason: `the ${name} parameter is not JSON: ${value}` }
   }
-  const result = schema.safeParse(raw)
+  const result = parseWithMessages(schema, raw)
   if (result.success) {
     return { kind: 'override', block: result.data }
   }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from 'react'
 import { useThree } from '@react-three/fiber'
-import { CameraControlsImpl } from '@react-three/drei'
+import CameraControlsImpl from 'camera-controls'
 import { useAppStore } from '@store/index'
 import { useStageFrame } from '@viewer/stageFrameContext'
 import type { FrameOwnerScope } from '@viewer/StageFramePath'

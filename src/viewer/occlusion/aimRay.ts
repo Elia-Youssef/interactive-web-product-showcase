@@ -1,4 +1,4 @@
-import type { Raycaster, Vector3 } from 'three'
+import type { Raycaster, Vector3 } from 'three/webgpu'
 
 // The one setup of the ray from the camera to an anchor. three's raycaster
 // requires a unit direction (Raycaster.set: "direction is assumed to be

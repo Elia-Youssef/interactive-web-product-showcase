@@ -1,4 +1,4 @@
-import { Matrix4, Vector3, type Object3D } from 'three'
+import { Matrix4, Vector3, type Object3D } from 'three/webgpu'
 import type { Vec3 } from '@lib/camera/view'
 import type { ProductHotspot } from './productRig'
 

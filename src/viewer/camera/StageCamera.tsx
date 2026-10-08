@@ -1,6 +1,6 @@
 import { useMemo, useRef, type ReactNode } from 'react'
 import { useThree } from '@react-three/fiber'
-import { PerspectiveCamera } from 'three'
+import { PerspectiveCamera } from 'three/webgpu'
 import type { DistanceRange } from '@lib/camera/limits'
 import { useAppStoreApi } from '@store/index'
 import type { CameraPlan } from './productPlan'

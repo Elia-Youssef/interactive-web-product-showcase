@@ -7,7 +7,7 @@ import {
   Object3D,
   Texture,
   type Vector2,
-} from 'three'
+} from 'three/webgpu'
 import { markSceneMaterials } from './finishMaterials'
 
 // What the preparation marks on each material instance: its own anisotropy

@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { CameraControlsImpl } from '@react-three/drei'
+import CameraControlsImpl from 'camera-controls'
 import { stageCameraConfig } from './config'
 
 // The controls' fixed configuration, applied once they exist, from the one

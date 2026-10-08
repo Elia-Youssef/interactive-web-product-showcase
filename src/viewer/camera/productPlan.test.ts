@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { Camera } from 'three'
-import { AnimationClip, Object3D, OrthographicCamera, PerspectiveCamera } from 'three'
+import type { Camera } from 'three/webgpu'
+import { AnimationClip, Object3D, OrthographicCamera, PerspectiveCamera } from 'three/webgpu'
 import type { ProductRig } from '../rig/productRig'
 import { stageCameraConfig } from './config'
 import { buildCameraPlan } from './productPlan'

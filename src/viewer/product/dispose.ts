@@ -1,4 +1,4 @@
-import { Line, Mesh, Points, Texture, type Material, type Object3D } from 'three'
+import { Line, Mesh, Points, Texture, type Material, type Object3D } from 'three/webgpu'
 import type { ProductFinishMaterials } from './finishMaterials'
 
 // Disposes everything a loaded product holds: every geometry the scene

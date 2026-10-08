@@ -11,9 +11,6 @@
 /env/*
   Cache-Control: public, max-age=0, must-revalidate
 
-/basis/*
-  Cache-Control: public, max-age=0, must-revalidate
-
 /fonts/*
   Cache-Control: public, max-age=0, must-revalidate
 

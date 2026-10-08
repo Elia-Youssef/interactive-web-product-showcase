@@ -1,6 +1,6 @@
-import type { CameraControlsImpl } from '@react-three/drei'
+import type CameraControlsImpl from 'camera-controls'
 import type { RefObject } from 'react'
-import { PerspectiveCamera, type Camera } from 'three'
+import { PerspectiveCamera, type Camera } from 'three/webgpu'
 import type { DistanceRange } from '@lib/camera/limits'
 import type { CameraPlan, CameraView } from './productPlan'
 import { applyLens, applyView, scaledRangeOf, stepZoom } from './controls'
@@ -13,7 +13,7 @@ import { prefersReducedMotion } from './prefersReducedMotion'
 // or aspect.
 
 export type StageCameraState = {
-  // The controls once drei mounted them, null before that.
+  // The controls while the stage has mounted them, null before that.
   readonly controls: CameraControlsImpl | null
   // The stage's camera, which the lens is applied to.
   readonly camera: Camera

@@ -8,6 +8,7 @@ import { createShadowOpacityHolder } from '../look/shadowOpacityOwner'
 import type { ProductRig } from '../rig/productRig'
 import { summarizeProductRig } from '../rig/summary'
 import { LoadedProductContext, type LoadedProduct } from './loadedProduct'
+import { createProductReadyGate, ProductReadyGateContext } from './productReadyGate'
 import type { ProductFinishMaterials } from './finishMaterials'
 import type { LoadedModel } from './productModelLoads'
 import { useProductPresentation } from './useProductPresentation'
@@ -46,6 +47,9 @@ export function PresentedProduct({
   // the loaded product itself: the look installs its owner into it and the
   // features that fade the shadow claim their factor through it.
   const [shadowOpacity] = useState(createShadowOpacityHolder)
+  // The ready gate, one per presented product: the extensions hold their
+  // first work on it and the presentation's ready settle waits for it.
+  const [readyGate] = useState(createProductReadyGate)
 
   const summary = useMemo(() => summarizeProductRig(rig), [rig])
   const loaded = useMemo<LoadedProduct>(
@@ -60,7 +64,7 @@ export function PresentedProduct({
     productReady(slug, summary, { meshes: frame.meshes, triangles: frame.triangles })
   }, [productReady, slug, summary, frame])
 
-  useProductPresentation({ rig, manifest, frame, report, fail })
+  useProductPresentation({ rig, manifest, frame, report, fail, readyGate })
 
   // The presented content owns the stage's frames while it is in the scene:
   // a frame that throws then fails the product with the render kind. The
@@ -83,8 +87,10 @@ export function PresentedProduct({
       </group>
       <LoadedProductContext.Provider value={loaded}>
         <ShadowOpacityContext.Provider value={shadowOpacity}>
-          <ProductLook />
-          {children}
+          <ProductReadyGateContext.Provider value={readyGate}>
+            <ProductLook />
+            {children}
+          </ProductReadyGateContext.Provider>
         </ShadowOpacityContext.Provider>
       </LoadedProductContext.Provider>
     </>
