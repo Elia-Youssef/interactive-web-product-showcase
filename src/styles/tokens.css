@@ -31,6 +31,17 @@ their minimum below it, switched by the breakpoints at the end of this file.
   --hairline-hover-alpha: 0.2;
   --hairline: rgb(var(--white-rgb) / var(--hairline-alpha));
   --hairline-hover: rgb(var(--white-rgb) / var(--hairline-hover-alpha));
+  /*
+  Non-text parts reach 3:1 against what they sit on through one boundary
+  white, never a new hue: 3.8:1 on --bg (the slider track on the stage, the
+  stage controls pill border), 3.7:1 on --surface (the slider track in the
+  panel, the phone sheet handle). The slider's rest fill is --off, 3.7:1 on
+  the track over --bg and 3.3:1 over --surface.
+  */
+  --boundary-alpha: 0.4;
+  --boundary: rgb(var(--white-rgb) / var(--boundary-alpha));
+  /* Disabled controls: 3.8:1 on --bg, a clear 2.2:1 step below the rest label. */
+  --disabled: #6c7173;
   /* The scrim behind a modal dialog in the top layer: black at one alpha. */
   --scrim-alpha: 0.4;
 

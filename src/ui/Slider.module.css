@@ -7,8 +7,8 @@ input, and the token is the empty fill it falls back to. Values are tokens.
 */
 
 .slider {
-  --slider-fill-color: var(--hairline-hover);
-  --slider-track-color: var(--hairline);
+  --slider-fill-color: var(--off);
+  --slider-track-color: var(--boundary);
   --slider-thumb-color: var(--off);
 
   -webkit-appearance: none;
@@ -26,10 +26,10 @@ input, and the token is the empty fill it falls back to. Values are tokens.
 }
 
 /* Disabled: the control waits for the state it acts on. Fill and thumb
-mute against the track that keeps its hairline, and no hover applies. */
+take the shared disabled color against the track, and no hover applies. */
 .slider:disabled {
-  --slider-fill-color: var(--muted);
-  --slider-thumb-color: var(--muted);
+  --slider-fill-color: var(--disabled);
+  --slider-thumb-color: var(--disabled);
   cursor: default;
 }
 
