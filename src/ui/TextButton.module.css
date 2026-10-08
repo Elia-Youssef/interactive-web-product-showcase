@@ -42,9 +42,9 @@ from both ends. */
 }
 
 /* Disabled: the control waits for the state it acts on. It mutes to the
-one muted color the disabled controls share, keeps no hover, and never
+one disabled color the controls share, keeps no hover, and never
 suggests an action. Declared after the hover rule, so the wait wins. */
 .button:disabled {
-  color: var(--muted);
+  color: var(--disabled);
   cursor: default;
 }

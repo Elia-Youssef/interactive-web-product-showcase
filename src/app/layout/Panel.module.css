@@ -111,7 +111,7 @@ height: a shrunken content box would let its children run under the footer. */
     inline-size: var(--size-sheet-handle-width);
     block-size: var(--size-sheet-handle-height);
     border-radius: calc(var(--size-sheet-handle-height) / 2);
-    background-color: var(--hairline-hover);
+    background-color: var(--boundary);
     margin-block-end: var(--space-2);
   }
 }

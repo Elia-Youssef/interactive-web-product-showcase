@@ -25,10 +25,10 @@ lifts to --raised and the icon to --white on hover. Values are tokens. */
 }
 
 /* Disabled: the control waits at the limit it reached. It mutes to the one
-muted color the disabled controls share, keeps its own surface, and no
+disabled color the controls share, keeps its own surface, and no
 hover applies. Declared after the hover rule, so the wait wins. */
 .button:disabled {
   background-color: var(--surface);
-  color: var(--muted);
+  color: var(--disabled);
   cursor: default;
 }
