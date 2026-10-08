@@ -5,6 +5,7 @@ import { waitForExplodeRestingAt } from './explodeRest'
 import { readMarkerExtentTokens } from './markerExtentTokens'
 import { readScrubMarkerFacts, SCRUB_TARGETS } from './scrubMarkerFacts'
 import { expectProduct, productPathOf } from './collectionFacts'
+import { loadCollection } from './productList'
 import { settledFrames } from './stageSettle'
 import { expectOrbitAtRest, readCamera, stageAspectOfCanvas } from './stageCamera'
 import { cardHeadingOf, markerOf } from './hotspotViews'
@@ -37,7 +38,7 @@ import { expectMarkerClearOfCard, placedMarkerTitles } from './hotspotCardChecks
 // view that still shows its own marker (the card hangs off it), and every
 // layout keeps at least one case, so no layout passes on an empty set.
 
-const { flowsAt, markerViewsAt } = await flowFacts()
+const { flowsAt, markerViewsAt } = await flowFacts((await loadCollection()).products)
 const extent = await readMarkerExtentTokens()
 
 type OpenView = {
