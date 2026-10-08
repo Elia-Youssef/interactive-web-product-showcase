@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react'
 import { devClientStubPlugin } from './tooling/devClientStub.ts'
 import { devHost, isE2EServer } from './tooling/devHost.ts'
 import { resolveDevPort } from './tooling/devPort.ts'
+import { assetNamePattern, hashCharacters, scriptNamePattern } from './tooling/outputNaming.ts'
 import { unitTestGlobs } from './tooling/testRoots.ts'
 
 const port = resolveDevPort(process.env)
@@ -28,6 +29,18 @@ export default defineConfig({
     lightningcss: {
       drafts: {
         customMedia: true,
+      },
+    },
+  },
+  build: {
+    // Every bundled file carries a content hash in its name; the deploy check
+    // reads the same pattern to tell a hashed file from a stable one.
+    rolldownOptions: {
+      output: {
+        entryFileNames: scriptNamePattern,
+        chunkFileNames: scriptNamePattern,
+        assetFileNames: assetNamePattern,
+        hashCharacters,
       },
     },
   },
