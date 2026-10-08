@@ -165,8 +165,18 @@ export const productLookSchema = z.strictObject({
     .optional(),
 })
 
+// The per-product link-preview block: the words a link preview shows that no
+// manifest field spells the same way, the product kind as a link preview
+// names it and the description sentence. Optional: a product without the
+// block declares no link-preview copy of its own.
+export const productMetaSchema = z.strictObject({
+  kind: singleLineText,
+  description: singleLineText,
+})
+
 export type ProductLookBlock = z.output<typeof productLookSchema>
 export type ProductCameraBlock = z.output<typeof productCameraSchema>
+export type ProductMetaBlock = z.output<typeof productMetaSchema>
 
 // The single source of truth for what a product manifest is. Every object is
 // strict, so an unknown key is an error and a typo never passes silently.
@@ -192,6 +202,7 @@ export const productManifestSchema = z.strictObject({
   // resolution layer fills the defaults, because its own defaults are
   // viewer config, not schema data.
   look: productLookSchema.optional(),
+  meta: productMetaSchema.optional(),
 })
 
 export type ProductInput = z.input<typeof productManifestSchema>

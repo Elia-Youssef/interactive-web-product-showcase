@@ -15,6 +15,11 @@ export const manifest = {
     'A closed-back headphone built around one 40 mm driver per side.',
     'Aluminum yokes, steel sliders and a knit band.',
   ],
+  meta: {
+    kind: 'wireless over-ear headphones',
+    description:
+      'Forma One, a wireless over-ear headphone concept by Rebel Art Studios. A 40 mm driver per side, aluminum yokes and a knit band. Explore it in 3D.',
+  },
   finishes: [
     { variant: 'slate', label: 'Slate', swatch: '#6A7078' },
     { variant: 'bone', label: 'Bone', swatch: '#F3ECE2' },

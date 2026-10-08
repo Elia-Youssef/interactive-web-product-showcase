@@ -12,6 +12,11 @@ export const manifest = {
     'Spak is a two-segment task lamp balanced by a steel weight in the base.',
     'One lever sets the friction on both arm joints at once.',
   ],
+  meta: {
+    kind: 'counterweight task lamp',
+    description:
+      'Vidde Spak, a counterweight task lamp concept by Rebel Art Studios. A steel weight keeps the arm where you leave it. Explore it in 3D.',
+  },
   finishes: [
     { variant: 'ivory', label: 'Ivory', swatch: '#EEE4D6' },
     { variant: 'charcoal', label: 'Charcoal', swatch: '#484B51' },
