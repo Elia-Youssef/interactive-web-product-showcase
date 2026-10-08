@@ -22,8 +22,11 @@ const scrubName = explodeScrubName(product)
 const readoutOf = (page: Page) => page.locator('[data-explode-readout]')
 const sliderOf = (page: Page) => page.getByRole('slider', { name: scrubName })
 
-test('before the product is presented the slider is disabled and reads 0%', async ({ page }) => {
-  await page.goto('/')
+test('before the product is presented the slider is disabled and reads 0%', async ({
+  page,
+  backendPath,
+}) => {
+  await page.goto(backendPath)
 
   // The panel renders with the route, before any model presents. Nothing is
   // attached, so the control waits like the toggle does, at the assembled
@@ -42,9 +45,14 @@ test('before the product is presented the slider is disabled and reads 0%', asyn
   await expect(toggle).toHaveCSS('color', 'rgb(160, 160, 160)')
 })
 
-test('the two controls of the section are named apart', async ({ page }) => {
-  await page.goto('/')
+test('the two controls of the section are named apart', async ({
+  page,
+  expectedBackend,
+  backendPath,
+}) => {
+  await page.goto(backendPath)
   await waitForExplodeMounted(page)
+  expect(await page.evaluate(() => window.__viewer?.backend)).toBe(expectedBackend)
 
   // Each name answers for exactly one control: the toggle's word names no
   // slider, the scrub name names no button. The match is the whole name,
@@ -55,8 +63,11 @@ test('the two controls of the section are named apart', async ({ page }) => {
   await expect(page.getByRole('button', { name: scrubName, exact: true })).toHaveCount(0)
 })
 
-test('a scrub to the middle opens the view to the target and reads 50%', async ({ page }) => {
-  await page.goto('/')
+test('a scrub to the middle opens the view to the target and reads 50%', async ({
+  page,
+  backendPath,
+}) => {
+  await page.goto(backendPath)
   await waitForExplodeMounted(page)
 
   const slider = sliderOf(page)
@@ -86,8 +97,9 @@ test('a scrub to the middle opens the view to the target and reads 50%', async (
 
 test('the toggle after a partial scrub completes the open, and the next press closes', async ({
   page,
+  backendPath,
 }) => {
-  await page.goto('/')
+  await page.goto(backendPath)
   await waitForExplodeMounted(page)
 
   const slider = sliderOf(page)
@@ -126,8 +138,9 @@ test('the toggle after a partial scrub completes the open, and the next press cl
 
 test('during the spring the readout and the value text say the applied progress', async ({
   page,
+  backendPath,
 }) => {
-  await page.goto('/')
+  await page.goto(backendPath)
   await waitForExplodeMounted(page)
 
   await sliderOf(page).fill('1')
@@ -173,9 +186,12 @@ test('during the spring the readout and the value text say the applied progress'
   expect(sample.valueText).toBe(sample.readout)
 })
 
-test('under reduced motion a scrub lands in its one frame, with the readout', async ({ page }) => {
+test('under reduced motion a scrub lands in its one frame, with the readout', async ({
+  page,
+  backendPath,
+}) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
-  await page.goto('/')
+  await page.goto(backendPath)
   await waitForExplodeMounted(page)
   const before = await renderedFramesOf(page)
 

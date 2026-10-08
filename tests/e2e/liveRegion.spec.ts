@@ -14,10 +14,16 @@ import { productName } from '../../src/lib/product'
 const collection = await loadCollection()
 const first = collection.first
 
-test('a finish selection is announced by the shell live region', async ({ page }) => {
+test('a finish selection is announced by the shell live region', async ({
+  page,
+  expectedBackend,
+  backendPath,
+}) => {
   test.skip(first.finishes.length < 2, 'a product with one finish has nothing to switch to')
 
-  await page.goto('/')
+  await page.goto(backendPath)
+  await waitForProductReady(page)
+  expect(await page.evaluate(() => window.__viewer?.backend)).toBe(expectedBackend)
 
   const to = first.finishes[1]
   if (to === undefined) {
