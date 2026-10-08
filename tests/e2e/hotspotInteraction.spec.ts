@@ -12,6 +12,7 @@ import {
 import { markerOf, requireCamera } from './hotspotViews'
 import { selectOcclusionSubjects } from './occlusionSubjects'
 import { flowFacts } from './hotspotFlowFacts'
+import { resolvedTokenColor } from './tokenColor'
 
 // The pulse animations of one marker, read through the Web Animations API.
 // The marker subtree carries exactly one animation, the pulse; its keyframes
@@ -65,6 +66,9 @@ for (const flow of flows) {
     }) => {
       await page.goto(harnessPath(backendPath, slug))
       await waitForProductReady(page)
+      // The red token as the browser resolves it, read before the settle so
+      // the probe is gone before the frame and camera baselines are taken.
+      const red = await resolvedTokenColor(page, '--red')
       await settledFrames(page)
 
       const cameraBefore = await requireCamera(page)
@@ -76,19 +80,10 @@ for (const flow of flows) {
         await expect(markerOf(page, other.title)).toHaveAttribute('aria-pressed', 'false')
       }
 
-      // The dot's computed color is the red token, read from the tokens
+      // The dot's computed color is the red token, resolved from the tokens
       // themselves so no hand-typed color enters the expectation. The dot
       // lifts through the state transition token (150ms), so the read polls
       // past it.
-      const redToken = await page.evaluate(() =>
-        getComputedStyle(document.documentElement).getPropertyValue('--red').trim(),
-      )
-      expect(redToken).toMatch(/^#[0-9a-f]{6}$/i)
-      const redAsRgb = `rgb(${redToken
-        .slice(1)
-        .match(/../g)
-        ?.map((hex) => Number.parseInt(hex, 16))
-        .join(', ')})`
       await expect
         .poll(
           () =>
@@ -97,7 +92,7 @@ for (const flow of flows) {
             ),
           { message: 'the pressed marker dot must be the red token', timeout: testBodyBudgetMs },
         )
-        .toBe(redAsRgb)
+        .toBe(red)
 
       // A press without a close-up is not a drag and not a camera move: the
       // camera holds, and the press renders no frame.
@@ -125,7 +120,7 @@ for (const flow of flows) {
             ),
           { message: 'the cleared marker dot must not stay red', timeout: testBodyBudgetMs },
         )
-        .not.toBe(redAsRgb)
+        .not.toBe(red)
     })
   }
 
