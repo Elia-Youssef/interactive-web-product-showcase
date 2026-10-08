@@ -10,6 +10,15 @@ import {
 } from './decoders'
 import type { ProductModelSources } from './productModelLoads'
 
+// What the sources draw on that the outside world owns, each defaulting to
+// the stage's own: the GLTF loader, whose manager carries the model's
+// requests, and the import of the Meshopt decoder module. A caller that hands
+// in its own observes the manager, the import and the parse.
+export interface GltfModelSourceParts {
+  readonly loader?: GLTFLoader
+  readonly importMeshoptDecoder?: () => Promise<ProductMeshoptDecoder>
+}
+
 // The sources of one stage's model loads, through three's own GLTFLoader:
 // the one parser of the site and of the proofs that parse the shipped
 // models, wired once with the stage's KTX2 loader and the finish resolver.
@@ -27,11 +36,14 @@ import type { ProductModelSources } from './productModelLoads'
 // loader's call; either way the load settles as a typed failure.
 export function createGltfModelSources(
   ktx2: KTX2Loader,
+  {
+    loader = new GLTFLoader(),
+    importMeshoptDecoder = importProductMeshoptDecoder,
+  }: GltfModelSourceParts = {},
 ): ProductModelSources<ProductMeshoptDecoder> {
-  const loader = new GLTFLoader()
   wireProductDecoders(loader, ktx2)
   const bytes = new FileLoader<ArrayBuffer>(loader.manager).setResponseType('arraybuffer')
-  const decoder = new RetriedLoad(importProductMeshoptDecoder)
+  const decoder = new RetriedLoad(importMeshoptDecoder)
   return {
     fetchModel: (url) => bytes.loadAsync(url),
     decoder: () => decoder.read(),
