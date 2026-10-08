@@ -217,3 +217,44 @@ for (const spec of viewportContracts) {
     expect(contentBox.y + contentBox.height).toBeLessThanOrEqual(footerBox.y + 0.5)
   })
 }
+
+// The credit line sits in the panel footer, under the domain readout, at
+// every viewport. It may wrap on the phone sheet, but its box stays inside
+// the panel's own box: no character is clipped at any width.
+for (const spec of viewportContracts) {
+  test(`the credit line sits under the domain and stays inside the panel at ${spec.width}x${spec.height}`, async ({
+    page,
+    backendPath,
+  }) => {
+    await page.setViewportSize({ width: spec.width, height: spec.height })
+    await page.goto(backendPath)
+
+    const panel = page.getByRole('complementary', { name: siteCopy.panelLabel })
+    const domain = panel.getByText(siteCopy.siteUrl)
+    const credit = panel.getByText(siteCopy.credit)
+
+    await expect(credit).toHaveText(siteCopy.credit)
+    await credit.scrollIntoViewIfNeeded()
+    await expect(credit).toBeVisible()
+
+    const panelBox = await panel.boundingBox()
+    const domainBox = await domain.boundingBox()
+    const creditBox = await credit.boundingBox()
+    if (panelBox === null || domainBox === null || creditBox === null) {
+      throw new Error('the panel, domain and credit bounding boxes must be present')
+    }
+    expect(creditBox.y, 'the credit sits under the domain readout').toBeGreaterThanOrEqual(
+      domainBox.y + domainBox.height - 0.5,
+    )
+    expect(creditBox.x, 'the credit starts inside the panel').toBeGreaterThanOrEqual(
+      panelBox.x - 0.5,
+    )
+    expect(creditBox.x + creditBox.width, 'the credit ends inside the panel').toBeLessThanOrEqual(
+      panelBox.x + panelBox.width + 0.5,
+    )
+    expect(
+      creditBox.y + creditBox.height,
+      'the credit bottom stays inside the panel',
+    ).toBeLessThanOrEqual(panelBox.y + panelBox.height + 0.5)
+  })
+}
