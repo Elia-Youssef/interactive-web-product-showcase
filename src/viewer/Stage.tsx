@@ -6,7 +6,9 @@ import { StageProbes } from './automation/StageProbes'
 import { AutomationBridge } from './automation/AutomationBridge'
 import { StageProbesContext } from './automation/stageProbesContext'
 import { FrameClock } from './FrameClock'
+import { stageConfig } from './config'
 import { StageHoldsContext } from './stageHoldsContext'
+import { StageEnvironmentProvider } from './stageEnvironmentProvider'
 import { DevHud } from './hud/DevHud'
 import { productFailureMessage } from './product/failureMessage'
 import { StageAlert } from './StageAlert'
@@ -87,7 +89,11 @@ export function Stage({ content, overlay }: StageProps = {}) {
         <StageProbesContext.Provider value={probes}>
           <StageHoldsContext.Provider value={holds}>
             <AutomationBridge clock={clock} probes={probes} getToneMapping={getToneMapping} />
-            <StageLife key={canvasLife.epoch} canvas={canvas} overlay={overlay} />
+            <StageEnvironmentProvider
+              file={request.kind === 'valid' ? stageConfig.environmentFile : null}
+            >
+              <StageLife key={canvasLife.epoch} canvas={canvas} overlay={overlay} />
+            </StageEnvironmentProvider>
             {stageFailed && <StageAlert reason={rendererStatus.reason} />}
             {productStatus.kind === 'failed' && (
               <StageAlert

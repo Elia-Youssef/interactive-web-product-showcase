@@ -1,9 +1,8 @@
-import { useCallback, useEffect } from 'react'
-import { useEnvironment } from '@react-three/drei'
+import { useEffect, use } from 'react'
 import { useThree } from '@react-three/fiber'
 import { PMREMGenerator } from 'three/webgpu'
-import { stageConfig } from './config'
-import { useStageHold } from './stageHoldsContext'
+import { installCanvasLifeEnvironment } from './canvasLifeEnvironment'
+import { useStageEnvironmentEntry } from './stageEnvironmentProvider'
 import { isStageRenderer } from './stageIdentity'
 import { useStageSettle } from './stageSettleContext'
 
@@ -15,41 +14,41 @@ import { useStageSettle } from './stageSettleContext'
 // mode the stage would come to rest on a frame the environment had not
 // reached yet.
 //
-// The source texture comes out of the loader cache, so it lives as the
-// stage's hold on it: once the hold is gone for good it is disposed and its
-// cache entry cleared, with the same options it was loaded with, and a later
-// mount loads a fresh texture instead of reusing the disposed one. While the
-// component stays mounted the entry stays, so a re-render never suspends the
-// stage's content again.
+// The source comes out of the stage's environment entry, held for the
+// stage's whole life by the provider above the canvas lives: the stage's
+// texture is disposed and the entry forgotten when the stage itself is
+// gone, and a canvas life the stage replaces re-reads the live entry
+// instead of loading again. The renderer never sees the stage's texture:
+// each effect run prefilters a texture of its own over the same source and
+// disposes it with the prefiltered result (canvasLifeEnvironment.ts).
 //
 // Assigning the environment is a scene mutation: the lit materials rebuild
 // their render pipelines for it, so the assignment settles the stage, which
 // presents the lit scene twice and holds the stage's settled promise until
 // both frames are recorded.
-const environmentOptions = { files: stageConfig.environmentFile }
-
 export function StageEnvironment() {
   const gl = useThree((state) => state.gl)
   const scene = useThree((state) => state.scene)
   const settleScene = useStageSettle()
-  const equirectangular = useEnvironment(environmentOptions)
-
-  const releaseSource = useCallback(() => {
-    equirectangular.dispose()
-    useEnvironment.clear(environmentOptions)
-  }, [equirectangular])
-  useStageHold(equirectangular, releaseSource)
+  // The load entry is the same object on every render while it is live, so
+  // the suspension resumes on the very promise it suspended on.
+  const entry = useStageEnvironmentEntry()
+  const equirectangular = use(entry.value)
 
   useEffect(() => {
     if (!isStageRenderer(gl)) {
       throw new Error('the stage environment needs the WebGPURenderer its factory built')
     }
-    const generator = new PMREMGenerator(gl)
-    const prefiltered = generator.fromEquirectangular(equirectangular)
-    generator.dispose()
-
-    const previous = scene.environment
-    scene.environment = prefiltered.texture
+    const uninstall = installCanvasLifeEnvironment({
+      scene,
+      stageTexture: equirectangular,
+      prefilter: (source) => {
+        const generator = new PMREMGenerator(gl)
+        const prefiltered = generator.fromEquirectangular(source)
+        generator.dispose()
+        return prefiltered
+      },
+    })
     let cancelled = false
     settleScene().then(undefined, (error: unknown) => {
       // An unmount during the settle drops the failure with the stage; a
@@ -61,8 +60,7 @@ export function StageEnvironment() {
     })
     return () => {
       cancelled = true
-      scene.environment = previous
-      prefiltered.dispose()
+      uninstall()
     }
   }, [gl, scene, settleScene, equirectangular])
 
