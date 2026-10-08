@@ -19,6 +19,11 @@ export const manifest = {
     'Kvern is a single-dose grinder with a 40 mm conical burr.',
     'The burr carrier lifts out in one piece for cleaning.',
   ],
+  meta: {
+    kind: 'single-dose coffee grinder',
+    description:
+      'Orsa Kvern, a single-dose coffee grinder concept by Rebel Art Studios. A 40 mm conical burr and forty clicks from fine to coarse. Explore it in 3D.',
+  },
   finishes: [
     { variant: 'steel', label: 'Brushed Steel', swatch: '#BEB9BA' },
     { variant: 'walnut', label: 'Walnut Grip', swatch: '#79553F' },

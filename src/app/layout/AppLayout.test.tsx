@@ -22,6 +22,7 @@ test('AppLayout renders site copy for studio, collection, stage, and site URL', 
   expect(html).toContain(siteCopy.stageLabel)
   expect(html).toContain(siteCopy.stageHint)
   expect(html).toContain(siteCopy.siteUrl)
+  expect(html).toContain(siteCopy.credit)
 })
 
 test('AppLayout renders four chrome corners with their data attributes', () => {

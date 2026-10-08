@@ -8,8 +8,19 @@ export {
   PART_PREFIX,
   SHADOW_NODE_NAME,
 } from './contractNames'
-export { productCameraSchema, productManifestSchema, productLookSchema } from './schema'
-export type { Product, ProductCameraBlock, ProductInput, ProductLookBlock } from './schema'
+export {
+  productCameraSchema,
+  productManifestSchema,
+  productLookSchema,
+  productMetaSchema,
+} from './schema'
+export type {
+  Product,
+  ProductCameraBlock,
+  ProductInput,
+  ProductLookBlock,
+  ProductMetaBlock,
+} from './schema'
 export { HOTSPOT_BULLETS_MAX } from './rules'
 export { parseProduct } from './parse'
 export { resolveProductLook } from './resolveLook'

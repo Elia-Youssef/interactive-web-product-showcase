@@ -17,6 +17,12 @@ export function productDocumentTitle(
   return joinTitle(productName(product), collectionName)
 }
 
+// The collection page names the collection first, the studio second:
+// 'Product Concepts | Rebel Art Studios'.
+export function collectionDocumentTitle(collectionName: string, studioName: string): string {
+  return joinTitle(collectionName, studioName)
+}
+
 // The not-found page names the state first: 'Not found | Product Concepts'.
 export function notFoundDocumentTitle(state: string, collectionName: string): string {
   return joinTitle(state, collectionName)

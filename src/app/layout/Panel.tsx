@@ -1,10 +1,11 @@
-// The text panel of the responsive layout: the dock, the product details slot
-// and the site URL footer. On phone, becomes a bottom sheet surface with a
-// grab handle. The dock is the layout's place for overlay content that
-// leaves the stage, the open hotspot card on phone first: the composition
-// takes the element through dockRef and renders into it. It sits first, so
-// docked content shows at the top of the sheet. Words come from siteCopy.
-// Primitives come from @ui.
+// The text panel of the responsive layout: the dock, the product details
+// slot and the site footer, the domain readout with the credit line under
+// it. On phone, becomes a bottom sheet surface with a grab handle. The
+// dock is the layout's place for overlay content that leaves the stage,
+// the open hotspot card on phone first: the composition takes the element
+// through dockRef and renders into it. It sits first, so docked content
+// shows at the top of the sheet. Words come from siteCopy. Primitives
+// come from @ui.
 
 import type { ReactNode, Ref } from 'react'
 import { Readout } from '@ui/index'
@@ -26,6 +27,7 @@ export function Panel({ children, dockRef }: PanelProps) {
       </div>
       <div className={styles.footer}>
         <Readout>{siteCopy.siteUrl}</Readout>
+        <Readout>{siteCopy.credit}</Readout>
       </div>
     </aside>
   )

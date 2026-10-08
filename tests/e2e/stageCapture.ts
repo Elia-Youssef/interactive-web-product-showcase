@@ -54,8 +54,9 @@ function maskedViewportCapture(
 // first, so an animation that starts with a late presented frame (a marker
 // that mounts on its first placement) is running by the time the
 // animations are read. They run once per load, so the wait falls through in
-// one poll afterwards.
-async function settledForCapture(page: Page): Promise<void> {
+// one poll afterwards. The social capture script waits on this same
+// contract, so its cards pin the same rest the suite's captures do.
+export async function settledForCapture(page: Page): Promise<void> {
   await settledStage(page)
   await expect
     .poll(

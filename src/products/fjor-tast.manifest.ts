@@ -16,6 +16,11 @@ export const manifest = {
     'Tast is a sixty percent keyboard with an aluminum case and one knob.',
     'A brass weight in the base keeps it planted on the desk.',
   ],
+  meta: {
+    kind: 'sixty percent keyboard',
+    description:
+      'Fjor Tast, a sixty percent keyboard concept by Rebel Art Studios. Sixty-one keys, an aluminum case and a brass weight in the base. Explore it in 3D.',
+  },
   finishes: [
     { variant: 'carbon', label: 'Carbon', swatch: '#33353A' },
     { variant: 'putty', label: 'Putty', swatch: '#BCB3A5' },
