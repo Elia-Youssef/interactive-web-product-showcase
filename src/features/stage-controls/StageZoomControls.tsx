@@ -13,7 +13,6 @@
 import { zoomPercentOfDistance, zoomStepMoves } from '@lib/camera/zoom'
 import { siteCopy } from '@lib/copy/site'
 import { selectCameraReadout, useAppStore } from '@store/index'
-import { stageCameraConfig } from '@viewer/camera/config'
 import { IconButton, MinusIcon, PlusIcon, Readout, TextButton } from '@ui/index'
 import { zoomReadoutText } from '@lib/copy/stageReadouts'
 import styles from './stage-controls.module.css'
@@ -28,14 +27,13 @@ export function StageZoomControls() {
   }
   const range = { min: readout.minDistance, max: readout.maxDistance }
   const percent = zoomPercentOfDistance(readout.distance, range)
-  const step = stageCameraConfig.zoomStepPercent
 
   return (
     <div className={styles.pill}>
       <span className={styles.zoom}>
         <IconButton
           aria-label={siteCopy.zoomOutLabel}
-          disabled={!zoomStepMoves(readout.endDistance, range, -1, step)}
+          disabled={!zoomStepMoves(readout.endDistance, range, -1)}
           onClick={() => cameraRequest({ kind: 'zoom', direction: -1 })}
         >
           <MinusIcon />
@@ -43,7 +41,7 @@ export function StageZoomControls() {
         <Readout>{zoomReadoutText(percent)}</Readout>
         <IconButton
           aria-label={siteCopy.zoomInLabel}
-          disabled={!zoomStepMoves(readout.endDistance, range, 1, step)}
+          disabled={!zoomStepMoves(readout.endDistance, range, 1)}
           onClick={() => cameraRequest({ kind: 'zoom', direction: 1 })}
         >
           <PlusIcon />

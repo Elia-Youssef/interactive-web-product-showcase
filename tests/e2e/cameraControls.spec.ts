@@ -293,7 +293,8 @@ test('the zoom buttons move the percentage by one step and wait disabled at thei
   await zoomOut(page).click()
   await expectShownPercent(100 - step, 'one press out moves the readout one step')
   await expect(zoomIn(page)).toBeEnabled()
-  for (let press = 0; press < 10; press += 1) {
+  const remainingOutSteps = Math.ceil((100 - step) / step)
+  for (let press = 0; press < remainingOutSteps; press += 1) {
     await zoomOut(page).click()
   }
   await expectShownPercent(0, 'the presses out clamp at the maximum distance')

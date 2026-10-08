@@ -15,6 +15,10 @@ export function zoomPercentOfDistance(distance: number, range: DistanceRange): n
 // The distance of a zoom percentage, inverting zoomPercentOfDistance: the
 // same percentage reads back as the same distance.
 export function distanceOfZoomPercent(percent: number, range: DistanceRange): number {
+  // Preserve the authored endpoints: subtracting the span can round a
+  // decimal minimum upward, leaving a clamped step short of its limit.
+  if (percent === 0) return range.max
+  if (percent === 100) return range.min
   return range.max - (percent / 100) * (range.max - range.min)
 }
 
@@ -30,18 +34,9 @@ export function steppedZoomPercent(
   return Math.min(Math.max(stepped, 0), 100)
 }
 
-// Whether one zoom step in the direction can still move the camera: the
-// move steps from the current percent through the same clamp, so a step
-// whose clamped target is the percent it starts from moves nothing. The
-// zoom buttons read this from the distance the camera holds and the limits
-// it enforces, so a control waits disabled exactly while its press would
-// do nothing, never by a rounded percent.
-export function zoomStepMoves(
-  distance: number,
-  range: DistanceRange,
-  direction: 1 | -1,
-  stepPercent: number,
-): boolean {
-  const percent = zoomPercentOfDistance(distance, range)
-  return steppedZoomPercent(percent, direction, stepPercent) !== percent
+// Whether zoom can move in this direction, from the controls' own end
+// distance and enforced range. Comparing distances keeps the limit state
+// exact even when percentage arithmetic would round an interior value.
+export function zoomStepMoves(distance: number, range: DistanceRange, direction: 1 | -1): boolean {
+  return direction === 1 ? distance > range.min : distance < range.max
 }

@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import type { CameraControlsImpl } from '@react-three/drei'
-import { Vector3 } from 'three'
+import { Spherical } from 'three'
 import {
   hasUnhandledCameraRequest,
   selectCameraRequestChannel,
@@ -38,9 +38,9 @@ export function useCameraReadoutPublish(
     if (controls === null) {
       return
     }
-    // The end distance's scratch vectors, created once per mount and reused
+    // The end distance's scratch value, created once per mount and reused
     // by every publish, so the per-update read allocates nothing.
-    const scratch = { position: new Vector3(), target: new Vector3() }
+    const scratch = new Spherical()
     const publish = () => {
       store.getState().cameraPublishReadout({
         kind: 'live',
