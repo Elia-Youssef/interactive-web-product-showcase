@@ -7,6 +7,7 @@ import {
   cardCloseButtonOf,
   cardHeadingOf,
   harnessCanvasCenter,
+  harnessCanvasDrivePoint,
   harnessStageAspect,
   markerOf,
   requireCamera,
@@ -14,7 +15,7 @@ import {
 import { closeWays, flowFacts } from './hotspotFlowFacts'
 // The camera flow of opening a hotspot: the card and the camera close-up
 // when the model authors one for the hotspot, the open without one, the
-// switch, and the three ways to close, each returning the camera or leaving
+// switch, and the four ways to close, each returning the camera or leaving
 // it still by the same rule. Every test runs for each product that has the
 // hotspot kind it drives, and the switch tests run for each product's
 // switch pairs by transition kind, proving the camera's owed move to the
@@ -29,6 +30,30 @@ for (const flow of flows) {
   const slug = product.slug
   const closeUp = flow.subject.closeUps[0]
   const plain = flow.subject.plains[0]
+
+  const pressSubject = closeUp ?? plain
+  if (pressSubject !== undefined) {
+    test(`hotspots ${slug}: a canvas drag back to its start keeps the card open`, async ({
+      page,
+      backendPath,
+    }) => {
+      await page.emulateMedia({ reducedMotion: 'reduce' })
+      await page.goto(harnessPath(backendPath, slug))
+      await waitForProductReady(page)
+      await markerOf(page, pressSubject.title).click()
+      await settledFrames(page)
+      const point = await harnessCanvasDrivePoint(page)
+
+      await page.mouse.move(point.x, point.y)
+      await page.mouse.down()
+      await page.mouse.move(point.x + 10, point.y)
+      await page.mouse.move(point.x, point.y)
+      await page.mouse.up()
+
+      await expect(markerOf(page, pressSubject.title)).toHaveAttribute('aria-pressed', 'true')
+      await expect(cardHeadingOf(page, pressSubject.title)).toHaveCount(1)
+    })
+  }
 
   if (closeUp !== undefined) {
     test(`hotspots ${slug}: opening the close-up hotspot ${closeUp.title} shows its card and eases the camera to its view`, async ({
@@ -144,9 +169,11 @@ for (const flow of flows) {
         await waitForProductReady(page)
         await settledFrames(page)
 
-        await markerOf(page, closeUp.title).click()
+        await markerOf(page, closeUp.title).focus()
+        await page.keyboard.press('Enter')
         await settledFrames(page)
 
+        await cardCloseButtonOf(page).focus()
         await closeBy(page, closeUp.title)
         await expect(cardHeadingOf(page, closeUp.title)).toHaveCount(0)
         await expect(markerOf(page, closeUp.title)).toHaveAttribute('aria-pressed', 'false')
@@ -175,10 +202,19 @@ for (const flow of flows) {
         await waitForProductReady(page)
         await settledFrames(page)
 
-        await markerOf(page, plain.title).click()
-        await expect(cardHeadingOf(page, plain.title)).toBeVisible()
-        const framesBefore = await settledFrames(page)
+        // Start away from home so an incorrect reset on close must move.
+        const point = await harnessCanvasDrivePoint(page)
+        await page.mouse.move(point.x, point.y)
+        await page.mouse.wheel(0, 120)
+        await settledFrames(page)
 
+        await markerOf(page, plain.title).focus()
+        await page.keyboard.press('Enter')
+        await expect(cardHeadingOf(page, plain.title)).toBeVisible()
+        await settledFrames(page)
+        const cameraBefore = await requireCamera(page)
+
+        await cardCloseButtonOf(page).focus()
         await closeBy(page, plain.title)
         await expect(cardHeadingOf(page, plain.title)).toHaveCount(0)
         await expect(
@@ -189,10 +225,12 @@ for (const flow of flows) {
           markerOf(page, plain.title),
           `${way} must return focus to the activating marker`,
         ).toBeFocused()
-        expect(
-          await renderedFrames(page),
-          `closing by ${way} must render no frame: no camera move is owed`,
-        ).toBe(framesBefore)
+        // A canvas press can request a frame without moving the camera.
+        // Compare the pose itself across every close path.
+        await settledFrames(page)
+        expect(await requireCamera(page), `${way} must leave the camera unchanged`).toEqual(
+          cameraBefore,
+        )
       })
     }
   }

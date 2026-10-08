@@ -6,6 +6,7 @@ import { HotspotCard } from './HotspotCard'
 import { useHotspotCard } from './useHotspotCard'
 import { useHotspotFlow } from './useHotspotFlow'
 import { useHotspotSelectionEffects } from './useHotspotSelectionEffects'
+import { useHotspotOutsideDismiss } from './useHotspotOutsideDismiss'
 
 export type HotspotMarkersProps = {
   readonly product: Product
@@ -39,6 +40,7 @@ export function HotspotMarkers({ product, dock, chrome }: HotspotMarkersProps) {
   // the card's close, by whichever way, puts focus back on the marker that
   // opened it.
   const captureTrigger = useFocusReturn(flow.selected !== null)
+  useHotspotOutsideDismiss(flow.presented && flow.selected !== null, flow.close)
   const card = useHotspotCard(overlay, product, flow.presented ? flow.selected : null, chrome)
 
   if (!flow.presented) {

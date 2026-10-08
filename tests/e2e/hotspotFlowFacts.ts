@@ -8,7 +8,7 @@ import { readMarkerExtentTokens } from './markerExtentTokens'
 import { harnessProducts } from './productSpecs'
 import { resolvedDistanceRange, viewExpectation } from './stageCamera'
 import { selectFlowSubjects, type FlowSubject } from './flowSubjects'
-import { cardCloseButtonOf, markerOf } from './hotspotViews'
+import { cardCloseButtonOf, harnessCanvasDrivePoint, markerOf } from './hotspotViews'
 
 // The per-product facts the flow specs read: every product's authored
 // camera views and hotspot facts, once per file, and the flow shape each
@@ -87,7 +87,7 @@ function flowsOf(
   })
 }
 
-// The three ways to close, all through the same slice: each entry is the
+// The ways to close, all through the same slice: each entry is the
 // way's name and the shared close action, told which marker is open.
 export type CloseWay = readonly [string, (page: Page, openTitle: string) => Promise<void>]
 
@@ -95,4 +95,11 @@ export const closeWays: readonly CloseWay[] = [
   ['Escape', async (page) => page.keyboard.press('Escape')],
   ['the card close button', async (page) => cardCloseButtonOf(page).click()],
   ['pressing the active marker', async (page, openTitle) => markerOf(page, openTitle).click()],
+  [
+    'outside dismissal',
+    async (page) => {
+      const point = await harnessCanvasDrivePoint(page)
+      await page.mouse.click(point.x, point.y)
+    },
+  ],
 ]
