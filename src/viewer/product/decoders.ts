@@ -2,9 +2,11 @@
 // product model loader. Nothing here reaches a CDN: the KTX2 loader fetches
 // the transcoder copies the installed three package carries, which the
 // bundler emits as content-hashed assets on the loader's own URL references
-// and caches under their hash.
+// and caches under their hash. The Meshopt decoder is its own lazily
+// imported chunk, off the critical chunk: a visitor who never reaches a
+// product never fetches it.
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
-import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
+import type { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import type { WebGPURenderer } from 'three/webgpu'
 import { registerFinishMaterialsResolver, type FinishParserLike } from './finishMaterials'
 
@@ -37,12 +39,30 @@ export interface GltfLoaderLike {
   register(factory: (parser: FinishParserLike) => unknown): unknown
 }
 
-// Wires the loader setup a product load needs: the renderer's KTX2 loader,
-// three's bundled Meshopt decoder, and the plugin that loads every finish
-// material with the model instead of on the first switch. These calls are
-// the whole setup, and none of it is a CDN default.
+// Three's Meshopt decoder, as its module exports it.
+export type ProductMeshoptDecoder = typeof MeshoptDecoder
+
+// One import of three's own Meshopt decoder module, whose WebAssembly
+// instantiation starts when the module arrives. It rejects when the import
+// fails.
+export function importProductMeshoptDecoder(): Promise<ProductMeshoptDecoder> {
+  return import('three/examples/jsm/libs/meshopt_decoder.module.js').then(
+    (module) => module.MeshoptDecoder,
+  )
+}
+
+// Wires the loader setup every product parse shares: the renderer's KTX2
+// loader and the plugin that loads every finish material with the model
+// instead of on the first switch. The Meshopt decoder arrives with each
+// load instead (wireMeshoptDecoder). None of it is a CDN default.
 export function wireProductDecoders(loader: GltfLoaderLike, ktx2: KTX2Loader): void {
   loader.setKTX2Loader(ktx2)
-  loader.setMeshoptDecoder(MeshoptDecoder)
   registerFinishMaterialsResolver(loader)
+}
+
+// Hands the loader the Meshopt decoder a parse needs. GLTFLoader reads its
+// decoder when a parse starts, so this runs right before each parse;
+// setting the same decoder again changes nothing.
+export function wireMeshoptDecoder(loader: GltfLoaderLike, decoder: ProductMeshoptDecoder): void {
+  loader.setMeshoptDecoder(decoder)
 }

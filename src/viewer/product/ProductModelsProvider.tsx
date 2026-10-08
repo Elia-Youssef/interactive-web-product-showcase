@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { useThree } from '@react-three/fiber'
 import { assertStageRenderer } from '../stageIdentity'
 import { createProductKtx2Loader } from './decoders'
+import { createGltfModelSources } from './gltfModelSources'
 import { createProductModelLoads, type ProductModelLoads } from './productModelLoads'
 
 // The product model loads of the stage's renderer, in context. There is no
@@ -33,7 +34,7 @@ export function ProductModelsProvider({ children }: { readonly children: ReactNo
   useEffect(() => {
     assertStageRenderer(gl)
     const ktx2 = createProductKtx2Loader(gl)
-    setLoads(createProductModelLoads(ktx2))
+    setLoads(createProductModelLoads(createGltfModelSources(ktx2)))
     return () => {
       setLoads(null)
       ktx2.dispose()
