@@ -1,5 +1,10 @@
+import { fileURLToPath } from 'node:url'
+import { modelPathOf } from '../../scripts/fixtureProducts.ts'
 import { createModelIO } from '../../scripts/modelIo.ts'
 import { SHADOW_NODE_NAME } from '../../src/lib/product/contractNames.ts'
+
+// The repo root: the parent of the tests folder this file lives in.
+const ROOT = fileURLToPath(new URL('../..', import.meta.url))
 
 // The committed model's shadow facts, read in Node from the .glb the site
 // ships, without the viewer in the loop. The authored opacity is the base
@@ -12,7 +17,7 @@ import { SHADOW_NODE_NAME } from '../../src/lib/product/contractNames.ts'
 
 export async function readShadowAuthoredOpacity(slug: string): Promise<number> {
   const io = await createModelIO()
-  const doc = await io.read(`public/models/${slug}/model.glb`)
+  const doc = await io.read(await modelPathOf(ROOT, slug))
 
   const shadowNode = doc
     .getRoot()

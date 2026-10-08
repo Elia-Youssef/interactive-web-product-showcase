@@ -1,6 +1,7 @@
 import '@styles/global.css'
 import { useCallback, useMemo, useState } from 'react'
 import { CollectionError, createCollection, type Product as ProductManifest } from '@lib/product'
+import type { ProductInput } from '@lib/product'
 import { productManifests } from '@products/index'
 import { HotspotMarkers } from '@features/hotspots'
 import { ProductExplodeScrub, ProductExplodeToggle } from '@features/product-panel'
@@ -17,14 +18,27 @@ import { harnessFrameFault, type HarnessFrameFault } from './frameFaultQuery'
 import { harnessOverrides, withOverrides, type HarnessOverrides } from './harnessOverrides'
 import { harnessSlug } from './harnessSlug'
 
+// The fixture products the harness adds to the collection, read the same
+// way the shipped index reads its folder (src/products/index.ts): the
+// manifest marker over the fixture folder, derived, never hand-kept. The
+// page is the one dev-only consumer: it never enters the production build,
+// whose only input is index.html, so the fixture manifests ride neither the
+// build nor the dist output.
+const fixtureModules = import.meta.glob<ProductInput>('/tests/fixtures/products/*/*.fixtures.ts', {
+  eager: true,
+  import: 'manifest',
+})
+
+const fixtureManifests: readonly ProductInput[] = Object.values(fixtureModules)
+
 // The dev-only page the product e2e drives: one store around one stage
 // whose content is the product named by the slug query parameter. The
-// manifests reach the page through the derived index and the collection's
-// own validation, never a hand copy. The look and camera query parameters,
-// dev-only like the page itself, override the product's own blocks for this
-// page at the data level, and the frameFault parameter mounts a fault that
-// throws inside the product's presented frames. An invalid parameter shows
-// the harness alert.
+// manifests reach the page through the shipped index and the fixture
+// folder's own derived list, and the collection's own validation, never a
+// hand copy. The look and camera query parameters, dev-only like the page
+// itself, override the product's own blocks for this page at the data
+// level, and the frameFault parameter mounts a fault that throws inside the
+// product's presented frames. An invalid parameter shows the harness alert.
 // The production build never emits this page: its only input is index.html.
 export function ProductHarnessPage() {
   // The stage surface, bound to the frame element that hosts the stage, so
@@ -51,7 +65,10 @@ function HarnessStage() {
   const frameFault = harnessFrameFault(window.location.search)
   const harness = useMemo(() => {
     try {
-      return { kind: 'ready', collection: createCollection(productManifests) } as const
+      return {
+        kind: 'ready',
+        collection: createCollection([...productManifests, ...fixtureManifests]),
+      } as const
     } catch (error) {
       if (error instanceof CollectionError) {
         return { kind: 'invalid', reason: error.message } as const

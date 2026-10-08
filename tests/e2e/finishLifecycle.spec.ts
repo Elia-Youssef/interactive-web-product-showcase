@@ -12,7 +12,7 @@ import {
 const products = await harnessProducts()
 
 for (const product of products) {
-  const expectations = readFinishExpectations(product.slug)
+  const expectations = await readFinishExpectations(product.slug)
   test(`a full finish cycle of the ${product.slug} sends nothing over the network after ready`, async ({
     page,
     backendPath,

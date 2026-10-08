@@ -1,8 +1,8 @@
-import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { getBounds, type mat4, type Node as GltfNode, type vec3 } from '@gltf-transform/core'
 import type { Product } from '../../src/lib/product'
 import { HOTSPOT_PREFIX } from '../../src/lib/product/contractNames.ts'
+import { modelPathOf } from '../../scripts/fixtureProducts.ts'
 import { createModelIO } from '../../scripts/modelIo.ts'
 import { isBlocked, readOccluderMeshes } from './productMesh'
 import type { Mesh } from 'three'
@@ -66,7 +66,7 @@ export async function readProductHotspotFacts(
   manifest: Product,
 ): Promise<ProductHotspotFacts> {
   const io = await createModelIO()
-  const modelPath = path.join(ROOT, 'public', 'models', slug, 'model.glb')
+  const modelPath = await modelPathOf(ROOT, slug)
   const doc = await io.read(modelPath)
   const root = doc.getRoot()
 

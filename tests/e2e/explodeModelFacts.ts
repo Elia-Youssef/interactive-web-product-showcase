@@ -1,4 +1,6 @@
+import { fileURLToPath } from 'node:url'
 import type { Accessor, Animation } from '@gltf-transform/core'
+import { modelPathOf } from '../../scripts/fixtureProducts.ts'
 import { createModelIO } from '../../scripts/modelIo.ts'
 import { PART_PREFIX } from '../../src/lib/product/contractNames.ts'
 
@@ -7,6 +9,9 @@ import { PART_PREFIX } from '../../src/lib/product/contractNames.ts'
 // of every animated PART_ node, dequantized exactly as the runtime loader
 // dequantizes, so a runtime pose can be compared exactly against these
 // values.
+
+// The repo root: the parent of the tests folder this file lives in.
+const ROOT = fileURLToPath(new URL('../..', import.meta.url))
 
 export type Vec3 = readonly [number, number, number]
 
@@ -33,7 +38,7 @@ const FLOAT_COMPONENT_TYPE = 5126
 
 export async function readExplodeModelFacts(slug: string): Promise<ExplodeModelFacts> {
   const io = await createModelIO()
-  const doc = await io.read(`public/models/${slug}/model.glb`)
+  const doc = await io.read(await modelPathOf(ROOT, slug))
   const animations = doc.getRoot().listAnimations()
   if (animations.length !== 1) {
     throw new Error(

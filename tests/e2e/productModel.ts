@@ -1,7 +1,7 @@
 /// <reference types="node" />
-import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Accessor, Animation } from '@gltf-transform/core'
+import { modelPathOf } from '../../scripts/fixtureProducts.ts'
 import { createModelIO } from '../../scripts/modelIo.ts'
 import { readProductStructure } from '../../scripts/structure.ts'
 import { HOTSPOT_PREFIX, PART_PREFIX } from '../../src/lib/product/contractNames.ts'
@@ -30,7 +30,7 @@ export type ProductModelFacts = {
 
 export async function readProductModelFacts(slug: string): Promise<ProductModelFacts> {
   const io = await createModelIO()
-  const modelPath = path.join(ROOT, 'public', 'models', slug, 'model.glb')
+  const modelPath = await modelPathOf(ROOT, slug)
   const doc = await io.read(modelPath)
   const structure = readProductStructure(doc)
 

@@ -3,6 +3,7 @@
 // through the one shared assembly. Every case asserts the exact violation messages:
 // the report's wording is part of the contract.
 import { describe, expect, it } from 'vitest'
+import { fileURLToPath } from 'node:url'
 import { parseProduct } from '../src/lib/product/index.ts'
 import type { Product, ProductInput } from '../src/lib/product/index.ts'
 import { authoredCameraAspect } from '../src/lib/camera/config.ts'
@@ -17,6 +18,9 @@ import {
   type DocumentOptions,
 } from './validateFixtures.ts'
 import { checkCameras } from './validateCameras.ts'
+
+// The repo root: the parent of the scripts folder this file lives in.
+const ROOT = fileURLToPath(new URL('..', import.meta.url))
 
 function buildFixtureDocument(options: DocumentOptions = {}) {
   return buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'], ...options })
@@ -270,12 +274,14 @@ describe('the camera contract check', () => {
     // Under the anchor pivot the speaker's driver close-up orbits its
     // target 0.2957 away, where the model reaches 0.2846: the authored
     // minimum must exceed the one and stay under the other, through the
-    // real assembly over the shipped model.
+    // real assembly over the fixture model, the one real model with an
+    // authored camera minimum.
     const { createModelIO } = await import('./modelIo.ts')
+    const { modelPathOf } = await import('./fixtureProducts.ts')
     const { manifest: speakerManifest } =
-      await import('../src/products/placeholder-speaker.manifest.ts')
+      await import('../tests/fixtures/products/placeholder-speaker/placeholder-speaker.fixtures.ts')
     const io = await createModelIO()
-    const doc = await io.read('public/models/placeholder-speaker/model.glb')
+    const doc = await io.read(await modelPathOf(ROOT, 'placeholder-speaker'))
     const structure = readProductStructure(doc)
     const withMinimum = (minDistance: number) =>
       checkCameras(

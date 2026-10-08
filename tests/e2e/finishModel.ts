@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
-import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { modelPathOf } from '../../scripts/fixtureProducts.ts'
 
 // The finish facts of a shipped model, read from the .glb file itself: for
 // every variant, the material name every mapped mesh primitive must carry,
@@ -86,10 +86,10 @@ function readMappings(primitive: unknown): readonly Mapping[] {
 // The expected finish record per variant name: the model's variant list in
 // declaration order, each mapped to the material names its mappings give
 // the mapped primitives.
-export function readFinishExpectations(
+export async function readFinishExpectations(
   slug: string,
-): ReadonlyMap<string, Readonly<Record<string, string>>> {
-  const json = readGltfJson(path.join(ROOT, 'public', 'models', slug, 'model.glb'))
+): Promise<ReadonlyMap<string, Readonly<Record<string, string>>>> {
+  const json = readGltfJson(await modelPathOf(ROOT, slug))
 
   const variantsExtension = readField(
     readField(json, 'extensions', 'extensions table'),
