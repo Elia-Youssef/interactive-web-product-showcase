@@ -1,5 +1,5 @@
-import type { CameraControlsImpl } from '@react-three/drei'
-import { MathUtils, type PerspectiveCamera } from 'three'
+import type CameraControlsImpl from 'camera-controls'
+import { MathUtils, type PerspectiveCamera } from 'three/webgpu'
 import { zoomOfLens, lensOfZoom } from '@lib/camera/lens'
 import { orbitAnglesOf } from '@lib/camera/view'
 import type { CameraPlan, CameraView } from './productPlan'

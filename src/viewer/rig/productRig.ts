@@ -1,4 +1,4 @@
-import type { AnimationClip, Camera, Object3D } from 'three'
+import type { AnimationClip, Camera, Object3D } from 'three/webgpu'
 import type { ModelBounds } from '@lib/camera/frame'
 import type { Vec3 } from '@lib/camera/view'
 

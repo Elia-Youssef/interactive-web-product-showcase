@@ -1,4 +1,4 @@
-import type { Material } from 'three'
+import type { Material } from 'three/webgpu'
 import { finishDerivedKey, finishMaterialIndex, type FinishPrimitivePlan } from '@lib/product'
 import type { LoadedProduct } from '@viewer/product/loadedProduct'
 import type { MappedSceneNode } from '@viewer/product/mappedSceneNodes'

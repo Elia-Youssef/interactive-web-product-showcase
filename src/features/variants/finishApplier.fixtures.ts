@@ -1,4 +1,4 @@
-import { AnimationClip, Group, Mesh, MeshStandardMaterial, type Material } from 'three'
+import { AnimationClip, Group, Mesh, MeshStandardMaterial, type Material } from 'three/webgpu'
 import { finishDerivedKey, parseProduct, precompilePairs, type FinishPlan } from '@lib/product'
 import { sampleOneManifest } from '@lib/product/fixtures'
 import { plannedFinish } from '@lib/product/finishPlan.fixtures'

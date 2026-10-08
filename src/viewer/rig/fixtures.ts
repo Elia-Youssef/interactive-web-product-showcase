@@ -1,4 +1,4 @@
-import { AnimationClip, Object3D, PerspectiveCamera } from 'three'
+import { AnimationClip, Object3D, PerspectiveCamera } from 'three/webgpu'
 import type { ProductSource } from './parseProductRig'
 
 // Tree fixtures for the rig tests. Three's core runs without a DOM, so the

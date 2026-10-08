@@ -1,5 +1,5 @@
-import { Mesh } from 'three'
-import type { Object3D } from 'three'
+import { Mesh } from 'three/webgpu'
+import type { Object3D } from 'three/webgpu'
 import { finishPrimitiveKey, type FinishPrimitivePlan } from '@lib/product'
 
 // What the glTF loader recorded about one object it built: the index of the

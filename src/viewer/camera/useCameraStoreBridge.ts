@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
-import type { CameraControlsImpl } from '@react-three/drei'
-import { Spherical } from 'three'
+import type CameraControlsImpl from 'camera-controls'
+import { Spherical } from 'three/webgpu'
 import {
   hasUnhandledCameraRequest,
   selectCameraRequestChannel,

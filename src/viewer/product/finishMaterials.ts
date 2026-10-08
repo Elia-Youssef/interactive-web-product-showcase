@@ -1,5 +1,5 @@
-import { Line, Material, Mesh, Points, Vector2 } from 'three'
-import type { Object3D } from 'three'
+import { Line, Material, Mesh, Points, Vector2 } from 'three/webgpu'
+import type { Object3D } from 'three/webgpu'
 import { uniform } from 'three/tsl'
 import {
   finishDerivedKey,

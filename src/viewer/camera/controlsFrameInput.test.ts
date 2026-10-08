@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import type { CameraControlsImpl } from '@react-three/drei'
+import type CameraControlsImpl from 'camera-controls'
 import { DomRectStandIn, staged, viewOf } from './lensEaseFixtures'
 import { applyView } from './controls'
 import { FRAME_MS, STAGE_ASPECT, runScenarioBothWays } from './perFrameInputFixtures'

@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import type { CameraControlsImpl } from '@react-three/drei'
+import type CameraControlsImpl from 'camera-controls'
 import type { RefObject } from 'react'
 import { distanceOfZoomPercent, zoomPercentOfDistance } from '@lib/camera/zoom'
 import type { DistanceRange } from '@lib/camera/limits'

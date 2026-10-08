@@ -133,7 +133,7 @@ describe('the layers table', () => {
         imports styles: runtime
         entry: none
       composition root src/main.tsx may import app
-      runtime packages: @react-three/drei, @react-three/fiber, react, react-dom, three, zod, zustand
+      runtime packages: @react-three/fiber, camera-controls, react, react-dom, three, zod, zustand
       dev packages: @csstools/css-parser-algorithms, @csstools/css-tokenizer, @eslint/js, @gltf-transform/cli, @gltf-transform/core, @gltf-transform/extensions, @gltf-transform/functions, @playwright/test, @types/node, @types/react, @types/react-dom, @types/three, @vitejs/plugin-react, eslint, eslint-config-prettier, eslint-import-resolver-typescript, eslint-plugin-boundaries, eslint-plugin-import-x, eslint-plugin-react-hooks, globals, jiti, meshoptimizer, postcss, prettier, typescript, typescript-eslint, vite, vitest"
     `)
   })

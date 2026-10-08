@@ -5,7 +5,6 @@
 // and caches under their hash.
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
-import type { WebGLRenderer } from 'three'
 import type { WebGPURenderer } from 'three/webgpu'
 import { registerFinishMaterialsResolver, type FinishParserLike } from './finishMaterials'
 
@@ -18,12 +17,13 @@ export function productKtx2Loader(): KTX2Loader {
   return new KTX2Loader()
 }
 
-// Creates the one KTX2 loader of a started renderer: the configured loader,
+// Creates the one KTX2 loader of the stage's started renderer, the
+// WebGPURenderer the stage builds on both backends: the configured loader,
 // then support detection. detectSupport reads the renderer's compressed
 // texture features, which only exist after the awaited renderer.init() that
 // the stage's factory runs; R3F mounts the scene through that factory, so
 // the renderer this receives is always initialized.
-export function createProductKtx2Loader(renderer: WebGLRenderer | WebGPURenderer): KTX2Loader {
+export function createProductKtx2Loader(renderer: WebGPURenderer): KTX2Loader {
   return productKtx2Loader().detectSupport(renderer)
 }
 

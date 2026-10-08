@@ -1,4 +1,4 @@
-import { MathUtils, PerspectiveCamera, Vector3 } from 'three'
+import { MathUtils, PerspectiveCamera, Vector3 } from 'three/webgpu'
 import { CAMERA_HOME_ID, type Product } from '@lib/product'
 import type { CameraLimitProblem } from '@lib/camera/limits'
 import { cameraContractProblems } from '@lib/camera/contract'

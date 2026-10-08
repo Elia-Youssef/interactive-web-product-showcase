@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { AnimationClip, Object3D, PerspectiveCamera } from 'three'
+import { AnimationClip, Object3D, PerspectiveCamera } from 'three/webgpu'
 import { parseProduct } from '@lib/product'
 import { sampleOneManifest } from '@lib/product/fixtures'
 import type { ModelFrame } from '../modelFrame'

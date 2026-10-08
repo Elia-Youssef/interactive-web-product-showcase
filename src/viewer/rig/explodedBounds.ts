@@ -1,4 +1,4 @@
-import { AnimationMixer, type AnimationClip, type Object3D } from 'three'
+import { AnimationMixer, type AnimationClip, type Object3D } from 'three/webgpu'
 import { frameSpanOfMeshBoxes } from '@lib/camera/frame'
 import type { MeshBox, ModelBounds } from '@lib/camera/frame'
 import { carriesGeometry, worldBoxOf } from '../modelFrame'

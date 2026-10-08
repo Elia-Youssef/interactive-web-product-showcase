@@ -1,7 +1,7 @@
 import { Document, NodeIO, type Accessor } from '@gltf-transform/core'
 import type { Material as GltfMaterial } from '@gltf-transform/core'
 import { KHRMaterialsVariants, type MappingList } from '@gltf-transform/extensions'
-import { AnimationClip, Mesh, MeshStandardMaterial, type Material } from 'three'
+import { AnimationClip, Mesh, MeshStandardMaterial, type Material } from 'three/webgpu'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { expect } from 'vitest'
 import { parseProduct } from '@lib/product'

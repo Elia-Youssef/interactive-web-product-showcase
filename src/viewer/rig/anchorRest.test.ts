@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { Object3D, Vector3 } from 'three'
+import { Object3D, Vector3 } from 'three/webgpu'
 import { parseProduct } from '@lib/product'
 import { sampleOneManifest } from '@lib/product/fixtures'
 import { attach, cameraNode, named, sourceOf } from './fixtures'

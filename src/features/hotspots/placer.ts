@@ -1,5 +1,5 @@
-import { Vector3 } from 'three'
-import type { Camera, Mesh } from 'three'
+import { Vector3 } from 'three/webgpu'
+import type { Camera, Mesh } from 'three/webgpu'
 import type { MarkerExtent } from '@lib/hotspots/markerBox'
 import { projectToStage, type StageBox } from '@lib/hotspots/projection'
 import { isMarkerPlaceable, isMarkerVisible } from '@lib/hotspots/visibility'

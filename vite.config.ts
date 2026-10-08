@@ -5,6 +5,7 @@ import { devClientStubPlugin } from './tooling/devClientStub.ts'
 import { devHost, isE2EServer } from './tooling/devHost.ts'
 import { resolveDevPort } from './tooling/devPort.ts'
 import { outputDuplicateGuardPlugin } from './tooling/outputDuplicateGuard.ts'
+import { threeBuildGuardPlugin } from './tooling/threeBuildGuard.ts'
 import { unitTestGlobs } from './tooling/testRoots.ts'
 
 const port = resolveDevPort(process.env)
@@ -17,6 +18,11 @@ export default defineConfig({
     // public copies included, fails the build on any two files with the
     // same bytes (tooling/outputDuplicateGuard.ts).
     outputDuplicateGuardPlugin(),
+    // The app build holds one three build (the resolve alias below): a
+    // module graph that still reaches the classic three build, or an import
+    // the webgpu build does not export, fails the build and names it
+    // (tooling/threeBuildGuard.ts).
+    threeBuildGuardPlugin(),
     // The e2e server serves the stub client in place of Vite's dev client:
     // its modules import the client for style injection alone, and nothing
     // in an e2e run hot-updates, so the client's WebSocket and its
@@ -25,6 +31,16 @@ export default defineConfig({
   ],
   resolve: {
     tsconfigPaths: true,
+    // One three build for the whole app: every 'three' import, ours and the
+    // packages', resolves to the webgpu build whose re-exports the app's own
+    // code imports. Both builds share their classes through three.core.js;
+    // what the classic entry adds is its renderer machinery, about 335 kB of
+    // code the app never instantiates, so aliasing the entry out keeps that
+    // code out of the bundle. The build guard (tooling/threeBuildGuard.ts)
+    // fails the build if a module graph still reaches the classic build, and
+    // on any import the webgpu build does not export, which the alias would
+    // otherwise turn into a silent undefined.
+    alias: [{ find: /^three$/, replacement: 'three/webgpu' }],
   },
   // Breakpoints are @custom-media rules in src/styles/tokens.css; only the
   // lightningcss transformer can resolve them (CSS Level 5 draft syntax).

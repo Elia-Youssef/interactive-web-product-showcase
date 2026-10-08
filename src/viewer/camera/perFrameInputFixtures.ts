@@ -1,4 +1,4 @@
-import type { CameraControlsImpl } from '@react-three/drei'
+import type CameraControlsImpl from 'camera-controls'
 import { staged } from './lensEaseFixtures'
 import { ControlsFrameClock } from './controlsFrameClock'
 // The per-frame input scenarios of the controls' frame clock: a schedule

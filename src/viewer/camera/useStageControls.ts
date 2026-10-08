@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react'
 import { useThree } from '@react-three/fiber'
-import { CameraControlsImpl } from '@react-three/drei'
+import CameraControlsImpl from 'camera-controls'
 import {
   Box3,
   MathUtils,
@@ -12,20 +12,19 @@ import {
   Vector2,
   Vector3,
   Vector4,
-} from 'three'
+} from 'three/webgpu'
 import { useStageFrame } from '../stageFrameContext'
 import { ControlsFrameClock } from './controlsFrameClock'
 
-// The stage's controls mount: the same camera-controls instance drei's
-// CameraControls component builds (its core/CameraControls.js), mounted in
-// the stage's own component so the controls' frame step is ours to compute.
-// The frame step comes from the controls' frame clock: a move ends an idle
-// at its own start event, so the first frame after an idle steps the move's
-// age, and a running motion steps by the frame gap, whatever move-start
-// events its input steps fire on the way.
+// The stage's controls mount: one camera-controls instance per stage,
+// mounted in the stage's own component so the controls' frame step is ours
+// to compute. The frame step comes from the controls' frame clock: a move
+// ends an idle at its own start event, so the first frame after an idle
+// steps the move's age, and a running motion steps by the frame gap,
+// whatever move-start events its input steps fire on the way.
 
-// The subset of three the controls are installed with, the same subset
-// drei installs for tree shaking.
+// The subset of three the controls are installed with, so the class sees
+// exactly the classes the app's one three build carries.
 const CONTROLS_THREE = {
   Box3,
   MathUtils: { clamp: MathUtils.clamp },
@@ -50,8 +49,8 @@ export function useStageControls(): CameraControlsImpl {
     return new CameraControlsImpl(camera)
   }, [camera])
 
-  // One clock per mount, one frame step per frame at the priority drei's
-  // component updates the controls at: ahead of the scene's own frame work.
+  // One clock per mount, one frame step per frame at negative priority, so
+  // the controls update ahead of the scene's own frame work.
   // The update's own return value, whether it moved anything, goes back
   // into the clock as the asleep signal the next step reads. The step runs
   // on the stage's frame path, like every frame callback of the stage: an
@@ -67,8 +66,8 @@ export function useStageControls(): CameraControlsImpl {
     -1,
   )
 
-  // The controls listen on the canvas element drei connects to, and let go
-  // of it with the mount.
+  // The controls listen on the canvas element the stage's event system is
+  // connected to, and let go of it with the mount.
   useEffect(() => {
     const domElement = events.connected ?? gl.domElement
     controls.connect(domElement)

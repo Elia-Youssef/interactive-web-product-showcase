@@ -3,7 +3,7 @@
 // parse found. The bounds the runtime plan feeds the reach rule at the
 // explode's end.
 import { describe, expect, it } from 'vitest'
-import { AnimationClip, BoxGeometry, Mesh, Object3D, VectorKeyframeTrack } from 'three'
+import { AnimationClip, BoxGeometry, Mesh, Object3D, VectorKeyframeTrack } from 'three/webgpu'
 import { explodedBoundsOf } from './explodedBounds'
 import { named } from './fixtures'
 

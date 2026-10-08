@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PerspectiveCamera } from 'three'
+import { PerspectiveCamera } from 'three/webgpu'
 import { lensOfZoom, zoomOfLens } from '@lib/camera/lens'
 import { degrees, LENS_TABLE } from '@lib/camera/fixtures'
 

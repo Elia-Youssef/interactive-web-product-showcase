@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import { renderToString } from 'react-dom/server'
-import { AnimationClip, Object3D } from 'three'
+import { AnimationClip, Object3D } from 'three/webgpu'
 import { parseProduct } from '@lib/product'
 import { plannedFinish } from '@lib/product/finishPlan.fixtures'
 import { sampleOneManifest } from '@lib/product/fixtures'

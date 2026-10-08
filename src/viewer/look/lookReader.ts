@@ -7,7 +7,7 @@ import {
   type Material,
   type Object3D,
   type Scene,
-} from 'three'
+} from 'three/webgpu'
 import type { ViewerLook, ViewerLookTexture } from '../automation/viewerAutomation'
 
 // The reader of one product's applied look, registered as the stage's look

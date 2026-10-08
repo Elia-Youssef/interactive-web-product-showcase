@@ -1,4 +1,4 @@
-import { Raycaster, type Intersection, type Mesh, type Vector3 } from 'three'
+import { Raycaster, type Intersection, type Mesh, type Vector3 } from 'three/webgpu'
 import { isOccluded } from '@lib/hotspots/visibility'
 import { aimRay } from './aimRay'
 

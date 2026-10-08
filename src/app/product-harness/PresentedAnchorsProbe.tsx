@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo } from 'react'
-import { Vector3 } from 'three'
+import { Vector3 } from 'three/webgpu'
 import type { ProductHotspot } from '@viewer/rig/productRig'
 import { useLoadedProduct } from '@viewer/product/loadedProduct'
 import { STAGE_PRESENT_PRIORITY, usePresentedFrame, useStageFrame } from '@viewer/stageFrameContext'

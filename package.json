@@ -21,8 +21,8 @@
     "assets:validate": "node scripts/validate.ts"
   },
   "dependencies": {
-    "@react-three/drei": "10.7.9",
     "@react-three/fiber": "9.8.1",
+    "camera-controls": "3.1.2",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "three": "0.186.1",

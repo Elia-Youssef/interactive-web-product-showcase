@@ -8,7 +8,7 @@ import {
   type BufferGeometry as Geometry,
   type Material as ThreeMaterial,
   type Texture as ThreeTexture,
-} from 'three'
+} from 'three/webgpu'
 import { plannedFinish } from '@lib/product/finishPlan.fixtures'
 import type { ProductFinishMaterials } from './finishMaterials'
 import { disposeProductScene } from './dispose'

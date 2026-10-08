@@ -1,4 +1,4 @@
-import { CameraControlsImpl } from '@react-three/drei'
+import CameraControlsImpl from 'camera-controls'
 import {
   Box3,
   MathUtils,
@@ -11,7 +11,7 @@ import {
   Vector2,
   Vector3,
   Vector4,
-} from 'three'
+} from 'three/webgpu'
 import { parseProduct } from '@lib/product'
 import { sampleOneManifest } from '@lib/product/fixtures'
 import type { StageCameraState } from './stageCameraApi'
@@ -22,10 +22,10 @@ import { buildCameraPlan } from './productPlan'
 import { centeredFrame, restsAt, rigWith } from './productPlanFixtures'
 
 // The staging of the eased lens ride tests: the plan with three differently
-// lensed views, and the real controls installed and constructed the way
-// drei's CameraControls component does it (its core/CameraControls.js)
-// minus the DOM, presented through the stage camera's own API. The eased
-// move mechanics the tests assert with live in lensEaseMoves.ts.
+// lensed views, and the real controls installed and constructed the way the
+// stage mounts them, minus the DOM, presented through the stage camera's own
+// API. The eased move mechanics the tests assert with live in
+// lensEaseMoves.ts.
 
 // The stand-in for the two inert DOMRects the controls' constructor fields
 // for pointer hit areas, a browser global Node lacks and the headless
@@ -61,7 +61,7 @@ export class DomRectStandIn {
   }
 }
 
-// The same subset of three drei hands to the controls on install, so the
+// The same subset of three the stage installs the controls with, so the
 // class here is the class the stage runs.
 CameraControlsImpl.install({
   THREE: {

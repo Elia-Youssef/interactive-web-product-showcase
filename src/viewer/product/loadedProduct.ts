@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react'
-import type { Object3D } from 'three'
+import type { Object3D } from 'three/webgpu'
 import type { Product } from '@lib/product'
 import type { ProductFinishMaterials } from './finishMaterials'
 import type { GltfAssociation } from './mappedSceneNodes'

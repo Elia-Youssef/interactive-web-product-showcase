@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { AnimationClip, Object3D } from 'three'
+import { AnimationClip, Object3D } from 'three/webgpu'
 import { parseProduct } from '@lib/product'
 import { sampleOneManifest } from '@lib/product/fixtures'
 import {

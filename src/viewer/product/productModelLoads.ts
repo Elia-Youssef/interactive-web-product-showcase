@@ -1,6 +1,6 @@
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
-import type { AnimationClip, Object3D } from 'three'
+import type { AnimationClip, Object3D } from 'three/webgpu'
 import { KeyedLoads } from '@lib/async/keyedLoads'
 import { asError } from '@lib/errors'
 import type { ProductFailure } from '@lib/product'

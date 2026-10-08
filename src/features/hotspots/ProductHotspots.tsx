@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react'
 import { useThree } from '@react-three/fiber'
-import { Vector3 } from 'three'
+import { Vector3 } from 'three/webgpu'
 import type { ViewerHotspotsAutomation } from '@viewer/automation/viewerAutomation'
 import { useStageProbes } from '@viewer/automation/stageProbesContext'
 import { useLoadedProduct, type LoadedProduct } from '@viewer/product/loadedProduct'

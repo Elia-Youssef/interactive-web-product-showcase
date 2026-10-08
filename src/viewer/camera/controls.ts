@@ -1,5 +1,5 @@
-import type { CameraControlsImpl } from '@react-three/drei'
-import { MathUtils, Spherical, type PerspectiveCamera } from 'three'
+import type CameraControlsImpl from 'camera-controls'
+import { MathUtils, Spherical, type PerspectiveCamera } from 'three/webgpu'
 import { containedDistanceScale } from '@lib/camera/aspect'
 import { zoomOfLens } from '@lib/camera/lens'
 import { orbitAnglesOf, positionOfOrbitAngles } from '@lib/camera/view'

@@ -5,7 +5,7 @@
 // center in another disagrees by the dot product of center and forward,
 // which is what the off-origin, pitched-camera table catches.
 import { describe, expect, it } from 'vitest'
-import { PerspectiveCamera, Vector3 } from 'three'
+import { PerspectiveCamera, Vector3 } from 'three/webgpu'
 import { cameraContractProblems } from '@lib/camera/contract'
 import { cameraLimitConfig } from '@lib/camera/config'
 import type { ModelFrame } from '../modelFrame'

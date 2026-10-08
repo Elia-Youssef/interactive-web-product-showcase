@@ -1,5 +1,5 @@
-import { AnimationMixer } from 'three'
-import type { AnimationClip, Object3D } from 'three'
+import { AnimationMixer } from 'three/webgpu'
+import type { AnimationClip, Object3D } from 'three/webgpu'
 import { explodeClipTime } from '@lib/explode'
 
 // The paused-mixer pose driver of the exploded view: one AnimationMixer on

@@ -1,4 +1,4 @@
-import { BoxGeometry, Mesh, Raycaster, Vector3 } from 'three'
+import { BoxGeometry, Mesh, Raycaster, Vector3 } from 'three/webgpu'
 import { describe, expect, it } from 'vitest'
 import { aimRay } from './aimRay'
 
