@@ -32,3 +32,9 @@ test('TextButton with selected reports pressed', () => {
 
   expect(html).toContain('aria-pressed="true"')
 })
+
+test('TextButton with selected="mixed" reports a mixed pressed state', () => {
+  const html = renderToString(<TextButton selected="mixed">See inside</TextButton>)
+
+  expect(html).toContain('aria-pressed="mixed"')
+})

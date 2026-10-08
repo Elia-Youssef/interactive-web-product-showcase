@@ -1,7 +1,7 @@
 import {
   applyExplodeEvent,
   applyExplodeReadoutEvent,
-  explodeOpenOf,
+  explodeViewOf,
   explodeTargetOf,
   initialExplodeReadout,
   initialExplodeStatus,
@@ -9,9 +9,15 @@ import {
   type ExplodeReadout,
   type ExplodeReadoutEvent,
   type ExplodeStatus,
+  type ExplodeViewState,
 } from './explode.logic'
 
-export type { ExplodeReadout, ExplodeReadoutEvent, ExplodeStatus } from './explode.logic'
+export type {
+  ExplodeReadout,
+  ExplodeReadoutEvent,
+  ExplodeStatus,
+  ExplodeViewState,
+} from './explode.logic'
 export { initialExplodeStatus } from './explode.logic'
 
 export type ExplodeSliceState = {
@@ -73,13 +79,14 @@ export function selectExplodeTarget(state: ExplodeSliceState, product: string): 
   return explodeTargetOf(state.explodeStatus, product)
 }
 
-// Whether one product's exploded view counts as open, the pressed state its
-// toggle announces: the fully exploded target and nothing less, so the
-// announced state is the binary completed state the button acts in. False
-// while the product has no attached view, and after a partial scrub, where
-// the view is neither open nor assembled and the slider speaks for it.
-export function selectExplodeOpen(state: ExplodeSliceState, product: string): boolean {
-  return explodeOpenOf(state.explodeStatus, product)
+// The state of one product's exploded view, assembled, partly open or fully
+// open: what its toggle announces and what its press acts from. Assembled
+// while the product has no attached view.
+export function selectExplodeViewState(
+  state: ExplodeSliceState,
+  product: string,
+): ExplodeViewState {
+  return explodeViewOf(state.explodeStatus, product)
 }
 
 // The applied progress one product's view publishes, or null while it

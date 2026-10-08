@@ -19,10 +19,11 @@ export {
 } from './slices/camera'
 export {
   selectExplodeAttached,
-  selectExplodeOpen,
+  selectExplodeViewState,
   selectExplodeReadout,
   selectExplodeTarget,
   type ExplodeReadout,
   type ExplodeReadoutEvent,
   type ExplodeStatus,
+  type ExplodeViewState,
 } from './slices/explode'
