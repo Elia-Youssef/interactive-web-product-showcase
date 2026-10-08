@@ -1,6 +1,7 @@
-// The pointer rules over the planted row table, the report format, the scan
-// of a scratch repository with a binary file, and the gate over the real
-// repo. Needles are assembled at runtime, so this file never holds one.
+// The pointer rules over the planted row table, the report format, and the scan
+// of a scratch repository with a binary file. The gate over the real
+// repository runs in the lint command, so no unit test repeats that scan.
+// Needles are assembled at runtime, so this file never holds one.
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
@@ -11,8 +12,6 @@ import { formatPointerFindings, scanGatedFilesForPointers } from './pointerGate.
 import { findPointerFindings } from './pointerRules.ts'
 import type { PointerFinding } from './pointerRules.ts'
 import { allPointerRows, plantedPath, taskIdNeedle } from './pointerRows.ts'
-
-const repoRoot = join(import.meta.dirname, '..')
 
 describe('the pointer rules', () => {
   for (const row of allPointerRows) {
@@ -30,12 +29,6 @@ describe('the pointer rules', () => {
       expect(findings).toEqual(expected)
     })
   }
-})
-
-describe('the pointer gate over the real repo', () => {
-  test('every owned file passes', () => {
-    expect(scanGatedFilesForPointers(repoRoot)).toEqual([])
-  })
 })
 
 describe('the pointer gate report', () => {
