@@ -16,6 +16,7 @@ import { StageCanvas } from './StageCanvas'
 import { StageLife } from './StageLife'
 import { StageElementContext } from './stageElementContext'
 import { backendRequestFromLocation } from './backendRequest'
+import { canMountCanvas, stageEnvironmentFile } from './canvasMount'
 import { useRendererLifecycle } from './useRendererLifecycle'
 import { useStageCanvasLife } from './useStageCanvasLife'
 import styles from './Stage.module.css'
@@ -71,7 +72,7 @@ export function Stage({ content, overlay }: StageProps = {}) {
   const stageFailed = rendererStatus.kind === 'failed'
   const canvasLife = useStageCanvasLife(productStatus.kind === 'loading', stageFailed)
 
-  const canvas = request.kind === 'valid' && (
+  const canvas = canMountCanvas(request) && (
     <StageCanvas
       clock={clock}
       stageRenderer={stageRenderer}
@@ -90,7 +91,7 @@ export function Stage({ content, overlay }: StageProps = {}) {
           <StageHoldsContext.Provider value={holds}>
             <AutomationBridge clock={clock} probes={probes} getToneMapping={getToneMapping} />
             <StageEnvironmentProvider
-              file={request.kind === 'valid' ? stageConfig.environmentFile : null}
+              file={stageEnvironmentFile(request, stageConfig.environmentFile)}
             >
               <StageLife key={canvasLife.epoch} canvas={canvas} overlay={overlay} />
             </StageEnvironmentProvider>
