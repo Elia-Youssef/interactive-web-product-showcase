@@ -1,14 +1,43 @@
 /*
-Local variable fonts, Latin subset, served from public/fonts. The weight
-ranges are the wght axis ranges measured in each file:
-montserrat-latin.woff2 spans 100 to 900, jetbrains-mono-latin.woff2 400 to 800.
+Local fonts, Latin subset, served from public/fonts. The Sans faces are the
+four static weights copied from the pinned Montserrat package: an engine
+that ignores the requested weight of a variable
+font (Playwright's Windows WebKit renders every weight at the axis minimum,
+a hairline Montserrat) would break the brand type, while a static face
+carries its outlines in the file itself, so every engine paints the weight
+the CSS names. The Mono face stays the variable file: its weight axis
+starts at 400, so its readouts remain legible on that engine.
 No font is ever requested from another origin.
 */
 
 @font-face {
   font-family: 'Montserrat';
-  src: url('/fonts/montserrat-latin.woff2') format('woff2');
-  font-weight: 100 900;
+  src: url('/fonts/montserrat-latin-400-normal.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Montserrat';
+  src: url('/fonts/montserrat-latin-500-normal.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Montserrat';
+  src: url('/fonts/montserrat-latin-600-normal.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Montserrat';
+  src: url('/fonts/montserrat-latin-800-normal.woff2') format('woff2');
+  font-weight: 800;
   font-style: normal;
   font-display: swap;
 }

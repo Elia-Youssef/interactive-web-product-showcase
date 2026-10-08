@@ -30,6 +30,19 @@ body {
 }
 
 /*
+Form controls come with the engine's own control font, which is not the
+brand face on every engine (WebKit's buttons answer in a serif), so every
+control inherits the document font and the type stays the structure the
+brand sets, whatever draws the control.
+*/
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+/*
 The keyboard focus ring. This is the one place a focus ring is defined: it
 draws from --focus-ring and sits --focus-ring-offset out, falling back to
 --focus-offset. A component that needs the ring further out, so that a
