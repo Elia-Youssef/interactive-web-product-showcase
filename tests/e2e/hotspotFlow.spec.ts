@@ -13,6 +13,11 @@ import {
   requireCamera,
 } from './hotspotViews'
 import { closeWays, flowFacts } from './hotspotFlowFacts'
+import {
+  expectPlainCloseCameraUnchanged,
+  preparePlainCloseCamera,
+  readPlainCloseCamera,
+} from './plainCardCamera'
 // The camera flow of opening a hotspot: the card and the camera close-up
 // when the model authors one for the hotspot, the open without one, the
 // switch, and the four ways to close, each returning the camera or leaving
@@ -200,19 +205,12 @@ for (const flow of flows) {
       }) => {
         await page.goto(harnessPath(backendPath, slug))
         await waitForProductReady(page)
-        await settledFrames(page)
-
-        // Start away from home so an incorrect reset on close must move.
-        const point = await harnessCanvasDrivePoint(page)
-        await page.mouse.move(point.x, point.y)
-        await page.mouse.wheel(0, 120)
-        await settledFrames(page)
+        await preparePlainCloseCamera(page)
 
         await markerOf(page, plain.title).focus()
         await page.keyboard.press('Enter')
         await expect(cardHeadingOf(page, plain.title)).toBeVisible()
-        await settledFrames(page)
-        const cameraBefore = await requireCamera(page)
+        const cameraBefore = await readPlainCloseCamera(page)
 
         await cardCloseButtonOf(page).focus()
         await closeBy(page, plain.title)
@@ -225,12 +223,7 @@ for (const flow of flows) {
           markerOf(page, plain.title),
           `${way} must return focus to the activating marker`,
         ).toBeFocused()
-        // A canvas press can request a frame without moving the camera.
-        // Compare the pose itself across every close path.
-        await settledFrames(page)
-        expect(await requireCamera(page), `${way} must leave the camera unchanged`).toEqual(
-          cameraBefore,
-        )
+        await expectPlainCloseCameraUnchanged(page, cameraBefore, way)
       })
     }
   }

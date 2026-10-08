@@ -3,20 +3,26 @@ import type { Page } from '@playwright/test'
 import { siteCopy } from '../../src/lib/copy/site'
 import { expectProduct, productPathOf } from './collectionFacts'
 import { settledFrames } from './stageSettle'
-import { expectOrbitAtRest, readCamera, renderedFrames, stageAspectOfCanvas } from './stageCamera'
+import { expectOrbitAtRest, readCamera, stageAspectOfCanvas } from './stageCamera'
 import { cardHeadingOf, markerOf } from './hotspotViews'
 import { closeWays, flowFacts, type HotspotFlow } from './hotspotFlowFacts'
 import { stageBoxOf, viewportContracts } from './layoutContracts'
+import {
+  expectPlainCloseCameraUnchanged,
+  preparePlainCloseCamera,
+  readPlainCloseCamera,
+} from './plainCardCamera'
 
 // The docked card is the same card in another place: on the layouts that
 // dock every card (the phone's sheet), it keeps the flow's rules. It closes
-// by Escape, by its close button and by pressing the active marker, each
-// clearing the pressed state; closing a close-up card returns the camera
-// home and closing a plain one moves nothing; one card is open at a time;
-// under reduced motion the close-up and the return land on the next
-// rendered frame; and a card that docks or changes while docked comes into
-// the visitor's view however far the sheet was scrolled. Each routed
-// product runs the cases its authored views and visible markers support.
+// by Escape, by its close button, by pressing the active marker and by an
+// outside canvas press, each clearing the pressed state. Closing a close-up
+// card returns the camera home and closing a plain one moves nothing. One
+// card is open at a time. Under reduced motion the close-up and the return
+// land on the next rendered frame. A card that docks or changes while
+// docked comes into the visitor's view however far the sheet was scrolled.
+// Each routed product runs the cases its authored views and visible markers
+// support.
 
 const { flowsAt, markerViewsAt } = await flowFacts()
 const dockingLayouts = viewportContracts.filter((contract) => contract.hotspotCard === 'docks')
@@ -34,11 +40,17 @@ for (const contract of dockingLayouts) {
     if (shownAtHome === undefined || shownAtHome.size === 0) {
       throw new Error(`${product.slug} shows no marker at home on the ${size} stage`)
     }
-    const openDocked = async (page: Page, backendPath: string, title: string) => {
+    const openDocked = async (
+      page: Page,
+      backendPath: string,
+      title: string,
+      beforeOpen?: (page: Page) => Promise<void>,
+    ) => {
       await page.setViewportSize({ width: contract.width, height: contract.height })
       await page.goto(productPathOf(backendPath, product))
       await expectProduct(page, product)
       await settledFrames(page)
+      await beforeOpen?.(page)
       await markerOf(page, title).click()
       await expectDockedCardOf(page, title)
     }
@@ -69,11 +81,11 @@ for (const contract of dockingLayouts) {
           page,
           backendPath,
         }) => {
-          await openDocked(page, backendPath, plain.title)
-          const frames = await settledFrames(page)
+          await openDocked(page, backendPath, plain.title, preparePlainCloseCamera)
+          const cameraBefore = await readPlainCloseCamera(page)
           await closeBy(page, plain.title)
           await expectClosed(page, plain.title)
-          expect(await renderedFrames(page), `closing by ${way} must render no frame`).toBe(frames)
+          await expectPlainCloseCameraUnchanged(page, cameraBefore, way)
         })
       }
     }
