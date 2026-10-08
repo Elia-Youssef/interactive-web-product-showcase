@@ -2,6 +2,7 @@ import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { selectSelectedVariant, useAppStore } from '@store/index'
 import { useStageProbes } from '@viewer/automation/stageProbesContext'
 import { useLoadedProduct } from '@viewer/product/loadedProduct'
+import { useProductReadyGate } from '@viewer/product/productReadyGate'
 import { useStageSettle } from '@viewer/stageSettleContext'
 import { createFinishApplier, type FinishApplier } from './finishApplier'
 
@@ -24,12 +25,16 @@ import { createFinishApplier, type FinishApplier } from './finishApplier'
 // is no record published beside the meshes: what is applied is read from
 // the meshes themselves, plus the selection the applier is moving to.
 //
-// The hand-off runs in a layout effect, as a child of ProductContent: a
-// child's effects run before its parent's, so the first application and its
-// settle are queued ahead of the presentation's ready settle, and the frame
-// ready reports already carries the selection. The layout phase also paints
-// no frame between the mount and the application, so a remount never flashes
-// the model's default finish before the stored one.
+// Each applier holds its first application on the product's ready gate
+// from its creation to its disposal, so the presentation's ready settle
+// waits for the first finish and its precompile, and the frame ready
+// reports already carries the selection with the proxies gone. A StrictMode
+// remount disposes the first applier before its queued step runs, so it
+// applies nothing and releases its hold, and the second applier's first
+// application is the one the ready settle waits for. The hand-off runs in a
+// layout effect, which paints no frame between the mount and the
+// application, so a remount never flashes the model's default finish before
+// the stored one.
 //
 // A failed application, a settle included, reaches the product's typed
 // failure the way the presentation reports its own: the error is held here
@@ -39,6 +44,7 @@ export function ProductFinishes() {
   const loaded = useLoadedProduct()
   const settleScene = useStageSettle()
   const probes = useStageProbes()
+  const readyGate = useProductReadyGate()
   const selected = useAppStore((state) => selectSelectedVariant(state, loaded.manifest.slug))
   const applier = useRef<FinishApplier | null>(null)
   const [failure, setFailure] = useState<Error | null>(null)
@@ -48,12 +54,14 @@ export function ProductFinishes() {
 
   useLayoutEffect(() => {
     const created = createFinishApplier({ loaded, settle: settleScene, onFailure: fail })
+    const releaseReadyHold = readyGate.hold(created.firstApplied)
     applier.current = created
     return () => {
       applier.current = null
+      releaseReadyHold()
       created.dispose()
     }
-  }, [loaded, settleScene, fail])
+  }, [loaded, settleScene, fail, readyGate])
 
   useLayoutEffect(() => {
     // The offer must exist before any application: without it the

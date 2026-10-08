@@ -1,10 +1,12 @@
 import { useEffect } from 'react'
+import type { PendingGate } from '@lib/async/pendingGate'
 import { CAMERA_HOME_ID, type Product, type ProductFailure } from '@lib/product'
 import { useStageCamera } from '../camera/StageCameraContext'
 import type { ModelFrame } from '../modelFrame'
 import type { ProductRig } from '../rig/productRig'
 import { useStageSettle } from '../stageSettleContext'
 import { planPresentation } from './productOutcomes'
+import { settleWhenReady } from './productReadyGate'
 import { reportSettledProduct } from './reportSettledProduct'
 
 type ProductPresentationProps = {
@@ -20,12 +22,17 @@ type ProductPresentationProps = {
   readonly report: () => void
   // The product's failure channel.
   readonly fail: (failure: ProductFailure) => void
+  // The product's ready gate: the extensions' first work the ready settle
+  // waits for.
+  readonly readyGate: PendingGate
 }
 
 // The stage life of a loaded product: the stage camera presents the home
-// view at once, the stage's settle chain presents the settled state twice
-// and records both frames around the centered product, and only that
-// settle's resolution reports the product ready. The store's ready status
+// view at once, the ready settle waits for the extensions' first work held
+// on the product's ready gate (the first finish and its precompile), the
+// stage's settle chain then presents the settled state twice and records
+// both frames around the centered product, and only that settle's
+// resolution reports the product ready. The store's ready status
 // therefore means a presented product at its home view, never one whose
 // render pipelines may still be pending.
 //
@@ -39,6 +46,7 @@ export function useProductPresentation({
   frame,
   report,
   fail,
+  readyGate,
 }: ProductPresentationProps): void {
   const settleScene = useStageSettle()
   const stageCamera = useStageCamera()
@@ -59,14 +67,15 @@ export function useProductPresentation({
 
   useEffect(() => {
     let cancelled = false
+    const isCancelled = (): boolean => cancelled
     void reportSettledProduct({
-      settle: settleScene(),
+      settle: settleWhenReady({ gate: readyGate, settle: settleScene, isCancelled }),
       report,
       fail,
-      isCancelled: () => cancelled,
+      isCancelled,
     })
     return () => {
       cancelled = true
     }
-  }, [settleScene, report, fail])
+  }, [settleScene, report, fail, readyGate])
 }
