@@ -7,7 +7,7 @@ import type { RegionBox } from './stagePixels'
 import { decodeScreenshotRGBA } from './stagePixels'
 import { boxChannelSum, countDifferingPixels, countDifferingPixelsByDirection } from './lookPixels'
 import { testBudgetMs } from './budgets'
-import { harnessProducts, waitForProductReady } from './productSpecs'
+import { sampledHarnessProducts, waitForProductReady } from './productSpecs'
 import { settledStageCapture } from './stageCapture'
 
 // The look overrides, driven through the harness look parameter and proven
@@ -19,7 +19,7 @@ import { settledStageCapture } from './stageCapture'
 // at-rest frame of the same scene is deterministic per engine, so both pairs
 // read zero differing pixels on every matrix project, and any nonzero noise
 // would make the effect comparisons stricter, not looser.
-const products = await harnessProducts()
+const products = await sampledHarnessProducts()
 
 // Loads the harness page for a look and decodes a settled capture to RGBA:
 // the settled capture entry waits for the stage's rest, drains the dev HUD

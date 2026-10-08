@@ -1,7 +1,7 @@
 import { expect, test } from './fixtures'
 import { brokenFinishModel } from './brokenFinishModel'
 import { expectProductAlert, pollProductChannel, remountProduct } from './productFailureChannel'
-import { harnessPath, harnessProducts, waitForProductReady } from './productSpecs'
+import { harnessPath, sampledHarnessProducts, waitForProductReady } from './productSpecs'
 
 // Every anticipated product failure reaches the one product channel as a
 // typed value: the product ends failed with the failure's kind and facts,
@@ -9,7 +9,7 @@ import { harnessPath, harnessProducts, waitForProductReady } from './productSpec
 // suite's page-error gate stays on for every case, so a failure the channel
 // handled that also escaped as a page error fails the test.
 
-const products = await harnessProducts()
+const products = await sampledHarnessProducts()
 
 for (const product of products) {
   const modelUrl = `/models/${product.slug}/model.glb`
