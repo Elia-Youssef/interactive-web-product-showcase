@@ -131,6 +131,56 @@ describe('the surface contract rules', () => {
     ).toEqual([])
   })
 
+  it('the occlusion coverage rule reports a lit material without an occlusion texture, and passes the unlit shadow', () => {
+    expect(
+      violationsOf('lit-materials-occluded', (doc) => {
+        const graphite = doc
+          .getRoot()
+          .listMaterials()
+          .find((m) => m.getName() === 'body-graphite')
+        graphite?.setOcclusionTexture(null)
+      }),
+    ).toEqual([
+      "the lit material 'body-graphite' carries no occlusion texture, " +
+        'every lit material samples the shared occlusion image',
+    ])
+    expect(
+      violationsOf('lit-materials-occluded', (doc) => {
+        const shadow = doc
+          .getRoot()
+          .listMaterials()
+          .find((m) => m.getName() === 'MAT_shadow')
+        shadow?.setOcclusionTexture(null)
+      }),
+    ).toEqual([])
+  })
+
+  it('the occlusion identity rule reports occlusion slots on two images', () => {
+    expect(
+      violationsOf('one-occlusion-image', (doc) => {
+        const graphite = doc
+          .getRoot()
+          .listMaterials()
+          .find((m) => m.getName() === 'body-graphite')
+        graphite?.setOcclusionTexture(doc.createTexture('T_ao_second').setMimeType('image/png'))
+      }),
+    ).toEqual(['the occlusion slots sample 2 images (0, 1), one occlusion image across the file'])
+  })
+
+  it('the occlusion texCoord rule reports a slot off the second UV set', () => {
+    expect(
+      violationsOf('occlusion-texcoord-second-set', (doc) => {
+        const graphite = doc
+          .getRoot()
+          .listMaterials()
+          .find((m) => m.getName() === 'body-graphite')
+        graphite?.getOcclusionTextureInfo()?.setTexCoord(0)
+      }),
+    ).toEqual([
+      "the occlusion slot of 'body-graphite' samples texCoord 0, the occlusion UV map is TEXCOORD_1",
+    ])
+  })
+
   it('the variant-map rule reports a mapping without variants or a material', () => {
     expect(
       violationsOf('variant-map-well-formed', (doc) => {

@@ -5,10 +5,12 @@
 // beside it, so every rule stays a pure function and the document never
 // leaves the model step.
 
-import type { Document, Node, Primitive, Property } from '@gltf-transform/core'
-import { KHRMaterialsVariants, type MappingList } from '@gltf-transform/extensions'
+import type { Document, Node, Property } from '@gltf-transform/core'
+import { type MappingList } from '@gltf-transform/extensions'
 import { isMat4 } from '../src/lib/camera/frame.ts'
 import type { Vec3 } from '../src/lib/camera/frame.ts'
+import { nearestNamedAncestorOf, primitiveFacts } from './contractPrimitiveFacts.ts'
+import type { ContractPrimitiveFact } from './contractPrimitiveFacts.ts'
 
 // One named node: whether it is a root object (no parent node), the
 // translation and rotation the document authors (null when absent), and
@@ -29,26 +31,26 @@ export type ContractCameraFact = {
   readonly up: Vec3 | null
 }
 
-// One material: the slots the render contract reads.
+// One material: the slots the render contract reads. The occlusion facts
+// name the texture the material's occlusion slot samples: the image as the
+// document's own texture index (one glTF image is one texture, so an index
+// shared by two materials is one image), and the texCoord set the slot
+// reads, 0 when the material carries no occlusion texture.
 export type ContractMaterialFact = {
   readonly name: string
   readonly unlit: boolean
   readonly doubleSided: boolean
   readonly alphaMode: string
   readonly normalMapped: boolean
+  readonly occlusionImage: number | null
+  readonly occlusionTexCoord: number | null
 }
 
 // One primitive, named by the node whose mesh holds it: the materials it
 // can wear (its default plus every variant mapping), whether it carries a
 // TANGENT attribute, whether its triangles leave an open edge, and how
 // many coincident duplicate triangles it holds.
-export type ContractPrimitiveFact = {
-  readonly nodeName: string
-  readonly materialNames: readonly string[]
-  readonly tangent: boolean
-  readonly openEdges: boolean
-  readonly duplicateTriangles: number
-}
+export type { ContractPrimitiveFact } from './contractPrimitiveFacts.ts'
 
 // One mapped primitive's variant table: its default material and every
 // mapping's material with the variants it names.
@@ -77,6 +79,7 @@ const LIGHTS_EXTENSION = 'KHR_lights_punctual'
 export function readContractModelFacts(doc: Document): ContractModelFacts {
   const root = doc.getRoot()
   const nodes = root.listNodes().filter((node) => node.getName() !== '')
+  const textures = root.listTextures()
   return {
     nodes: nodes.map((node) => ({
       name: node.getName(),
@@ -89,13 +92,19 @@ export function readContractModelFacts(doc: Document): ContractModelFacts {
       .listNodes()
       .map(cameraUpOf)
       .filter((fact) => fact !== null),
-    materials: root.listMaterials().map((material) => ({
-      name: material.getName(),
-      unlit: material.getExtension('KHR_materials_unlit') !== null,
-      doubleSided: material.getDoubleSided(),
-      alphaMode: material.getAlphaMode() ?? 'OPAQUE',
-      normalMapped: material.getNormalTexture() !== null,
-    })),
+    materials: root.listMaterials().map((material) => {
+      const occlusion = material.getOcclusionTexture()
+      return {
+        name: material.getName(),
+        unlit: material.getExtension('KHR_materials_unlit') !== null,
+        doubleSided: material.getDoubleSided(),
+        alphaMode: material.getAlphaMode() ?? 'OPAQUE',
+        normalMapped: material.getNormalTexture() !== null,
+        occlusionImage: occlusion === null ? null : textures.indexOf(occlusion),
+        occlusionTexCoord:
+          occlusion === null ? null : (material.getOcclusionTextureInfo()?.getTexCoord() ?? 0),
+      }
+    }),
     primitives: primitiveFacts(doc),
     mappings: mappingFacts(doc),
     extensionsUsed: root.listExtensionsUsed().map((extension) => extension.extensionName),
@@ -135,124 +144,6 @@ function quaternionOrNull(
     return null
   }
   return [values[0] ?? 0, values[1] ?? 0, values[2] ?? 0, values[3] ?? 1]
-}
-
-// Every mesh node's primitives, with the topology facts the geometry rules
-// read. Nodes without names stand behind their nearest named ancestor, the
-// way the hotspot and bounds readers resolve them.
-function primitiveFacts(doc: Document): ContractPrimitiveFact[] {
-  const facts: ContractPrimitiveFact[] = []
-  for (const node of doc.getRoot().listNodes()) {
-    const mesh = node.getMesh()
-    if (mesh === null) {
-      continue
-    }
-    const nodeName = node.getName() !== '' ? node.getName() : nearestNamedAncestorOf(node)
-    for (const primitive of mesh.listPrimitives()) {
-      facts.push({
-        nodeName,
-        materialNames: materialNamesOf(primitive),
-        tangent: primitive.getAttribute('TANGENT') !== null,
-        openEdges: hasOpenEdges(primitive),
-        duplicateTriangles: duplicateTriangleCount(primitive),
-      })
-    }
-  }
-  return facts
-}
-
-// The default material plus every mapped variant material, by name.
-function materialNamesOf(primitive: Primitive): readonly string[] {
-  const names: string[] = []
-  const material = primitive.getMaterial()
-  if (material !== null) {
-    names.push(material.getName())
-  }
-  const list = primitive.getExtension(KHRMaterialsVariants.EXTENSION_NAME) as MappingList | null
-  if (list !== null) {
-    for (const mapping of list.listMappings()) {
-      const mapped = mapping.getMaterial()
-      if (mapped !== null) {
-        names.push(mapped.getName())
-      }
-    }
-  }
-  return names
-}
-
-function nearestNamedAncestorOf(node: Node): string {
-  for (let parent = node.getParentNode(); parent !== null; parent = parent.getParentNode()) {
-    if (parent.getName() !== '') {
-      return parent.getName()
-    }
-  }
-  return 'the scene root'
-}
-
-// Whether the primitive's triangles leave an open edge: an edge used by
-// exactly one triangle. Non-indexed triangles read their vertices as their
-// own indices, the way the loader renders them.
-function hasOpenEdges(primitive: Primitive): boolean {
-  const uses = edgeUsesOf(primitive)
-  for (const use of uses.values()) {
-    if (use === 1) {
-      return true
-    }
-  }
-  return false
-}
-
-// How many triangles share their three vertices with another triangle of
-// the same primitive, whatever their winding: a coincident duplicate sheet.
-function duplicateTriangleCount(primitive: Primitive): number {
-  const triangles = trianglesOf(primitive)
-  const seen = new Set<string>()
-  let duplicates = 0
-  for (const triangle of triangles) {
-    const key = [...triangle].sort((a, b) => a - b).join(' ')
-    if (seen.has(key)) {
-      duplicates += 1
-    }
-    seen.add(key)
-  }
-  return duplicates
-}
-
-function edgeUsesOf(primitive: Primitive): Map<number, number> {
-  const uses = new Map<number, number>()
-  for (const [a, b, c] of trianglesOf(primitive)) {
-    countEdge(uses, a, b)
-    countEdge(uses, b, c)
-    countEdge(uses, c, a)
-  }
-  return uses
-}
-
-function countEdge(uses: Map<number, number>, a: number, b: number): void {
-  const key = a < b ? a * EDGE_SPAN + b : b * EDGE_SPAN + a
-  uses.set(key, (uses.get(key) ?? 0) + 1)
-}
-
-// Every triangle's vertex indices; a vertex count over the numeric key
-// space keeps the edge keys exact.
-const EDGE_SPAN = 1 << 21
-
-function trianglesOf(primitive: Primitive): readonly (readonly [number, number, number])[] {
-  const indices = primitive.getIndices()?.getArray() ?? null
-  if (indices !== null) {
-    const triangles: (readonly [number, number, number])[] = []
-    for (let i = 0; i + 2 < indices.length; i += 3) {
-      triangles.push([indices[i] ?? 0, indices[i + 1] ?? 0, indices[i + 2] ?? 0])
-    }
-    return triangles
-  }
-  const position = primitive.getAttribute('POSITION')
-  const count = position?.getCount() ?? 0
-  const triangles: (readonly [number, number, number])[] = []
-  for (let i = 0; i + 2 < count; i += 3) {
-    triangles.push([i, i + 1, i + 2])
-  }
-  return triangles
 }
 
 // Every mapped primitive's variant table.

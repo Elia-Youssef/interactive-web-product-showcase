@@ -123,9 +123,12 @@ describe('the validate step on a planted product at the old aspect', () => {
       `camera CAM_home carries aspect ratio ${16 / 9}, expected the authored 1600 / 1422`,
       `camera CAM_driver carries aspect ratio ${16 / 9}, expected the authored 1600 / 1422`,
     ])
-    // The planted product is valid except for its camera aspects: the
-    // aspect rule is the one defect the fixture carries.
-    expect(countViolations(validation)).toBe(2)
+    // The planted product is valid except for its camera aspects and its
+    // occlusion texture's storage: the fixture's AO image is a plain PNG,
+    // so the encoding check names it beside the two aspect defects.
+    const encoding = validation.checks.find((check) => check.name === 'encoding')
+    expect(encoding?.violations).toEqual(["texture 'T_ao' is image/png, expected image/ktx2"])
+    expect(countViolations(validation)).toBe(3)
   })
 })
 
