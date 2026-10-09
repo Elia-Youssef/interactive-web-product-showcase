@@ -169,6 +169,16 @@ describe('the surface contract rules', () => {
     ).toEqual(['the occlusion slots sample 2 images (0, 1), one occlusion image across the file'])
   })
 
+  it('the one-image rule reports a file whose occlusion slots sample no image', async () => {
+    expect(
+      await violationsOf('one-occlusion-image', (doc) => {
+        for (const material of doc.getRoot().listMaterials()) {
+          material.setOcclusionTexture(null)
+        }
+      }),
+    ).toEqual(['no occlusion slot samples an image, one occlusion image across the file'])
+  })
+
   it('the occlusion texCoord rule reports a slot off the second UV set', async () => {
     expect(
       await violationsOf('occlusion-texcoord-second-set', (doc) => {
