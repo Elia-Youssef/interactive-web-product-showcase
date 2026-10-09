@@ -12,6 +12,28 @@ export function routeFilePath(slug: string): string {
   return `p/${slug}.html`
 }
 
+// The build's per-product outputs, each naming its product by slug: the
+// model folder the public folder copies, the prerendered route file, and
+// the social card. Every one of them must belong to a shipped product, so a
+// test-only product can never reach the deploy.
+const PRODUCT_OUTPUT_SHAPES: readonly RegExp[] = [
+  /^models\/([^/]+)\//,
+  /^p\/([^/]+)\.html$/,
+  /^social\/([^/]+)\.png$/,
+]
+
+// The slug a dist-relative file is the per-product output of, or null when
+// it is no per-product output.
+export function productOfOutput(file: string): string | null {
+  for (const shape of PRODUCT_OUTPUT_SHAPES) {
+    const slug = shape.exec(file)?.[1]
+    if (slug !== undefined) {
+      return slug
+    }
+  }
+  return null
+}
+
 // The folder layout the route files must not use.
 function oldRouteFilePath(slug: string): string {
   return `p/${slug}/index.html`
@@ -37,6 +59,7 @@ export type DeployFinding =
   | { readonly kind: 'topLevel404'; readonly file: string }
   | { readonly kind: 'missingRouteFile'; readonly slug: string; readonly file: string }
   | { readonly kind: 'oldRouteLayout'; readonly slug: string; readonly file: string }
+  | { readonly kind: 'unshippedProductOutput'; readonly slug: string; readonly file: string }
 
 type MutableRule = { line: number; pattern: string; headers: { name: string; value: string }[] }
 
@@ -117,6 +140,9 @@ export type DeployInput = {
   readonly headersText: string
   // The slugs of the products that carry a meta block.
   readonly metaSlugs: readonly string[]
+  // The slugs of the shipped products, the only ones a per-product output
+  // may name.
+  readonly shippedSlugs: readonly string[]
 }
 
 export function checkDeploy(input: DeployInput): DeployFinding[] {
@@ -164,7 +190,19 @@ export function checkDeploy(input: DeployInput): DeployFinding[] {
       findings.push({ kind: 'oldRouteLayout', slug, file: old })
     }
   }
+  findings.push(...unshippedOutputs(input))
   return findings
+}
+
+// The per-product outputs that name no shipped product.
+function unshippedOutputs(input: DeployInput): DeployFinding[] {
+  const shipped = new Set(input.shippedSlugs)
+  return input.files.flatMap((file): DeployFinding[] => {
+    const slug = productOfOutput(file)
+    return slug !== null && !shipped.has(slug)
+      ? [{ kind: 'unshippedProductOutput', slug, file }]
+      : []
+  })
 }
 
 export function describeFinding(finding: DeployFinding): string {
@@ -183,5 +221,7 @@ export function describeFinding(finding: DeployFinding): string {
       return `dist/${finding.file} is missing for the product '${finding.slug}'`
     case 'oldRouteLayout':
       return `dist/${finding.file} exists for the product '${finding.slug}': route files are p/<slug>.html`
+    case 'unshippedProductOutput':
+      return `dist/${finding.file} belongs to '${finding.slug}', which is no shipped product`
   }
 }

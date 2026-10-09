@@ -3,7 +3,13 @@
 // own case. The hash shape comes from the build's own name pattern, so the
 // fixtures build their hashed names the way the bundler does.
 import { describe, expect, test } from 'vitest'
-import { checkDeploy, parseHeaders, routeFilePath, ruleMatches } from './deployRules.ts'
+import {
+  checkDeploy,
+  parseHeaders,
+  productOfOutput,
+  routeFilePath,
+  ruleMatches,
+} from './deployRules.ts'
 import { hashLength, isHashedName, patternExpression } from '../tooling/outputNaming.ts'
 
 const HASH = 'a1B2c3_-'.repeat(2).slice(0, hashLength)
@@ -25,7 +31,7 @@ const CLEAN_FILES = [
   'p/one.html',
 ]
 
-const clean = { files: CLEAN_FILES, headersText: RULES, metaSlugs: ['one'] }
+const clean = { files: CLEAN_FILES, headersText: RULES, metaSlugs: ['one'], shippedSlugs: ['one'] }
 
 describe('the hash shape', () => {
   test('is derived from the build patterns', () => {
@@ -112,6 +118,37 @@ describe('the deploy check', () => {
     expect(checkDeploy({ ...clean, files })).toEqual([
       { kind: 'missingRouteFile', slug: 'one', file: 'p/one.html' },
     ])
+  })
+
+  test('every per-product output of a product that does not ship is a finding', () => {
+    const files = [
+      ...CLEAN_FILES,
+      'social/one.png',
+      'models/fixture-speaker/model.glb',
+      'p/fixture-speaker.html',
+      'social/fixture-speaker.png',
+    ]
+    expect(checkDeploy({ ...clean, files })).toEqual([
+      {
+        kind: 'unshippedProductOutput',
+        slug: 'fixture-speaker',
+        file: 'models/fixture-speaker/model.glb',
+      },
+      { kind: 'unshippedProductOutput', slug: 'fixture-speaker', file: 'p/fixture-speaker.html' },
+      {
+        kind: 'unshippedProductOutput',
+        slug: 'fixture-speaker',
+        file: 'social/fixture-speaker.png',
+      },
+    ])
+  })
+
+  test('the per-product outputs name their product by slug, and nothing else is one', () => {
+    expect(productOfOutput('models/one/model.glb')).toBe('one')
+    expect(productOfOutput('p/one.html')).toBe('one')
+    expect(productOfOutput('social/one.png')).toBe('one')
+    expect(productOfOutput('index.html')).toBeNull()
+    expect(productOfOutput('env/studio.hdr')).toBeNull()
   })
 
   test('the old folder layout is a finding', () => {
