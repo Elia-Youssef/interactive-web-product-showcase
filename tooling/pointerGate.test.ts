@@ -53,7 +53,7 @@ describe('the scan of the owned files', () => {
     const needleText = ['shipped in ', taskIdNeedle, ' today\n'].join('')
     writeFileSync(join(repoRoot, 'planted.txt'), needleText)
     writeFileSync(
-      join(repoRoot, 'planted.bin'),
+      join(repoRoot, 'planted.png'),
       Buffer.concat([Buffer.alloc(1, 0), Buffer.from(needleText, 'utf8')]),
     )
     for (const generated of generatedFilePaths) {

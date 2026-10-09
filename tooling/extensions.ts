@@ -73,6 +73,27 @@ export const formatExtensions = [
   'md',
 ] as const
 
+// The extensions of the binary files the project ships. A gate that reads
+// text skips these by name and reads everything else, so a text file can
+// never leave a gate's reach by the bytes it happens to hold; a new binary
+// kind is an edit here, and until then a gate reports it by name.
+export const binaryExtensions = [
+  'png',
+  'jpg',
+  'jpeg',
+  'webp',
+  'avif',
+  'gif',
+  'ico',
+  'woff',
+  'woff2',
+  'ttf',
+  'otf',
+  'glb',
+  'ktx2',
+  'hdr',
+] as const
+
 export function extensionOf(file: string): string {
   const dot = file.lastIndexOf('.')
   return dot === -1 ? '' : file.slice(dot + 1)

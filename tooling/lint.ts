@@ -8,6 +8,8 @@ import { hasExtension, scriptExtensions } from './extensions.ts'
 import { createConfig } from './eslintConfig.ts'
 import { listGatedFiles } from './gatedFiles.ts'
 import { formatRawValueFindings, scanGatedStyleSheets } from './styleGate.ts'
+import { formatControlByteFindings } from './controlBytes.ts'
+import { scanGatedFilesForControlBytes } from './controlByteGate.ts'
 import { formatPointerFindings, scanGatedFilesForPointers } from './pointerGate.ts'
 
 const root = resolve(import.meta.dirname, '..')
@@ -50,5 +52,14 @@ if (styleFindings.length > 0) {
 const pointerFindings = scanGatedFilesForPointers(root)
 if (pointerFindings.length > 0) {
   process.stdout.write(`${formatPointerFindings(pointerFindings)}\n`)
+  process.exitCode = 1
+}
+
+// The control byte gate runs last, in the same process: every gated text
+// file is scanned for ASCII control characters other than tab, line feed and
+// carriage return, and any finding fails the run.
+const controlByteFindings = scanGatedFilesForControlBytes(root)
+if (controlByteFindings.length > 0) {
+  process.stdout.write(`${formatControlByteFindings(controlByteFindings)}\n`)
   process.exitCode = 1
 }
