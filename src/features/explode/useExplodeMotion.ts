@@ -1,7 +1,7 @@
 import { useEffect, type RefObject } from 'react'
 import { useThree } from '@react-three/fiber'
 import { useStageFrame } from '@viewer/stageFrameContext'
-import { reducedMotionQuery } from './config'
+import { prefersReducedMotion } from '@lib/motion/reducedMotion'
 import type { ExplodeDriver } from './explodeDriver'
 import { explodeFrame, stepExplodeFrame } from './explodeFrame'
 
@@ -22,7 +22,7 @@ export function useExplodeMotion(driverRef: RefObject<ExplodeDriver | null>, tar
     if (driver === null) {
       return
     }
-    if (driver.retarget(target, performance.now(), window.matchMedia(reducedMotionQuery).matches)) {
+    if (driver.retarget(target, performance.now(), prefersReducedMotion())) {
       invalidate()
     }
   }, [driverRef, target, invalidate])

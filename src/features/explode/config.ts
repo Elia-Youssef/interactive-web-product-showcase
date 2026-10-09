@@ -13,7 +13,3 @@ export const explodeSpring = springSettings(0.8, 0.001)
 // exact comparison, which is what stops the demand-mode frame loop.
 // (Stated here because it lives in the config that names it; the derivation
 // of the speed from it is the spring module's.)
-
-// Under this media query a toggle jumps straight to its target in one
-// frame: reduced motion cuts eased moves, per the site's motion rules.
-export const reducedMotionQuery = '(prefers-reduced-motion: reduce)'
