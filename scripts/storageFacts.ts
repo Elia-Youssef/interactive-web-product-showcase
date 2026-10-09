@@ -1,18 +1,11 @@
 // The storage facts of one product model: how its positions are stored and
-// what filter its animation translation outputs carry. The home-fit rule's
-// allowance is stated in what the pipeline's storage can move, so the
-// validate step holds the file against that storage: the position facts
-// come from the read-back document (the accessor's own component type and
-// normalized flag), the translation filters from the file's own glTF JSON,
-// where the meshopt writer records the filter per compressed buffer view.
-import { readFile } from 'node:fs/promises'
-import type { Document } from '@gltf-transform/core'
-
-// The glTF 2.0 binary container: the 12-byte header and the 8-byte chunk
-// header before the JSON chunk, whose type word is 'JSON'.
-const GLB_HEADER_BYTES = 12
-const CHUNK_HEADER_BYTES = 8
-const JSON_CHUNK_TYPE = 0x4e4f534a
+// what filter its animation translation outputs carry. The validate step
+// holds the file against the storage the pipeline writes: the position
+// facts come from the read-back document (the accessor's own component type
+// and normalized flag), the translation filters from the file's own glTF
+// JSON, where the meshopt writer records the filter per compressed buffer
+// view.
+import type { Document, GLTF, NodeIO } from '@gltf-transform/core'
 
 // How one mesh's POSITION is stored, by the mesh's own name.
 export type PositionStorageFact = {
@@ -21,9 +14,11 @@ export type PositionStorageFact = {
   readonly normalized: boolean
 }
 
-// What filter one animation's translation outputs are stored through.
+// What filter one translation channel's output is stored through: the
+// animation and the node the channel drives, so a report names both.
 export type TranslationFilterFact = {
   readonly animationName: string
+  readonly targetName: string
   readonly filter: string | null
 }
 
@@ -68,81 +63,75 @@ export function declaredPositionStorage(doc: Document): PositionStorageFact[] {
     .map((mesh) => ({ meshName: mesh.getName(), componentType: 5122, normalized: true }))
 }
 
-// The translation filter facts of a written model file: every animation
-// sampler's output accessor, with the meshopt filter its buffer view
-// carries (null when the buffer view is not meshopt-compressed). A file
-// that is not GLB, or whose chunks do not open as expected, fails loudly:
-// the facts guard the optimize step's own output.
-export async function readTranslationFilters(modelPath: string): Promise<TranslationFilterFact[]> {
-  const bytes = await readFile(modelPath)
-  if (bytes.readUInt32LE(0) !== 0x46546c67 || bytes.readUInt32LE(4) !== 2) {
-    throw new Error(`${modelPath} is not a glTF 2.0 binary file`)
-  }
-  let offset = GLB_HEADER_BYTES
-  let json: GltfJson | null = null
-  while (offset + CHUNK_HEADER_BYTES <= bytes.byteLength) {
-    const length = bytes.readUInt32LE(offset)
-    const type = bytes.readUInt32LE(offset + 4)
-    if (type === JSON_CHUNK_TYPE) {
-      json = JSON.parse(
-        bytes.toString('utf8', offset + CHUNK_HEADER_BYTES, offset + CHUNK_HEADER_BYTES + length),
-      ) as GltfJson
-      break
-    }
-    offset += CHUNK_HEADER_BYTES + length
-  }
-  if (json === null) {
-    throw new Error(`${modelPath} carries no JSON chunk`)
-  }
+// The translation filter facts of a written model file: the output of every
+// channel whose target path is translation, with the meshopt filter its
+// buffer view carries (null when the buffer view is not meshopt-compressed).
+// The channel's own target path selects the output, the same rule the
+// in-memory declaration below follows: the meshopt writer stores rotation
+// outputs through another filter on purpose, so an output is a translation
+// output only by the channel that reads it. The JSON comes from the
+// library's own GLB reader, no meshopt decode involved.
+export async function readTranslationFilters(
+  io: NodeIO,
+  modelPath: string,
+): Promise<TranslationFilterFact[]> {
+  const { json } = await io.readAsJSON(modelPath)
   const facts: TranslationFilterFact[] = []
   for (const animation of json.animations ?? []) {
-    for (const sampler of animation.samplers ?? []) {
-      const accessor = (json.accessors ?? [])[sampler.output ?? -1]
-      const bufferView = (json.bufferViews ?? [])[accessor?.bufferView ?? -1]
+    for (const channel of animation.channels) {
+      if (channel.target.path !== 'translation') {
+        continue
+      }
+      const sampler = animation.samplers[channel.sampler]
+      const accessor = json.accessors?.[sampler?.output ?? -1]
+      const bufferView = json.bufferViews?.[accessor?.bufferView ?? -1]
       facts.push({
         animationName: animation.name ?? '',
-        filter: bufferView?.extensions?.EXT_meshopt_compression?.filter ?? null,
+        targetName: nodeNameOf(json, channel.target.node),
+        filter: meshoptFilterOf(bufferView),
       })
     }
   }
   return facts
 }
 
-// The translation filter facts of an in-memory document: the translation
-// outputs the document's animations carry, each declared with the filter
-// the meshopt writer stores them through. The rule fixtures represent
-// optimized files, and the filter is a property of the compression the
-// file went through, which an in-memory document has not: this is the
-// declaration the fixtures stand in for, not a read.
-export function declaredTranslationFilters(doc: Document): TranslationFilterFact[] {
-  const facts: TranslationFilterFact[] = []
-  for (const animation of doc.getRoot().listAnimations()) {
-    for (const sampler of animation.listSamplers()) {
-      const output = sampler.getOutput()
-      const targetPaths = new Set(
-        animation
-          .listChannels()
-          .filter((channel) => channel.getSampler() === sampler)
-          .map((channel) => channel.getTargetPath()),
-      )
-      if (output === null || !targetPaths.has('translation')) {
-        continue
-      }
-      facts.push({ animationName: animation.getName(), filter: 'EXPONENTIAL' })
-    }
+// The name of a channel's target node, or its index when it carries none.
+function nodeNameOf(json: GLTF.IGLTF, node: number | undefined): string {
+  if (node === undefined) {
+    return 'no node'
   }
-  return facts
+  return json.nodes?.[node]?.name ?? `node ${node}`
 }
 
-type GltfJson = {
-  readonly animations?: readonly {
-    readonly name?: string
-    readonly samplers?: readonly { readonly output?: number }[]
-  }[]
-  readonly accessors?: readonly { readonly bufferView?: number }[]
-  readonly bufferViews?: readonly {
-    readonly extensions?: {
-      readonly EXT_meshopt_compression?: { readonly filter?: string }
-    }
-  }[]
+// The meshopt filter a buffer view's compression extension names, or null
+// when the view carries no meshopt compression.
+function meshoptFilterOf(bufferView: GLTF.IBufferView | undefined): string | null {
+  const extension = bufferView?.extensions?.['EXT_meshopt_compression']
+  if (typeof extension !== 'object' || extension === null || !('filter' in extension)) {
+    return null
+  }
+  return typeof extension.filter === 'string' ? extension.filter : null
+}
+
+// The translation filter facts of an in-memory document: one per channel
+// whose target path is translation, the same selection the file reader
+// makes, each declared with the filter the meshopt writer stores it
+// through. The rule fixtures represent optimized files, and the filter is a
+// property of the compression the file went through, which an in-memory
+// document has not: this is the declaration the fixtures stand in for, not
+// a read.
+export function declaredTranslationFilters(doc: Document): TranslationFilterFact[] {
+  return doc
+    .getRoot()
+    .listAnimations()
+    .flatMap((animation) =>
+      animation
+        .listChannels()
+        .filter((channel) => channel.getTargetPath() === 'translation')
+        .map((channel) => ({
+          animationName: animation.getName(),
+          targetName: channel.getTargetNode()?.getName() ?? 'no node',
+          filter: 'EXPONENTIAL',
+        })),
+    )
 }

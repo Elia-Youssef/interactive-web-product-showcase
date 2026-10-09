@@ -66,11 +66,11 @@ describe('the model-group contract rules', () => {
         ...input,
         storage: {
           ...input.storage,
-          translationFilters: [{ animationName: 'Explode', filter: null }],
+          translationFilters: [{ animationName: 'Explode', targetName: 'PART_base', filter: null }],
         },
       }).violations,
     ).toEqual([
-      "a translation output of the animation 'Explode' is stored with filter none, the pipeline's key filter is EXPONENTIAL at 12 bits",
+      "the translation output of 'PART_base' in the animation 'Explode' is stored with filter none, the pipeline's key filter is EXPONENTIAL at 12 bits",
     ])
   })
 

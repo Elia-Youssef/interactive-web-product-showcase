@@ -220,6 +220,36 @@ function addAnimations(doc: Document, names: readonly string[]): void {
   }
 }
 
+// Adds a rotation channel on the named node to the fixture's first clip: a
+// quarter turn about Y over the clip's own time keys. The contract allows
+// translation channels only, so this is how a suite plants the channel
+// kind the rules refuse, and how a written file carries the rotation
+// output the meshopt writer stores through its quaternion filter.
+export function addRotationChannel(doc: Document, nodeName: string): void {
+  const animation = doc.getRoot().listAnimations()[0]
+  const input = animation?.listSamplers()[0]?.getInput()
+  if (animation === undefined || input === null || input === undefined) {
+    throw new Error('the fixture holds no clip with time keys to rotate along')
+  }
+  const output = doc
+    .createAccessor()
+    .setType('VEC4')
+    .setArray(new Float32Array([0, 0, 0, 1, 0, Math.SQRT1_2, 0, Math.SQRT1_2]))
+  const buffer = doc.getRoot().listBuffers()[0]
+  if (buffer !== undefined) {
+    output.setBuffer(buffer)
+  }
+  const sampler = doc.createAnimationSampler().setInput(input).setOutput(output)
+  animation.addSampler(sampler)
+  animation.addChannel(
+    doc
+      .createAnimationChannel()
+      .setSampler(sampler)
+      .setTargetNode(nodeNamed(doc, nodeName))
+      .setTargetPath('rotation'),
+  )
+}
+
 // The contract document every check passes on: two parts, the hotspots on a
 // part, both cameras in the passing pose, the variants, one clip per given
 // name, Meshopt marked.

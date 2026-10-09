@@ -141,7 +141,7 @@ async function loadModel(io: NodeIO, root: string, paths: ProductPaths): Promise
     structure,
     facts: readContractModelFacts(doc),
     homeFit: readHomeFitFacts(doc, structure.animationChannels),
-    storage: await readStorageFacts(paths.modelGlb, doc),
+    storage: await readStorageFacts(io, paths.modelGlb, doc),
     storageBounds: await deriveStorageBounds(),
     fileBytes,
     textures: describeTextures(doc),
@@ -152,10 +152,14 @@ async function loadModel(io: NodeIO, root: string, paths: ProductPaths): Promise
 // The storage facts of one written model: the position storage from the
 // read-back document, the translation filters from the file's own glTF
 // JSON, and the derived bounds the file's storage precision implies.
-async function readStorageFacts(modelPath: string, doc: Document): Promise<StorageFacts> {
+async function readStorageFacts(
+  io: NodeIO,
+  modelPath: string,
+  doc: Document,
+): Promise<StorageFacts> {
   return {
     positions: readPositionStorage(doc),
-    translationFilters: await readTranslationFilters(modelPath),
+    translationFilters: await readTranslationFilters(io, modelPath),
   }
 }
 

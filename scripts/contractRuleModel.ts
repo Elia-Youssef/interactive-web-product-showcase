@@ -163,7 +163,8 @@ export const modelRules: readonly ContractRule[] = [
       for (const filter of storage.translationFilters) {
         if (filter.filter !== 'EXPONENTIAL') {
           violations.push(
-            `a translation output of the animation '${filter.animationName}' is stored with ` +
+            `the translation output of '${filter.targetName}' in the animation ` +
+              `'${filter.animationName}' is stored with ` +
               `filter ${filter.filter ?? 'none'}, the pipeline's key filter is EXPONENTIAL ` +
               `at ${KEY_FILTER_BITS} bits`,
           )

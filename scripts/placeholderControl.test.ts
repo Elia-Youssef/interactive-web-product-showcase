@@ -40,7 +40,7 @@ async function controlFindings(): Promise<ReadonlyMap<ContractRuleGroup, Contrac
     homeFit: readHomeFitFacts(doc, structure.animationChannels),
     storage: {
       positions: readPositionStorage(doc),
-      translationFilters: await readTranslationFilters(modelPath),
+      translationFilters: await readTranslationFilters(io, modelPath),
     },
     storageBounds: await deriveStorageBounds(),
     contract: (await import('./validateFixtures.ts')).cameraContract,
@@ -97,11 +97,13 @@ describe('the placeholder fixture, validated explicitly', () => {
     expect(byRule('lit-materials-occluded')).toEqual([])
   })
 
-  it('fails the storage rule: a translation output the pipeline never writes', async () => {
+  it('holds the storage rule: its rotation output is no translation output', async () => {
+    // The clip's rotation output is stored through the quaternion filter,
+    // the meshopt writer's own choice for a rotation channel; the storage
+    // rule reads translation outputs only, by the channel that reads them.
     const violations = (await controlFindings()).get('model')?.violations ?? []
-    expect(violations).toContainEqual(
-      "storage-matches-pipeline: a translation output of the animation 'Explode' is stored with " +
-        "filter QUATERNION, the pipeline's key filter is EXPONENTIAL at 12 bits",
+    expect(violations.filter((message) => message.startsWith('storage-matches-pipeline:'))).toEqual(
+      [],
     )
   })
 
