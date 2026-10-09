@@ -1,9 +1,11 @@
 import { Suspense, useCallback, useEffect, useSyncExternalStore, type ReactNode } from 'react'
 import type { Product, ProductFailure } from '@lib/product'
 import { selectProductFailed, useAppStore } from '@store/index'
+import { useStageOverlay } from '../overlay/stageOverlayContext'
 import { useStageFramePath } from '../stageFrameContext'
 import { ProductBoundary } from './ProductBoundary'
 import { ProductContent } from './ProductContent'
+import { enterProductLife } from './productLife'
 
 type ProductProps = {
   readonly manifest: Product
@@ -14,13 +16,13 @@ type ProductProps = {
   readonly children?: ReactNode
 }
 
-// The product in the stage: it reports the product's life to the store
-// (load on enter, reset on leave) and owns the product's one failure
-// channel. Every failure of the life reaches the store through it as a
-// typed value, a frame that throws under its presented content included,
-// and a failed product leaves the stage on the store's word: its content
-// stops rendering, so nothing of it is presented again and nothing is
-// thrown.
+// The product in the stage: it owns the product's life (the store's load on
+// enter; the store's reset and the overlay's per-product records cleared on
+// leave) and the product's one failure channel. Every failure of the life
+// reaches the store through it as a typed value, a frame that throws under
+// its presented content included, and a failed product leaves the stage on
+// the store's word: its content stops rendering, so nothing of it is
+// presented again and nothing is thrown.
 // The content mounts under a Suspense boundary whose fallback is null, as
 // there is no branded loader yet, and around it sits the product's own
 // error boundary, for programming errors only; it reports them to the same
@@ -32,10 +34,12 @@ export function Product({ manifest, children }: ProductProps) {
   const productFailed = useAppStore((state) => state.productFailed)
   const failed = useAppStore((state) => selectProductFailed(state, slug))
 
-  useEffect(() => {
-    productLoad(slug)
-    return () => productReset()
-  }, [slug, productLoad, productReset])
+  const overlay = useStageOverlay()
+
+  useEffect(
+    () => enterProductLife(slug, { productLoad, productReset, overlay }),
+    [slug, productLoad, productReset, overlay],
+  )
 
   const fail = useCallback(
     (failure: ProductFailure) => productFailed(slug, failure),

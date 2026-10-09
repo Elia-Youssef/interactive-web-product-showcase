@@ -242,4 +242,29 @@ describe('StageOverlay', () => {
 
     expect(seen).toEqual(['placed'])
   })
+
+  it('takes the product records off whole, and the next content reads nothing of the last', () => {
+    const overlay = new StageOverlay()
+    const el = element()
+    overlay.mount('hotspot:driver', el, 'center')
+    overlay.place('hotspot:driver', { kind: 'placed', x: 5, y: 6 })
+    // A key whose element left before the content did still holds its
+    // placement: the record is the canvas side's, not the element's.
+    overlay.place('hotspot:yoke', { kind: 'hidden' })
+
+    overlay.clearProductState()
+
+    expect(overlay.placementOf('hotspot:driver')).toBeNull()
+    expect(overlay.placementOf('hotspot:yoke')).toBeNull()
+    expect(overlay.placementRecord()).toEqual({})
+    // The leaving content's element keeps its last applied style; the
+    // clearing is the records', never a write to a gone element.
+    expect(el.style.visibility).toBe('visible')
+    // The next content enters clean: its first placement is read as the
+    // only one.
+    overlay.place('hotspot:driver', { kind: 'placed', x: 7, y: 8 })
+    expect(overlay.placementRecord()).toEqual({
+      'hotspot:driver': { kind: 'placed', x: 7, y: 8 },
+    })
+  })
 })
