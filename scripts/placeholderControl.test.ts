@@ -18,7 +18,8 @@ import { readHomeFitFacts } from './homeFitFacts.ts'
 import { loadParseProduct, readManifestFile } from './manifestIo.ts'
 import { createModelIO } from './modelIo.ts'
 import { deriveStorageBounds } from './storageBounds.ts'
-import { readPositionStorage, readTranslationFilters } from './storageFacts.ts'
+import { pipelinePositionGrid } from './storageGrid.ts'
+import { readPositionStorage, readTranslationOutputs } from './storageFacts.ts'
 import { readProductStructure } from './structure.ts'
 import { cameraContract } from './validateFixtures.ts'
 
@@ -42,8 +43,8 @@ async function controlInput(): Promise<ContractRuleInput> {
     facts: readContractModelFacts(doc),
     homeFit: readHomeFitFacts(doc, structure.animationChannels),
     storage: {
-      positions: readPositionStorage(doc),
-      translationFilters: await readTranslationFilters(io, modelPath),
+      positions: readPositionStorage(doc, await pipelinePositionGrid()),
+      translationOutputs: await readTranslationOutputs(io, modelPath),
     },
     storageBounds: await deriveStorageBounds(),
     contract: cameraContract,

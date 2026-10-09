@@ -7,7 +7,7 @@ import { readContractModelFacts } from './contractFacts.ts'
 import { readHomeFitFacts } from './homeFitFacts.ts'
 import { readProductStructure } from './structure.ts'
 import { deriveStorageBounds } from './storageBounds.ts'
-import { declaredPositionStorage, declaredTranslationFilters } from './storageFacts.ts'
+import { declaredPositionStorage, declaredTranslationOutputs } from './storageFacts.ts'
 import type { ContractRuleInput } from './contractRules.ts'
 import { cameraContract } from './validateFixtures.ts'
 
@@ -66,7 +66,7 @@ export async function contractRuleInputOf(doc: Document): Promise<ContractRuleIn
     homeFit: readHomeFitFacts(doc, structure.animationChannels),
     storage: {
       positions: declaredPositionStorage(doc),
-      translationFilters: declaredTranslationFilters(doc),
+      translationOutputs: declaredTranslationOutputs(doc),
     },
     storageBounds: await deriveStorageBounds(),
     contract: cameraContract,

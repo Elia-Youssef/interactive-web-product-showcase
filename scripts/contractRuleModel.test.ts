@@ -45,7 +45,9 @@ describe('the model-group contract rules', () => {
         ...input,
         storage: {
           ...input.storage,
-          positions: [{ meshName: 'PART_base', componentType: 5126, normalized: false }],
+          positions: [
+            { meshName: 'PART_base', componentType: 5126, normalized: false, offGridValues: 0 },
+          ],
         },
       }).violations,
     ).toEqual([
@@ -66,11 +68,47 @@ describe('the model-group contract rules', () => {
         ...input,
         storage: {
           ...input.storage,
-          translationFilters: [{ animationName: 'Explode', targetName: 'PART_base', filter: null }],
+          translationOutputs: [
+            {
+              animationName: 'Explode',
+              targetName: 'PART_base',
+              storage: { kind: 'otherFilter', filter: null },
+            },
+          ],
         },
       }).violations,
     ).toEqual([
       "the translation output of 'PART_base' in the animation 'Explode' is stored with filter none, the pipeline's key filter is EXPONENTIAL at 12 bits",
+    ])
+  })
+
+  it('the storage rule reports stored positions off the grid and keys wider than the key bits', async () => {
+    const rule = byKey.get('storage-matches-pipeline')
+    if (rule === undefined) {
+      throw new Error('the model rules hold no storage-matches-pipeline')
+    }
+    const input = await contractRuleInputOf(
+      buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }),
+    )
+    expect(
+      rule.check({
+        ...input,
+        storage: {
+          positions: [
+            { meshName: 'PART_base', componentType: 5122, normalized: true, offGridValues: 3 },
+          ],
+          translationOutputs: [
+            {
+              animationName: 'Explode',
+              targetName: 'PART_base',
+              storage: { kind: 'exponential', keyBits: 16 },
+            },
+          ],
+        },
+      }).violations,
+    ).toEqual([
+      "the POSITION of the mesh 'PART_base' holds 3 stored values off the grid of the pipeline's 14-bit quantize",
+      "the translation output of 'PART_base' in the animation 'Explode' stores mantissas of 16 bits, the pipeline's key filter stores 12",
     ])
   })
 

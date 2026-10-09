@@ -15,7 +15,8 @@ import { loadCameraContract, readManifestFile } from './manifestIo.ts'
 import type { CameraContract } from './manifestIo.ts'
 import { deriveStorageBounds } from './storageBounds.ts'
 import type { StorageBounds } from './storageBounds.ts'
-import { readPositionStorage, readTranslationFilters } from './storageFacts.ts'
+import { pipelinePositionGrid } from './storageGrid.ts'
+import { readPositionStorage, readTranslationOutputs } from './storageFacts.ts'
 import type { StorageFacts } from './storageFacts.ts'
 import { productPaths, repoPath, type ProductPaths } from './productPaths.ts'
 import { describeTextures, fileSizeBytes, formatBytes } from './report.ts'
@@ -158,8 +159,8 @@ async function readStorageFacts(
   doc: Document,
 ): Promise<StorageFacts> {
   return {
-    positions: readPositionStorage(doc),
-    translationFilters: await readTranslationFilters(io, modelPath),
+    positions: readPositionStorage(doc, await pipelinePositionGrid()),
+    translationOutputs: await readTranslationOutputs(io, modelPath),
   }
 }
 
