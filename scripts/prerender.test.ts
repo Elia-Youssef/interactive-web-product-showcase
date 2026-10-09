@@ -34,7 +34,7 @@ const metaLessManifest = {
   category: 'Audio',
   brand: 'Fixture',
   model: 'Silent',
-  eyebrow: 'Fixture product / 001',
+  eyebrow: 'Fixture product',
   tagline: 'A fixture without link-preview words.',
   intro: [],
   finishes: [{ variant: 'plain', label: 'Plain', swatch: '#101010' }],

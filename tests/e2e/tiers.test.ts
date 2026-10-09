@@ -79,6 +79,7 @@ describe('the spec families', () => {
       'liveRegion',
       'measurementFocus',
       'product-panel',
+      'productEyebrow',
     ])
   })
 })

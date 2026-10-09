@@ -10,7 +10,7 @@ const validManifest = {
   category: 'Audio',
   brand: 'Sample',
   model: 'One',
-  eyebrow: 'Wireless over-ear headphones / 001',
+  eyebrow: 'Wireless over-ear headphones',
   tagline: 'Sound first, everything else second.',
   intro: [],
   finishes: [{ variant: 'sage', label: 'Sage Green', swatch: '#9db89d' }],

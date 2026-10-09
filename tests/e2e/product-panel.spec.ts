@@ -1,6 +1,6 @@
 import { expect, test } from './fixtures'
 import { siteCopy } from '../../src/lib/copy/site'
-import { formatProductIndex } from '../../src/lib/product'
+import { formatProductIndex, productEyebrowText } from '../../src/lib/product'
 import { loadCollection } from './productList'
 import { waitForProductReady } from './productSpecs'
 
@@ -19,7 +19,7 @@ test("the panel shows the collection's first product manifest words", async ({
 }) => {
   await page.goto(backendPath)
 
-  await expect(page.getByText(product.eyebrow)).toBeVisible()
+  await expect(page.getByText(productEyebrowText(product), { exact: true })).toBeVisible()
   const heading = page.getByRole('heading', { level: 1 })
   await expect(heading.getByText(product.brand)).toBeVisible()
   await expect(heading.getByText(product.model)).toBeVisible()

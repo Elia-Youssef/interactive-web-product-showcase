@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest'
 import { renderToString } from 'react-dom/server'
 import type { ProductInput } from '@lib/product'
-import { parseProduct } from '@lib/product'
+import { parseProduct, productEyebrowText } from '@lib/product'
 import { AppStoreProvider } from '@store/index'
 import { ProductPanel } from './ProductPanel'
 
@@ -19,7 +19,7 @@ const sampleManifest = {
   category: 'Audio',
   brand: 'Sample',
   model: 'Two',
-  eyebrow: 'Compact speaker / 001',
+  eyebrow: 'Compact speaker',
   tagline: 'Sound first, everything else second.',
   intro: ['A first line.', 'A second line.'],
   finishes: [
@@ -40,12 +40,28 @@ function renderPanel(): string {
 test('the panel renders every word from the manifest', () => {
   const html = renderPanel()
 
-  expect(html).toContain('Compact speaker / 001')
+  expect(html).toContain('Compact speaker')
   expect(html).toContain('Sample')
   expect(html).toContain('Two')
   expect(html).toContain('Sound first, everything else second.')
   expect(html).toContain('A first line.')
   expect(html).toContain('A second line.')
+})
+
+test('the eyebrow is the manifest kind closed by the serial the site composes from the number', () => {
+  const html = renderPanel()
+  const product = parseProduct(sampleManifest, 'sample-one')
+
+  // The serial is one marked fragment after the kind, and the paragraph's
+  // text is the composed eyebrow: the number is written once, in the
+  // manifest's number field.
+  expect(html).toMatch(/<span class="[^"]*" data-eyebrow-tail="true">\/ 001<\/span>/)
+  const paragraph = /<p class="[^"]*">((?:(?!<\/p>).)*data-eyebrow-tail(?:(?!<\/p>).)*)<\/p>/.exec(
+    html,
+  )
+  const text = (paragraph?.[1] ?? '').replace(/<!-- -->/g, '').replace(/<[^>]+>/g, '')
+  expect(text).toBe(productEyebrowText(product))
+  expect(text).toBe('Compact speaker / 001')
 })
 
 test('the finish list carries the site heading and one swatch per finish', () => {

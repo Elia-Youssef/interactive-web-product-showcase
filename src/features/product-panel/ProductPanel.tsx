@@ -7,6 +7,7 @@
 // hairline, and this is the content inside it.
 
 import type { ReactNode } from 'react'
+import { productEyebrow } from '@lib/product'
 import type { Product } from '@lib/product'
 import { siteCopy } from '@lib/copy/site'
 import { selectSelectedVariant, useAppStore } from '@store/index'
@@ -32,10 +33,11 @@ export function ProductPanel({ product, navigationRow }: ProductPanelProps) {
   useFinishOffer(product)
 
   const active = activeFinish(product, selectedVariant)
+  const eyebrow = productEyebrow(product)
 
   return (
     <div className={styles.panel}>
-      <Eyebrow>{product.eyebrow}</Eyebrow>
+      <Eyebrow tail={eyebrow.tail}>{eyebrow.lead}</Eyebrow>
       <Title brand={product.brand} model={product.model} />
       <p className={styles.tagline}>{product.tagline}</p>
       <div className={styles.intro}>
