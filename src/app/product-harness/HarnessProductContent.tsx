@@ -11,6 +11,7 @@ import { PresentedAnchorsProbe } from './PresentedAnchorsProbe'
 import { CardVisibilityProbe } from './CardVisibilityProbe'
 import { SceneGraphProbe } from './SceneGraphProbe'
 import { StageWarmup } from './StageWarmup'
+import { useHarnessProductReports } from './useHarnessProductReports'
 
 type HarnessProductContentProps = {
   // The manifest the page hands the product, the look override applied.
@@ -37,13 +38,14 @@ export function HarnessProductContent({
   moveToken,
   frameFault,
 }: HarnessProductContentProps) {
+  const onSettled = useHarnessProductReports()
   return (
     <>
       <LensFrameRecorder />
       <StageWarmup />
       {frameFault?.scope === 'stage' && <HarnessFrameFault fault={frameFault} />}
       {manifest !== undefined && mounted && (
-        <Product manifest={manifest}>
+        <Product manifest={manifest} onSettled={onSettled}>
           <SceneGraphProbe />
           <PresentedAnchorsProbe />
           <ProductFinishes />

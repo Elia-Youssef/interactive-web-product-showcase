@@ -5,7 +5,7 @@ import { useAppStore, selectProductStatus, selectRendererStatus } from '@store/i
 import { StageProbes } from './automation/StageProbes'
 import { AutomationBridge } from './automation/AutomationBridge'
 import { StageProbesContext } from './automation/stageProbesContext'
-import { FrameClock } from './FrameClock'
+import { useStageClock } from './useStageClock'
 import { stageConfig } from './config'
 import { StageHoldsContext } from './stageHoldsContext'
 import { StageEnvironmentProvider } from './stageEnvironmentProvider'
@@ -51,12 +51,12 @@ export type StageProps = {
 // the page frame.
 export function Stage({ content, overlay }: StageProps = {}) {
   const elementRef = useRef<HTMLDivElement>(null)
-  const [clock] = useState(() => new FrameClock())
   // A dropped hold is released once the effect flush that dropped it has
   // ended: React runs a flush's cleanups and setups in one synchronous call,
   // so the microtask after it is the first moment nothing can take the hold
   // again.
   const [holds] = useState(() => new ResourceHolds<object>((callback) => queueMicrotask(callback)))
+  const clock = useStageClock(holds)
   // The stage's probes, one per mount like the clock and the holds: the
   // in-canvas components that own live objects register their readers here,
   // and the automation bridge reads them at access time.

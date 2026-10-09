@@ -28,10 +28,18 @@ for (const product of products) {
     test(`a ${place} fault under the presented ${product.slug} fails it with the render kind, and the next product paints the canvas like a clean mount`, async ({
       page,
       backendPath,
+      consoleGate,
     }) => {
       // Two product loads: the clean mount the pixels are measured against,
       // then the remount after the fault.
       test.setTimeout(testBudgetMs({ productLoads: 2 }))
+      if (place === 'present') {
+        // The failed report and both StrictMode leave settles reject with
+        // the retired canvas, keeping every cause loud.
+        consoleGate.expectError(/StageRetiredError: the stage frame supply was retired/, {
+          times: 3,
+        })
+      }
 
       await page.goto(harnessPath(backendPath, product.slug))
       await waitForProductReady(page)
@@ -58,10 +66,17 @@ for (const product of products) {
     test(`a ${place} fault before ${product.slug} presents fails the stage, mounts no content and shows the renderer alert`, async ({
       page,
       backendPath,
+      consoleGate,
     }) => {
       // The fault sits in the stage's own content, beside the product, and
       // throws in the stage's first frames, before the product presents: the
       // stage owns it, so the stage fails.
+      if (place === 'present') {
+        // The environment's live settle receives the same terminal reason.
+        consoleGate.expectError(
+          /page error: the stage frame supply was retired before a requested frame was recorded/,
+        )
+      }
       await page.goto(frameFaultPath(backendPath, product.slug, place, 'stage'))
 
       const failedStage = {

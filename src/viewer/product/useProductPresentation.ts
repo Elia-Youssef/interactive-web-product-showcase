@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import type { PendingGate } from '@lib/async/pendingGate'
 import { CAMERA_HOME_ID, type Product, type ProductFailure } from '@lib/product'
+import { asError } from '@lib/errors'
 import { useStageCamera } from '../camera/StageCameraContext'
 import type { ModelFrame } from '../modelFrame'
 import type { ProductRig } from '../rig/productRig'
@@ -72,6 +73,7 @@ export function useProductPresentation({
     let cancelled = false
     const isCancelled = (): boolean => cancelled
     void reportSettledProduct({
+      outcome: 'ready',
       settle: settleWhenReady({ gate: readyGate, settle: settleScene, isCancelled }),
       report,
       fail,
@@ -90,7 +92,9 @@ export function useProductPresentation({
   // the whole released product reachable until some later frame renders.
   useEffect(
     () => () => {
-      void settleScene()
+      // Leave has no outcome to report, but a terminal frame supply must
+      // still end its wait and keep the settle's rejection loud.
+      void settleScene().catch((cause: unknown) => console.error(asError(cause)))
     },
     [settleScene],
   )
