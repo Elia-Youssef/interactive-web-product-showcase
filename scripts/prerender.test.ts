@@ -42,8 +42,8 @@ const metaLessManifest = {
 } satisfies ProductInput
 
 describe('the page writer over the real template', () => {
-  test('the template itself carries the site head set', () => {
-    expect(driftedSlot(templateHtml, site)).toBeNull()
+  test('the writer fills the template with the site head set', () => {
+    expect(driftedSlot(fillHead(templateHtml, site), site)).toBeNull()
   })
 
   for (const page of pages) {

@@ -6,9 +6,9 @@ import { siteCopy } from './site'
 
 // The link-preview copy of the site and of each product: every string a head
 // tag carries, derived from the site copy and the product manifests in one
-// place. The prerender fills the route pages' tags from here, so the tags
-// cannot drift from the words. The scheme joins the bare site domain here
-// and nowhere else.
+// place. Vite fills the site head and the prerender fills the route heads
+// from here, so no template composes its own words. The scheme joins the
+// bare site domain here and nowhere else.
 
 // The absolute URL of the site for one path. The domain is kept without its
 // scheme in the site copy; this is the one place the scheme is added.
@@ -38,6 +38,9 @@ export type MetaHeadSet = {
   readonly socialTitle: string
   readonly socialDescription: string
   readonly socialImageUrl: string
+  readonly socialType: string
+  readonly socialSiteName: string
+  readonly twitterCard: string
 }
 
 // A product page's head set, plus the alt text of its social image: the
@@ -45,10 +48,20 @@ export type MetaHeadSet = {
 // it belongs to.
 export type ProductMetaSet = MetaHeadSet & { readonly socialImageAlt: string }
 
+// The social tags shared by the home page and every product page.
+function sharedSocialHead() {
+  return {
+    socialType: 'website',
+    socialSiteName: siteCopy.studioName,
+    twitterCard: 'summary_large_image',
+  }
+}
+
 // The home page's head set, from the site copy alone.
 export function siteMetaSet(): MetaHeadSet {
   const title = collectionDocumentTitle(siteCopy.collectionName, siteCopy.studioName)
   return {
+    ...sharedSocialHead(),
     title,
     description: siteCopy.metaDescription,
     canonicalUrl: absoluteUrl('/'),
@@ -70,6 +83,7 @@ export function productMetaSet(product: Product): ProductMetaSet | null {
   }
   const name = productName(product)
   return {
+    ...sharedSocialHead(),
     title: productDocumentTitle(product, siteCopy.collectionName),
     description: meta.description,
     canonicalUrl: absoluteUrl(formatProductPath(product.slug)),
