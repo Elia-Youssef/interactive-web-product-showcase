@@ -44,6 +44,12 @@ export function productRigOf(status: ProductStatus): ProductRigSummary | null {
 // carries the counts measured once at load.
 export function productModelOf(status: ProductStatus): ViewerModel | null {
   return status.kind === 'ready'
-    ? { slug: status.slug, meshes: status.model.meshes, triangles: status.model.triangles }
+    ? {
+        slug: status.slug,
+        meshes: status.model.meshes,
+        triangles: status.model.triangles,
+        geometryBytes: status.model.geometryBytes,
+        textureBytes: status.model.textureBytes,
+      }
     : null
 }

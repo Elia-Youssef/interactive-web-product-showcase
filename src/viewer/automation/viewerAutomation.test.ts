@@ -91,7 +91,12 @@ const rig: ProductRigSummary = {
   variants: [],
 }
 
-const counts: ProductModelCounts = { meshes: 4, triangles: 1200 }
+const counts: ProductModelCounts = {
+  meshes: 4,
+  triangles: 1200,
+  geometryBytes: 96_000,
+  textureBytes: 64_000,
+}
 
 const readyRenderer: RendererStatus = { kind: 'ready', backend: 'webgpu' }
 const readyProduct: ProductStatus = { kind: 'ready', slug: 'forma-one', rig, model: counts }
@@ -174,7 +179,13 @@ describe('createViewerAutomation', () => {
     expect(automation.productSlug).toBe('forma-one')
     expect(automation.productFailure).toBeNull()
     expect(automation.rig).toEqual(rig)
-    expect(automation.model).toEqual({ slug: 'forma-one', meshes: 4, triangles: 1200 })
+    expect(automation.model).toEqual({
+      slug: 'forma-one',
+      meshes: 4,
+      triangles: 1200,
+      geometryBytes: 96_000,
+      textureBytes: 64_000,
+    })
     expect(automation.renderedFrames).toBe(1)
 
     renderer = { kind: 'failed', reason: 'the canvas is gone' }
@@ -238,6 +249,8 @@ describe('the store field derivations', () => {
       slug: 'forma-one',
       meshes: 4,
       triangles: 1200,
+      geometryBytes: 96_000,
+      textureBytes: 64_000,
     })
     expect(productModelOf({ kind: 'loading', slug: 'forma-one' })).toBeNull()
     expect(productModelOf({ kind: 'idle' })).toBeNull()

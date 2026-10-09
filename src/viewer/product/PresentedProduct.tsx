@@ -10,6 +10,7 @@ import { LoadedProductContext, type LoadedProduct } from './loadedProduct'
 import { createProductReadyGate, ProductReadyGateContext } from './productReadyGate'
 import type { ProductFinishMaterials } from './finishMaterials'
 import type { LoadedModel } from './productModelLoads'
+import { measureHeldBytes } from './heldModelBytes'
 import { useProductPresentation } from './useProductPresentation'
 import { useStageFrameFailures } from '../stageFrameContext'
 
@@ -59,10 +60,18 @@ export function PresentedProduct({
   // The frame is measured once per load: it centers the scene, feeds the
   // home presentation, and its counts ride with the ready status.
   const frame = useMemo(() => measureModelFrame(model.scene), [model.scene])
+  // The bytes the load holds in the page, measured once per load on the
+  // scene as loaded.
+  const bytes = useMemo(() => measureHeldBytes(model.scene), [model.scene])
 
   const report = useCallback(() => {
-    ready(summary, { meshes: frame.meshes, triangles: frame.triangles })
-  }, [ready, summary, frame])
+    ready(summary, {
+      meshes: frame.meshes,
+      triangles: frame.triangles,
+      geometryBytes: bytes.geometry,
+      textureBytes: bytes.textures,
+    })
+  }, [ready, summary, frame, bytes])
 
   useProductPresentation({ rig, manifest, frame, report, fail, readyGate })
 

@@ -29,7 +29,12 @@ function rigWith(closeUps: readonly string[]): ProductRigSummary {
 // counter of the store's notifications from then on.
 function presented(slug: string, closeUps: readonly string[]) {
   const store = createAppStore()
-  store.getState().productReady(slug, rigWith(closeUps), { meshes: 1, triangles: 12 })
+  store.getState().productReady(slug, rigWith(closeUps), {
+    meshes: 1,
+    triangles: 12,
+    geometryBytes: 48,
+    textureBytes: 0,
+  })
   store.getState().explodeAttach(slug)
   const notifications = { count: 0 }
   store.subscribe(() => {
@@ -166,7 +171,12 @@ describe('the composed flow actions', () => {
     // The second product presents, its driver without a close-up, and its
     // view opens: the first product's close-up is not its own, so neither
     // owes the camera a return home.
-    actions.productReady(SPEAKER, rigWith([]), { meshes: 1, triangles: 12 })
+    actions.productReady(SPEAKER, rigWith([]), {
+      meshes: 1,
+      triangles: 12,
+      geometryBytes: 48,
+      textureBytes: 0,
+    })
     actions.explodeAttach(SPEAKER)
     actions.explodeToggle(SPEAKER)
     expect(cameraRequestOf(store)).toBe(entered)
