@@ -15,7 +15,7 @@
 // `optimize` with the structure flags and --texture-compress=false: the
 // plan already encoded every texture, so the geometry stage needs no
 // KTX-Software at all.
-import { mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, rename, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import type { Document } from '@gltf-transform/core'
@@ -62,6 +62,7 @@ export type PipelineParams = {
   io: ModelDocumentIO
   runKtx: Ktx2Runner
   run: CliRunner
+  validateCandidate: (candidatePath: string) => Promise<void>
 }
 
 // The outcome of one pipeline run: the tangent report and the encode plan
@@ -81,11 +82,12 @@ export type PipelineRun = {
 // the encode plan it executed with the texture report drawn from it, so
 // the run report and the tests print and assert from the same values the
 // stages ran. The stages run on one in-memory Document, written through a
-// temporary folder, then the geometry pass runs straight to the output
-// path, creating its folder. The temporary folder is removed even when a
-// stage fails.
+// temporary folder. The candidate lives beside the destination so rename
+// publishes the checked bytes atomically on the same filesystem. Both
+// workspaces are removed on failure, leaving the previous output intact.
 export async function runOptimizePipeline(params: PipelineParams): Promise<PipelineRun> {
   const tempDir = await mkdtemp(path.join(tmpdir(), 'optimize-'))
+  let candidateDir: string | undefined
   try {
     const doc = await params.io.read(params.inputPath)
     const tangents = dropUnusedTangents(doc)
@@ -101,9 +103,16 @@ export async function runOptimizePipeline(params: PipelineParams): Promise<Pipel
     const afterTextures = path.join(tempDir, 'stage-textures-ktx2.glb')
     await params.io.write(afterTextures, doc)
     await mkdir(path.dirname(params.outputPath), { recursive: true })
-    await params.run(buildGeometryStageArgs(afterTextures, params.outputPath, params.settings))
+    candidateDir = await mkdtemp(path.join(path.dirname(params.outputPath), '.optimize-'))
+    const candidatePath = path.join(candidateDir, 'model.glb')
+    await params.run(buildGeometryStageArgs(afterTextures, candidatePath, params.settings))
+    await params.validateCandidate(candidatePath)
+    await rename(candidatePath, params.outputPath)
     return { plan, textures, tangents }
   } finally {
+    if (candidateDir !== undefined) {
+      await rm(candidateDir, { recursive: true, force: true })
+    }
     await rm(tempDir, { recursive: true, force: true })
   }
 }

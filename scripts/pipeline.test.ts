@@ -1,4 +1,4 @@
-import { mkdtemp } from 'node:fs/promises'
+import { mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -63,7 +63,11 @@ describe('runOptimizePipeline: the encode plan of one texture per class', () => 
       settings: settingsWith({ occlusionTextureMaxSize: 512 }),
       io,
       runKtx: ktx.runKtx,
-      run: cli.run,
+      run: async (args) => {
+        await cli.run(args)
+        await writeFile(args[2] ?? '', 'candidate')
+      },
+      validateCandidate: async () => undefined,
     })
     // The plan is the pure value the pipeline executed: one exact entry per
     // texture class, and every ktx call is one of the planned encodes with
@@ -121,7 +125,7 @@ describe('runOptimizePipeline: the encode plan of one texture per class', () => 
     const geometry = cli.calls[0] ?? []
     expect(geometry[0]).toBe('optimize')
     expect(geometry[1]).toBe(written[0])
-    expect(geometry[2]).toBe(outputPath)
+    expect(path.dirname(path.dirname(geometry[2] ?? ''))).toBe(path.dirname(outputPath))
     expect(geometry).toContain('--texture-compress=false')
     expect(geometry).toContain('--compress=meshopt')
   })
@@ -145,7 +149,10 @@ describe('runOptimizePipeline: the tangent stage', () => {
       settings: DEFAULT_OPTIMIZE_SETTINGS,
       io,
       runKtx: recordedKtxRunner().runKtx,
-      run: recordedCliRunner().run,
+      run: async (args) => {
+        await writeFile(args[2] ?? '', 'candidate')
+      },
+      validateCandidate: async () => undefined,
     })
     expect(tangents.primitivesStripped).toBe(1)
     expect(tangents.primitivesKept).toBe(1)

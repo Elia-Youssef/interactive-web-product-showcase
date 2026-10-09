@@ -80,6 +80,8 @@ async function optimizeProduct(
   const io = await createModelIO()
   const beforeStructure = readProductStructure(await io.read(paths.exportGlb))
   const inputBytes = await fileSizeBytes(paths.exportGlb)
+  let outputBytes: number | null = null
+  let afterStructure: ReturnType<typeof readProductStructure> | undefined
   const run = await runOptimizePipeline({
     inputPath: paths.exportGlb,
     outputPath: paths.modelGlb,
@@ -88,23 +90,27 @@ async function optimizeProduct(
     runKtx: (args) =>
       runKtxCommand(ktxExecutablePath(ktxResolution.folder, process.platform), args),
     run: (args) => runGltfCli(resolveGltfCliBin(), args, process.env),
+    validateCandidate: async (candidatePath) => {
+      afterStructure = readProductStructure(await io.read(candidatePath))
+      outputBytes = await fileSizeBytes(candidatePath)
+      if (outputBytes === null || inputBytes === null) {
+        throw new Error(`Missing file after optimizing '${paths.slug}'`)
+      }
+      const losses = [
+        ...findStructureLosses(beforeStructure, afterStructure),
+        ...findSingleAnimationViolations(afterStructure),
+      ]
+      if (losses.length > 0) {
+        const lines = losses.map((loss) => `- ${loss}`).join('\n')
+        throw new Error(`Optimized '${paths.slug}' lost required structure:\n${lines}`)
+      }
+    },
   })
-  const outputDoc = await io.read(paths.modelGlb)
-  const outputBytes = await fileSizeBytes(paths.modelGlb)
-  if (outputBytes === null || inputBytes === null) {
+  if (outputBytes === null || inputBytes === null || afterStructure === undefined) {
     throw new Error(`Missing file after optimizing '${paths.slug}'`)
   }
   printRunReport(paths, settings, inputBytes, outputBytes, run.textures, run.tangents)
-  const afterStructure = readProductStructure(outputDoc)
   printStructure(afterStructure)
-  const losses = [
-    ...findStructureLosses(beforeStructure, afterStructure),
-    ...findSingleAnimationViolations(afterStructure),
-  ]
-  if (losses.length > 0) {
-    const lines = losses.map((loss) => `- ${loss}`).join('\n')
-    throw new Error(`Optimized '${paths.slug}' lost required structure:\n${lines}`)
-  }
 }
 
 function printRunReport(
