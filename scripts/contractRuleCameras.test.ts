@@ -4,7 +4,7 @@
 // needed, and stays quiet about one a view needs.
 import { describe, expect, it } from 'vitest'
 import { cameraRules } from './contractRuleCameras.ts'
-import { buildDocument, nodeNamed } from './validateFixtures.ts'
+import { addRotationChannel, buildDocument, nodeNamed } from './validateFixtures.ts'
 import { contractRuleInputOf, ruleFixtureManifest } from './contractRuleFixtures.ts'
 import type { ContractRuleInput } from './contractRules.ts'
 
@@ -127,22 +127,13 @@ describe('the camera-group contract rules', () => {
     )
   })
 
-  it('the home-fit rule reports a rotation channel as an unimplemented bound', async () => {
-    const rotated = (doc: ReturnType<typeof buildDocument>) => {
-      const sampler = doc.getRoot().listAnimations()[0]?.listSamplers()[0]
-      const channel = doc.getRoot().listAnimations()[0]?.listChannels()[0]
-      channel?.setTargetPath('rotation')
-      sampler?.setOutput(
-        doc
-          .createAccessor('rotation-keys')
-          .setType('VEC4')
-          .setArray(new Float32Array([0, 0, 0, 1, 0, 0.5, 0, 1])),
-      )
-    }
+  it('the home-fit rule measures the assembled pose of a clip with a rotation channel', async () => {
+    // A rotation key has no derived storage bound, so the exploded pose is
+    // named instead of compared; the assembled pose reads no key and holds.
+    const rotated = (doc: ReturnType<typeof buildDocument>) => addRotationChannel(doc, 'PART_knob')
     expect(messagesOf('home-holds-both-poses', await inputOf(rotated)).violations).toEqual([
-      'rotation channel bound not implemented: the clip drives rotation on PART_base, ' +
-        'and the storage bound of a rotation output is not derived; ' +
-        'the home fit covers translation keys only',
+      'the exploded pose is not compared: the clip drives rotation on PART_knob, ' +
+        'whose stored keys have no derived storage bound',
     ])
   })
 

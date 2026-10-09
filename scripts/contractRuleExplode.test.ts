@@ -3,7 +3,7 @@
 // the exact message the rule reports.
 import { describe, expect, it } from 'vitest'
 import { explodeRules } from './contractRuleExplode.ts'
-import { buildDocument, nodeNamed } from './validateFixtures.ts'
+import { addRotationChannel, buildDocument, nodeNamed } from './validateFixtures.ts'
 import { contractRuleInputOf } from './contractRuleFixtures.ts'
 
 const byKey = new Map(explodeRules.map((rule) => [rule.key, rule]))
@@ -64,8 +64,18 @@ describe('the explode-group contract rules', () => {
         animation?.addChannel(channel)
       }),
     ).toEqual([
-      'the animation drives scale on PART_base, only location and rotation channels are allowed',
+      'the animation drives scale on PART_base, only location channels are allowed: ' +
+        'the storage bound of a stored key is derived for translation keys only',
     ])
+  })
+
+  it('the channels rule refuses a rotation channel, which the first-key rule leaves to it', async () => {
+    const rotated = (doc: ReturnType<typeof buildDocument>) => addRotationChannel(doc, 'PART_knob')
+    expect(await violationsOf('clip-channels-on-parts', rotated)).toEqual([
+      'the animation drives rotation on PART_knob, only location channels are allowed: ' +
+        'the storage bound of a stored key is derived for translation keys only',
+    ])
+    expect(await violationsOf('clip-first-key-at-rest', rotated)).toEqual([])
   })
 
   it('the first-key rule reports one off the rest pose, and passes the stored one', async () => {
@@ -87,25 +97,6 @@ describe('the explode-group contract rules', () => {
         output?.setArray(new Float32Array([1.0004, 0, 0, 1.0004, 1, 0]))
       }),
     ).toEqual([])
-  })
-
-  it('the first-key rule reports a rotation channel as an unimplemented bound, never a window comparison', async () => {
-    expect(
-      await violationsOf('clip-first-key-at-rest', (doc) => {
-        const sampler = samplerOf(doc)
-        const channel = doc.getRoot().listAnimations()[0]?.listChannels()[0]
-        channel?.setTargetPath('rotation')
-        sampler.setOutput(
-          doc
-            .createAccessor('rotation-keys')
-            .setType('VEC4')
-            .setArray(new Float32Array([0, 0, 0, 1, 0, 0.5, 0, 1])),
-        )
-      }),
-    ).toEqual([
-      'rotation channel bound not implemented: PART_base drives rotation, and the storage ' +
-        'bound of a rotation output is not derived; the first-key rule covers translation keys only',
-    ])
   })
 
   it('the dead-length rule reports a dead head, a dead tail, a late start and a still clip', async () => {

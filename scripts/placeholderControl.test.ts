@@ -7,24 +7,27 @@
 // stays as it is.
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { authoredCameraAspect } from '../src/lib/camera/config.ts'
+import { homeFitMargin } from '../src/lib/camera/config.ts'
 import { parseProduct } from '../src/lib/product/index.ts'
 import { readContractModelFacts } from './contractFacts.ts'
 import { runContractRules } from './contractRules.ts'
-import type { ContractRuleMessages, ContractRuleGroup } from './contractRules.ts'
+import type { ContractRuleGroup, ContractRuleInput, ContractRuleMessages } from './contractRules.ts'
 import { fixtureManifestPathOf, modelPathOf } from './fixtureProducts.ts'
-import { allowanceShareOf, frameExtentOf, nearestCornerDepthOf } from './homeFit.ts'
+import { homeFitReportOf, poseViolationOf } from './homeFitRule.ts'
 import { readHomeFitFacts } from './homeFitFacts.ts'
 import { loadParseProduct, readManifestFile } from './manifestIo.ts'
 import { createModelIO } from './modelIo.ts'
 import { deriveStorageBounds } from './storageBounds.ts'
 import { readPositionStorage, readTranslationFilters } from './storageFacts.ts'
 import { readProductStructure } from './structure.ts'
+import { cameraContract } from './validateFixtures.ts'
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const SLUG = 'placeholder-speaker'
 
-async function controlFindings(): Promise<ReadonlyMap<ContractRuleGroup, ContractRuleMessages>> {
+// The rule table's input over the fixture, read through the same facts the
+// validate step reads.
+async function controlInput(): Promise<ContractRuleInput> {
   const io = await createModelIO()
   const modelPath = await modelPathOf(ROOT, SLUG)
   const doc = await io.read(modelPath)
@@ -33,7 +36,7 @@ async function controlFindings(): Promise<ReadonlyMap<ContractRuleGroup, Contrac
   if (load.kind !== 'loaded') {
     throw new Error(`the fixture manifest of ${SLUG} did not load`)
   }
-  return runContractRules({
+  return {
     manifest: parseProduct(load.manifest, fixtureManifestPathOf(ROOT, SLUG)),
     structure,
     facts: readContractModelFacts(doc),
@@ -43,44 +46,31 @@ async function controlFindings(): Promise<ReadonlyMap<ContractRuleGroup, Contrac
       translationFilters: await readTranslationFilters(io, modelPath),
     },
     storageBounds: await deriveStorageBounds(),
-    contract: (await import('./validateFixtures.ts')).cameraContract,
-  })
+    contract: cameraContract,
+  }
+}
+
+async function controlFindings(): Promise<ReadonlyMap<ContractRuleGroup, ContractRuleMessages>> {
+  return runContractRules(await controlInput())
 }
 
 describe('the placeholder fixture, validated explicitly', () => {
-  it('fails the home fit: the clip drives rotation, and the assembled pose overflows the frame', async () => {
-    const violations = (await controlFindings()).get('cameras')?.violations ?? []
-    const homeFit = violations.filter((message) => message.startsWith('home-holds-both-poses:'))
-    expect(homeFit).toEqual([
-      expect.stringMatching(/^home-holds-both-poses: rotation channel bound not implemented/),
-    ])
-
-    // The overflow the fixture carries, measured the way the rule measures
-    // it: the assembled pose keeps a negative share of the half frame, an
-    // overflow of about 5.9 percent of the frame, far beyond anything the
-    // file's own storage can spend.
-    const io = await createModelIO()
-    const doc = await io.read(await modelPathOf(ROOT, SLUG))
-    const structure = readProductStructure(doc)
-    const homeFitFacts = readHomeFitFacts(doc, structure.animationChannels)
-    const home = structure.cameraFacts.find((fact) => fact.name === 'CAM_home')
-    if (home === undefined || home.ray === null) {
-      throw new Error('the fixture carries no CAM_home ray')
+  it('fails the home fit on its assembled pose, by the verdict the rule prints', async () => {
+    const input = await controlInput()
+    const report = homeFitReportOf(input)
+    if (report.kind !== 'measured') {
+      throw new Error(`the fixture's home fit answered ${report.kind}, not a measurement`)
     }
-    const extent = frameExtentOf(
-      homeFitFacts.assembled.points,
-      home.ray.position,
-      home.ray.forward,
-      home.ray.fovY,
-      authoredCameraAspect,
-    )
-    expect(extent.free).toBeCloseTo(-0.059, 2)
-    const allowance = allowanceShareOf(
-      Math.sqrt(3) * 0.00008390075151198939 * homeFitFacts.sigmaMax,
-      nearestCornerDepthOf(homeFitFacts.assembled.points, home.ray.position, home.ray.forward),
-      home.ray.fovY,
-    )
-    expect(extent.free).toBeLessThan(0.06 - allowance)
+    const assembled = report.verdicts.find((verdict) => verdict.pose === 'assembled')
+    if (assembled === undefined) {
+      throw new Error('the home fit measured no assembled pose')
+    }
+    // The assembled pose reads no animation key, so its verdict stands
+    // whatever the clip drives: it misses the contract margin.
+    expect(assembled.holds).toBe(false)
+    expect(assembled.free).toBeLessThan(homeFitMargin)
+    const violations = runContractRules(input).get('cameras')?.violations ?? []
+    expect(violations).toContain(`home-holds-both-poses: ${poseViolationOf(assembled)}`)
   })
 
   it('fails the occlusion rules: four AO images across the file, every slot at texCoord 0', async () => {
@@ -107,10 +97,20 @@ describe('the placeholder fixture, validated explicitly', () => {
     )
   })
 
-  it('fails the first-key rule through the same rotation guard', async () => {
-    const violations = (await controlFindings()).get('explode')?.violations ?? []
-    expect(violations).toContainEqual(
-      expect.stringMatching(/^clip-first-key-at-rest: rotation channel bound not implemented/),
+  it('fails the channels rule on every rotation channel its clip drives', async () => {
+    const input = await controlInput()
+    const rotations = input.structure.animationChannels.filter(
+      (channel) => channel.path === 'rotation',
+    )
+    expect(rotations.length).toBeGreaterThan(0)
+    const violations = runContractRules(input).get('explode')?.violations ?? []
+    expect(violations.filter((message) => message.startsWith('clip-channels-on-parts:'))).toEqual(
+      rotations.map(
+        (channel) =>
+          `clip-channels-on-parts: the animation drives rotation on ${channel.targetName}, ` +
+          'only location channels are allowed: the storage bound of a stored key is derived ' +
+          'for translation keys only',
+      ),
     )
   })
 
