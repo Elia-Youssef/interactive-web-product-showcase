@@ -35,7 +35,7 @@ export type ContractCameraFact = {
 // name the texture the material's occlusion slot samples: the image as the
 // document's own texture index (one glTF image is one texture, so an index
 // shared by two materials is one image), and the texCoord set the slot
-// reads, 0 when the material carries no occlusion texture.
+// reads; both are null when the material carries no occlusion texture.
 export type ContractMaterialFact = {
   readonly name: string
   readonly unlit: boolean

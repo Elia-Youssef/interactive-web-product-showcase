@@ -86,13 +86,6 @@ async function loadManifest(
   return { check: checkManifest(paths.slug, manifest), manifest }
 }
 
-// The model side: the file exists, reads back, and yields the facts every
-// model check reads: the structure, the contract and home-fit facts, the
-// storage facts (the position storage from the read-back document, the
-// translation filters from the file's own glTF JSON), the derived storage
-// bounds, the texture reports and the draw-call count. A missing or
-// unreadable model is this group's violation; the model check groups then
-// skip for want of their input.
 // The model facts of one product side, as the load answers them: every
 // fact null when the model never loaded, so the contract groups skip for
 // want of their input.
@@ -124,6 +117,13 @@ function unreadableModel(detail: string, violation: string, fileBytes: number | 
   }
 }
 
+// The model side: the file exists, reads back, and yields the facts every
+// model check reads: the structure, the contract and home-fit facts, the
+// storage facts (the position storage from the read-back document, the
+// translation outputs from the file's own glTF JSON and binary chunk), the
+// derived storage bounds, the texture reports and the draw-call count. A
+// missing or unreadable model is this group's violation; the model check
+// groups then skip for want of their input.
 async function loadModel(io: NodeIO, root: string, paths: ProductPaths): Promise<ModelSide> {
   const shown = repoPath(root, paths.modelGlb)
   const fileBytes = await fileSizeBytes(paths.modelGlb)
@@ -151,8 +151,8 @@ async function loadModel(io: NodeIO, root: string, paths: ProductPaths): Promise
 }
 
 // The storage facts of one written model: the position storage from the
-// read-back document, the translation filters from the file's own glTF
-// JSON, and the derived bounds the file's storage precision implies.
+// read-back document, held against the pipeline's quantize grid, and the
+// translation outputs from the file's own glTF JSON and binary chunk.
 async function readStorageFacts(
   io: NodeIO,
   modelPath: string,
