@@ -3,7 +3,7 @@
 // through.
 import { join } from 'node:path'
 import { expect, test } from 'vitest'
-import { isAuthoredFile, listGatedFiles } from './gatedFiles.ts'
+import { isAuthoredFile, isGatedTextFile, listGatedFiles } from './gatedFiles.ts'
 import { generatedFilePaths } from './generatedFiles.ts'
 import { listOwnedFiles } from './ownedFiles.ts'
 
@@ -25,5 +25,15 @@ test('the gated list is the owned list without the files the project does not au
   for (const generated of generatedFilePaths) {
     expect(owned, generated).toContain(generated)
     expect(gated, generated).not.toContain(generated)
+  }
+})
+
+test('text is decided by name: binary extensions and generated files are not gated text', () => {
+  expect(isGatedTextFile('src/viewer/Stage.tsx')).toBe(true)
+  expect(isGatedTextFile('public/_headers')).toBe(true)
+  expect(isGatedTextFile('public/models/sample-one/model.glb')).toBe(false)
+  expect(isGatedTextFile('public/fonts/face.woff2')).toBe(false)
+  for (const generated of generatedFilePaths) {
+    expect(isGatedTextFile(generated), generated).toBe(false)
   }
 })
