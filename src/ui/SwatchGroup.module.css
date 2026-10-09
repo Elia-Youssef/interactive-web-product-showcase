@@ -1,7 +1,9 @@
-/* The single-choice group of swatches: one row, with the gap the panel
-section keeps between its swatches. Values are tokens. */
+/* The single-choice group of swatches: a row, with the gap the panel
+section keeps between its swatches, that wraps onto more rows when the
+finishes outnumber its width. Values are tokens. */
 
 .group {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-4);
 }
