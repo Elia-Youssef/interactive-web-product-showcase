@@ -1,11 +1,12 @@
 import { Suspense, useCallback, useEffect, useSyncExternalStore, type ReactNode } from 'react'
-import type { Product, ProductFailure } from '@lib/product'
+import { productModelUrl, type Product, type ProductFailure } from '@lib/product'
 import { selectProductFailed, useAppStore } from '@store/index'
 import { useStageOverlay } from '../overlay/stageOverlayContext'
 import { useStageFramePath } from '../stageFrameContext'
 import { ProductBoundary } from './ProductBoundary'
 import { ProductContent } from './ProductContent'
 import { enterProductLife } from './productLife'
+import { useProductModel } from './useProductModel'
 
 type ProductProps = {
   readonly manifest: Product
@@ -52,12 +53,16 @@ export function Product({ manifest, children }: ProductProps) {
   const frames = useStageFramePath()
   const retired = useSyncExternalStore(frames.subscribeRetirement, () => frames.isRetired)
   const presentable = !failed && !retired
+  // The life's model load, held for as long as this life wants it: the
+  // hold starts in the commit that mounts the life, so a load the stage
+  // leaves mid-flight is never held by nobody.
+  const model = useProductModel(productModelUrl(slug), presentable)
 
   return (
     <ProductBoundary fail={fail}>
-      {presentable && (
+      {presentable && model !== null && (
         <Suspense fallback={null}>
-          <ProductContent manifest={manifest} fail={fail}>
+          <ProductContent manifest={manifest} model={model} fail={fail}>
             {children}
           </ProductContent>
         </Suspense>

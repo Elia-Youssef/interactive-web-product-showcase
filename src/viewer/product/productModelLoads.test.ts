@@ -1,12 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { Object3D } from 'three/webgpu'
-import { RetriedLoad } from '@lib/async/retriedLoad'
-import {
-  createProductModelLoads,
-  loadProductModel,
-  type LoadedModel,
-  type ProductModelSources,
-} from './productModelLoads'
+import { loadProductModel, type LoadedModel, type ProductModelSources } from './productModelLoads'
 
 // The model load's ordering and failure mapping, over sources whose
 // promises the test settles by hand: no network, no loader, no clock.
@@ -97,15 +91,48 @@ describe('loadProductModel', () => {
     expect(parsed).toEqual(['meshopt'])
   })
 
+  it('reads the bytes of a taken read ahead instead of fetching them itself', async () => {
+    const bytes = new ArrayBuffer(8)
+    const parsed: ArrayBuffer[] = []
+    let fresh = 0
+    const load = loadProductModel<Decoder>(
+      {
+        fetchModel: () => {
+          fresh += 1
+          return Promise.resolve(new ArrayBuffer(4))
+        },
+        decoder: () => Promise.resolve({ name: 'meshopt' }),
+        parse: (data) => {
+          parsed.push(data)
+          return Promise.resolve(model())
+        },
+      },
+      url,
+      () => Promise.resolve(bytes),
+    )
+
+    expect((await load).kind).toBe('loaded')
+    expect(parsed).toEqual([bytes])
+    expect(fresh).toBe(0)
+  })
+
   it('settles every failed source as the load failure naming the model URL', async () => {
     const failures: readonly (readonly [string, Partial<ProductModelSources<Decoder>>])[] = [
       ['the fetch', { fetchModel: () => Promise.reject(new TypeError('Failed to fetch')) }],
       ['the decoder', { decoder: () => Promise.reject(new TypeError('Failed to fetch')) }],
       ['the parse', { parse: () => Promise.reject(new TypeError('Failed to fetch')) }],
       [
-        'a source that throws',
+        'a fetch that throws',
         {
           fetchModel: () => {
+            throw new TypeError('Failed to fetch')
+          },
+        },
+      ],
+      [
+        'a decoder that throws',
+        {
+          decoder: () => {
             throw new TypeError('Failed to fetch')
           },
         },
@@ -121,55 +148,16 @@ describe('loadProductModel', () => {
       })
     }
   })
-})
 
-describe('createProductModelLoads', () => {
-  it('fails every load that met a failed decoder import with its own typed failure', async () => {
-    const decoder = new RetriedLoad<Decoder>(() =>
-      Promise.reject(new TypeError('Failed to fetch dynamically imported module')),
-    )
-    const { sources } = recordingSources(() => decoder.read())
-    const loads = createProductModelLoads(sources)
+  it('settles a bytes start that throws before returning its promise as the load failure', async () => {
+    const { sources } = recordingSources(() => Promise.resolve({ name: 'meshopt' }))
+    const load = loadProductModel(sources, url, () => {
+      throw new TypeError('the read ahead is gone')
+    })
 
-    const first = loads.read('/models/a/model.glb')
-    const second = loads.read('/models/b/model.glb')
-
-    await expect(first.value).resolves.toEqual({
+    await expect(load).resolves.toEqual({
       kind: 'failed',
-      failure: {
-        kind: 'load',
-        url: '/models/a/model.glb',
-        message: 'Failed to fetch dynamically imported module',
-      },
+      failure: { kind: 'load', url, message: 'the read ahead is gone' },
     })
-    await expect(second.value).resolves.toEqual({
-      kind: 'failed',
-      failure: {
-        kind: 'load',
-        url: '/models/b/model.glb',
-        message: 'Failed to fetch dynamically imported module',
-      },
-    })
-  })
-
-  it('imports the decoder again for a load after a failed import', async () => {
-    let imports = 0
-    const decoder = new RetriedLoad<Decoder>(() => {
-      imports += 1
-      return imports === 1
-        ? Promise.reject(new TypeError('Failed to fetch dynamically imported module'))
-        : Promise.resolve({ name: 'meshopt' })
-    })
-    const recorded = recordingSources(() => decoder.read())
-    const loads = createProductModelLoads(recorded.sources)
-
-    const failed = loads.read('/models/a/model.glb')
-    expect((await failed.value).kind).toBe('failed')
-    loads.forget(failed)
-
-    expect((await loads.read('/models/a/model.glb').value).kind).toBe('loaded')
-    expect((await loads.read('/models/b/model.glb').value).kind).toBe('loaded')
-    expect(imports).toBe(2)
-    expect(recorded.parsedWith.map((used) => used.name)).toEqual(['meshopt', 'meshopt'])
   })
 })
