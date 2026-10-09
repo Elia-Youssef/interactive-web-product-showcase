@@ -64,6 +64,33 @@ test('the eyebrow is the manifest kind closed by the serial the site composes fr
   expect(text).toBe('Compact speaker / 001')
 })
 
+test('the panel runs in one order: name, finishes, story, explode controls', () => {
+  const html = renderToString(
+    <AppStoreProvider>
+      <ProductPanel
+        product={parseProduct(
+          { ...sampleManifest, explode: { label: 'See inside' } },
+          'sample-one',
+        )}
+      />
+    </AppStoreProvider>,
+  )
+
+  // The markup is the order on every screen, so this one order is the
+  // visual, reading and keyboard order at every breakpoint.
+  const order = [
+    'data-eyebrow-tail',
+    '<h1',
+    'role="radiogroup"',
+    'Sound first, everything else second.',
+    'A first line.',
+    'See inside</button>',
+    'type="range"',
+  ].map((needle) => html.indexOf(needle))
+  expect(order.every((at) => at >= 0)).toBe(true)
+  expect(order).toEqual([...order].sort((a, b) => a - b))
+})
+
 test('the finish list carries the site heading and one swatch per finish', () => {
   const html = renderPanel()
 

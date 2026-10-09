@@ -1,6 +1,11 @@
-// The panel content, top to bottom: the
-// current product's words, all from its manifest, then the finish list. The
-// product arrives as a prop; the selected finish is the only state, and it
+// The panel content, in one order at every breakpoint: the product's name
+// (eyebrow and title), the finish list, then its story (tagline and
+// intro), the explode controls and the navigation row. The phone's resting
+// sheet shows the first three, so the main action on a phone, switching
+// finishes, needs no scroll; and the markup is the order on every screen,
+// so reading and keyboard order are the visual order with no reordering.
+// The words come from the manifest. The product arrives as a prop; the
+// selected finish is the only state, and it
 // lives in the store's finish slice, which this component reads and writes
 // exclusively. The offer of the product's finishes is the variants
 // feature's one offer hook; layout owns the panel container and its
@@ -39,17 +44,6 @@ export function ProductPanel({ product, navigationRow }: ProductPanelProps) {
     <div className={styles.panel}>
       <Eyebrow tail={eyebrow.tail}>{eyebrow.lead}</Eyebrow>
       <Title brand={product.brand} model={product.model} />
-      <p className={styles.tagline}>{product.tagline}</p>
-      <div className={styles.intro}>
-        {product.intro.map((line, index) => (
-          <p key={index} className={styles.introLine}>
-            {line}
-          </p>
-        ))}
-      </div>
-      <div className={styles.rule}>
-        <Divider />
-      </div>
       <div className={styles.finish}>
         <div className={styles.finishHeading}>
           <Eyebrow level={2}>{siteCopy.finishHeading}</Eyebrow>
@@ -67,6 +61,17 @@ export function ProductPanel({ product, navigationRow }: ProductPanelProps) {
           }))}
           onSelect={(variant) => finishSelected(product.slug, variant)}
         />
+      </div>
+      <p className={styles.tagline}>{product.tagline}</p>
+      <div className={styles.intro}>
+        {product.intro.map((line, index) => (
+          <p key={index} className={styles.introLine}>
+            {line}
+          </p>
+        ))}
+      </div>
+      <div className={styles.rule}>
+        <Divider />
       </div>
       <ProductExplodeToggle product={product} />
       <ProductExplodeScrub product={product} />
