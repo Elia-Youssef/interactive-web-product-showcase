@@ -8,6 +8,7 @@
 import type { Vec3 } from '../src/lib/camera/frame.ts'
 import { homeFitReportOf, homeFitViolationsOf } from './homeFitRule.ts'
 import { cameraAssemblyOf } from './validateCameras.ts'
+import { cross, dot, rollFreeBasisOf, scale, sub } from './viewBasis.ts'
 import type { ContractRule } from './contractRules.ts'
 
 // The roll a stored camera can carry and still read as the roll-free view
@@ -97,36 +98,13 @@ function round4(value: number): number {
 // The signed angle, in degrees, from the roll-free up a view rebuilds to
 // the camera's own up: zero for a camera the viewer presents unchanged.
 function rollDegrees(cameraUp: Vec3, forward: Vec3): number {
-  const right = cross(forward, [0, 1, 0])
-  const rightLength = lengthOf(right)
-  if (rightLength < 1e-9) {
+  const basis = rollFreeBasisOf(forward)
+  if (basis === null) {
     // A view straight along world up has no roll-free basis to compare
     // with; the polar limits own that camera.
     return 0
   }
-  const unitRight = scale(right, 1 / rightLength)
-  const rollFree = cross(unitRight, forward)
   const own = sub(cameraUp, scale(forward, dot(cameraUp, forward)))
-  const angle = Math.atan2(dot(cross(rollFree, own), forward), dot(rollFree, own))
+  const angle = Math.atan2(dot(cross(basis.up, own), forward), dot(basis.up, own))
   return (angle * 180) / Math.PI
-}
-
-function sub(a: Vec3, b: Vec3): Vec3 {
-  return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
-}
-
-function scale(a: Vec3, factor: number): Vec3 {
-  return [a[0] * factor, a[1] * factor, a[2] * factor]
-}
-
-function dot(a: Vec3, b: Vec3): number {
-  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
-}
-
-function cross(a: Vec3, b: Vec3): Vec3 {
-  return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
-}
-
-function lengthOf(a: Vec3): number {
-  return Math.sqrt(dot(a, a))
 }

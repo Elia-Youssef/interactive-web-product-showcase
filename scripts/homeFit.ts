@@ -8,9 +8,7 @@
 // sits anywhere in the comparison.
 
 import type { Vec3 } from '../src/lib/camera/frame.ts'
-
-// The world up of glTF space, the up the controls rebuild every view from.
-const WORLD_UP: Vec3 = [0, 1, 0]
+import { dot, rollFreeBasisOf, sub, unitOf } from './viewBasis.ts'
 
 // What projecting a pose answers: the frame extent, or the reason the pose
 // has none through this camera. A point behind the camera plane has no
@@ -41,24 +39,24 @@ export function frameExtentOf(
   aspect: number,
 ): FrameExtent {
   const f = unitOf(forward)
-  const r = rightOf(f)
-  if (r === null) {
+  const basis = rollFreeBasisOf(f)
+  if (basis === null) {
     return { kind: 'noRollFreeBasis' }
   }
-  const u = crossOf(r, f)
+  const { right: r, up: u } = basis
   const t = Math.tan(fovYRadians / 2)
   const xs: number[] = []
   const ys: number[] = []
   let reach = -Infinity
   let bindingPoint = 0
   for (const [index, point] of points.entries()) {
-    const q = subOf(point, cameraPosition)
-    const depth = dotOf(q, f)
+    const q = sub(point, cameraPosition)
+    const depth = dot(q, f)
     if (depth <= 0) {
       return { kind: 'behindCamera', point: index }
     }
-    const x = dotOf(q, r) / (depth * t * aspect)
-    const y = dotOf(q, u) / (depth * t)
+    const x = dot(q, r) / (depth * t * aspect)
+    const y = dot(q, u) / (depth * t)
     xs.push(x)
     ys.push(y)
     const abs = Math.max(Math.abs(x), Math.abs(y))
@@ -97,7 +95,7 @@ export function nearestCornerDepthOf(
   for (const x of [min[0] ?? 0, max[0] ?? 0]) {
     for (const y of [min[1] ?? 0, max[1] ?? 0]) {
       for (const z of [min[2] ?? 0, max[2] ?? 0]) {
-        nearest = Math.min(nearest, dotOf(subOf([x, y, z], cameraPosition), f))
+        nearest = Math.min(nearest, dot(sub([x, y, z], cameraPosition), f))
       }
     }
   }
@@ -183,48 +181,4 @@ export function homeFitVerdictsOf(
 // read against a 0.06 margin, so the noise one order below never shows.
 export function round5(value: number): number {
   return Math.round(value * 100000) / 100000
-}
-
-function unitOf(vector: Vec3): Vec3 {
-  const length = lengthOf(vector)
-  if (length === 0) {
-    throw new Error('a view direction cannot be the zero vector')
-  }
-  return scaleOf(vector, 1 / length)
-}
-
-// The roll-free right of a view direction over world up: the same basis
-// the viewer rebuilds, or null along world up, where the polar limits own
-// the camera.
-function rightOf(forward: Vec3): Vec3 | null {
-  const right = crossOf(forward, WORLD_UP)
-  const length = lengthOf(right)
-  if (length < 1e-9) {
-    return null
-  }
-  return scaleOf(right, 1 / length)
-}
-
-function subOf(a: Vec3, b: Vec3): Vec3 {
-  return [(a[0] ?? 0) - (b[0] ?? 0), (a[1] ?? 0) - (b[1] ?? 0), (a[2] ?? 0) - (b[2] ?? 0)]
-}
-
-function scaleOf(a: Vec3, factor: number): Vec3 {
-  return [(a[0] ?? 0) * factor, (a[1] ?? 0) * factor, (a[2] ?? 0) * factor]
-}
-
-function dotOf(a: Vec3, b: Vec3): number {
-  return (a[0] ?? 0) * (b[0] ?? 0) + (a[1] ?? 0) * (b[1] ?? 0) + (a[2] ?? 0) * (b[2] ?? 0)
-}
-
-function crossOf(a: Vec3, b: Vec3): Vec3 {
-  return [
-    (a[1] ?? 0) * (b[2] ?? 0) - (a[2] ?? 0) * (b[1] ?? 0),
-    (a[2] ?? 0) * (b[0] ?? 0) - (a[0] ?? 0) * (b[2] ?? 0),
-    (a[0] ?? 0) * (b[1] ?? 0) - (a[1] ?? 0) * (b[0] ?? 0),
-  ]
-}
-
-function lengthOf(a: Vec3): number {
-  return Math.sqrt(dotOf(a, a))
 }
