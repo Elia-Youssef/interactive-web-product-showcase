@@ -6,6 +6,7 @@ import { StagePresenter } from './StagePresenter'
 import { StageSettle } from './StageSettle'
 import { StageFramePathContext } from './stageFrameContext'
 import { StageSettleContext } from './stageSettleContext'
+import { useStageHold } from './stageHoldsContext'
 
 type StageFramesProps = {
   readonly clock: FrameClock
@@ -39,13 +40,22 @@ export function StageFrames({
   children,
 }: StageFramesProps) {
   const invalidate = useThree((state) => state.invalidate)
+  const [life] = useState(() => clock.createFrameLife())
+  useStageHold(life, life.dispose)
   const [frames] = useState(
-    () => new StageFramePath({ invalidate: () => invalidate(), retired: onRendererRetired }),
+    () =>
+      new StageFramePath({
+        invalidate: () => invalidate(),
+        retired: () => {
+          life.retire()
+          onRendererRetired()
+        },
+      }),
   )
 
   // The canvas's settle chain: its steps present through this canvas and
   // record on the stage's clock.
-  const [settle] = useState(() => new StageSettle(clock))
+  const [settle] = useState(() => new StageSettle(life))
 
   useLayoutEffect(() => frames.own('stage', onFrameFailure), [frames, onFrameFailure])
 

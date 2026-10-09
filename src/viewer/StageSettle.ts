@@ -18,7 +18,7 @@ export type SettleResources = {
 export class StageSettle {
   private readonly chain = new TaskChain()
 
-  constructor(private readonly clock: FrameClock) {}
+  constructor(private readonly clock: Pick<FrameClock, 'onceFrame'>) {}
 
   // Settles the scene as it stands when the step runs. Resolves when every
   // settle pushed before it, this one, and any pushed while it presented
@@ -54,12 +54,10 @@ export class StageSettle {
   // rendered. The second present makes the settled state the one on screen;
   // it presents the same scene state, so it changes no pixels.
   //
-  // The step has no failure of its own: the invalidate never throws and the
-  // frame wait only resolves. A frame that throws belongs to the stage's
-  // frame path, which halts the frames and fails their owner; a frame that
-  // did not present is never recorded, so a broken present holds the step
-  // until the frames present again, never resolving it on a frame that
-  // failed.
+  // A frame that did not present is never recorded. A recoverable frame
+  // step failure holds the wait until its owner leaves and frames resume.
+  // A retired or disposed frame supply rejects every waiter instead; that
+  // typed reason propagates unchanged through the settle and its chain.
   private async runSettleStep(resources: SettleResources): Promise<void> {
     resources.invalidate()
     await this.clock.onceFrame()
