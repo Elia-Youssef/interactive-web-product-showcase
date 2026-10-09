@@ -105,9 +105,10 @@ function boundarySamples(positionBits: number): {
 // pipeline's key bits, over the key's own largest component. The filter
 // stores a key as an integer mantissa over one shared exponent chosen so
 // the key's largest component fits the 12 signed bits, so no component of
-// the key moves by more than 2^-(bits-1) of that largest magnitude;
-// verified against the installed encoder's round trip at magnitudes from
-// 2^-25 to 2.5, where the worst error sat under 0.91 of this bound.
+// the key moves by more than 2^-(bits-1) of that largest magnitude. The
+// installed encoder's round trip, over keys at magnitudes from 2^-25 to 1,
+// comes within a percent of the bound and never past it
+// (storageBounds.test.ts holds it there).
 export function translationKeyComponentBound(keyComponents: readonly number[]): number {
   if (keyComponents.length === 0) {
     throw new Error('a translation key carries at least one component')
