@@ -13,14 +13,15 @@ import { scanGatedFilesForControlBytes } from './controlByteGate.ts'
 import { formatPointerFindings, scanGatedFilesForPointers } from './pointerGate.ts'
 
 const root = resolve(import.meta.dirname, '..')
-const files = listGatedFiles(root).filter((file) => hasExtension(file, scriptExtensions))
+const gatedFiles = listGatedFiles(root)
+const files = gatedFiles.filter((file) => hasExtension(file, scriptExtensions))
 
 const eslint = new ESLint({
   cwd: root,
   // The config comes straight from the factory, with no config file lookup:
   // the gate and eslint.config.ts cannot disagree about which factory ran.
   overrideConfigFile: true,
-  overrideConfig: createConfig({ root }),
+  overrideConfig: await createConfig({ root, files: gatedFiles }),
 })
 
 const results = await eslint.lintFiles(files)
