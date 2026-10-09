@@ -121,14 +121,22 @@ their minimum below it, switched by the breakpoints at the end of this file.
   --size-hotspot-ring: 28px;
   --size-hotspot-hit: var(--size-hit-min);
   /*
-  The marker dot's dark rim: the inactive dot is off-white, which reads on
-  every dark surface and vanishes on a light one (a pale finish under a
-  pale dot), so the dot carries a black keyline whose edge answers instead.
-  Light dot on dark surfaces, dark rim on light ones: one marker reads on
-  any surface, and the accent stays the only color.
+  The two-tone hotspot marker. The inactive dot is off-white, which reads
+  on every dark surface and vanishes on a light one (a pale finish under a
+  pale dot), so the dot carries a black keyline whose edge answers
+  instead. The ring is drawn in the boundary white, 3:1 on the stage, and
+  carries the same thin dark rim outside it, so on a light finish the rim
+  draws the ring. Light marks on dark surfaces, dark rims on light ones:
+  one marker reads on any surface, and the accent stays the only color.
+  Hover lifts the ring to the off-white.
   */
+  --marker-dot: var(--off);
   --marker-dot-rim-width: 1px;
   --marker-dot-rim: var(--black);
+  --marker-ring: var(--boundary);
+  --marker-ring-hover: var(--off);
+  --marker-ring-rim-width: var(--marker-dot-rim-width);
+  --marker-ring-rim: var(--marker-dot-rim);
   /*
   The gap between a hotspot marker and the card floating beside it, and the
   stacking of the floating card above the markers, whose placed elements
