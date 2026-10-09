@@ -10,7 +10,8 @@
 //   spot the visitor cannot see. A hidden card keeps the slot it is in, so a
 //   marker that hides and shows again never moves its card between slots.
 // - A floating card waits for its first measure before it can be placed,
-//   then floats beside its marker, or docks when no side has room.
+//   then floats beside its marker without covering its subject, or docks
+//   when no side has room.
 
 import type { StageBox } from './projection'
 import { placeHotspotCard, type BoxSize, type CardMetrics, type CardSide } from './cardPlacement'
@@ -32,6 +33,9 @@ export type CardPresentationInput = {
   // The selected marker's placement, or null while it is hidden.
   readonly marker: StagePoint | null
   readonly placedMarkers: readonly StagePoint[]
+  // The projected extent of the selected hotspot's subject, or null while
+  // the canvas side has published none.
+  readonly subject: StageRect | null
   readonly obstacles: readonly StageRect[]
   // The floating card's measured size, or null before its first measure.
   readonly card: BoxSize | null
@@ -69,6 +73,7 @@ export function presentHotspotCard(input: CardPresentationInput): CardPresentati
     stage: input.stage,
     marker: input.marker,
     placedMarkers: input.placedMarkers,
+    subject: input.subject,
     obstacles: input.obstacles,
     card: input.card,
     metrics: input.metrics,

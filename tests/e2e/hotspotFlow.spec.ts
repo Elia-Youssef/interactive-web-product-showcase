@@ -3,6 +3,8 @@ import { expect, test } from './fixtures'
 import { harnessPath, expectPoll, waitForProductReady } from './productSpecs'
 import { dragOnCanvas, expectLensAtRest, expectOrbitAtRest, renderedFrames } from './stageCamera'
 import { settledFrames } from './stageSettle'
+import { applicationPlainSubjects } from './applicationPlainSubjects'
+import { productPathOf } from './collectionFacts'
 import {
   cardCloseButtonOf,
   cardHeadingOf,
@@ -10,6 +12,7 @@ import {
   harnessCanvasDrivePoint,
   harnessStageAspect,
   markerOf,
+  mountedMarkerOf,
   requireCamera,
 } from './hotspotViews'
 import { closeWays, flowFacts } from './hotspotFlowFacts'
@@ -28,13 +31,16 @@ import {
 // card itself, its leaving and reduced motion live in hotspotCard.spec.ts,
 // over the same facts module.
 
-const { flows } = await flowFacts()
+const facts = await flowFacts()
+const { flows } = facts
+const applicationPlains = applicationPlainSubjects(facts)
 
 for (const flow of flows) {
   const { product } = flow.subject
   const slug = product.slug
   const closeUp = flow.subject.closeUps[0]
   const plain = flow.subject.plains[0]
+  const appPlain = applicationPlains.plainOf(flow)
 
   const pressSubject = closeUp ?? plain
   if (pressSubject !== undefined) {
@@ -72,7 +78,7 @@ for (const flow of flows) {
       await markerOf(page, closeUp.title).click()
       await expect(markerOf(page, closeUp.title)).toHaveAttribute('aria-pressed', 'true')
       for (const other of product.hotspots.filter((hotspot) => hotspot.id !== closeUp.id)) {
-        await expect(markerOf(page, other.title)).toHaveAttribute('aria-pressed', 'false')
+        await expect(mountedMarkerOf(page, other.title)).toHaveAttribute('aria-pressed', 'false')
       }
 
       // The card carries the manifest's copy and the site's close label.
@@ -105,21 +111,23 @@ for (const flow of flows) {
     })
   }
 
-  if (plain !== undefined) {
-    test(`hotspots ${slug}: opening the plain hotspot ${plain.title} shows its card and renders no frame`, async ({
+  if (appPlain !== undefined) {
+    test(`hotspots ${slug}: opening the plain hotspot ${appPlain.title} shows its card and renders no frame`, async ({
       page,
       backendPath,
     }) => {
-      await page.goto(harnessPath(backendPath, slug))
+      await page.setViewportSize(applicationPlains.viewport)
+      await page.goto(productPathOf(backendPath, product))
       await waitForProductReady(page)
       await settledFrames(page)
 
       const cameraBefore = await requireCamera(page)
       const framesBefore = await settledFrames(page)
 
-      await markerOf(page, plain.title).click()
-      await expect(markerOf(page, plain.title)).toHaveAttribute('aria-pressed', 'true')
-      await expect(cardHeadingOf(page, plain.title)).toBeVisible()
+      await markerOf(page, appPlain.title).click()
+      await expect(markerOf(page, appPlain.title)).toHaveAttribute('aria-pressed', 'true')
+      await expect(cardHeadingOf(page, appPlain.title)).toBeVisible()
+      await settledFrames(page)
 
       // The open is not a camera move: the pose holds exactly and no frame
       // renders for it.
@@ -260,7 +268,7 @@ for (const flow of flows) {
       await settledFrames(page)
       await expect(cardHeadingOf(page, closeUp.title)).toHaveCount(0)
       for (const hotspot of product.hotspots) {
-        await expect(markerOf(page, hotspot.title)).toHaveAttribute('aria-pressed', 'false')
+        await expect(mountedMarkerOf(page, hotspot.title)).toHaveAttribute('aria-pressed', 'false')
       }
 
       // Off home, with no card open, Escape still owes no move: the stage

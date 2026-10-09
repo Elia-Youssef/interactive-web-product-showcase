@@ -23,6 +23,7 @@ function input(overrides: Partial<CardPlacementInput>): CardPlacementInput {
     stage,
     marker,
     placedMarkers: [marker],
+    subject: null,
     obstacles: [],
     card,
     metrics,
@@ -159,6 +160,30 @@ const rows: readonly (readonly [string, CardPlacementInput, string])[] = [
         { left: 450, top: 400, right: 480, bottom: 420 },
         { left: 450, top: 180, right: 480, bottom: 200 },
       ],
+    }),
+    'docked',
+  ],
+  [
+    'a card covering its own subject moves to the next side',
+    input({ subject: { left: 500, top: 280, right: 780, bottom: 340 } }),
+    'left',
+  ],
+  [
+    'a card that only touches its subject covers nothing',
+    input({ subject: { left: 630, top: 300, right: 780, bottom: 340 } }),
+    'right',
+  ],
+  [
+    'the subject under both beside sides falls to below',
+    input({
+      subject: { left: 170, top: 290, right: 630, bottom: 330 },
+    }),
+    'below',
+  ],
+  [
+    'the subject filling every side docks',
+    input({
+      subject: { left: 0, top: 100, right: 800, bottom: 500 },
     }),
     'docked',
   ],

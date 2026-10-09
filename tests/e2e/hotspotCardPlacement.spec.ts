@@ -14,7 +14,7 @@ import { stageBoxOf, viewportContracts } from './layoutContracts'
 import { expectCardWhereTheLayoutPutsIt } from './hotspotCardOracle'
 import type { AuthoredView } from './productCamera'
 import type { MarkerViews } from './productMarkerViews'
-import { expectMarkerClearOfCard, placedMarkerTitles } from './hotspotCardChecks'
+import { expectMarkerClearOfCard, openCardOf, placedMarkerTitles } from './hotspotCardChecks'
 
 // The open card never gets in the way, on the app page at every layout
 // size: for every hotspot, in every authored view it can be open in (home,
@@ -158,8 +158,9 @@ for (const contract of viewportContracts) {
       if (open.openedExploded) {
         // The scrub is panel content, so using it scrolls the panel to it,
         // as it would for a visitor, who scrolls back to the open card once
-        // the stage rests, wherever the card's slot settled.
-        await cardHeadingOf(page, hotspot.title).scrollIntoViewIfNeeded()
+        // the stage rests, wherever the card's slot settled. Bring the
+        // whole card back: a visible title can leave its header clipped.
+        await openCardOf(page).scrollIntoViewIfNeeded()
       }
       await expectAtView(page, flow, open)
 
@@ -168,7 +169,13 @@ for (const contract of viewportContracts) {
         'the open marker stays selected on the stage',
       ).toHaveAttribute('aria-pressed', 'true')
       await expect(cardHeadingOf(page, hotspot.title)).toBeVisible()
-      await expectCardWhereTheLayoutPutsIt(page, contract.hotspotCard, hotspot.title, titles)
+      await expectCardWhereTheLayoutPutsIt(
+        page,
+        contract.hotspotCard,
+        hotspot.title,
+        titles,
+        hotspot.id,
+      )
       const placed = await placedMarkerTitles(page, titles)
       expect(placed.length, 'the open view must show at least one marker').toBeGreaterThan(0)
       for (const title of placed) {

@@ -71,6 +71,7 @@ describe('the spec families', () => {
       'hotspotCardBreakpoints',
       'hotspotCardDock',
       'hotspotCardPlacement',
+      'hotspotCardSheet',
       'hotspotCardWidth',
       'layout',
       'layoutVisual',

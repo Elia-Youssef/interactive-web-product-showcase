@@ -1,7 +1,8 @@
-/* The hotspot marker: a 10px --off dot in a 28px hairline ring, on a 44px
-   hit area. Active: the dot turns --red. Hover: the ring lifts to the
-   hairline hover. The keyboard focus ring is the global :focus-visible
-   recipe, which owns the ring; no second recipe here. Values are tokens. */
+/* The hotspot marker: a 10px --off dot with a black keyline rim in a 28px
+   hairline ring, on a 44px hit area. Active: the dot turns --red. Hover:
+   the ring lifts to the hairline hover. The keyboard focus ring is the
+   global :focus-visible recipe, which owns the ring; no second recipe
+   here. Values are tokens. */
 
 .marker {
   position: absolute;
@@ -48,6 +49,9 @@
   inline-size: var(--size-hotspot-dot);
   block-size: var(--size-hotspot-dot);
   background-color: var(--off);
+  /* The dark rim under the dot: a spread shadow adds no box, so the dot
+     keeps its own size and the rim rides outside it. */
+  box-shadow: 0 0 0 var(--marker-dot-rim-width) var(--marker-dot-rim);
   transition: background-color var(--duration-hover);
 }
 

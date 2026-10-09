@@ -48,7 +48,7 @@ for (const flow of flows) {
           markerOf(page, plain.title),
           `the card stays open at ${size.width}x${size.height}`,
         ).toHaveAttribute('aria-pressed', 'true')
-        await expectCardWhereTheLayoutPutsIt(page, size.hotspotCard, plain.title, titles)
+        await expectCardWhereTheLayoutPutsIt(page, size.hotspotCard, plain.title, titles, plain.id)
       }
     })
   }

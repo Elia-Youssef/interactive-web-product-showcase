@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react'
 import { useThree } from '@react-three/fiber'
-import { Vector3 } from 'three/webgpu'
+import { Box3, Vector3 } from 'three/webgpu'
 import type { ViewerHotspotsAutomation } from '@viewer/automation/viewerAutomation'
 import { useStageProbes } from '@viewer/automation/stageProbesContext'
 import { useLoadedProduct, type LoadedProduct } from '@viewer/product/loadedProduct'
@@ -46,11 +46,21 @@ export function ProductHotspots() {
   )
   // One overlay pass per presented frame: every marker of the frame is
   // written before the overlay's pass listeners, the open card among them,
-  // decide against the complete set.
+  // decide against the complete set, and every hotspot's subject extent is
+  // published with it, so the open card's decision always reads the extent
+  // of the frame that placed its marker.
   const place = useCallback(
     () =>
-      overlay.pass(size, (write) =>
-        placer.place(loaded.rig.hotspots, occluders, camera, size, extentSource.for(size), write),
+      overlay.pass(size, (write, writeBox) =>
+        placer.place(
+          loaded.rig.hotspots,
+          occluders,
+          camera,
+          size,
+          extentSource.for(size),
+          write,
+          writeBox,
+        ),
       ),
     [placer, loaded, occluders, camera, size, extentSource, overlay],
   )
@@ -64,16 +74,26 @@ export function ProductHotspots() {
   return null
 }
 
-// The probe value, read at access time from the HS_ nodes themselves, so it
-// is wherever each anchor stands now, motion included. An access-time read
-// is off the frame path, so its scratch vector costs nothing at rest.
+// The probe value, read at access time from the HS_ nodes and their parts
+// themselves, so it is wherever each anchor and its subject stand now,
+// motion included. An access-time read is off the frame path, so its scratch
+// objects cost nothing at rest.
 function readHotspotsAutomation(loaded: LoadedProduct): ViewerHotspotsAutomation {
   const position = new Vector3()
+  const subject = new Box3()
   return {
     product: loaded.manifest.slug,
     hotspots: loaded.rig.hotspots.map((hotspot) => {
       hotspot.node.getWorldPosition(position)
-      return { id: hotspot.id, position: { x: position.x, y: position.y, z: position.z } }
+      subject.setFromObject(hotspot.part)
+      return {
+        id: hotspot.id,
+        position: { x: position.x, y: position.y, z: position.z },
+        subject: {
+          min: { x: subject.min.x, y: subject.min.y, z: subject.min.z },
+          max: { x: subject.max.x, y: subject.max.y, z: subject.max.z },
+        },
+      }
     }),
   }
 }

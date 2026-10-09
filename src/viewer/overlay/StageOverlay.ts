@@ -52,7 +52,19 @@ export type OverlayBox = {
   readonly height: number
 }
 
+// An axis-aligned rect over the stage, the extent of something the canvas
+// side measured, never an element's own box: placements move mounted
+// elements, boxes only publish geometry.
+export type OverlayRect = {
+  readonly left: number
+  readonly top: number
+  readonly right: number
+  readonly bottom: number
+}
+
 export type OverlayPlace = (key: string, placement: OverlayPlacement) => void
+
+export type OverlayPlaceBox = (key: string, box: OverlayRect) => void
 
 export type OverlayPassListener = () => void
 
@@ -68,6 +80,9 @@ export class StageOverlay {
   // element registers is not lost, and a remounted element re-enters at the
   // key's current placement.
   private placements = new Map<string, OverlayPlacement>()
+  // The last box written per key: published geometry, with no element to
+  // apply it to, so it only needs to answer between passes.
+  private boxes = new Map<string, OverlayRect>()
   private readonly passListeners: Readonly<Record<OverlayPassPhase, Set<OverlayPassListener>>> = {
     presenter: new Set(),
     observer: new Set(),
@@ -76,6 +91,7 @@ export class StageOverlay {
   // The one write function a pass hands its writer, bound once, so a frame's
   // pass allocates no closure.
   private readonly placeInPass: OverlayPlace = (key, placement) => this.place(key, placement)
+  private readonly placeBoxInPass: OverlayPlaceBox = (key, box) => this.placeBox(key, box)
 
   // Holds the element under the key for as long as the caller keeps it and
   // returns the release of this one mount. A second mount under a held key
@@ -117,19 +133,31 @@ export class StageOverlay {
     }
   }
 
-  // Writes one presented frame's placements as one pass in the given box:
-  // the writer places every key of the frame, then every presenter runs
-  // once, in subscription order, with the whole set written, then every
-  // observer runs once, in subscription order, after the presenters.
-  pass(box: OverlayBox, writeAll: (place: OverlayPlace) => void): void {
+  // Writes one presented frame's placements and boxes as one pass in the
+  // given box: the writer places every key of the frame, then every
+  // presenter runs once, in subscription order, with the whole set written,
+  // then every observer runs once, in subscription order, after the
+  // presenters.
+  pass(box: OverlayBox, writeAll: (place: OverlayPlace, placeBox: OverlayPlaceBox) => void): void {
     this.passBox = box
-    writeAll(this.placeInPass)
+    writeAll(this.placeInPass, this.placeBoxInPass)
     for (const listener of this.passListeners.presenter) {
       listener()
     }
     for (const listener of this.passListeners.observer) {
       listener()
     }
+  }
+
+  // Publishes the box of the key: measured geometry over the stage, read by
+  // whoever decides against it, never applied to a mounted element.
+  placeBox(key: string, box: OverlayRect): void {
+    this.boxes.set(key, box)
+  }
+
+  // The last box written for the key, or null when none was.
+  boxOf(key: string): OverlayRect | null {
+    return this.boxes.get(key) ?? null
   }
 
   // Holds the listener in its phase for as long as the caller keeps it and

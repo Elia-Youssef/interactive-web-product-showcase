@@ -94,17 +94,23 @@ export type StageProbeReads = {
 export type StageProbeKey = keyof StageProbeReads
 
 // One hotspot of the stage's product, as the automation reports it: the
-// manifest id and the world position of its anchor, read from the HS_ node
-// at access time, so it is wherever the node stands now, motion included.
+// manifest id, the world position of its anchor read from the HS_ node, and
+// the world extent of its subject, the part the anchor rides on, both read
+// at access time, so they are wherever the nodes stand now, motion included.
 export type ViewerHotspotAutomation = {
   readonly id: string
   readonly position: ViewerVector3
+  readonly subject: {
+    readonly min: ViewerVector3
+    readonly max: ViewerVector3
+  }
 }
 
 // The hotspots of the product on the stage: the product slug and, per
-// hotspot in manifest order, its id and its anchor's live world position.
-// The DOM markers are the visible truth; this probe gives only what a test
-// cannot read from the page: where each anchor really stands in the scene.
+// hotspot in manifest order, its id, its anchor's live world position and
+// its subject's live world extent. The DOM markers are the visible truth;
+// this probe gives only what a test cannot read from the page: where each
+// anchor and its subject really stand in the scene.
 export type ViewerHotspotsAutomation = {
   readonly product: string
   readonly hotspots: readonly ViewerHotspotAutomation[]

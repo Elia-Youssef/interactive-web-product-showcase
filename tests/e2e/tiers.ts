@@ -64,6 +64,7 @@ export const specFamilies: Readonly<Record<string, SpecFamily>> = {
   hotspotCardDock: 'layout',
   hotspotCardWidth: 'layout',
   hotspotCardBreakpoints: 'layout',
+  hotspotCardSheet: 'layout',
   layout: 'layout',
   layoutVisual: 'layout',
   'product-panel': 'layout',

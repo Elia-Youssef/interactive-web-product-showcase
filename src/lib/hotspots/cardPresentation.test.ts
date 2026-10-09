@@ -37,6 +37,7 @@ function input(
     stage: room ? roomy : cramped,
     marker: markerPlaced ? at : null,
     placedMarkers: markerPlaced ? [at] : [],
+    subject: null,
     obstacles: [],
     card,
     metrics,
@@ -84,6 +85,14 @@ describe('presentHotspotCard', () => {
     expect(presentHotspotCard({ ...input('when-crowded', true, true, null), card: null })).toEqual(
       floatingHidden,
     )
+  })
+
+  it('docks a card whose every side covers its subject', () => {
+    const covered = {
+      ...input('when-crowded', true, true, 'floating'),
+      subject: { left: 0, top: 100, right: roomy.width, bottom: 500 },
+    }
+    expect(presentHotspotCard(covered)).toEqual(dockedShown)
   })
 
   it('docks a card whose every side covers stage chrome', () => {

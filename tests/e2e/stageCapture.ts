@@ -104,3 +104,23 @@ export async function expectSettledStageScreenshot(
   await settledForCapture(page)
   await expect(page).toHaveScreenshot(snapshotName, { mask: [...devHudMask(page)] })
 }
+
+// The DOM element captures the suite measures by ink or holds to a baseline:
+// the document's fonts are ready first, because a swapped face paints
+// different pixels than the one that lands, and nothing masks the element,
+// because the HUD and the stage chrome sit over the stage, never the panel.
+export async function elementCapture(page: Page, element: Locator): Promise<Uint8Array> {
+  await page.evaluate(() => document.fonts.ready)
+  return element.screenshot()
+}
+
+// The visual snapshot of a DOM element with its own committed baseline: the
+// fonts ready first, so the baseline holds the face the page declares.
+export async function expectElementScreenshot(
+  page: Page,
+  element: Locator,
+  snapshotName: string,
+): Promise<void> {
+  await page.evaluate(() => document.fonts.ready)
+  await expect(element).toHaveScreenshot(snapshotName, { maxDiffPixelRatio: 0.02 })
+}

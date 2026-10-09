@@ -64,13 +64,16 @@ export function HotspotCard({
   }
 }
 
-// A docked card brings itself into its dock's scrollport as it mounts, which
-// is when it docks or, keyed by its hotspot, when the open hotspot changes
-// while docked: the dock sits in a scrolling panel, and a visitor may have
-// scrolled it anywhere. The scroll follows the panel's own scroll behavior,
-// which the stylesheet makes smooth only when reduced motion is off.
+// A docked card brings its top to the top of the sheet's visible band as
+// it mounts, which is when it docks or, keyed by its hotspot, when the open
+// hotspot changes while docked. The top, not the nearest edge: a card
+// taller than what is left of the band would otherwise dock bottom-first
+// and put its header above the band, under the stage, where the close
+// button cannot be reached. The band scrolls for the rest, and the scroll
+// follows the panel's own scroll behavior, which the stylesheet makes
+// smooth only when reduced motion is off.
 function bringIntoView(element: HTMLDivElement | null): void {
-  element?.scrollIntoView({ block: 'nearest' })
+  element?.scrollIntoView({ block: 'start' })
 }
 
 // The floating card's element: mounted on the stage overlay under the card
