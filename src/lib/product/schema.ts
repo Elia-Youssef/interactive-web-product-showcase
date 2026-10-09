@@ -2,6 +2,7 @@ import { z } from 'zod/mini'
 import type { IssueSink } from './errors'
 import {
   DEFAULT_EXPLODE_CLIP,
+  EYEBROW_TRAILING_NUMBER_PATTERN,
   FINISHES_MIN,
   HOTSPOT_BULLETS_MAX,
   HOTSPOT_BULLETS_MIN,
@@ -29,6 +30,15 @@ import {
 const singleLineText = z.string().check(
   z.regex(SINGLE_LINE_PATTERN, {
     error: 'expected non-empty single-line text without leading or trailing whitespace',
+  }),
+)
+
+// The product eyebrow: the product kind in single-line text, without the
+// number the site appends to it. The hotspot eyebrows are plain text.
+const productEyebrowText = singleLineText.check(
+  z.refine((value) => !EYEBROW_TRAILING_NUMBER_PATTERN.test(value), {
+    error:
+      'expected the product kind without a trailing number or separator: the site appends the product number',
   }),
 )
 
@@ -216,7 +226,7 @@ export const productManifestSchema = z.strictObject({
   category: singleLineText,
   brand: singleLineText,
   model: singleLineText,
-  eyebrow: singleLineText,
+  eyebrow: productEyebrowText,
   tagline: singleLineText,
   intro: z.array(singleLineText).check(z.maxLength(INTRO_MAX_LINES)),
   finishes: finishesSchema,

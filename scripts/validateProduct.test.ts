@@ -41,6 +41,13 @@ const GHOST_MANIFEST = [
   '}',
 ].join('\n')
 
+// A manifest that parses except for its eyebrow, which still carries the
+// product number the site appends.
+const NUMBERED_EYEBROW_MANIFEST = GHOST_MANIFEST.replace(
+  "slug: 'ghost-speaker'",
+  "slug: 'numbered-speaker'",
+).replace("eyebrow: 'Compact speaker'", "eyebrow: 'Compact speaker / 002'")
+
 describe('the validate step on every shipped product', () => {
   it.each(SHIPPED_SLUGS)('reports zero violations and zero warnings for %s', async (slug) => {
     const parseProduct = await loadParseProduct()
@@ -141,7 +148,7 @@ describe('the validate step on a planted product at the old aspect', () => {
   })
 })
 
-describe('the validate step on a temp root, one side missing', () => {
+describe('the validate step on a temp root: one side missing, or a manifest that does not parse', () => {
   let tempRoot = ''
   let parseProduct: ParseProduct
 
@@ -166,6 +173,11 @@ describe('the validate step on a temp root, one side missing', () => {
     await writeFile(
       path.join(productsDir, `ghost-speaker${MANIFEST_SUFFIX}`),
       GHOST_MANIFEST,
+      'utf8',
+    )
+    await writeFile(
+      path.join(productsDir, `numbered-speaker${MANIFEST_SUFFIX}`),
+      NUMBERED_EYEBROW_MANIFEST,
       'utf8',
     )
     parseProduct = await loadParseProduct()
@@ -206,5 +218,15 @@ describe('the validate step on a temp root, one side missing', () => {
     for (const name of ['hotspots', 'cameras', 'geometry', 'finishes', 'materials', 'explode']) {
       expect(validation.checks.find((check) => check.name === name)?.status, name).toBe('skipped')
     }
+  })
+
+  it('names an eyebrow that carries the product number as a manifest violation', async () => {
+    expect(NUMBERED_EYEBROW_MANIFEST).toContain("eyebrow: 'Compact speaker / 002'")
+    const validation = await validateShippedProduct(tempRoot, 'numbered-speaker', parseProduct)
+    const manifest = validation.checks.find((check) => check.name === 'manifest')
+    expect(manifest?.status).toBe('fail')
+    expect(manifest?.violations.join('\n')).toContain(
+      'expected the product kind without a trailing number or separator',
+    )
   })
 })
