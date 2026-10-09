@@ -47,4 +47,46 @@ describe('KeyedLoads', () => {
 
     expect(loads.read('a')).toBe(live)
   })
+
+  it('answers whether a forget dropped the live entry', () => {
+    const loads = new KeyedLoads((key: string) => Promise.resolve(key))
+
+    const entry = loads.read('a')
+
+    expect(loads.forget(entry)).toBe(true)
+    expect(loads.forget(entry)).toBe(false)
+  })
+
+  it('hands a live entry over on take, and the next read of its key loads anew', () => {
+    const load = vi.fn((key: string) => Promise.resolve(key))
+    const loads = new KeyedLoads(load)
+
+    const entry = loads.read('a')
+    const taken = loads.take('a')
+
+    expect(taken).toBe(entry)
+    expect(loads.keys()).toEqual([])
+    expect(loads.forget(entry)).toBe(false)
+    expect(loads.read('a')).not.toBe(entry)
+    expect(load).toHaveBeenCalledTimes(2)
+  })
+
+  it('takes nothing for a key with no live entry', () => {
+    const load = vi.fn((key: string) => Promise.resolve(key))
+    const loads = new KeyedLoads(load)
+
+    expect(loads.take('a')).toBeUndefined()
+    expect(load).not.toHaveBeenCalled()
+  })
+
+  it('lists the keys with a live entry in the order their loads started', () => {
+    const loads = new KeyedLoads((key: string) => Promise.resolve(key))
+
+    loads.read('b')
+    const a = loads.read('a')
+    loads.read('c')
+    loads.forget(a)
+
+    expect(loads.keys()).toEqual(['b', 'c'])
+  })
 })
