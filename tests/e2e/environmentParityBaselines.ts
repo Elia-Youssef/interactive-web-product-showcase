@@ -35,8 +35,4 @@ export const environmentParityBaselines: Readonly<Record<string, EnvironmentPari
     webgpu: { r: 71, g: 73, b: 77 },
     webgl2: { r: 71, g: 73, b: 77 },
   },
-  'placeholder-speaker': {
-    webgpu: { r: 121, g: 137, b: 114 },
-    webgl2: { r: 121, g: 137, b: 114 },
-  },
 }
