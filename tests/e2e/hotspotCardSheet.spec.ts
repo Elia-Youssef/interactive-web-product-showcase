@@ -3,54 +3,42 @@ import { expect, test } from './fixtures'
 import { siteCopy } from '../../src/lib/copy/site'
 import { expectProduct, productPathOf } from './collectionFacts'
 import { settledFrames } from './stageSettle'
-import { flowFacts } from './hotspotFlowFacts'
+import { loadCollection } from './productList'
 import { restWindowBudgetMs } from './budgets'
+import { expectCloseAnswers } from './hotspotCardOracle'
 
 // The docked card fits the sheet's visible band on a phone held sideways:
 // at 844x390 the band under the stage is a hundred pixels, too short for
 // the full card, so the docked card takes its compact form there and the
 // dock lands its top at the band's top. Every part of the open card is
-// inside the viewport the moment it opens, and the explode control under
+// inside the panel band the moment it opens, and the explode control under
 // the docked card stays reachable: the band scrolls to it and its toggle
-// answers a press. The cases are every marker the stage shows at this
+// can receive a press. The cases are every marker the stage shows at this
 // size, close-up hotspots among them, for every routed product.
 
 const WIDTH = 844
 const HEIGHT = 390
 
-const { flows } = await flowFacts()
+const collection = await loadCollection()
 
-for (const flow of flows) {
-  const { product } = flow.subject
+for (const product of collection.products) {
   const explodeLabel = product.explode.label ?? siteCopy.defaultExplodeLabel
   test(`docked card sheet band: every open card of ${product.slug} fits the visible band at ${WIDTH}x${HEIGHT}, and the explode control stays reachable`, async ({
     page,
     backendPath,
-  }) => {
+  }, testInfo) => {
     await page.setViewportSize({ width: WIDTH, height: HEIGHT })
     await page.goto(productPathOf(backendPath, product))
     await expectProduct(page, product)
     await settledFrames(page)
 
-    // The cases are the markers that answer a press at their own center.
-    // A stage this wide can crowd two markers onto each other so that
-    // another marker takes the point (placeholder-speaker's driver under
-    // its knob at this size on the base): that is the markers' own keep-out
-    // question, outside the sheet band's contract, so those markers are not
-    // cases here and the crowding is reported where it belongs.
+    // Keyboard activation reaches every shown marker even when two pointer
+    // hit areas overlap, so crowding cannot omit a card from the band proof.
     const shown = (
       await page.evaluate(() => {
         const markers = [...document.querySelectorAll('[data-slot="stage"] button[aria-pressed]')]
         return markers
-          .filter((marker) => {
-            const style = getComputedStyle(marker)
-            if (style.visibility !== 'visible') {
-              return false
-            }
-            const box = marker.getBoundingClientRect()
-            const top = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)
-            return top === marker
-          })
+          .filter((marker) => getComputedStyle(marker).visibility === 'visible')
           .map((marker) => marker.getAttribute('aria-label'))
       })
     ).filter((label): label is string => label !== null)
@@ -58,27 +46,32 @@ for (const flow of flows) {
       shown.length,
       `${product.slug} must show a marker it can press at ${WIDTH}x${HEIGHT}`,
     ).toBeGreaterThan(0)
+    await testInfo.attach('short-sheet-subjects', {
+      body: JSON.stringify({ slug: product.slug, shown }),
+      contentType: 'application/json',
+    })
 
     for (const title of shown) {
-      await page.getByRole('button', { name: title }).click()
-      const card = page
-        .getByRole('complementary', { name: siteCopy.panelLabel })
-        .getByTestId('hotspot-card')
+      await page.getByRole('button', { name: title }).focus()
+      await page.keyboard.press('Enter')
+      const panel = page.getByRole('complementary', { name: siteCopy.panelLabel })
+      const card = panel.getByTestId('hotspot-card')
       await expect(card.getByRole('heading', { name: title })).toBeVisible()
       await settledFrames(page)
 
-      // The whole card sits inside the viewport once the dock's scroll
+      // The whole card sits inside the panel band once the dock's scroll
       // lands: the header (eyebrow and close button), the title and every
       // bullet, edges included.
-      await expectFullyInsideViewport(HEIGHT, [
+      await expectFullyInsideBand(panel, HEIGHT, [
         card.locator('[class*="eyebrow"]'),
         card.getByRole('button', { name: siteCopy.closeLabel }),
         card.getByRole('heading'),
         card.getByRole('listitem'),
       ])
+      await expectCloseAnswers(page)
 
       // The explode control under the docked card is reachable: the band
-      // scrolls to it and the toggle answers a press.
+      // scrolls to it and the toggle passes a real pointer actionability check.
       const explode = page.getByRole('button', { name: explodeLabel })
       await explode.scrollIntoViewIfNeeded()
       await expect(explode).toBeInViewport()
@@ -96,33 +89,37 @@ for (const flow of flows) {
   })
 }
 
-// Each named locator lies fully inside the viewport's height, edges
-// included, on the browser's layout grid; the half pixel tolerates the
-// grid's fraction while the dock's smooth scroll settles.
-async function expectFullyInsideViewport(
+// Every part lies inside the panel's scrollport intersected with the
+// viewport. A part above the panel can still be inside the viewport while
+// clipped by the panel. The existing half-pixel layout-grid bound remains.
+async function expectFullyInsideBand(
+  panel: Locator,
   viewportHeight: number,
   parts: readonly Locator[],
 ): Promise<void> {
   for (const part of parts) {
-    await expect
-      .poll(
-        async () => {
-          const box = await part.first().boundingBox()
-          if (box === null) {
-            return false
-          }
-          return box.y >= -0.5 && box.y + box.height <= viewportHeight + 0.5
-        },
-        { timeout: restWindowBudgetMs },
-      )
-      .toBe(true)
     const count = await part.count()
-    if (count > 1) {
-      const box = await part.last().boundingBox()
-      if (box === null) {
-        throw new Error('the last of many parts must have a box')
-      }
-      expect(box.y + box.height).toBeLessThanOrEqual(viewportHeight + 0.5)
+    if (count === 0) {
+      throw new Error('every named card part must be present in the band')
+    }
+    for (let index = 0; index < count; index++) {
+      await expect
+        .poll(
+          async () => {
+            const [band, box] = await Promise.all([
+              panel.boundingBox(),
+              part.nth(index).boundingBox(),
+            ])
+            if (band === null || box === null) {
+              return false
+            }
+            const top = Math.max(0, band.y)
+            const bottom = Math.min(viewportHeight, band.y + band.height)
+            return box.y >= top - 0.5 && box.y + box.height <= bottom + 0.5
+          },
+          { timeout: restWindowBudgetMs },
+        )
+        .toBe(true)
     }
   }
 }
