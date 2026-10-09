@@ -72,6 +72,7 @@ export const specFamilies: Readonly<Record<string, SpecFamily>> = {
   liveRegion: 'layout',
   measurementFocus: 'layout',
   productEyebrow: 'layout',
+  topLayerPlacement: 'layout',
 }
 
 function specsOf(family: SpecFamily): readonly string[] {

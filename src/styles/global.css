@@ -13,7 +13,12 @@ the font faces. Nothing product-specific or component-specific lives here.
   box-sizing: border-box;
 }
 
-* {
+/*
+The margin reset spares the surfaces of the top layer: the platform places
+a modal dialog and a popover through an automatic margin, so zeroing it
+would pin every such surface into the top-left corner.
+*/
+:where(:not(dialog, [popover])) {
   margin: 0;
 }
 
