@@ -7,9 +7,9 @@
 // hand. A fixture slug that names a shipped product too is a setup error:
 // the collection the test set builds fails on the duplicate, so the two
 // sets stay disjoint by construction.
-import { readdir, stat } from 'node:fs/promises'
+import { readdir } from 'node:fs/promises'
 import path from 'node:path'
-import { isMissingFileError } from './fsErrors.ts'
+import { isFile } from './fsErrors.ts'
 
 // The marker that makes a file in a fixture folder the product's manifest:
 // <slug>.fixtures.ts exporting `manifest`. The fixture module marker puts
@@ -28,17 +28,6 @@ export function fixtureModelPathOf(root: string, slug: string): string {
 
 export function fixtureManifestPathOf(root: string, slug: string): string {
   return path.join(fixtureProductsDir(root), slug, `${slug}${FIXTURE_MANIFEST_SUFFIX}`)
-}
-
-async function isFile(file: string): Promise<boolean> {
-  try {
-    return (await stat(file)).isFile()
-  } catch (error) {
-    if (!isMissingFileError(error)) {
-      throw error
-    }
-    return false
-  }
 }
 
 // The slugs of the fixture set: the folders under the fixture products dir
