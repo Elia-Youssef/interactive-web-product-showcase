@@ -9,10 +9,16 @@
 // meshes and cut variant mappings. KTX2 is always requested explicitly
 // and geometry always leaves as Meshopt.
 import { z } from 'zod'
+import { readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { issuesFromZod } from '../src/lib/validation.ts'
 import { isMissingFileError } from './fsErrors.ts'
 import { TEXTURE_MAX_SIZE_PX } from './budgets.ts'
+import {
+  GEOMETRY_STORAGE_FILE,
+  geometryStorageOf,
+  type GeometryStorage,
+} from './geometryStorage.ts'
 
 export type SettingsIssue = {
   path: string
@@ -84,18 +90,26 @@ const ktxThreads = z.literal(1)
 // while the encodes run.
 const ktxJobs = z.literal(4)
 
-// The geometry storage the pipeline fixes, as the gltf-transform CLI's own
-// defaults it runs the geometry stage with (`optimize` quantizes with
-// QUANTIZE_DEFAULTS and compresses with the meshopt writer's per-target
-// filters): positions at 14 quantize bits, which stores a normalized Int16
-// accessor, and animation translation outputs through the EXPONENTIAL
-// filter at 12 bits. The contract's storage bounds are derived from these
-// two numbers (storageBounds.ts), and the validate step holds every file
-// against what they imply (contractRuleModel.ts), so an optimize change
-// that moved either fails the gate instead of silently invalidating the
-// allowance.
-export const POSITION_QUANTIZE_BITS = 14
-export const KEY_FILTER_BITS = 12
+// The geometry storage every optimize run writes, read once from its shared
+// data file (geometryStorage.ts) and validated like an override file, so a
+// broken file fails at import, naming the file and the field. The
+// contract's storage bounds are derived from these two numbers
+// (storageBounds.ts), and the validate step holds every file against what
+// they imply (contractRuleModel.ts).
+export function resolveGeometryStorage(contents: string, source: string): GeometryStorage {
+  const result = geometryStorageOf(parseSettingsJson(contents, source))
+  if (result.kind === 'invalid') {
+    throw new SettingsError(source, result.issues)
+  }
+  return result.storage
+}
+
+export const GEOMETRY_STORAGE: GeometryStorage = resolveGeometryStorage(
+  readFileSync(GEOMETRY_STORAGE_FILE, 'utf8'),
+  GEOMETRY_STORAGE_FILE,
+)
+export const POSITION_QUANTIZE_BITS = GEOMETRY_STORAGE.positionQuantizeBits
+export const KEY_FILTER_BITS = GEOMETRY_STORAGE.translationKeyFilterBits
 
 // The full settings of one optimize run. Every field is required: the
 // defaults below are the base, and the file override is a partial pick.
@@ -200,14 +214,18 @@ export async function loadOptimizeSettings(
     }
     return { settings: DEFAULT_OPTIMIZE_SETTINGS, usedOverride: false }
   }
-  let raw: unknown
+  return {
+    settings: resolveOptimizeSettings(parseSettingsJson(contents, settingsFile), settingsFile),
+    usedOverride: true,
+  }
+}
+
+// The JSON of one settings file, or a SettingsError naming the file.
+function parseSettingsJson(contents: string, source: string): unknown {
   try {
-    raw = JSON.parse(contents)
+    return JSON.parse(contents)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    throw new SettingsError(settingsFile, [
-      { path: '', message: `expected valid JSON: ${message}` },
-    ])
+    throw new SettingsError(source, [{ path: '', message: `expected valid JSON: ${message}` }])
   }
-  return { settings: resolveOptimizeSettings(raw, settingsFile), usedOverride: true }
 }
