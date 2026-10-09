@@ -10,7 +10,7 @@ export const manifest = {
   category: 'Desk',
   brand: 'Fjor',
   model: 'Tast',
-  eyebrow: 'Sixty percent keyboard / 004',
+  eyebrow: 'Sixty percent keyboard',
   tagline: 'Sixty-one keys and nothing you do not use.',
   intro: [
     'Tast is a sixty percent keyboard with an aluminum case and one knob.',

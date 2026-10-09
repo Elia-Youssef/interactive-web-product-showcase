@@ -36,9 +36,14 @@ const cardProps = {
 }
 
 const eyebrowStates = (
-  <State caption="default">
-    <Eyebrow>Compact speaker / 000</Eyebrow>
-  </State>
+  <>
+    <State caption="default">
+      <Eyebrow>Compact speaker</Eyebrow>
+    </State>
+    <State caption="with tail">
+      <Eyebrow tail="/ 000">Compact speaker</Eyebrow>
+    </State>
+  </>
 )
 
 const titleStates = (

@@ -1,7 +1,7 @@
 import { expect, test } from './fixtures'
 import { siteCopy } from '../../src/lib/copy/site'
 import { formatProductCounter } from '../../src/lib/product'
-import { expectProduct, productPathOf } from './collectionFacts'
+import { expectProduct, openIndexAtRest, productPathOf } from './collectionFacts'
 import { loadCollection } from './productList'
 import { productLoadBudgetMs } from './productSpecs'
 import { viewportContracts } from './layoutContracts'
@@ -12,7 +12,12 @@ import { expectSettledStageScreenshot } from './stageCapture'
 // stage showing another product cannot become that route's baseline.
 const collection = await loadCollection()
 
-for (const spec of viewportContracts) {
+// The viewports with a committed baseline; the others are geometry cases.
+const visualCases = viewportContracts.flatMap((contract) =>
+  contract.snapshotName === undefined ? [] : [{ ...contract, snapshotName: contract.snapshotName }],
+)
+
+for (const spec of visualCases) {
   for (const product of collection.products) {
     test(`${product.slug} layout visual baseline at ${spec.width}x${spec.height}`, async ({
       page,
@@ -58,9 +63,10 @@ for (const spec of viewportContracts) {
     await page.setViewportSize({ width: spec.width, height: spec.height })
     await page.goto(productPathOf(backendPath, collection.first))
     await expectProduct(page, collection.first)
-    await page.getByRole('button', { name: siteCopy.openIndexLabel }).click()
-    const dialog = page.getByRole('dialog', { name: siteCopy.indexLabel })
-    await expect(dialog).toBeVisible()
+    // The index opens over the page at rest: the open never scrolls the
+    // panel to its counter first, and the scroll offsets are pinned across
+    // it, so the shot is the page every viewport lands on.
+    const dialog = await openIndexAtRest(page)
     await expect(dialog.getByRole('link')).toHaveCount(collection.products.length)
     await expectSettledStageScreenshot(page, `collection-index-${spec.width}x${spec.height}.png`)
   })

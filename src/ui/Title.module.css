@@ -1,11 +1,15 @@
 /* The product title. Values are tokens. */
 
+/* A word longer than the title's line breaks inside it instead of pushing
+the title past its container: the title is never wider than its parent. */
 .title {
+  max-inline-size: var(--size-fill);
   font-size: var(--fs-title);
   line-height: var(--lh-title);
   font-weight: var(--weight-title);
   letter-spacing: var(--tracking-title);
   color: var(--off);
+  overflow-wrap: break-word;
 }
 
 .line {

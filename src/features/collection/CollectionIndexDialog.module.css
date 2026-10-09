@@ -1,11 +1,17 @@
 /* The collection index overlay: one surface panel of the top layer over a
-scrim of the page. The overlay arrives with a short fade through the
-@starting-style entry frame; the motion scale turns the same duration
-instant under reduced motion, and the close is the platform's own. The
-z order needs no token: a modal dialog is the top layer. Values are
-tokens. */
+scrim of the page, centered over it at every viewport at its own maximum
+width. The overlay arrives with a short fade through the @starting-style
+entry frame; the motion scale turns the same duration instant under
+reduced motion, and the close is the platform's own. The z order needs no
+token: a modal dialog is the top layer. Values are tokens. */
 
+/* The dialog declares its own placement, the one the platform gives a
+modal dialog, so no shared rule can move it: the fixed box spans the
+viewport and the automatic margins center the panel in it. */
 .dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
   box-sizing: border-box;
   inline-size: min(var(--size-index-dialog-max), var(--size-fill));
   padding: var(--space-6);

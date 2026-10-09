@@ -9,7 +9,7 @@ export const manifest = {
   category: 'Audio',
   brand: 'Forma',
   model: 'One',
-  eyebrow: 'Wireless over-ear headphones / 001',
+  eyebrow: 'Wireless over-ear headphones',
   tagline: 'Weight where it matters, quiet everywhere else.',
   intro: [
     'A closed-back headphone built around one 40 mm driver per side.',

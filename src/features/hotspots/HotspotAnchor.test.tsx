@@ -13,7 +13,7 @@ const manifest = parseProduct(
     category: 'Audio',
     brand: 'Sample',
     model: 'Piece',
-    eyebrow: 'Sample piece / 001',
+    eyebrow: 'Sample piece',
     tagline: 'A sample piece for the anchors.',
     intro: ['A sample piece holds the slot.'],
     finishes: [{ variant: 'sage', label: 'Sage Green', swatch: '#9DB89D' }],

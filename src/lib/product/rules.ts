@@ -26,6 +26,12 @@ export const LOOK_ENVIRONMENT_INTENSITY_MAX = 4
 export const LOOK_ENVIRONMENT_ROTATION_DEG_MAX = 360
 export const LOOK_SHADOW_OPACITY_MAX = 1
 
+// The end a product eyebrow may not have: a digit or a separator. The site
+// closes every product eyebrow with the product number ('/ 001'), so the
+// manifest writes the product kind alone; a trailing digit is a number
+// written twice, and a trailing separator is the start of one.
+export const EYEBROW_TRAILING_NUMBER_PATTERN = /[\d/|\u00b7#:-]$/
+
 export const INTRO_MAX_LINES = 2
 
 export const FINISHES_MIN = 1

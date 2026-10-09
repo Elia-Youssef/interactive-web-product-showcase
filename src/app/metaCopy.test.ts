@@ -80,7 +80,7 @@ describe('productMetaSet', () => {
       category: 'Audio',
       brand: 'Sample',
       model: 'Speaker',
-      eyebrow: 'Compact speaker / 005',
+      eyebrow: 'Compact speaker',
       tagline: 'A quiet box that fills the room.',
       intro: ['One line.'],
       finishes: [{ variant: 'sage', label: 'Sage Green', swatch: '#9DB89D' }],

@@ -16,7 +16,7 @@ export const manifest = {
   category: 'Audio',
   brand: 'Sample',
   model: 'Speaker',
-  eyebrow: 'Compact speaker / 005',
+  eyebrow: 'Compact speaker',
   tagline: 'A quiet box that fills the room.',
   intro: ['Sample Speaker holds a slot while the pipeline is proven.'],
   finishes: [

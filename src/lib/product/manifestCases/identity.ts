@@ -1,6 +1,6 @@
 // Cases for the manifest's identity and copy fields: slug, number, the
 // single-line text fields, intro, and unknown top-level keys.
-import { sampleOneManifest, sampleTwoManifest } from '../fixtures'
+import { driverHotspot, sampleOneManifest, sampleTwoManifest } from '../fixtures'
 import { INTRO_MAX_LINES } from '../rules'
 import { accepts, lines, rejects, type ManifestCase } from './case'
 
@@ -34,6 +34,36 @@ export const identityCases: readonly ManifestCase[] = [
     'an eyebrow with trailing whitespace',
     { ...sampleTwoManifest, eyebrow: 'eyebrow ' },
     'eyebrow',
+  ),
+  rejects(
+    'an eyebrow ending in the product number',
+    { ...sampleTwoManifest, eyebrow: 'Compact speaker / 002' },
+    'eyebrow',
+  ),
+  rejects(
+    'an eyebrow ending in a bare number',
+    { ...sampleTwoManifest, eyebrow: 'Compact speaker 2' },
+    'eyebrow',
+  ),
+  rejects(
+    'an eyebrow ending in a separator',
+    { ...sampleTwoManifest, eyebrow: 'Compact speaker /' },
+    'eyebrow',
+  ),
+  rejects(
+    'an eyebrow ending in a dash',
+    { ...sampleTwoManifest, eyebrow: 'Compact speaker -' },
+    'eyebrow',
+  ),
+  accepts(
+    'an eyebrow with a number inside its words',
+    { ...sampleTwoManifest, eyebrow: '60 percent keyboard' },
+    'sample-two',
+  ),
+  accepts(
+    'a hotspot eyebrow that ends in a number',
+    { ...sampleOneManifest, hotspots: [{ ...driverHotspot, eyebrow: 'Layer 2' }] },
+    'sample-one',
   ),
   rejects('a tagline of the wrong type', { ...sampleTwoManifest, tagline: 42 }, 'tagline'),
   rejects(

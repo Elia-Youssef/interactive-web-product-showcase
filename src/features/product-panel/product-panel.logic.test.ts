@@ -18,7 +18,7 @@ const sampleManifest = {
   category: 'Audio',
   brand: 'Sample',
   model: 'Two',
-  eyebrow: 'Compact speaker / 001',
+  eyebrow: 'Compact speaker',
   tagline: 'Sound first, everything else second.',
   intro: [],
   finishes: [

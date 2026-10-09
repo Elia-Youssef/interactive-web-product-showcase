@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test'
+import { expect, type Locator, type Page } from '@playwright/test'
 import { siteCopy } from '../../src/lib/copy/site'
 import type { Product, ProductCollection } from '../../src/lib/product'
 import { formatProductPath } from '../../src/lib/routing'
@@ -181,4 +181,56 @@ export async function expectTabHeldInsideDialog(page: Page): Promise<void> {
     })
     expect(stoppedAt, 'the tab must never land outside the open dialog').toBe('held')
   }
+}
+
+// The scroll offsets of the page: the document's own and every element's
+// that scrolls, keyed by a probe mark the first read sets on each, so a
+// later read compares the same scrollers. A capture or a check that must
+// show the page as the visitor left it compares two reads.
+export type ScrollOffsets = Readonly<Record<string, readonly [number, number]>>
+
+export function scrollOffsets(page: Page): Promise<ScrollOffsets> {
+  return page.evaluate(() => {
+    const offsets: Record<string, [number, number]> = {}
+    const scrollers = [
+      document.scrollingElement ?? document.documentElement,
+      ...Array.from(document.querySelectorAll('*')).filter((element) => {
+        const style = getComputedStyle(element)
+        const scrolls = (overflow: string) => overflow === 'auto' || overflow === 'scroll'
+        return scrolls(style.overflowY) || scrolls(style.overflowX)
+      }),
+    ]
+    let next = document.querySelectorAll('[data-scroll-probe]').length
+    for (const element of scrollers) {
+      if (!(element instanceof HTMLElement)) {
+        continue
+      }
+      if (element.dataset.scrollProbe === undefined) {
+        element.dataset.scrollProbe = String(next)
+        next += 1
+      }
+      offsets[element.dataset.scrollProbe] = [element.scrollTop, element.scrollLeft]
+    }
+    return offsets
+  })
+}
+
+// Every scroller read before stays where it was.
+export function expectScrollOffsetsKept(before: ScrollOffsets, after: ScrollOffsets): void {
+  for (const [scroller, offset] of Object.entries(before)) {
+    expect(after[scroller], `the scroll offset of scroller ${scroller}`).toEqual(offset)
+  }
+}
+
+// Opens the collection index from the counter without moving the page: the
+// press is dispatched to the counter where it sits, with no scroll into
+// view first, so the open dialog sits over the page at rest, whatever the
+// viewport. The page's scroll offsets are pinned across the open.
+export async function openIndexAtRest(page: Page): Promise<Locator> {
+  const before = await scrollOffsets(page)
+  await page.getByRole('button', { name: siteCopy.openIndexLabel }).dispatchEvent('click')
+  const dialog = page.getByRole('dialog', { name: siteCopy.indexLabel })
+  await expect(dialog).toBeVisible()
+  expectScrollOffsetsKept(before, await scrollOffsets(page))
+  return dialog
 }

@@ -19,7 +19,7 @@ const RULE_FIXTURE_INPUT = {
   category: 'Audio',
   brand: 'Sample',
   model: 'Speaker',
-  eyebrow: 'Compact speaker / 002',
+  eyebrow: 'Compact speaker',
   tagline: 'A quiet box that fills the room.',
   intro: ['One line.'],
   finishes: [

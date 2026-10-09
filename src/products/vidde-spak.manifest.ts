@@ -6,7 +6,7 @@ export const manifest = {
   category: 'Lighting',
   brand: 'Vidde',
   model: 'Spak',
-  eyebrow: 'Counterweight task lamp / 003',
+  eyebrow: 'Counterweight task lamp',
   tagline: 'A counterweight arm that stays where you leave it.',
   intro: [
     'Spak is a two-segment task lamp balanced by a steel weight in the base.',

@@ -121,14 +121,22 @@ their minimum below it, switched by the breakpoints at the end of this file.
   --size-hotspot-ring: 28px;
   --size-hotspot-hit: var(--size-hit-min);
   /*
-  The marker dot's dark rim: the inactive dot is off-white, which reads on
-  every dark surface and vanishes on a light one (a pale finish under a
-  pale dot), so the dot carries a black keyline whose edge answers instead.
-  Light dot on dark surfaces, dark rim on light ones: one marker reads on
-  any surface, and the accent stays the only color.
+  The two-tone hotspot marker. The inactive dot is off-white, which reads
+  on every dark surface and vanishes on a light one (a pale finish under a
+  pale dot), so the dot carries a black keyline whose edge answers
+  instead. The ring is drawn in the boundary white, 3:1 on the stage, and
+  carries the same thin dark rim outside it, so on a light finish the rim
+  draws the ring. Light marks on dark surfaces, dark rims on light ones:
+  one marker reads on any surface, and the accent stays the only color.
+  Hover lifts the ring to the off-white.
   */
+  --marker-dot: var(--off);
   --marker-dot-rim-width: 1px;
   --marker-dot-rim: var(--black);
+  --marker-ring: var(--boundary);
+  --marker-ring-hover: var(--off);
+  --marker-ring-rim-width: var(--marker-dot-rim-width);
+  --marker-ring-rim: var(--marker-dot-rim);
   /*
   The gap between a hotspot marker and the card floating beside it, and the
   stacking of the floating card above the markers, whose placed elements
@@ -182,7 +190,8 @@ their minimum below it, switched by the breakpoints at the end of this file.
   Layout structural sizes.
   The panel is clamped between 380px and 520px at about 34% width.
   Top bar height, mark size, and stage chrome insets.
-  Tablet stage height is 60vh; phone stage height is 62svh.
+  Tablet stage height is 60vh; the phone stage takes 62svh, given way to
+  the resting sheet.
   Bottom sheet grab handle dimensions.
   */
   /*
@@ -199,10 +208,34 @@ their minimum below it, switched by the breakpoints at the end of this file.
   --panel-width-basis: 34%;
   --panel-width: clamp(var(--panel-width-min), var(--panel-width-basis), var(--panel-width-max));
   --height-stage-tablet: 60vh;
+  /*
+  The phone stage takes its share of the viewport, and gives way to the
+  resting sheet below it: the sheet keeps at least its resting height, so
+  the product's eyebrow, its title and its finishes show without a scroll
+  on every phone. The resting height holds the sheet's border, padding,
+  handle and gap (45px), an eyebrow of two lines (28px), the two-line
+  title (107px), a finish heading of two lines (41px), the swatch row
+  (22px) with the focus ring around it (5px), and the four gaps between
+  them (56px).
+  */
   --height-stage-phone: 62svh;
+  --height-sheet-rest: 304px;
+  /*
+  The stage's floor where the layout scrolls as one document (the short
+  viewports below): the product keeps a stage it reads at, and the panel
+  follows it down the page. Beside the panel the stage keeps the window's
+  height under the top bar, down to the same floor.
+  */
+  --height-stage-min: 240px;
+  --height-stage-beside-scroll: max(var(--height-stage-min), calc(100svh - var(--height-top-bar)));
   --size-sheet-handle-width: var(--space-9);
   --size-sheet-handle-height: var(--space-1);
   --inset-stage-chrome: var(--space-8);
+  /*
+  The gap the stage chrome keeps between the slots that share an edge: the
+  label or hint gives way to the controls beside it, down to this gap.
+  */
+  --gap-stage-chrome: var(--space-4);
 
   /*
   Motion. Every duration is this scale times its own
@@ -295,25 +328,39 @@ at build time, so every stylesheet that queries one of these must
 @custom-media --vp-tablet (640px <= width < 1024px);
 @custom-media --vp-desktop (width >= 1024px);
 
-/* On phone every hotspot card docks into the panel's sheet. */
+/*
+The two height breakpoints, one inside the other, at any width.
+
+--vp-short-sheet: a viewport too short for the sheet under the stacked
+stage to hold a docked card at its full size (a phone held sideways). The
+band the sheet keeps is four tenths of the height less the top bar (the
+tablet stage's share), so it stops holding the full card, its block
+padding and its handle below about 598 px of height; there the docked card
+takes its compact form, and the band scrolls for whatever still exceeds
+it. The stage never gives the band its space instead: the markers of the
+launch products lose their keep-out room on a stage that short (measured:
+at a 150 px stage, half the markers of three products hide), so discovery
+would pay for the card.
+
+--vp-page-scroll: a viewport too short for the fixed shell at all (the
+320 x 256 window of a 1280 px screen at 400 percent zoom, a phone held
+sideways). Below 480 px of height the layout becomes one scrolling
+document: the panel is no longer its own scroll container, so nothing is
+reached through a nested slit, and the stage keeps its floor. Every
+viewport under it is also under --vp-short-sheet, so a docked card there
+takes its compact form in a sheet that scrolls with the page.
+*/
+@custom-media --vp-short-sheet (height < 598px);
+@custom-media --vp-page-scroll (height < 480px);
+
+/* On phone every hotspot card docks into the panel's sheet, and the stage
+chrome sits closer to the stage edge, so the narrow stage keeps its room. */
 @media (--vp-phone) {
   :root {
     --hotspot-card-dock: always;
+    --inset-stage-chrome: var(--space-4);
   }
 }
-
-/*
-A viewport too short for the sheet under the stacked stage to hold a docked
-card at its full size (a phone held sideways). The band the sheet keeps is
-four tenths of the height less the top bar (the tablet stage's share), so
-it stops holding the full card, its block padding and its handle below
-about 598 px of height; there the docked card takes its compact form, and
-the band scrolls for whatever still exceeds it. The stage never gives the
-band its space instead: the markers of the launch products lose their
-keep-out room on a stage that short (measured: at a 150 px stage, half the
-markers of three products hide), so discovery would pay for the card.
-*/
-@custom-media --vp-short-sheet (height < 598px);
 
 /* Ranged type sizes drop to their minimum below the desktop breakpoint. */
 @media not (--vp-desktop) {

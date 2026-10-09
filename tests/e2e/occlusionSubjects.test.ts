@@ -25,7 +25,7 @@ function fakeProduct(slug: string, hotspotIds: readonly string[]): Product {
       category: 'Audio',
       brand: 'Fake',
       model: 'Piece',
-      eyebrow: `${slug} / 001`,
+      eyebrow: slug,
       tagline: `A fake piece for the occlusion selection proof of ${slug}.`,
       intro: [],
       finishes: [{ variant: 'sage', label: 'Sage Green', swatch: '#9db89d' }],

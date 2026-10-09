@@ -13,7 +13,7 @@ export const manifest = {
   category: 'Kitchen',
   brand: 'Orsa',
   model: 'Kvern',
-  eyebrow: 'Single-dose grinder / 002',
+  eyebrow: 'Single-dose grinder',
   tagline: 'Forty clicks from fine to coarse.',
   intro: [
     'Kvern is a single-dose grinder with a 40 mm conical burr.',

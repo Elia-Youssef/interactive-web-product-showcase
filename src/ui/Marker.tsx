@@ -1,5 +1,5 @@
 // The hotspot marker: a real button that sits over the stage and points at
-// a spot on the product. The visual is a dot in a hairline ring on a hit
+// a spot on the product. The visual is a two-tone dot in a ring on a hit
 // area that clears the touch minimum; the caller names it, and its pressed
 // state is the hotspot's active state. The stylesheet runs the one
 // first-load pulse; the stage overlay hides the button with visibility, so

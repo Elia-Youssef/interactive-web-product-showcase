@@ -1,15 +1,22 @@
+@import '../../styles/tokens.css';
+
 /*
-Top bar of the desktop layout.
+Top bar of the layout.
 Carries the mark and studio name on the left, collection name and product index
-slot on the right. Values are tokens.
+slot on the right. Where the two sides cannot share one line, the right side
+wraps onto a second line, still right-aligned, and the bar grows to hold it:
+nothing is clipped and nothing is hidden. Values are tokens.
 */
 
 .topBar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  align-content: center;
   justify-content: space-between;
+  column-gap: var(--space-4);
   inline-size: var(--size-fill);
-  block-size: var(--height-top-bar);
+  min-block-size: var(--height-top-bar);
   padding-inline: var(--space-8);
   background-color: var(--bg);
   flex-shrink: 0;
@@ -32,11 +39,25 @@ slot on the right. Values are tokens.
 
 .right {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--space-4);
+  margin-inline-start: auto;
 }
 
 .productIndex {
   display: inline-flex;
   align-items: center;
+}
+
+/* The phone's narrow bar keeps the panel's side padding and a closer gap. */
+@media (--vp-phone) {
+  .topBar {
+    padding-inline: var(--space-4);
+  }
+
+  .right {
+    gap: var(--space-2);
+  }
 }

@@ -29,7 +29,15 @@ export { CollectionError, ManifestError } from './errors'
 export type { CollectionProblem, ProductIssue } from './errors'
 export { createCollection } from './collection'
 export type { ProductCollection, ProductNeighbors } from './collection'
-export { productName, formatProductIndex, formatProductCounter, stepLabel } from './format'
+export {
+  productName,
+  formatProductIndex,
+  formatProductCounter,
+  formatProductSerial,
+  productEyebrow,
+  productEyebrowText,
+  stepLabel,
+} from './format'
 export { productModelUrl } from './modelUrl'
 export type { ProductModelCounts } from './modelCounts'
 export { closeUpHotspotIds } from './rigSummary'

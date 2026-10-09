@@ -10,7 +10,7 @@ import { settledFrames } from './stageSettle'
 import { expectOrbitAtRest, readCamera, stageAspectOfCanvas } from './stageCamera'
 import { cardHeadingOf, markerOf } from './hotspotViews'
 import { flowFacts, type HotspotFlow } from './hotspotFlowFacts'
-import { stageBoxOf, viewportContracts } from './layoutContracts'
+import { referenceLayouts, stageBoxOf } from './layoutContracts'
 import { expectCardWhereTheLayoutPutsIt } from './hotspotCardOracle'
 import type { AuthoredView } from './productCamera'
 import type { MarkerViews } from './productMarkerViews'
@@ -94,7 +94,7 @@ async function shownExplodedAt(
   return new Set([...facts].filter(([, shown]) => shown[last] === true).map(([id]) => id))
 }
 
-for (const contract of viewportContracts) {
+for (const contract of referenceLayouts) {
   const stage = stageBoxOf(contract)
   const viewsBySlug = markerViewsAt(stage)
   const flows = flowsAt(stage)
