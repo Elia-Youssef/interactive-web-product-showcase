@@ -9,6 +9,7 @@ import { checkDeploy, describeFinding } from './deployRules.ts'
 import { isMissingFileError } from './fsErrors.ts'
 import { loadMetaPages } from './metaPages.ts'
 import { listManifestSlugs } from './shippedProducts.ts'
+import { loadCrawlFiles } from './manifestIo.ts'
 
 // The repo root of this checkout: the parent of the scripts folder.
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
@@ -41,18 +42,32 @@ async function readHeaders(): Promise<string> {
   }
 }
 
+async function readCrawlFile(file: string): Promise<string | null> {
+  try {
+    return await readFile(path.join(DIST, file), 'utf8')
+  } catch (error) {
+    if (isMissingFileError(error)) return null
+    throw error
+  }
+}
+
 async function main(): Promise<void> {
-  const [files, headersText, { pages }, shippedSlugs] = await Promise.all([
-    listFiles(DIST),
-    readHeaders(),
-    loadMetaPages(),
-    listManifestSlugs(ROOT),
-  ])
+  const [files, headersText, { pages }, shippedSlugs, generate, robotsText, sitemapText] =
+    await Promise.all([
+      listFiles(DIST),
+      readHeaders(),
+      loadMetaPages(),
+      listManifestSlugs(ROOT),
+      loadCrawlFiles(),
+      readCrawlFile('robots.txt'),
+      readCrawlFile('sitemap.xml'),
+    ])
   const findings = checkDeploy({
     files,
     headersText,
     metaSlugs: pages.map((page) => page.slug),
     shippedSlugs,
+    crawl: { expected: generate(pages.map((page) => page.slug)), robotsText, sitemapText },
   })
   if (findings.length > 0) {
     const lines = findings.map((finding) => `  ${describeFinding(finding)}`)

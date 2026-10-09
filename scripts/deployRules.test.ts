@@ -11,6 +11,8 @@ import {
   ruleMatches,
 } from './deployRules.ts'
 import { hashLength, isHashedName, patternExpression } from '../tooling/outputNaming.ts'
+import { crawlFiles } from '../src/lib/copy/crawl.ts'
+import { securityHeaders } from './deploySecurity.ts'
 
 const HASH = 'a1B2c3_-'.repeat(2).slice(0, hashLength)
 
@@ -23,6 +25,8 @@ const RULES = `# comment
 `
 
 const CLEAN_FILES = [
+  'robots.txt',
+  'sitemap.xml',
   'index.html',
   '_headers',
   `assets/index-${HASH}.js`,
@@ -31,7 +35,17 @@ const CLEAN_FILES = [
   'p/one.html',
 ]
 
-const clean = { files: CLEAN_FILES, headersText: RULES, metaSlugs: ['one'], shippedSlugs: ['one'] }
+const SECURITY = `/*\n${Object.entries(securityHeaders)
+  .map(([name, value]) => `  ${name}: ${value}`)
+  .join('\n')}\n`
+const expected = crawlFiles(['one'])
+const clean = {
+  files: CLEAN_FILES,
+  headersText: `${SECURITY}${RULES}`,
+  metaSlugs: ['one'],
+  shippedSlugs: ['one'],
+  crawl: { expected, robotsText: expected.robotsText, sitemapText: expected.sitemapText },
+}
 
 describe('the hash shape', () => {
   test('is derived from the build patterns', () => {
@@ -84,14 +98,14 @@ describe('the deploy check', () => {
   })
 
   test('a rule that matches no file is a finding', () => {
-    const headersText = `${RULES}\n/brand/*\n  Cache-Control: public, max-age=0, must-revalidate\n`
+    const headersText = `${clean.headersText}\n/brand/*\n  Cache-Control: public, max-age=0, must-revalidate\n`
     expect(checkDeploy({ ...clean, headersText })).toEqual([
       { kind: 'staleRule', rule: '/brand/*' },
     ])
   })
 
   test('two rules setting one header on one file are a finding', () => {
-    const headersText = `${RULES}\n/models/one/*\n  cache-control: no-store\n`
+    const headersText = `${clean.headersText}\n/models/one/*\n  cache-control: no-store\n`
     expect(checkDeploy({ ...clean, headersText })).toEqual([
       {
         kind: 'overlappingRules',
@@ -103,7 +117,7 @@ describe('the deploy check', () => {
   })
 
   test('two rules setting different headers on one file are fine', () => {
-    const headersText = `${RULES}\n/models/one/*\n  X-Test: 1\n`
+    const headersText = `${clean.headersText}\n/models/one/*\n  X-Test: 1\n`
     expect(checkDeploy({ ...clean, headersText })).toEqual([])
   })
 
