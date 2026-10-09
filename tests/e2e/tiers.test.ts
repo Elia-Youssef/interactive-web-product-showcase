@@ -81,6 +81,7 @@ describe('the spec families', () => {
       'product-panel',
       'productEyebrow',
       'reflow',
+      'socialCardFrame',
       'topLayerPlacement',
     ])
   })

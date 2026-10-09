@@ -20,10 +20,7 @@ import { loadMetaPages } from './metaPages.ts'
 // The repo root of this checkout: the parent of the scripts folder.
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 
-// The card size of the social platforms, at one device pixel so the shot is
-// the CSS layout. The width clears the desktop breakpoint, so the capture
-// carries the full frame: top bar, panel, stage and its chrome.
-const CARD_VIEWPORT = { width: 1200, height: 630 }
+// One device pixel, so the shot is the CSS layout.
 const CARD_DEVICE_SCALE_FACTOR = 1
 
 // The engine of the visual baseline host (the e2e matrix's chrome row): the
@@ -31,13 +28,25 @@ const CARD_DEVICE_SCALE_FACTOR = 1
 // screenshot.
 const CAPTURE_CHANNEL = 'chrome'
 
-// The card-ready contract is the suite's own, loaded across the boundary
-// the way the pipeline loads src modules: the helper imports its relatives
-// without extensions, which plain Node cannot resolve.
+// The card-ready contract and the card size are the suite's own, loaded
+// across the boundary the way the pipeline loads src modules: the helper
+// imports its relatives without extensions, which plain Node cannot
+// resolve. The contract waits for the card's rest and frames it, so no
+// element is cut by the card's edge, and fails loudly when one still is.
 type SettledSocialCard = (page: Page, slug: string) => Promise<void>
+type CardViewport = { readonly width: number; readonly height: number }
 
 function isSettledSocialCard(value: unknown): value is SettledSocialCard {
   return typeof value === 'function'
+}
+
+function isCardViewport(value: unknown): value is CardViewport {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof Reflect.get(value, 'width') === 'number' &&
+    typeof Reflect.get(value, 'height') === 'number'
+  )
 }
 
 const jiti = createJiti(import.meta.url)
@@ -47,6 +56,11 @@ if (cardsExport.kind === 'absent') {
   throw new Error("expected a 'settledSocialCard' export in tests/e2e/socialCards.ts")
 }
 const settledSocialCard = cardsExport.value
+const viewportExport = namedExport(cardsModule, 'socialCardViewport', isCardViewport)
+if (viewportExport.kind === 'absent') {
+  throw new Error("expected a 'socialCardViewport' export in tests/e2e/socialCards.ts")
+}
+const cardViewport = viewportExport.value
 
 async function main(): Promise<void> {
   if (!existsSync(path.join(ROOT, 'dist', 'index.html'))) {
@@ -64,7 +78,7 @@ async function main(): Promise<void> {
     const browser = await chromium.launch({ channel: CAPTURE_CHANNEL })
     try {
       const context = await browser.newContext({
-        viewport: CARD_VIEWPORT,
+        viewport: { width: cardViewport.width, height: cardViewport.height },
         deviceScaleFactor: CARD_DEVICE_SCALE_FACTOR,
       })
       const page = await context.newPage()
