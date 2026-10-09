@@ -7,3 +7,18 @@
   text-transform: uppercase;
   color: var(--label);
 }
+
+/* A label with a tail balances its lines, so a wrap falls inside the words
+and the tail keeps company on the last line. */
+.withTail {
+  text-wrap: balance;
+}
+
+/* The tail is one atomic box that never breaks: an atomic inline box offers
+a break opportunity before it in every engine, where a plain no-wrap span
+leaves WebKit no break at the space in front of it, and the line ran past
+the label's box instead of wrapping. */
+.tail {
+  display: inline-block;
+  white-space: nowrap;
+}
