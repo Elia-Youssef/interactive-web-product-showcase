@@ -15,6 +15,7 @@ import type { ContractRuleGroup, ContractRuleInput, ContractRuleMessages } from 
 import { fixtureManifestPathOf, modelPathOf } from './fixtureProducts.ts'
 import { homeFitReportOf, poseViolationOf } from './homeFitRule.ts'
 import { readHomeFitFacts } from './homeFitFacts.ts'
+import { readShadowFacts } from './shadowFacts.ts'
 import { loadParseProduct, readManifestFile } from './manifestIo.ts'
 import { createModelIO } from './modelIo.ts'
 import { pipelinePositionGrid } from './storageGrid.ts'
@@ -41,6 +42,7 @@ async function controlInput(): Promise<ContractRuleInput> {
     structure,
     facts: readContractModelFacts(doc),
     homeFit: readHomeFitFacts(doc, structure.animationChannels),
+    shadow: await readShadowFacts(doc),
     storage: {
       positions: readPositionStorage(doc, await pipelinePositionGrid()),
       translationOutputs: await readTranslationOutputs(io, modelPath),

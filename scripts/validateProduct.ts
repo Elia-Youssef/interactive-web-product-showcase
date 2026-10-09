@@ -8,6 +8,7 @@ import type { ContractModelFacts } from './contractFacts.ts'
 import { runContractRules, withRuleMessages } from './contractRules.ts'
 import { countDrawCalls } from './drawCalls.ts'
 import { readHomeFitFacts } from './homeFitFacts.ts'
+import { readShadowFacts, type ShadowFacts } from './shadowFacts.ts'
 import type { HomeFitFacts } from './homeFitFacts.ts'
 import { createModelIO } from './modelIo.ts'
 import type { ParseProduct } from './manifestIo.ts'
@@ -93,6 +94,7 @@ type ModelSide = {
   readonly facts: ContractModelFacts | null
   readonly homeFit: HomeFitFacts | null
   readonly storage: StorageFacts | null
+  readonly shadow: ShadowFacts | null
   readonly fileBytes: number | null
   readonly textures: readonly TextureFact[]
   readonly drawCalls: number | null
@@ -107,6 +109,7 @@ function unreadableModel(detail: string, violation: string, fileBytes: number | 
     facts: null,
     homeFit: null,
     storage: null,
+    shadow: null,
     fileBytes,
     textures: [],
     drawCalls: null,
@@ -139,6 +142,7 @@ async function loadModel(io: NodeIO, root: string, paths: ProductPaths): Promise
     facts: readContractModelFacts(doc),
     homeFit: readHomeFitFacts(doc, structure.animationChannels),
     storage: await readStorageFacts(io, paths.modelGlb, doc),
+    shadow: await readShadowFacts(doc),
     fileBytes,
     textures: describeTextures(doc),
     drawCalls: countDrawCalls(doc),
@@ -175,7 +179,8 @@ function contractChecks(
     structure !== null &&
     modelSide.facts !== null &&
     modelSide.homeFit !== null &&
-    modelSide.storage !== null
+    modelSide.storage !== null &&
+    modelSide.shadow !== null
   ) {
     const findings = runContractRules({
       manifest,
@@ -183,6 +188,7 @@ function contractChecks(
       facts: modelSide.facts,
       homeFit: modelSide.homeFit,
       storage: modelSide.storage,
+      shadow: modelSide.shadow,
       contract,
     })
     return [

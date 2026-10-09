@@ -49,27 +49,33 @@ const NUMBERED_EYEBROW_MANIFEST = GHOST_MANIFEST.replace(
 ).replace("eyebrow: 'Compact speaker'", "eyebrow: 'Compact speaker / 002'")
 
 describe('the validate step on every shipped product', () => {
-  it.each(SHIPPED_SLUGS)('reports zero violations and zero warnings for %s', async (slug) => {
-    const parseProduct = await loadParseProduct()
-    const validation = await validateShippedProduct(ROOT, slug, parseProduct)
-    expect(validation.checks.map((check) => check.name)).toEqual([
-      'manifest',
-      'model',
-      'hotspots',
-      'cameras',
-      'geometry',
-      'finishes',
-      'materials',
-      'explode',
-      'encoding',
-      'budgets',
-    ])
-    expect(countViolations(validation)).toBe(0)
-    expect(countWarnings(validation)).toBe(0)
-    for (const check of validation.checks) {
-      expect(check.status, check.name).toBe('pass')
-    }
-  })
+  it.each(SHIPPED_SLUGS)(
+    'reports zero violations and only measured shadow warnings for %s',
+    async (slug) => {
+      const parseProduct = await loadParseProduct()
+      const validation = await validateShippedProduct(ROOT, slug, parseProduct)
+      expect(validation.checks.map((check) => check.name)).toEqual([
+        'manifest',
+        'model',
+        'hotspots',
+        'cameras',
+        'geometry',
+        'finishes',
+        'materials',
+        'explode',
+        'encoding',
+        'budgets',
+      ])
+      expect(countViolations(validation)).toBe(0)
+      expect(countWarnings(validation)).toBe(slug === 'orsa-kvern' ? 1 : 0)
+      for (const warning of validation.checks.flatMap((check) => check.warnings)) {
+        expect(warning).toMatch(/^shadow-footprint-fits-plane: SHADOW x high side/)
+      }
+      for (const check of validation.checks) {
+        expect(check.status, check.name).toBe('pass')
+      }
+    },
+  )
 })
 
 describe('the validate step on a planted product at the old aspect', () => {
