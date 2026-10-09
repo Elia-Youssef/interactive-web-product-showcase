@@ -14,6 +14,10 @@
 // - revealing: the transition moves out; it calls onRevealed once when the
 //   stage is fully visible again.
 //
+// A navigation during revealing does not return to idle first: the next
+// cover starts from the partly revealed stage, so a reveal cut short moves
+// the band straight back in.
+//
 // A transition honors reducedMotion with its own reduced form (a crossfade,
 // or an instant cut), and still calls onCovered and onRevealed in order.
 export type ProductTransitionPhase = 'idle' | 'covering' | 'covered' | 'revealing'
