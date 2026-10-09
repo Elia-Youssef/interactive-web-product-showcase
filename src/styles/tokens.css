@@ -228,7 +228,7 @@ their minimum below it, switched by the breakpoints at the end of this file.
   --switch-band-angle: -12deg;
   --switch-travel: 100%;
   --switch-rest: 0%;
-  --switch-band-alpha: 0.85;
+  --switch-band-alpha: 0.7;
   --switch-band: rgb(var(--red-rgb) / var(--switch-band-alpha));
   --size-switch-dot: 6px;
   --duration-switch-move: calc(600ms * var(--motion-scale));
