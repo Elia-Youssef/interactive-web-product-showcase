@@ -3,6 +3,7 @@ import { productModelUrl, type Product } from '../../src/lib/product'
 import type { ProductTransitionPhase } from '../../src/lib/transition'
 import { productLoadBudgetMs } from './budgets'
 import { expectProduct } from './collectionFacts'
+import type { ViewerModel } from '../../src/viewer/automation/viewerAutomation'
 
 // The reads and waits of the product switch proofs: the transition's phase
 // as the switch layer names it, a record of every phase the layer went
@@ -28,6 +29,8 @@ export type PhaseSnapshot = {
   readonly phase: string | null
   readonly product: string | null
   readonly productSlug: string | null
+  readonly renderedFrames: number
+  readonly model: ViewerModel | null
 }
 
 // One change of the product the stage shows, with the layer's phase at
@@ -36,6 +39,7 @@ export type ShownSwap = {
   readonly from: string | null
   readonly to: string | null
   readonly phase: string | null
+  readonly renderedFrames: number
 }
 
 type PhaseLog = {
@@ -73,13 +77,20 @@ export function installPhaseRecorder(attributes: typeof LAYER_ATTRIBUTES): void 
     const phase = read(attributes.phase)
     const nowShown = read(attributes.shown)
     if (nowShown !== shown) {
-      log.swaps.push({ from: shown, to: nowShown, phase })
+      log.swaps.push({
+        from: shown,
+        to: nowShown,
+        phase,
+        renderedFrames: window.__viewer?.renderedFrames ?? -1,
+      })
       shown = nowShown
     }
     log.snapshots.push({
       phase,
       product: window.__viewer?.product ?? null,
       productSlug: window.__viewer?.productSlug ?? null,
+      renderedFrames: window.__viewer?.renderedFrames ?? -1,
+      model: window.__viewer?.model ?? null,
     })
   }).observe(document, {
     subtree: true,
