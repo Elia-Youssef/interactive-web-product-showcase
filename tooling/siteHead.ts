@@ -1,16 +1,24 @@
+import { resolve } from 'node:path'
 import type { Plugin } from 'vite'
 import { fillHead } from '../scripts/headFill.ts'
 import { loadCopyMeta } from '../scripts/manifestIo.ts'
 
-// Fills the site head before Vite processes the HTML, in build and serve
-// modes. Each transform loads the copy builder through the pipeline's bridge,
-// so the source template owns no metadata and no second writer exists.
+// Owns only the site's entry, identified by its resolved filename rather
+// than the request URL. Other HTML entries keep their own heads, while site
+// fallback routes share the same writer in build and serve modes.
 export function siteHeadPlugin(): Plugin {
+  let siteEntry: string
   return {
     name: 'site-head',
+    configResolved(config) {
+      siteEntry = resolve(config.root, 'index.html')
+    },
     transformIndexHtml: {
       order: 'pre',
-      async handler(html) {
+      async handler(html, context) {
+        if (resolve(context.filename) !== siteEntry) {
+          return html
+        }
         const copyMeta = await loadCopyMeta()
         return fillHead(html, copyMeta.siteMetaSet())
       },
