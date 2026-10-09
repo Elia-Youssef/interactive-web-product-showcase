@@ -61,6 +61,13 @@ function toPosix(path: string): string {
   return path.replace(/\\/g, '/')
 }
 
+function writePlantedConfig(root: string, factoryImport: string, files: ReadonlySet<string>): void {
+  writeFileSync(
+    join(root, 'eslint.config.ts'),
+    `import { createConfig } from '${factoryImport}'\nexport default await createConfig({ root: import.meta.dirname, files: ${JSON.stringify([...files])} })\n`,
+  )
+}
+
 export function plantProject(name: string): PlantedProject {
   // A unique tree per run, under the gitignored scratch/, so parallel or
   // interrupted runs never share state. scratch/ is not in git, so a fresh
@@ -76,10 +83,7 @@ export function plantProject(name: string): PlantedProject {
 
   // The real configuration, through the factory, anchored at this tree's root.
   const factoryImport = toPosix(relative(root, join(repoRoot, 'tooling', 'eslintConfig.ts')))
-  writeFileSync(
-    join(root, 'eslint.config.ts'),
-    `import { createConfig } from '${factoryImport}'\nexport default createConfig({ root: import.meta.dirname })\n`,
-  )
+  const files = new Set(['tsconfig.json', 'package.json', 'eslint.config.ts'])
 
   return {
     root,
@@ -87,8 +91,12 @@ export function plantProject(name: string): PlantedProject {
       const file = join(root, relativePath)
       mkdirSync(dirname(file), { recursive: true })
       writeFileSync(file, content.endsWith('\n') ? content : `${content}\n`)
+      files.add(toPosix(relativePath))
     },
     lint({ cwd = root }: { readonly cwd?: string } = {}): LintReport {
+      // Planted trees are ignored by the parent repository. Hand their exact
+      // file set to the factory instead of discovering the parent's files.
+      writePlantedConfig(root, factoryImport, files)
       // The tree's planted roots are passed absolutely, so the invocation
       // works from a subdirectory too: there the config is still discovered
       // at the root, while the process working directory differs from it.

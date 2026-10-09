@@ -20,7 +20,10 @@ import {
   testFileMarkers,
 } from './extensions.ts'
 import { layerConfigs } from './eslintLayers.ts'
-import { sourcePolicyPlugin } from './sourcePolicy.ts'
+import { createSourcePolicyPlugin } from './sourcePolicy.ts'
+import { createGlobImportSource } from './globImportSource.ts'
+import type { GlobImportSource } from './globImports.ts'
+import { listGatedFiles } from './gatedFiles.ts'
 import { reducedMotionOwners } from './reducedMotionRule.ts'
 import {
   frameLoopRestriction,
@@ -205,10 +208,10 @@ const fixtureImportRestriction = {
 // exemptions below switch the import rule off where fixtures are legal and
 // restate both rules without the frame loop for the stage's frame
 // modules.
-function srcPolicyConfig(): Linter.Config {
+function srcPolicyConfig(root: string, source: GlobImportSource): Linter.Config {
   return {
     files: [SRC_SCRIPT_GLOB],
-    plugins: { 'source-policy': sourcePolicyPlugin },
+    plugins: { 'source-policy': createSourcePolicyPlugin(root, source) },
     rules: {
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'error',
@@ -227,6 +230,7 @@ function srcPolicyConfig(): Linter.Config {
       ],
       'source-policy/known-source-extension': 'error',
       'source-policy/reduced-motion-query': 'error',
+      'source-policy/glob-targets': 'error',
       'no-restricted-imports': [
         'error',
         { patterns: [fixtureImportRestriction], paths: [frameLoopRestriction] },
@@ -317,13 +321,20 @@ function stageCaptureHelperConfig(): Linter.Config {
   }
 }
 
-export function createConfig({ root }: { root: string }) {
+export async function createConfig({
+  root,
+  files = listGatedFiles(root),
+}: {
+  root: string
+  files?: readonly string[]
+}) {
+  const source = await createGlobImportSource(root, files)
   return defineConfig(
     ...parserConfigs(),
     js.configs.recommended,
     tseslint.configs.recommended,
     sharedRulesConfig(),
-    srcPolicyConfig(),
+    srcPolicyConfig(root, source),
     stageFrameExemptionConfig(),
     reducedMotionOwnerConfig(),
     testExemptionConfig(),
