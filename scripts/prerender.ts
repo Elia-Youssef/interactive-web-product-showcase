@@ -14,6 +14,7 @@ import { isMissingFileError } from './fsErrors.ts'
 import { routeFilePath } from './deployRules.ts'
 import { driftedSlot, fillHead } from './headFill.ts'
 import { loadMetaPages } from './metaPages.ts'
+import { loadCrawlFiles } from './manifestIo.ts'
 
 // The repo root of this checkout: the parent of the scripts folder.
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
@@ -54,6 +55,10 @@ async function main(): Promise<void> {
   for (const slug of skipped) {
     process.stdout.write(`skipped /p/${slug}: the manifest declares no meta block\n`)
   }
+  const generate = await loadCrawlFiles()
+  const { robotsText, sitemapText } = generate(pages.map((page) => page.slug))
+  await writeFile(path.join(ROOT, 'dist', 'robots.txt'), robotsText)
+  await writeFile(path.join(ROOT, 'dist', 'sitemap.xml'), sitemapText)
 }
 
 await main()

@@ -6,6 +6,8 @@
 // which would replace the app for unknown paths. The runner that lists the
 // real dist/ is scripts/deployCheck.ts.
 import { isHashedName } from '../tooling/outputNaming.ts'
+import { checkCrawlFiles, type CrawlInput, type CrawlFinding } from './deployCrawl.ts'
+import { checkSecurityHeaders, type SecurityFinding } from './deploySecurity.ts'
 
 // Where a product's prerendered route file sits inside dist/, by slug.
 export function routeFilePath(slug: string): string {
@@ -47,6 +49,8 @@ export type HeaderRule = {
 }
 
 export type DeployFinding =
+  | CrawlFinding
+  | SecurityFinding
   | { readonly kind: 'badRule'; readonly line: number; readonly detail: string }
   | { readonly kind: 'unhashedImmutable'; readonly file: string; readonly rule: string }
   | { readonly kind: 'staleRule'; readonly rule: string }
@@ -143,6 +147,7 @@ export type DeployInput = {
   // The slugs of the shipped products, the only ones a per-product output
   // may name.
   readonly shippedSlugs: readonly string[]
+  readonly crawl: CrawlInput
 }
 
 export function checkDeploy(input: DeployInput): DeployFinding[] {
@@ -191,6 +196,7 @@ export function checkDeploy(input: DeployInput): DeployFinding[] {
     }
   }
   findings.push(...unshippedOutputs(input))
+  findings.push(...checkSecurityHeaders(rules), ...checkCrawlFiles(input.crawl, fileSet))
   return findings
 }
 
@@ -207,6 +213,20 @@ function unshippedOutputs(input: DeployInput): DeployFinding[] {
 
 export function describeFinding(finding: DeployFinding): string {
   switch (finding.kind) {
+    case 'requiredSecurityHeader':
+      return `_headers ${finding.header}: ${finding.detail}`
+    case 'missingCrawlFile':
+      return `dist/${finding.file} is missing`
+    case 'invalidRobots':
+      return 'dist/robots.txt must allow all paths and name the site sitemap'
+    case 'invalidSitemap':
+      return 'dist/sitemap.xml is malformed'
+    case 'straySitemapUrl':
+      return `dist/sitemap.xml stray URL '${finding.url}': not a built route on the site host`
+    case 'missingSitemapUrl':
+      return `dist/sitemap.xml is missing the built route '${finding.url}'`
+    case 'duplicateSitemapUrl':
+      return `dist/sitemap.xml repeats '${finding.url}'`
     case 'badRule':
       return `_headers line ${finding.line}: ${finding.detail}`
     case 'unhashedImmutable':

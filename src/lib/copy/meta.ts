@@ -12,8 +12,8 @@ import { siteCopy } from './site'
 
 // The absolute URL of the site for one path. The domain is kept without its
 // scheme in the site copy; this is the one place the scheme is added.
-export function absoluteUrl(path: string): string {
-  return `https://${siteCopy.siteUrl}${path}`
+export function absoluteUrl(path: string, siteUrl: string = siteCopy.siteUrl): string {
+  return `https://${siteUrl}${path}`
 }
 
 // The social image path of one product: the capture step writes one PNG per

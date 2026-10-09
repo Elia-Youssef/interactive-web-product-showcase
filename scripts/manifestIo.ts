@@ -28,6 +28,7 @@ import type { cameraContractProblems } from '../src/lib/camera/contract.ts'
 import type { viewPivotOf } from '../src/lib/camera/pivot.ts'
 import type { MetaHeadSet, ProductMetaSet } from '../src/lib/copy/meta.ts'
 import type { Product } from '../src/lib/product/index.ts'
+import type { crawlFiles } from '../src/lib/copy/crawl.ts'
 import { isMissingFileError } from './fsErrors.ts'
 
 export type ParseProduct = typeof parseProduct
@@ -170,6 +171,16 @@ export async function loadCopyMeta(): Promise<CopyMeta> {
     productMetaSet: copyExport(copyModule, 'productMetaSet', isProductMetaSet),
     socialImagePath: copyExport(copyModule, 'socialImagePath', isSocialImagePath),
   }
+}
+
+function isCrawlFiles(value: unknown): value is typeof crawlFiles {
+  return typeof value === 'function'
+}
+
+export async function loadCrawlFiles(): Promise<typeof crawlFiles> {
+  const jiti = createDomainJiti({ moduleCache: false })
+  const module: unknown = await jiti.import('../src/lib/copy/crawl.ts')
+  return copyExport(module, 'crawlFiles', isCrawlFiles)
 }
 
 // The camera contract's rule assembly, as the type of the module it
