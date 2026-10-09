@@ -75,7 +75,11 @@ for (const product of products) {
           overlayBox.appendChild(copy)
         }
 
-        const elements = [card, unclamped, lengthened]
+        const copies = [card, unclamped, lengthened]
+        // Compare the live layout and its copies through the same observer:
+        // a bounding rectangle can round a transformed width differently.
+        const live = overlayBox.contains(wrapper) ? wrapper : null
+        const elements = live === null ? copies : [...copies, live]
         const sizes = await new Promise<number[]>((resolve) => {
           const observer = new ResizeObserver((entries) => {
             observer.disconnect()
@@ -84,7 +88,7 @@ for (const product of products) {
                 const entry = entries.find((candidate) => candidate.target === element)
                 const size = entry?.borderBoxSize[0]
                 if (size === undefined) {
-                  throw new Error('every observed copy must report a border box')
+                  throw new Error('every observed card must report a border box')
                 }
                 return size.inlineSize
               }),
@@ -104,17 +108,17 @@ for (const product of products) {
           range.selectNodeContents(element)
           return range.getClientRects().length
         })
-        for (const copy of elements) {
+        for (const copy of copies) {
           copy.remove()
         }
-        const [atRule, content, clamped] = sizes
+        const [atRule, content, clamped, floating] = sizes
         if (atRule === undefined || content === undefined || clamped === undefined) {
           throw new Error('the observer must answer all three widths')
         }
-        // The live card's own width when it floats: its slot element sits
-        // in this same overlay box.
-        const floating = overlayBox.contains(wrapper) ? wrapper.getBoundingClientRect().width : null
-        return { atRule, content, clamped, lines, floating }
+        if (live !== null && floating === undefined) {
+          throw new Error('the live floating card must report its border box')
+        }
+        return { atRule, content, clamped, lines, floating: floating ?? null }
       }, hotspot.title)
 
       const maxPx = await tokenPx(page, '--size-hotspot-card-max')
