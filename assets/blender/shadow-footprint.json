@@ -1,0 +1,6 @@
+{
+  "alphaThreshold": 0.03,
+  "padM": 0.004,
+  "fitToleranceTexels": 1,
+  "etc1sFootprintShiftTexels": 11
+}

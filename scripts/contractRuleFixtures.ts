@@ -9,6 +9,7 @@ import { readProductStructure } from './structure.ts'
 import { declaredPositionStorage, declaredTranslationOutputs } from './storageFacts.ts'
 import type { ContractRuleInput } from './contractRules.ts'
 import { cameraContract } from './validateFixtures.ts'
+import { shadowFixture } from './shadowProduct.fixtures.ts'
 
 // The manifest the contract rule fixtures run against: the fixture
 // document's own hotspots and finishes, so the default document is the
@@ -61,6 +62,7 @@ export function contractRuleInputOf(doc: Document): ContractRuleInput {
     structure,
     facts: readContractModelFacts(doc),
     homeFit: readHomeFitFacts(doc, structure.animationChannels),
+    shadow: { kind: 'measured', ...shadowFixture() },
     storage: {
       positions: declaredPositionStorage(doc),
       translationOutputs: declaredTranslationOutputs(doc),

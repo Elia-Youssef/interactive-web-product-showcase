@@ -19,6 +19,8 @@ import { materialRules } from './contractRuleMaterials.ts'
 import { finishRules } from './contractRuleFinishes.ts'
 import { cameraRules } from './contractRuleCameras.ts'
 import { explodeRules } from './contractRuleExplode.ts'
+import { shadowRules } from './contractRuleShadow.ts'
+import type { ShadowFacts } from './shadowFacts.ts'
 
 // The report groups the table's rules fold into, the groups the validate
 // step already prints.
@@ -34,6 +36,7 @@ export type ContractRuleInput = {
   readonly facts: ContractModelFacts
   readonly homeFit: HomeFitFacts
   readonly storage: StorageFacts
+  readonly shadow: ShadowFacts
   readonly contract: CameraContract
 }
 
@@ -52,6 +55,7 @@ export type ContractRule = {
 // The table, one entry per rule, in report-group order.
 export const contractRules: readonly ContractRule[] = [
   ...modelRules,
+  ...shadowRules,
   ...geometryRules,
   ...materialRules,
   ...finishRules,

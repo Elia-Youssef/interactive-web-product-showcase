@@ -54,6 +54,7 @@
     "eslint-plugin-react-hooks": "7.1.1",
     "globals": "17.12.0",
     "jiti": "2.7.0",
+    "ktx-parse": "1.1.0",
     "meshoptimizer": "1.3.0",
     "postcss": "8.5.28",
     "prettier": "3.9.9",
