@@ -1,5 +1,5 @@
-// E2E layout spec: verifies the responsive layout frame contract at 1440,
-// 1024, 768 and 390 px across all matrix projects.
+// E2E layout spec: verifies the responsive layout frame contract at every
+// layout viewport across the layout projects.
 
 import { expect, test } from './fixtures'
 import { siteCopy } from '../../src/lib/copy/site'
@@ -59,11 +59,8 @@ for (const spec of viewportContracts) {
       expect(panelBox.y).toBeGreaterThanOrEqual(stageBox.y + stageBox.height - 0.5)
     }
 
-    if (spec.stageHeightRatio !== undefined) {
-      expect(stageBox.height).toBeCloseTo(spec.height * spec.stageHeightRatio, 0)
-    }
-
-    // The canvas slot is the stage box the hotspot facts are computed for.
+    // The canvas slot is the stage box the hotspot facts are computed for,
+    // and its height is the layout tokens' own function of the viewport.
     const slotBox = await page.locator('[data-slot="stage"]').boundingBox()
     if (slotBox === null) {
       throw new Error('the stage slot bounding box must be present')

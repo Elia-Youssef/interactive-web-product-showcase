@@ -12,7 +12,12 @@ import { expectSettledStageScreenshot } from './stageCapture'
 // stage showing another product cannot become that route's baseline.
 const collection = await loadCollection()
 
-for (const spec of viewportContracts) {
+// The viewports with a committed baseline; the others are geometry cases.
+const visualCases = viewportContracts.flatMap((contract) =>
+  contract.snapshotName === undefined ? [] : [{ ...contract, snapshotName: contract.snapshotName }],
+)
+
+for (const spec of visualCases) {
   for (const product of collection.products) {
     test(`${product.slug} layout visual baseline at ${spec.width}x${spec.height}`, async ({
       page,

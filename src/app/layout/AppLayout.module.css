@@ -4,7 +4,8 @@
 The responsive application layout shell.
 Contains the top bar header and the main page body hosting the product panel
 and the 3D stage. Body direction stacks on tablet and phone, and sits
-side-by-side on desktop.
+side-by-side on desktop. The shell spans the viewport and clips nothing it
+holds; on a viewport too short for it, it becomes one scrolling document.
 Values are tokens.
 */
 
@@ -41,5 +42,15 @@ Values are tokens.
 @media (--vp-phone) {
   .body {
     flex-direction: column;
+  }
+}
+
+/* Too short for the fixed shell: the page grows with its content and the
+document scrolls, so every part of the panel is reached by the one page
+scroll. */
+@media (--vp-page-scroll) {
+  .layout {
+    block-size: auto;
+    overflow: visible;
   }
 }

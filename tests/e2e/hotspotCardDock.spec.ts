@@ -7,7 +7,7 @@ import { settledFrames } from './stageSettle'
 import { expectOrbitAtRest, readCamera, stageAspectOfCanvas } from './stageCamera'
 import { cardHeadingOf, markerOf } from './hotspotViews'
 import { closeWays, flowFacts, type HotspotFlow } from './hotspotFlowFacts'
-import { stageBoxOf, viewportContracts } from './layoutContracts'
+import { referenceLayouts, stageBoxOf } from './layoutContracts'
 import {
   expectPlainCloseCameraUnchanged,
   preparePlainCloseCamera,
@@ -26,7 +26,7 @@ import {
 // support.
 
 const { flowsAt, markerViewsAt } = await flowFacts(await shippedProducts())
-const dockingLayouts = viewportContracts.filter((contract) => contract.hotspotCard === 'docks')
+const dockingLayouts = referenceLayouts.filter((contract) => contract.hotspotCard === 'docks')
 
 for (const contract of dockingLayouts) {
   const size = `${contract.width}x${contract.height}`

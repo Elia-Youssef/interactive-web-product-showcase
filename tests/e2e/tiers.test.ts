@@ -80,6 +80,7 @@ describe('the spec families', () => {
       'measurementFocus',
       'product-panel',
       'productEyebrow',
+      'reflow',
       'topLayerPlacement',
     ])
   })

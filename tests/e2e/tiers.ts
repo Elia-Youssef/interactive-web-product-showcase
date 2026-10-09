@@ -73,6 +73,7 @@ export const specFamilies: Readonly<Record<string, SpecFamily>> = {
   measurementFocus: 'layout',
   productEyebrow: 'layout',
   topLayerPlacement: 'layout',
+  reflow: 'layout',
 }
 
 function specsOf(family: SpecFamily): readonly string[] {

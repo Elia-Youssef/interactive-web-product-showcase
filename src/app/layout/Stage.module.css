@@ -4,7 +4,10 @@
 The stage section of the responsive layout.
 On desktop: fills the remaining width next to the side panel.
 On tablet: stacks on top at 60vh.
-On phone: stacks on top at 62svh.
+On phone: stacks on top at 62svh, and gives way to the panel's resting
+sheet, so the stage is what the sheet leaves, up to its share.
+On a viewport too short for the fixed shell: keeps its floor in the
+scrolling document, and beside the panel keeps the window's height.
 Hosts the stage backdrop, the WebGPU canvas slot, and the stage chrome corners.
 Values are tokens.
 */
@@ -40,8 +43,23 @@ Values are tokens.
 @media (--vp-phone) {
   .stage {
     order: 1;
-    flex: 0 0 var(--height-stage-phone);
+    flex: 0 1 var(--height-stage-phone);
     inline-size: var(--size-fill);
-    block-size: var(--height-stage-phone);
+    min-block-size: 0;
+  }
+}
+
+@media (--vp-page-scroll) {
+  .stage {
+    min-block-size: var(--height-stage-min);
+  }
+}
+
+/* Beside the panel in the scrolling document the stage keeps its own
+height instead of stretching to the panel's. */
+@media (--vp-desktop) and (--vp-page-scroll) {
+  .stage {
+    align-self: flex-start;
+    block-size: var(--height-stage-beside-scroll);
   }
 }
