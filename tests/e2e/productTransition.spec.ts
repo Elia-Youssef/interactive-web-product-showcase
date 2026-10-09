@@ -10,6 +10,7 @@
 import { expect, test } from './fixtures'
 import type { Page } from '@playwright/test'
 import { transitionMoveBudgetMs } from './budgets'
+import { switchBandRed } from './switchBandRed'
 
 const GALLERY_PATH = '/gallery.html'
 const STAGE_SELECTOR = '[data-transition-stage]'
@@ -212,7 +213,9 @@ test('reduced motion gives a crossfade and pays the same callbacks', async ({ pa
     }
   })
   expect(fade.animation).not.toBe('none')
-  expect(fade.background).toBe('rgba(222, 11, 0, 0.85)')
+  // The crossfade paints the band's own color token, read as the browser
+  // resolves it, so the value follows the tokens.
+  expect(fade.background).toBe(await switchBandRed(page))
   await expect
     .poll(() => firedCallbacks(page), { timeout: transitionMoveBudgetMs })
     .toEqual(['covered'])

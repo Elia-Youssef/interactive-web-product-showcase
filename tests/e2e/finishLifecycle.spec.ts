@@ -7,9 +7,38 @@ import {
   harnessProducts,
   waitForProductReady,
   waitForSettledMemory,
+  type RendererMemory,
 } from './productSpecs'
 
 const products = await harnessProducts()
+
+// The high-water mark of two settled readings, counter by counter: the
+// first pass over the finishes lets any one-time counter movement happen
+// once, and the mark bounds every later pass over the same warm scene. The
+// vertex array cache joins the mark where the backend carries one, and
+// reads through as null where it has none.
+function warmest(a: RendererMemory, b: RendererMemory): RendererMemory {
+  return {
+    geometries: Math.max(a.geometries, b.geometries),
+    textures: Math.max(a.textures, b.textures),
+    textureBytes: Math.max(a.textureBytes, b.textureBytes),
+    attributes: Math.max(a.attributes, b.attributes),
+    attributeBytes: Math.max(a.attributeBytes, b.attributeBytes),
+    indexAttributes: Math.max(a.indexAttributes, b.indexAttributes),
+    indexAttributeBytes: Math.max(a.indexAttributeBytes, b.indexAttributeBytes),
+    vaoCache: warmestCache(a.vaoCache, b.vaoCache),
+  }
+}
+
+function warmestCache(a: number | null, b: number | null): number | null {
+  if (a === null) {
+    return b
+  }
+  if (b === null) {
+    return a
+  }
+  return Math.max(a, b)
+}
 
 for (const product of products) {
   const expectations = await readFinishExpectations(product.slug)
@@ -133,10 +162,7 @@ for (const product of products) {
           testBodyBudgetMs,
         ).toBe(finish.variant)
         const afterSwitch = await waitForSettledMemory(page)
-        count = {
-          geometries: Math.max(count.geometries, afterSwitch.geometries),
-          textures: Math.max(count.textures, afterSwitch.textures),
-        }
+        count = warmest(count, afterSwitch)
       }
       return count
     })()
@@ -145,12 +171,12 @@ for (const product of products) {
       await expectPoll(page, () => window.__viewer?.finish?.applied ?? null, testBodyBudgetMs).toBe(
         finish.variant,
       )
+      // Every counter holds at the warm mark: the geometries, attributes
+      // and textures with their bytes, and the vertex array cache where the
+      // backend has one.
       const afterSwitch = await waitForSettledMemory(page)
-      expect(afterSwitch.geometries, `geometries after switching to '${finish.variant}'`).toBe(
-        warm.geometries,
-      )
-      expect(afterSwitch.textures, `textures after switching to '${finish.variant}'`).toBe(
-        warm.textures,
+      expect(afterSwitch, `the renderer memory after switching to '${finish.variant}'`).toEqual(
+        warm,
       )
     }
   })

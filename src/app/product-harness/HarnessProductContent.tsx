@@ -6,7 +6,6 @@ import { Product } from '@viewer/product/Product'
 import { HarnessFrameFault } from './HarnessFrameFault'
 import { LensFrameRecorder } from './LensFrameRecorder'
 import type { HarnessFrameFault as FrameFault } from './frameFaultQuery'
-import { RendererMemoryProbe } from './RendererMemoryProbe'
 import { PartMotion } from './PartMotion'
 import { PresentedAnchorsProbe } from './PresentedAnchorsProbe'
 import { CardVisibilityProbe } from './CardVisibilityProbe'
@@ -40,7 +39,6 @@ export function HarnessProductContent({
 }: HarnessProductContentProps) {
   return (
     <>
-      <RendererMemoryProbe />
       <LensFrameRecorder />
       <StageWarmup />
       {frameFault?.scope === 'stage' && <HarnessFrameFault fault={frameFault} />}

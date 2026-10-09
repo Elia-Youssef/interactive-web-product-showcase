@@ -242,41 +242,29 @@ describe('StageOverlay', () => {
 
     expect(seen).toEqual(['placed'])
   })
-})
 
-describe('the box channel', () => {
-  it('publishes a box under its key and answers it between passes', () => {
+  it('takes the product records off whole, and the next content reads nothing of the last', () => {
     const overlay = new StageOverlay()
+    const el = element()
+    overlay.mount('hotspot:driver', el, 'center')
+    overlay.place('hotspot:driver', { kind: 'placed', x: 5, y: 6 })
+    // A key whose element left before the content did still holds its
+    // placement: the record is the canvas side's, not the element's.
+    overlay.place('hotspot:yoke', { kind: 'hidden' })
 
-    overlay.placeBox('a', { left: 1, top: 2, right: 3, bottom: 4 })
+    overlay.clearProductState()
 
-    expect(overlay.boxOf('a')).toEqual({ left: 1, top: 2, right: 3, bottom: 4 })
-    expect(overlay.boxOf('b'), 'a key with no box answers null').toBeNull()
-  })
-
-  it('writes the boxes of a pass before the presenters run', () => {
-    const overlay = new StageOverlay()
-    let seen: unknown = null
-    overlay.onPass(() => {
-      seen = overlay.boxOf('a')
-    }, 'presenter')
-
-    overlay.pass({ width: 10, height: 10 }, (place, placeBox) => {
-      place('a', { kind: 'hidden' })
-      placeBox('a', { left: 0, top: 0, right: 5, bottom: 5 })
+    expect(overlay.placementOf('hotspot:driver')).toBeNull()
+    expect(overlay.placementOf('hotspot:yoke')).toBeNull()
+    expect(overlay.placementRecord()).toEqual({})
+    // The leaving content's element keeps its last applied style; the
+    // clearing is the records', never a write to a gone element.
+    expect(el.style.visibility).toBe('visible')
+    // The next content enters clean: its first placement is read as the
+    // only one.
+    overlay.place('hotspot:driver', { kind: 'placed', x: 7, y: 8 })
+    expect(overlay.placementRecord()).toEqual({
+      'hotspot:driver': { kind: 'placed', x: 7, y: 8 },
     })
-
-    expect(seen).toEqual({ left: 0, top: 0, right: 5, bottom: 5 })
-  })
-
-  it('keeps the last box standing when a pass writes none', () => {
-    const overlay = new StageOverlay()
-    overlay.pass({ width: 10, height: 10 }, (_place, placeBox) => {
-      placeBox('a', { left: 1, top: 1, right: 2, bottom: 2 })
-    })
-
-    overlay.pass({ width: 10, height: 10 }, () => {})
-
-    expect(overlay.boxOf('a')).toEqual({ left: 1, top: 1, right: 2, bottom: 2 })
   })
 })

@@ -4,16 +4,21 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  three@0.186.1:
+    hash: 63add213eeb16a57320b5c8212cfdc2ecfc126b6757d8d5e31133406b3e49fe3
+    path: patches/three@0.186.1.patch
+
 importers:
 
   .:
     dependencies:
       '@react-three/fiber':
         specifier: 9.8.1
-        version: 9.8.1(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(three@0.186.1)
+        version: 9.8.1(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(three@0.186.1(patch_hash=63add213eeb16a57320b5c8212cfdc2ecfc126b6757d8d5e31133406b3e49fe3))
       camera-controls:
         specifier: 3.1.2
-        version: 3.1.2(three@0.186.1)
+        version: 3.1.2(three@0.186.1(patch_hash=63add213eeb16a57320b5c8212cfdc2ecfc126b6757d8d5e31133406b3e49fe3))
       react:
         specifier: 19.3.0
         version: 19.3.0
@@ -22,7 +27,7 @@ importers:
         version: 19.3.0(react@19.3.0)
       three:
         specifier: 0.186.1
-        version: 0.186.1
+        version: 0.186.1(patch_hash=63add213eeb16a57320b5c8212cfdc2ecfc126b6757d8d5e31133406b3e49fe3)
       zod:
         specifier: 4.6.5
         version: 4.6.5
@@ -2657,7 +2662,7 @@ snapshots:
     dependencies:
       playwright: 1.63.0
 
-  '@react-three/fiber@9.8.1(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(three@0.186.1)':
+  '@react-three/fiber@9.8.1(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(three@0.186.1(patch_hash=63add213eeb16a57320b5c8212cfdc2ecfc126b6757d8d5e31133406b3e49fe3))':
     dependencies:
       '@babel/runtime': 7.29.7
       '@types/webxr': 0.5.24
@@ -2668,7 +2673,7 @@ snapshots:
       react-use-measure: 2.1.7(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       scheduler: 0.28.0
       suspend-react: 0.1.3(react@19.3.0)
-      three: 0.186.1
+      three: 0.186.1(patch_hash=63add213eeb16a57320b5c8212cfdc2ecfc126b6757d8d5e31133406b3e49fe3)
       use-sync-external-store: 1.7.0(react@19.3.0)
       zustand: 5.0.15(@types/react@19.3.0)(react@19.3.0)(use-sync-external-store@1.7.0(react@19.3.0))
     optionalDependencies:
@@ -3069,9 +3074,9 @@ snapshots:
       keyv: 5.6.0
       qified: 0.10.1
 
-  camera-controls@3.1.2(three@0.186.1):
+  camera-controls@3.1.2(three@0.186.1(patch_hash=63add213eeb16a57320b5c8212cfdc2ecfc126b6757d8d5e31133406b3e49fe3)):
     dependencies:
-      three: 0.186.1
+      three: 0.186.1(patch_hash=63add213eeb16a57320b5c8212cfdc2ecfc126b6757d8d5e31133406b3e49fe3)
 
   caniuse-lite@1.0.30001813: {}
 
@@ -3963,7 +3968,7 @@ snapshots:
 
   text-hex@1.0.0: {}
 
-  three@0.186.1: {}
+  three@0.186.1(patch_hash=63add213eeb16a57320b5c8212cfdc2ecfc126b6757d8d5e31133406b3e49fe3): {}
 
   tinybench@6.2.0: {}
 

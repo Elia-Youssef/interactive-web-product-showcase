@@ -1,9 +1,10 @@
-// The source policy plugin: rules about which files may exist under src/, as
-// opposed to what those files may import. The extension lists come from
-// extensions.ts, so the rule and every glob that scopes it read the same
-// data.
+// The source policy plugin: rules about which files may exist under src/,
+// and what their sources may spell, as opposed to what those files may
+// import. The extension lists come from extensions.ts, so the rule and every
+// glob that scopes it read the same data.
 import type { Rule } from 'eslint'
 import { extensionOf, hasExtension, scriptExtensions, sourceExtensions } from './extensions.ts'
+import { reducedMotionQueryRule } from './reducedMotionRule.ts'
 
 const knownSourceExtension: Rule.RuleModule = {
   meta: {
@@ -33,5 +34,6 @@ const knownSourceExtension: Rule.RuleModule = {
 export const sourcePolicyPlugin = {
   rules: {
     'known-source-extension': knownSourceExtension,
+    'reduced-motion-query': reducedMotionQueryRule,
   },
 }

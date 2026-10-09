@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
-import type { Product, ProductFailure } from '@lib/product'
-import { useAppStore } from '@store/index'
+import type { Product, ProductFailure, ProductModelCounts, ProductRigSummary } from '@lib/product'
 import { measureModelFrame } from '../modelFrame'
 import { ProductLook } from '../look/ProductLook'
 import { ShadowOpacityContext } from '../look/shadowOpacityContext'
@@ -11,6 +10,7 @@ import { LoadedProductContext, type LoadedProduct } from './loadedProduct'
 import { createProductReadyGate, ProductReadyGateContext } from './productReadyGate'
 import type { ProductFinishMaterials } from './finishMaterials'
 import type { LoadedModel } from './productModelLoads'
+import { measureHeldBytes } from './heldModelBytes'
 import { useProductPresentation } from './useProductPresentation'
 import { useStageFrameFailures } from '../stageFrameContext'
 
@@ -23,6 +23,8 @@ type PresentedProductProps = {
   readonly finishes: ProductFinishMaterials
   // The product's failure channel, for the failures of the presentation.
   readonly fail: (failure: ProductFailure) => void
+  // The product's ready report, with the rig summary and the model counts.
+  readonly ready: (rig: ProductRigSummary, model: ProductModelCounts) => void
   // The product's extensions, mounted with the presented product.
   readonly children?: ReactNode
 }
@@ -39,10 +41,9 @@ export function PresentedProduct({
   rig,
   finishes,
   fail,
+  ready,
   children,
 }: PresentedProductProps) {
-  const slug = manifest.slug
-  const productReady = useAppStore((state) => state.productReady)
   // The shadow opacity's per-product slot, one per presented product like
   // the loaded product itself: the look installs its owner into it and the
   // features that fade the shadow claim their factor through it.
@@ -59,10 +60,18 @@ export function PresentedProduct({
   // The frame is measured once per load: it centers the scene, feeds the
   // home presentation, and its counts ride with the ready status.
   const frame = useMemo(() => measureModelFrame(model.scene), [model.scene])
+  // The bytes the load holds in the page, measured once per load on the
+  // scene as loaded.
+  const bytes = useMemo(() => measureHeldBytes(model.scene), [model.scene])
 
   const report = useCallback(() => {
-    productReady(slug, summary, { meshes: frame.meshes, triangles: frame.triangles })
-  }, [productReady, slug, summary, frame])
+    ready(summary, {
+      meshes: frame.meshes,
+      triangles: frame.triangles,
+      geometryBytes: bytes.geometry,
+      textureBytes: bytes.textures,
+    })
+  }, [ready, summary, frame, bytes])
 
   useProductPresentation({ rig, manifest, frame, report, fail, readyGate })
 

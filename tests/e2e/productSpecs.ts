@@ -1,5 +1,7 @@
+import { isDeepStrictEqual } from 'node:util'
 import { expect, type Page } from '@playwright/test'
 import type { Product } from '../../src/lib/product'
+import type { ViewerRendererMemory } from '../../src/viewer/automation/viewerAutomation'
 import { productLoadBudgetMs } from './budgets'
 import { loadCollection, loadTestCollection } from './productList'
 import { resolveE2ETier, sampleProducts } from './tiers'
@@ -75,10 +77,35 @@ export async function waitForStageWarm(page: Page): Promise<void> {
     .toBe(true)
 }
 
-export type RendererMemory = { readonly geometries: number; readonly textures: number }
+// The presents of one settle: a product's leave settles the stage like any
+// other scene mutation.
+const LEAVE_PRESENTS = 2
+
+function renderedFrames(page: Page): Promise<number> {
+  return page.evaluate(() => window.__viewer?.renderedFrames ?? 0)
+}
+
+// Takes the harness's product off the stage and waits for the leave to land:
+// the store's product is idle, and the stage has presented itself without
+// the product, so the engine let go of the frame callbacks it ran for it.
+export async function leaveProduct(page: Page): Promise<void> {
+  const framesBeforeLeave = await renderedFrames(page)
+  await page.getByTestId('remount-product').click()
+  await expect
+    .poll(() => page.evaluate(() => window.__viewer?.product), { timeout: productLoadBudgetMs })
+    .toBe('idle')
+  await expect
+    .poll(() => renderedFrames(page), { timeout: productLoadBudgetMs })
+    .toBeGreaterThanOrEqual(framesBeforeLeave + LEAVE_PRESENTS)
+}
+
+// The stage's memory probe reading: the renderer's resource counters with
+// their byte sizes, and the WebGL2 fallback's vertex array cache.
+export type RendererMemory = ViewerRendererMemory
 
 // Waits for the renderer's memory counters to settle: three reads half a
-// second apart that agree, and, when a floor is given, grown past it. The
+// second apart that agree on every counter, and, when a floor is given,
+// grown past it. The
 // product's resources land in GPU memory during the frames that draw it,
 // and the browser's own bookkeeping lags a beat behind both mount and
 // teardown, so a settled reading is the only stable one; the floor makes
@@ -90,20 +117,16 @@ export async function waitForSettledMemory(
   await expect
     .poll(
       async () => {
-        const read = () => page.evaluate(() => window.__harnessRendererMemory?.())
+        const read = () => page.evaluate(() => window.__viewer?.memory ?? null)
         const first = await read()
         await page.waitForTimeout(500)
         const second = await read()
         await page.waitForTimeout(500)
         const third = await read()
-        if (first === undefined || second === undefined || third === undefined) {
+        if (first === null || second === null || third === null) {
           return false
         }
-        const settled =
-          first.geometries === second.geometries &&
-          first.textures === second.textures &&
-          second.geometries === third.geometries &&
-          second.textures === third.textures
+        const settled = isDeepStrictEqual(first, second) && isDeepStrictEqual(second, third)
         if (!settled) {
           return false
         }
@@ -117,9 +140,9 @@ export async function waitForSettledMemory(
       { timeout: productLoadBudgetMs },
     )
     .toBe(true)
-  const settled = await page.evaluate(() => window.__harnessRendererMemory?.())
-  if (settled === undefined) {
-    throw new Error('the harness renderer memory probe is missing')
+  const settled = await page.evaluate(() => window.__viewer?.memory ?? null)
+  if (settled === null) {
+    throw new Error('the stage memory probe is missing')
   }
   return settled
 }

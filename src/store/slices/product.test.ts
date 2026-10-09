@@ -15,7 +15,12 @@ const summary: ProductRigSummary = {
   variants: [],
 }
 
-const counts: ProductModelCounts = { meshes: 4, triangles: 1200 }
+const counts: ProductModelCounts = {
+  meshes: 4,
+  triangles: 1200,
+  geometryBytes: 96_000,
+  textureBytes: 64_000,
+}
 
 const missingModel: ProductFailure = {
   kind: 'load',

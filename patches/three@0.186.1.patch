@@ -1,0 +1,79 @@
+diff --git a/build/three.webgpu.js b/build/three.webgpu.js
+index 48b30e6bf4bf114ba5524ae509c81c4a043d27ea..d8ac3583adf29611b13b30b3bde3b9292ae5b4de 100644
+--- a/build/three.webgpu.js
++++ b/build/three.webgpu.js
+@@ -76138,12 +76138,15 @@ class WebGLBackend extends Backend {
+ 	}
+ 
+ 	/**
+-	 * Destroys the GPU buffer of a shader attribute.
++	 * Destroys the GPU buffer of a shader attribute and every vertex array
++	 * object whose key holds the attribute.
+ 	 *
+ 	 * @param {BufferAttribute} attribute - The buffer attribute to destroy.
+ 	 */
+ 	destroyAttribute( attribute ) {
+ 
++		this._releaseVaos( attribute );
++
+ 		this.attributeUtils.destroyAttribute( attribute );
+ 
+ 	}
+@@ -76644,6 +76647,57 @@ class WebGLBackend extends Backend {
+ 
+ 	}
+ 
++	/**
++	 * Deletes the vertex array objects of the cache whose key holds the id
++	 * of the given attribute, and resets the vertex binding if one of them
++	 * is bound. A VAO records the buffers of the attributes it was created
++	 * with, so a disposed attribute leaves every VAO holding its buffer
++	 * dangling; the cache is keyed by whole attribute lists, so the keys are
++	 * searched for the attribute's own segment.
++	 *
++	 * @private
++	 * @param {BufferAttribute} attribute - The buffer attribute to release.
++	 */
++	_releaseVaos( attribute ) {
++
++		const id = this.get( attribute ).id;
++
++		if ( id === undefined ) {
++
++			return;
++
++		}
++
++		const { gl, state } = this;
++		const segment = ':' + id + ':';
++		let boundReleased = false;
++
++		for ( const key of Object.keys( this.vaoCache ) ) {
++
++			if ( ( key + ':' ).includes( segment ) ) {
++
++				if ( state.currentVAO === this.vaoCache[ key ] ) {
++
++					boundReleased = true;
++
++				}
++
++				gl.deleteVertexArray( this.vaoCache[ key ] );
++
++				delete this.vaoCache[ key ];
++
++			}
++
++		}
++
++		if ( boundReleased === true ) {
++
++			state.resetVertexState();
++
++		}
++
++	}
++
+ 	/**
+ 	 * Creates a transform feedback from the given transform buffers.
+ 	 *

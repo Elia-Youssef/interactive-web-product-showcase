@@ -4,6 +4,7 @@ import {
   expectPoll,
   harnessPath,
   harnessProducts,
+  leaveProduct,
   waitForProductReady,
   waitForSettledMemory,
   waitForStageWarm,
@@ -73,9 +74,11 @@ for (const product of products) {
       // Teardown: every geometry, texture and finish material the product
       // held goes, and the counts return to the exact baseline. Nothing is
       // allowed to lag: one leaked texture per cycle is the smallest leak
-      // there is, and the equality catches it.
-      await toggle.click()
-      await expectPoll(page, () => window.__viewer?.product, productLoadBudgetMs).toBe('idle')
+      // there is, and the equality catches it. The leave is a scene
+      // mutation, so the stage presents itself without the product, twice,
+      // as every settle does: the canvas never keeps showing a released
+      // product.
+      await leaveProduct(page)
       expect(await page.evaluate(() => window.__viewer?.model ?? null)).toBeNull()
       expect(await page.evaluate(() => window.__viewer?.finish ?? null)).toBeNull()
       const afterTeardown = await waitForSettledMemory(page)

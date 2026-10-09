@@ -5,6 +5,7 @@ import type { FrameClock } from './FrameClock'
 import { StageFrames } from './StageFrames'
 import { RendererErrorBoundary } from './RendererErrorBoundary'
 import { RendererRig } from './RendererRig'
+import { RendererMemoryProbe } from './automation/RendererMemoryProbe'
 import { StageCamera } from './camera/StageCamera'
 import { ProductModelsProvider } from './product/ProductModelsProvider'
 import { StageEnvironment } from './StageEnvironment'
@@ -33,9 +34,10 @@ type StageCanvasProps = {
 // The Canvas subtree of a valid request: the error boundary R3F routes a
 // failed factory through, the Canvas with the async renderer factory, and
 // the in-canvas components that own the start-up identity checks, the
-// renderer's settings, the frames and their failures, the camera, and the
-// content. The boundary's report fails the stage, and the stage's one
-// failed rule shows the alert, so the fallback itself is empty.
+// renderer's settings, the renderer's memory probe, the frames and their
+// failures, the camera, and the content. The boundary's report fails the
+// stage, and the stage's one failed rule shows the alert, so the fallback
+// itself is empty.
 export function StageCanvas({
   clock,
   stageRenderer,
@@ -49,6 +51,7 @@ export function StageCanvas({
     <RendererErrorBoundary onError={onInitError} fallback={() => null}>
       <Canvas gl={stageRenderer.factory} frameloop={stageConfig.frameloop} dpr={stageConfig.dpr}>
         <RendererRig />
+        <RendererMemoryProbe />
         <StageFrames
           clock={clock}
           onFirstFrame={onFirstFrame}

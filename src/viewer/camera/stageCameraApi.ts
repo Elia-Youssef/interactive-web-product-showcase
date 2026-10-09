@@ -4,7 +4,7 @@ import { PerspectiveCamera, type Camera } from 'three/webgpu'
 import type { DistanceRange } from '@lib/camera/limits'
 import type { CameraPlan, CameraView } from './productPlan'
 import { applyLens, applyView, scaledRangeOf, stepZoom } from './controls'
-import { prefersReducedMotion } from './prefersReducedMotion'
+import { prefersReducedMotion } from '@lib/motion/reducedMotion'
 
 // The four camera operations the context API hands out, as plain functions
 // over the stage camera's live state. Each one requires the controls and

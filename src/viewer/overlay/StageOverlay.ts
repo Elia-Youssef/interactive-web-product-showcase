@@ -74,15 +74,27 @@ export type OverlayPassPhase = 'presenter' | 'observer'
 
 export type OverlayPassRelease = () => void
 
-export class StageOverlay {
-  private mounts = new Map<string, OverlayMount>()
+// The records the overlay holds for the product on the stage, held as one
+// state and replaced whole when the content leaves: a record kind a later
+// change adds to this state is cleared with the rest, never forgotten in
+// the clear.
+type OverlayProductState = {
   // The last placement written per key, so a write that lands before its
   // element registers is not lost, and a remounted element re-enters at the
   // key's current placement.
-  private placements = new Map<string, OverlayPlacement>()
+  readonly placements: Map<string, OverlayPlacement>
   // The last box written per key: published geometry, with no element to
   // apply it to, so it only needs to answer between passes.
-  private boxes = new Map<string, OverlayRect>()
+  readonly boxes: Map<string, OverlayRect>
+}
+
+function emptyOverlayProductState(): OverlayProductState {
+  return { placements: new Map(), boxes: new Map() }
+}
+
+export class StageOverlay {
+  private mounts = new Map<string, OverlayMount>()
+  private product: OverlayProductState = emptyOverlayProductState()
   private readonly passListeners: Readonly<Record<OverlayPassPhase, Set<OverlayPassListener>>> = {
     presenter: new Set(),
     observer: new Set(),
@@ -126,11 +138,18 @@ export class StageOverlay {
   // animations. An element is hidden until its first placement, so it never
   // flashes at the box's corner.
   place(key: string, placement: OverlayPlacement): void {
-    this.placements.set(key, placement)
+    this.product.placements.set(key, placement)
     const mount = this.mounts.get(key)
     if (mount !== undefined) {
       this.apply(key, mount)
     }
+  }
+
+  // Takes the product's records off the channel, whole: the content that
+  // owned them has left the stage, and the next content must read nothing
+  // of it, whichever record kind it left behind.
+  clearProductState(): void {
+    this.product = emptyOverlayProductState()
   }
 
   // Writes one presented frame's placements and boxes as one pass in the
@@ -152,12 +171,12 @@ export class StageOverlay {
   // Publishes the box of the key: measured geometry over the stage, read by
   // whoever decides against it, never applied to a mounted element.
   placeBox(key: string, box: OverlayRect): void {
-    this.boxes.set(key, box)
+    this.product.boxes.set(key, box)
   }
 
   // The last box written for the key, or null when none was.
   boxOf(key: string): OverlayRect | null {
-    return this.boxes.get(key) ?? null
+    return this.product.boxes.get(key) ?? null
   }
 
   // Holds the listener in its phase for as long as the caller keeps it and
@@ -180,18 +199,18 @@ export class StageOverlay {
 
   // The last placement written for the key, or null when none was.
   placementOf(key: string): OverlayPlacement | null {
-    return this.placements.get(key) ?? null
+    return this.product.placements.get(key) ?? null
   }
 
   // Every key's last placement, as a record read at access time: the keys
   // the canvas side has written, and nothing else. The read is off the
   // frame path, so it builds a fresh record on every call.
   placementRecord(): Readonly<Record<string, OverlayPlacement>> {
-    return Object.fromEntries(this.placements)
+    return Object.fromEntries(this.product.placements)
   }
 
   private apply(key: string, { element, origin }: OverlayMount): void {
-    const placement = this.placements.get(key)
+    const placement = this.product.placements.get(key)
     if (placement === undefined || placement.kind === 'hidden') {
       element.style.visibility = 'hidden'
       return

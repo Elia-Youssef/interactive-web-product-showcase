@@ -7,6 +7,7 @@
 // and is then forgotten, so the next read starts the load again: a failure
 // is the failure of the reads that met it, never a state the owner is stuck
 // in for the rest of its life.
+import { startPromise } from './startPromise'
 
 export class RetriedLoad<Value> {
   private current: Promise<Value> | null = null
@@ -17,11 +18,9 @@ export class RetriedLoad<Value> {
     if (this.current !== null) {
       return this.current
     }
-    // The executor turns a load that throws before returning its promise
-    // into a rejection, so every failure takes the one channel.
-    const started = new Promise<Value>((resolve) => {
-      resolve(this.load())
-    })
+    // A load that throws before returning its promise is a rejection, so
+    // every failure takes the one channel.
+    const started = startPromise(this.load)
     this.current = started
     void started.then(undefined, () => {
       if (this.current === started) {

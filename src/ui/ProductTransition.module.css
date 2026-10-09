@@ -23,7 +23,7 @@ with no animation.
 .band {
   position: absolute;
   inset: var(--switch-band-inset);
-  background-color: rgb(var(--red-rgb) / var(--switch-band-alpha));
+  background-color: var(--switch-band);
   transform: rotate(var(--switch-band-angle)) translateY(var(--switch-rest));
 }
 
@@ -75,7 +75,7 @@ of a half matches the gap, so the seam reads like any other pause.
 .fade {
   position: absolute;
   inset: 0;
-  background-color: rgb(var(--red-rgb) / var(--switch-band-alpha));
+  background-color: var(--switch-band);
   opacity: 0;
 }
 

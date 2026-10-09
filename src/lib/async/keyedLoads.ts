@@ -29,12 +29,31 @@ export class KeyedLoads<Value> {
     return entry
   }
 
-  // Forgets the entry, so the next read of its key loads anew. An entry
-  // that is no longer the live one of its key is already forgotten, and a
-  // later entry of the same key stays live.
-  forget(entry: KeyedLoad<Value>): void {
-    if (this.entries.get(entry.key) === entry) {
-      this.entries.delete(entry.key)
+  // Forgets the entry, so the next read of its key loads anew, and answers
+  // whether it was still the live one. An entry that is no longer the live
+  // one of its key is already forgotten or taken, and a later entry of the
+  // same key stays live.
+  forget(entry: KeyedLoad<Value>): boolean {
+    if (this.entries.get(entry.key) !== entry) {
+      return false
     }
+    this.entries.delete(entry.key)
+    return true
+  }
+
+  // Hands the live entry of the key over to the caller and forgets it here,
+  // or answers undefined while the key has none: the caller owns the load
+  // from then on, and the next read of the key loads anew.
+  take(key: string): KeyedLoad<Value> | undefined {
+    const live = this.entries.get(key)
+    if (live !== undefined) {
+      this.entries.delete(key)
+    }
+    return live
+  }
+
+  // The keys with a live entry, in the order their loads started.
+  keys(): readonly string[] {
+    return [...this.entries.keys()]
   }
 }

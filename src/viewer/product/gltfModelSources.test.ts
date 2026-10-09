@@ -2,7 +2,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
-import { LoadingManager, Mesh } from 'three/webgpu'
+import { Mesh } from 'three/webgpu'
 import { MeshoptEncoder } from 'meshoptimizer'
 import { createGltfModelSources, type GltfModelSourceParts } from './gltfModelSources'
 import type { ProductMeshoptDecoder } from './decoders'
@@ -99,13 +99,14 @@ async function compressedTriangleGlb(): Promise<ArrayBuffer> {
 }
 
 // The fetch the test installs: it records every request it receives and
-// answers each with the bytes it was given. Three's file loader reports
-// download progress as browser ProgressEvents, which a Node test run lacks.
-function stubFetch(bytes: ArrayBuffer): { readonly requests: Request[] } {
-  const requests: Request[] = []
-  vi.stubGlobal('ProgressEvent', Event)
-  vi.stubGlobal('fetch', (request: Request) => {
-    requests.push(request)
+// answers each with the bytes it was given. A page fetch takes the URL and
+// the request init, not a Request object.
+function stubFetch(bytes: ArrayBuffer): {
+  readonly requests: readonly { readonly url: string; readonly init: RequestInit }[]
+} {
+  const requests: { url: string; init: RequestInit }[] = []
+  vi.stubGlobal('fetch', (url: string, init: RequestInit) => {
+    requests.push({ url, init })
     return Promise.resolve(new Response(bytes.slice(0)))
   })
   return { requests }
@@ -143,24 +144,46 @@ afterEach(() => {
 })
 
 describe('the model bytes', () => {
-  it('are requested through the loader manager, as an array buffer', async () => {
+  it('carries the request priority and signal to the fetch, and answers the bytes', async () => {
     const model = emptyModelGlb()
-    const { requests } = stubFetch(model)
-    const manager = new LoadingManager()
-    const started: string[] = []
-    manager.onStart = (url) => {
-      started.push(url)
-    }
-    manager.setURLModifier((url) => url.replace('/models/', '/mirror/'))
-    const { fetchModel } = sources({ loader: new GLTFLoader(manager) })
+    const reads: Array<{ readonly url: string; readonly init: RequestInit }> = []
+    const signal = new AbortController().signal
+    const { fetchModel } = sources({
+      fetch: (url, init) => {
+        reads.push({ url, init })
+        return Promise.resolve(new Response(model.slice(0)))
+      },
+    })
 
-    const bytes = await fetchModel(modelUrl)
+    const bytes = await fetchModel(modelUrl, { priority: 'low', signal })
 
-    const through = 'http://models.test/mirror/sample/model.glb'
-    expect(requests.map((request) => request.url)).toEqual([through])
-    expect(started).toEqual([through])
+    expect(reads).toEqual([{ url: modelUrl, init: { priority: 'low', signal } }])
     expect(bytes).toBeInstanceOf(ArrayBuffer)
     expect(bytes.byteLength).toBe(model.byteLength)
+  })
+
+  it('reads at high priority with no cancel when the request carries none', async () => {
+    const reads: Array<{ readonly url: string; readonly init: RequestInit }> = []
+    const { fetchModel } = sources({
+      fetch: (url, init) => {
+        reads.push({ url, init })
+        return Promise.resolve(new Response(emptyModelGlb().slice(0)))
+      },
+    })
+
+    await fetchModel(modelUrl, { priority: 'high' })
+
+    expect(reads).toEqual([{ url: modelUrl, init: { priority: 'high' } }])
+  })
+
+  it('rejects with the status and the url when the server answers not ok', async () => {
+    const { fetchModel } = sources({
+      fetch: () => Promise.resolve(new Response('gone', { status: 404, statusText: 'Not Found' })),
+    })
+
+    await expect(fetchModel(modelUrl, { priority: 'high' })).rejects.toThrow(
+      `the server answered 404 Not Found for ${modelUrl}`,
+    )
   })
 })
 
@@ -227,7 +250,10 @@ describe('the parse', () => {
         importMeshoptDecoder: () => Promise.resolve(MeshoptDecoder),
       })
 
-      const [bytes, meshopt] = await Promise.all([fetchModel(modelUrl), decoder()])
+      const [bytes, meshopt] = await Promise.all([
+        fetchModel(modelUrl, { priority: 'high' }),
+        decoder(),
+      ])
       const model = await parse(bytes, modelUrl, meshopt)
 
       expect(requests).toHaveLength(1)

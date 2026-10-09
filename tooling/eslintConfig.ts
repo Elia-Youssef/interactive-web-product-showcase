@@ -21,6 +21,7 @@ import {
 } from './extensions.ts'
 import { layerConfigs } from './eslintLayers.ts'
 import { sourcePolicyPlugin } from './sourcePolicy.ts'
+import { reducedMotionOwners } from './reducedMotionRule.ts'
 import {
   frameLoopRestriction,
   frameLoopSyntaxRestrictions,
@@ -225,6 +226,7 @@ function srcPolicyConfig(): Linter.Config {
         },
       ],
       'source-policy/known-source-extension': 'error',
+      'source-policy/reduced-motion-query': 'error',
       'no-restricted-imports': [
         'error',
         { patterns: [fixtureImportRestriction], paths: [frameLoopRestriction] },
@@ -250,6 +252,15 @@ function stageFrameExemptionConfig(): Linter.Config {
       'no-restricted-imports': ['error', { patterns: [fixtureImportRestriction] }],
       'no-restricted-syntax': ['error', ...doubleAssertionEntries, ...compileWalkEntries],
     },
+  }
+}
+
+// The reduced motion preference's owner module spells the media query: that
+// is its job, and its test pins the query's value.
+function reducedMotionOwnerConfig(): Linter.Config {
+  return {
+    files: reducedMotionOwners,
+    rules: { 'source-policy/reduced-motion-query': 'off' },
   }
 }
 
@@ -314,6 +325,7 @@ export function createConfig({ root }: { root: string }) {
     sharedRulesConfig(),
     srcPolicyConfig(),
     stageFrameExemptionConfig(),
+    reducedMotionOwnerConfig(),
     testExemptionConfig(),
     fixtureExemptionConfig(),
     testsFolderConfig(),
