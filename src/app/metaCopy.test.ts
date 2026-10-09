@@ -69,6 +69,9 @@ describe('productMetaSet', () => {
         socialDescription: expected.description,
         socialImageUrl: `https://${siteCopy.siteUrl}/social/${expected.slug}.png`,
         socialImageAlt: expected.alt,
+        socialType: 'website',
+        socialSiteName: siteCopy.studioName,
+        twitterCard: 'summary_large_image',
       })
     })
   }
@@ -100,6 +103,9 @@ describe('siteMetaSet', () => {
       socialTitle: 'Product Concepts | Rebel Art Studios',
       socialDescription: siteCopy.metaDescription,
       socialImageUrl: `https://${siteCopy.siteUrl}/social/forma-one.png`,
+      socialType: 'website',
+      socialSiteName: siteCopy.studioName,
+      twitterCard: 'summary_large_image',
     })
   })
 })

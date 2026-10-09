@@ -8,6 +8,7 @@ import { resolveDevPort } from './tooling/devPort.ts'
 import { outputDuplicateGuardPlugin } from './tooling/outputDuplicateGuard.ts'
 import { assetNamePattern, hashCharacters, scriptNamePattern } from './tooling/outputNaming.ts'
 import { threeBuildGuardPlugin } from './tooling/threeBuildGuard.ts'
+import { siteHeadPlugin } from './tooling/siteHead.ts'
 import { unitTestGlobs } from './tooling/testRoots.ts'
 
 const port = resolveDevPort(process.env)
@@ -16,6 +17,7 @@ const e2eServer = isE2EServer(process.env)
 export default defineConfig({
   plugins: [
     react(),
+    siteHeadPlugin(),
     // The production build ships every payload once: the written output,
     // public copies included, fails the build on any two files with the
     // same bytes (tooling/outputDuplicateGuard.ts).

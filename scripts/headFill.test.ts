@@ -1,6 +1,6 @@
 // The head writer's and drift check's contract: every owned slot is filled
 // with its value, the template's own shape (attribute order, line breaks)
-// survives, the tags no page owns pass through, a missing slot fails
+// survives, the structural tags pass through, a missing slot fails
 // loudly, and a value that carries markup cannot break out of its
 // attribute. The drift check reads a filled head back per tag and finds
 // nothing, and reports the first tag that parts from its value.
@@ -44,6 +44,9 @@ const VALUES = {
   socialTitle: 'Forma One, wireless over-ear headphones',
   socialDescription: 'Forma One, a headphone concept. Explore it in 3D.',
   socialImageUrl: 'https://rebelartstudios.org/social/forma-one.png',
+  socialType: 'product',
+  socialSiteName: 'Example Studio',
+  twitterCard: 'summary',
 }
 
 describe('fillHead', () => {
@@ -68,6 +71,9 @@ describe('fillHead', () => {
     expect(filled).toContain(
       '<meta name="twitter:image" content="https://rebelartstudios.org/social/forma-one.png" />',
     )
+    expect(filled).toContain('<meta property="og:type" content="product" />')
+    expect(filled).toContain('<meta property="og:site_name" content="Example Studio" />')
+    expect(filled).toContain('<meta name="twitter:card" content="summary" />')
     // The wrapped shapes keep their line breaks.
     expect(filled).toMatch(/<meta\n\s+name="description"\n\s+content="/)
     expect(filled).toMatch(/<meta\n\s+property="og:description"\n\s+content="/)
@@ -77,9 +83,6 @@ describe('fillHead', () => {
     const filled = fillHead(TEMPLATE, VALUES)
     expect(filled).toContain('<meta charset="UTF-8" />')
     expect(filled).toContain('<link rel="icon" href="data:," />')
-    expect(filled).toContain('<meta property="og:type" content="website" />')
-    expect(filled).toContain('<meta property="og:site_name" content="Rebel Art Studios" />')
-    expect(filled).toContain('<meta name="twitter:card" content="summary_large_image" />')
   })
 
   test('fills twice with the same values to the same text', () => {
@@ -115,6 +118,9 @@ describe('driftedSlot', () => {
         socialTitle: 'site title',
         socialDescription: 'site description',
         socialImageUrl: 'https://rebelartstudios.org/social/forma-one.png',
+        socialType: 'website',
+        socialSiteName: 'Rebel Art Studios',
+        twitterCard: 'summary_large_image',
       }),
     ).toBeNull()
   })
@@ -141,6 +147,9 @@ describe('driftedSlot', () => {
       socialTitle: 'site title',
       socialDescription: 'site description',
       socialImageUrl: 'https://rebelartstudios.org/social/forma-one.png',
+      socialType: 'website',
+      socialSiteName: 'Rebel Art Studios',
+      twitterCard: 'summary_large_image',
     }
     const withoutTwitterImage = TEMPLATE.replace(/\s*<meta name="twitter:image"[^>]*>/, '')
     expect(driftedSlot(withoutTwitterImage, templateValues)).toBe(

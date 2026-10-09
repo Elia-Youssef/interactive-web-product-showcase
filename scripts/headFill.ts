@@ -3,17 +3,14 @@
 // reads those tags back per tag, so the build step can hold a written file
 // against the values the copy builder produced. All of them work from one
 // slot table, so a tag the writer fills is exactly a tag the check reads.
+// Vite fills the same slots for the site in build and development.
 // Each throws on, or reports, a file that lacks a slot, so a renamed or
 // removed tag fails loudly instead of shipping or passing a stale value.
 
-export type HeadValues = {
-  readonly title: string
-  readonly description: string
-  readonly canonicalUrl: string
-  readonly socialTitle: string
-  readonly socialDescription: string
-  readonly socialImageUrl: string
-}
+import type { MetaHeadSet } from '../src/lib/copy/meta.ts'
+
+// The writer takes exactly the builder's head set across the src boundary.
+export type HeadValues = MetaHeadSet
 
 // Escapes a value for a double-quoted HTML attribute. The copy holds none
 // of these characters today; the escaping is here so that staying true is
@@ -59,6 +56,8 @@ const SLOTS: readonly HeadSlot[] = [
   },
   slot('the description meta', 'description', '<meta\\s+name="description"\\s+content="'),
   slot('the canonical link', 'canonicalUrl', '<link\\s+rel="canonical"\\s+href="'),
+  slot('the og:type meta', 'socialType', '<meta\\s+property="og:type"\\s+content="'),
+  slot('the og:site_name meta', 'socialSiteName', '<meta\\s+property="og:site_name"\\s+content="'),
   slot('the og:title meta', 'socialTitle', '<meta\\s+property="og:title"\\s+content="'),
   slot(
     'the og:description meta',
@@ -67,6 +66,7 @@ const SLOTS: readonly HeadSlot[] = [
   ),
   slot('the og:url meta', 'canonicalUrl', '<meta\\s+property="og:url"\\s+content="'),
   slot('the og:image meta', 'socialImageUrl', '<meta\\s+property="og:image"\\s+content="'),
+  slot('the twitter:card meta', 'twitterCard', '<meta\\s+name="twitter:card"\\s+content="'),
   slot('the twitter:title meta', 'socialTitle', '<meta\\s+name="twitter:title"\\s+content="'),
   slot(
     'the twitter:description meta',
@@ -76,9 +76,8 @@ const SLOTS: readonly HeadSlot[] = [
   slot('the twitter:image meta', 'socialImageUrl', '<meta\\s+name="twitter:image"\\s+content="'),
 ]
 
-// Fills every owned tag with its value and returns the file text. The
-// twitter:card, og:type and og:site_name tags belong to the template, not
-// to a page, and pass through untouched.
+// Fills every builder-owned tag and returns the file text. The template
+// owns only structural tags, such as the charset, viewport and favicon.
 export function fillHead(html: string, values: HeadValues): string {
   let filled = html
   for (const item of SLOTS) {

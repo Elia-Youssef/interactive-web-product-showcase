@@ -106,9 +106,12 @@ export async function readManifestFile(manifestFile: string): Promise<ManifestLo
 // The domain loader: jiti with the '@lib' alias the src tree resolves
 // through, so the loaded modules may import each other the way the browser
 // bundle resolves them.
-function createDomainJiti(): ReturnType<typeof createJiti> {
+function createDomainJiti(
+  options: { readonly moduleCache?: boolean } = {},
+): ReturnType<typeof createJiti> {
   return createJiti(import.meta.url, {
     alias: { '@lib': fileURLToPath(new URL('../src/lib', import.meta.url)) },
+    ...options,
   })
 }
 
@@ -156,9 +159,11 @@ function copyExport<T>(
   return value.value
 }
 
+// Reads current copy on each call, so a development HTML transform sees
+// edits without restarting. The transpiled source cache remains reusable.
 export async function loadCopyMeta(): Promise<CopyMeta> {
   const copyFile = '../src/lib/copy/meta.ts'
-  const jiti = createDomainJiti()
+  const jiti = createDomainJiti({ moduleCache: false })
   const copyModule: unknown = await jiti.import(copyFile)
   return {
     siteMetaSet: copyExport(copyModule, 'siteMetaSet', isSiteMetaSet),
