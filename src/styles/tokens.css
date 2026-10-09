@@ -211,6 +211,11 @@ their minimum below it, switched by the breakpoints at the end of this file.
   --size-sheet-handle-width: var(--space-9);
   --size-sheet-handle-height: var(--space-1);
   --inset-stage-chrome: var(--space-8);
+  /*
+  The gap the stage chrome keeps between the slots that share an edge: the
+  label or hint gives way to the controls beside it, down to this gap.
+  */
+  --gap-stage-chrome: var(--space-4);
 
   /*
   Motion. Every duration is this scale times its own
@@ -303,10 +308,12 @@ at build time, so every stylesheet that queries one of these must
 @custom-media --vp-tablet (640px <= width < 1024px);
 @custom-media --vp-desktop (width >= 1024px);
 
-/* On phone every hotspot card docks into the panel's sheet. */
+/* On phone every hotspot card docks into the panel's sheet, and the stage
+chrome sits closer to the stage edge, so the narrow stage keeps its room. */
 @media (--vp-phone) {
   :root {
     --hotspot-card-dock: always;
+    --inset-stage-chrome: var(--space-4);
   }
 }
 

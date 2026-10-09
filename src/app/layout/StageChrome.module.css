@@ -2,61 +2,78 @@
 
 /*
 Stage chrome corner overlays.
-Four corner slots positioned over the stage canvas. The container ignores pointer
-events so interactions pass to the canvas underneath.
+Four corner slots laid over the stage canvas at the chrome inset. The
+container ignores pointer events so interactions pass to the canvas
+underneath.
+The slots sit on a grid of two edges, top and bottom: on each edge the
+label or hint takes the start column and gives way, shrinking and wrapping
+its words, while the controls slot takes its own width at the end, so slot
+content of any width never overlaps by construction. Each slot keeps the
+box of its own content, never the grid cell's, since the floating hotspot
+card reads the slot boxes as obstacles.
 Static text corners (top-left label, bottom-left hint) pass pointer events
 through at every width so dragging over them reaches the canvas.
 Only slot corners that hold interactive controls take pointer events.
-On phone, the rotation hint is dropped.
+On phone, the rotation hint is dropped and the controls slot takes the
+whole bottom edge.
 Values are tokens.
 */
 
 .chrome {
   position: absolute;
   inset: 0;
+  display: grid;
+  grid-template-columns: minmax(0, max-content) max-content;
+  grid-template-rows: max-content max-content;
+  justify-content: space-between;
+  align-content: space-between;
+  gap: var(--gap-stage-chrome);
+  padding: var(--inset-stage-chrome);
   pointer-events: none;
 }
 
 .topLeft,
 .bottomLeft {
-  position: absolute;
   display: flex;
   align-items: center;
+  min-inline-size: 0;
+  justify-self: start;
   pointer-events: none;
 }
 
 .topRight,
 .bottomRight {
-  position: absolute;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  justify-self: end;
+  min-inline-size: var(--size-hit-min);
+  min-block-size: var(--size-hit-min);
   pointer-events: auto;
 }
 
 .topLeft {
-  inset-block-start: var(--inset-stage-chrome);
-  inset-inline-start: var(--inset-stage-chrome);
+  grid-row: 1;
+  grid-column: 1;
+  align-self: start;
 }
 
 .topRight {
-  inset-block-start: var(--inset-stage-chrome);
-  inset-inline-end: var(--inset-stage-chrome);
-  justify-content: flex-end;
-  min-inline-size: var(--size-hit-min);
-  min-block-size: var(--size-hit-min);
+  grid-row: 1;
+  grid-column: 2;
+  align-self: start;
 }
 
 .bottomLeft {
-  inset-block-end: var(--inset-stage-chrome);
-  inset-inline-start: var(--inset-stage-chrome);
+  grid-row: 2;
+  grid-column: 1;
+  align-self: end;
 }
 
 .bottomRight {
-  inset-block-end: var(--inset-stage-chrome);
-  inset-inline-end: var(--inset-stage-chrome);
-  justify-content: flex-end;
-  min-inline-size: var(--size-hit-min);
-  min-block-size: var(--size-hit-min);
+  grid-row: 2;
+  grid-column: 2;
+  align-self: end;
 }
 
 .topRight:empty,
@@ -67,5 +84,11 @@ Values are tokens.
 @media (--vp-phone) {
   .bottomLeft {
     display: none;
+  }
+
+  /* With the hint dropped, the controls own the bottom edge: they span both
+  columns, so their width never narrows the label's column above. */
+  .bottomRight {
+    grid-column: 1 / -1;
   }
 }
