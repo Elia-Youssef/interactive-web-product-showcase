@@ -13,7 +13,8 @@ import {
   SHADOW_NODE_NAME,
 } from '../src/lib/product/contractNames.ts'
 import { SHORT_COMPONENT_TYPE } from './componentTypes.ts'
-import { POSITION_QUANTIZE_BITS, KEY_FILTER_BITS } from './settings.ts'
+import { KEY_FILTER_BITS } from './settings.ts'
+import type { PositionGrid } from './storageGrid.ts'
 import type { PositionStorageFact, TranslationOutputFact } from './storageFacts.ts'
 import type { ContractRule } from './contractRules.ts'
 
@@ -153,7 +154,9 @@ export const modelRules: readonly ContractRule[] = [
     group: 'model',
     check: ({ storage }) => ({
       violations: [
-        ...storage.positions.flatMap(positionStorageViolations),
+        ...storage.positions.flatMap((position) =>
+          positionStorageViolations(position, storage.positionGrid),
+        ),
         ...storage.translationOutputs.flatMap(keyStorageViolations),
       ],
       warnings: [],
@@ -164,18 +167,18 @@ export const modelRules: readonly ContractRule[] = [
 // What one mesh's position storage breaks: a storage other than the
 // normalized Int16 the pipeline's quantize writes, or stored values off its
 // grid, which a file quantized at other bits carries in the right type.
-function positionStorageViolations(position: PositionStorageFact): string[] {
+function positionStorageViolations(position: PositionStorageFact, grid: PositionGrid): string[] {
   if (position.componentType !== SHORT_COMPONENT_TYPE || !position.normalized) {
     return [
       `the POSITION of the mesh '${position.meshName}' is stored as component type ` +
         `${position.componentType}${position.normalized ? ', normalized' : ', not normalized'}, ` +
-        `the pipeline's ${POSITION_QUANTIZE_BITS}-bit quantize stores normalized Int16`,
+        `the pipeline's ${grid.bits}-bit quantize stores normalized Int16`,
     ]
   }
   if (position.offGridValues > 0) {
     return [
       `the POSITION of the mesh '${position.meshName}' holds ${position.offGridValues} stored ` +
-        `values off the grid of the pipeline's ${POSITION_QUANTIZE_BITS}-bit quantize`,
+        `values off the grid of the pipeline's ${grid.bits}-bit quantize`,
     ]
   }
   return []

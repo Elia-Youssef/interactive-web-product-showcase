@@ -18,7 +18,8 @@ import { readHomeFitFacts } from './homeFitFacts.ts'
 import { readShadowFacts } from './shadowFacts.ts'
 import { loadParseProduct, readManifestFile } from './manifestIo.ts'
 import { createModelIO } from './modelIo.ts'
-import { pipelinePositionGrid } from './storageGrid.ts'
+import { POSITION_QUANTIZE_BITS } from './settings.ts'
+import { positionGridOf } from './storageGrid.ts'
 import { readPositionStorage, readTranslationOutputs } from './storageFacts.ts'
 import { readProductStructure } from './structure.ts'
 import { cameraContract } from './validateFixtures.ts'
@@ -33,6 +34,7 @@ async function controlInput(): Promise<ContractRuleInput> {
   const modelPath = await modelPathOf(ROOT, SLUG)
   const doc = await io.read(modelPath)
   const structure = readProductStructure(doc)
+  const positionGrid = await positionGridOf(POSITION_QUANTIZE_BITS)
   const load = await readManifestFile(fixtureManifestPathOf(ROOT, SLUG))
   if (load.kind !== 'loaded') {
     throw new Error(`the fixture manifest of ${SLUG} did not load`)
@@ -44,7 +46,8 @@ async function controlInput(): Promise<ContractRuleInput> {
     homeFit: readHomeFitFacts(doc, structure.animationChannels),
     shadow: await readShadowFacts(doc),
     storage: {
-      positions: readPositionStorage(doc, await pipelinePositionGrid()),
+      positionGrid,
+      positions: readPositionStorage(doc, positionGrid),
       translationOutputs: await readTranslationOutputs(io, modelPath),
     },
     contract: cameraContract,

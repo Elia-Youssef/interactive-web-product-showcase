@@ -5,6 +5,10 @@ import { withTempDir } from './optimizedModel.fixtures.ts'
 import { loadParseProduct } from './manifestIo.ts'
 import { validateShippedProduct } from './validateProduct.ts'
 import { setShadowFixture } from './shadowProduct.fixtures.ts'
+import { POSITION_QUANTIZE_BITS } from './settings.ts'
+import { positionGridOf } from './storageGrid.ts'
+
+const POSITION_GRID = await positionGridOf(POSITION_QUANTIZE_BITS)
 
 describe('shadow findings through the shipped product validator', () => {
   it.each([
@@ -16,7 +20,12 @@ describe('shadow findings through the shipped product validator', () => {
       const doc = buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] })
       setShadowFixture(doc, grow, shrink)
       await plantProduct(root, 'planted-shadow', doc)
-      const result = await validateShippedProduct(root, 'planted-shadow', await loadParseProduct())
+      const result = await validateShippedProduct(
+        root,
+        'planted-shadow',
+        await loadParseProduct(),
+        POSITION_GRID,
+      )
       const warnings = result.checks
         .flatMap((check) => check.warnings)
         .filter((message) => message.startsWith('shadow-footprint-fits-plane:'))
@@ -36,7 +45,12 @@ describe('shadow findings through the shipped product validator', () => {
       const doc = buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] })
       setShadowFixture(doc, 16)
       await plantProduct(root, 'clipped-shadow', doc)
-      const result = await validateShippedProduct(root, 'clipped-shadow', await loadParseProduct())
+      const result = await validateShippedProduct(
+        root,
+        'clipped-shadow',
+        await loadParseProduct(),
+        POSITION_GRID,
+      )
       const violations = result.checks
         .flatMap((check) => check.violations)
         .filter((message) => message.startsWith('shadow-alpha-clear-at-border:'))

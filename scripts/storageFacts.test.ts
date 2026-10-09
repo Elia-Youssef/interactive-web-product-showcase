@@ -104,8 +104,8 @@ describe('readPositionStorage', () => {
 describe('positionGridOf', () => {
   it('holds one magnitude per quantize level, the extremes included', async () => {
     const grid = await positionGridOf(POSITION_QUANTIZE_BITS)
-    expect(grid.size).toBe(Math.pow(2, POSITION_QUANTIZE_BITS - 1))
-    expect(grid.has(0)).toBe(true)
-    expect(grid.has(32767)).toBe(true)
+    expect(grid.magnitudes.size).toBe(Math.pow(2, POSITION_QUANTIZE_BITS - 1))
+    expect(grid.magnitudes.has(0)).toBe(true)
+    expect(grid.magnitudes.has(32767)).toBe(true)
   })
 })

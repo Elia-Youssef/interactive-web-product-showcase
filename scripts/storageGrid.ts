@@ -8,14 +8,19 @@
 // types say.
 import { Document, Logger } from '@gltf-transform/core'
 import { quantize } from '@gltf-transform/functions'
-import { POSITION_QUANTIZE_BITS } from './settings.ts'
+
+// The quantize width and the stored magnitudes derived at that width travel together.
+export type PositionGrid = {
+  readonly bits: number
+  readonly magnitudes: ReadonlySet<number>
+}
 
 // Every Int16 magnitude the quantize step can store a normalized position
 // component as at the given bits: the encoder run over every quantization
 // level of the unit range, in the accessor's own [-1, 1] space (a mesh
 // volume of exactly [-1, 1] keeps the volume remap the identity). The set
 // holds one magnitude per level, which the derivation checks.
-export async function positionGridOf(positionBits: number): Promise<ReadonlySet<number>> {
+export async function positionGridOf(positionBits: number): Promise<PositionGrid> {
   const levels = Math.pow(2, positionBits - 1) - 1
   const values = Array.from({ length: levels + 1 }, (_, level) => level / levels)
   // The quantize run logs what it cleans up; the derivation reads its output.
@@ -41,7 +46,7 @@ export async function positionGridOf(positionBits: number): Promise<ReadonlySet<
         `for ${levels + 1} levels`,
     )
   }
-  return magnitudes
+  return { bits: positionBits, magnitudes }
 }
 
 // The fewest key bits that hold a stored EXPONENTIAL mantissa of the given
@@ -53,13 +58,4 @@ export function keyBitsOfMantissa(magnitude: number): number {
     throw new Error(`a stored mantissa magnitude is a whole number, got ${magnitude}`)
   }
   return magnitude <= 1 ? 1 : 1 + Math.ceil(Math.log2(magnitude))
-}
-
-// The pipeline's position grid, derived once per process: the encoder is
-// deterministic, so every product of a run reads the same set.
-let pipelineGrid: Promise<ReadonlySet<number>> | null = null
-
-export function pipelinePositionGrid(): Promise<ReadonlySet<number>> {
-  pipelineGrid ??= positionGridOf(POSITION_QUANTIZE_BITS)
-  return pipelineGrid
 }
