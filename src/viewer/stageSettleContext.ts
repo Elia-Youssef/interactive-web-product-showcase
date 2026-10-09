@@ -14,9 +14,9 @@ export const StageSettleContext = createContext<StageSettle | null>(null)
 // The settle call of the stage the component renders in. It presents the
 // scene as it stands, twice, and resolves once the chain around the call
 // has drained and both frames are recorded. A rejection reaches the caller:
-// the product channel turns it into the product's typed failure, and the
-// environment leaves it loud on the console. The call is stable for the life
-// of the canvas, so an effect can settle without
+// the shared failure reporter ends disposal quietly; other failures reach
+// the product channel or stay loud on the console. The call is stable for
+// the life of the canvas, so an effect can settle without
 // rerunning on every render.
 export function useStageSettle(): () => Promise<void> {
   const settle = useContext(StageSettleContext)

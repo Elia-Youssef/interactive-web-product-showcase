@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ProductFailure } from '@lib/product'
+import { StageRetiredError } from '../StageRetiredError'
 import { reportSettledProduct } from './reportSettledProduct'
 
 // A settle promise the tests resolve or reject by hand, so the order of the
@@ -56,6 +57,42 @@ function reportStep(outcome: 'ready' | 'failed' = 'ready') {
 
 describe('reportSettledProduct', () => {
   afterEach(() => vi.restoreAllMocks())
+  it.each(['ready', 'failed'] as const)(
+    'a disposed %s settle ends quietly, without applying an outcome',
+    async (outcome) => {
+      const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const { settle, report, fail, step } = reportStep(outcome)
+      settle.reject(new StageRetiredError('disposed'))
+      await expect(step).resolves.toBeUndefined()
+      expect(report).not.toHaveBeenCalled()
+      expect(fail).not.toHaveBeenCalled()
+      expect(error).not.toHaveBeenCalled()
+    },
+  )
+
+  it.each(['ready', 'failed'] as const)(
+    'a retired %s settle still applies its failure behavior',
+    async (outcome) => {
+      const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const { settle, report, fail, step } = reportStep(outcome)
+      const cause = new StageRetiredError('retired')
+      settle.reject(cause)
+      await expect(step).resolves.toBeUndefined()
+      if (outcome === 'ready') {
+        expect(fail).toHaveBeenCalledExactlyOnceWith({
+          kind: 'presentation',
+          message: cause.message,
+        })
+        expect(report).not.toHaveBeenCalled()
+        expect(error).not.toHaveBeenCalled()
+      } else {
+        expect(report).toHaveBeenCalledOnce()
+        expect(fail).not.toHaveBeenCalled()
+        expect(error).toHaveBeenCalledExactlyOnceWith(cause)
+      }
+    },
+  )
+
   it.each(['ready', 'failed'] as const)(
     'reports %s only once the settle resolves',
     async (outcome) => {
