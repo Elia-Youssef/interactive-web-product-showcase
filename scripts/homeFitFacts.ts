@@ -21,7 +21,13 @@ export type PosePoints = {
   readonly nodeNames: readonly string[]
 }
 
-export type HomeFitFacts = {
+// The home-fit facts of a document, or the problem that keeps the document
+// from having them: a fact of the file the rule reports, never a throw.
+export type HomeFitFacts =
+  MeasuredHomeFitFacts | { readonly kind: 'problem'; readonly reason: string }
+
+export type MeasuredHomeFitFacts = {
+  readonly kind: 'measured'
   // Every PART_ mesh plus the SHADOW subtree, at the rest pose.
   readonly assembled: PosePoints
   // Every PART_ mesh at the clip's last key: the shadow has faded out by
@@ -35,22 +41,46 @@ export type HomeFitFacts = {
   readonly parentSigmaByName: ReadonlyMap<string, number>
 }
 
-// Reads the home-fit facts. A document whose positions are stored another
-// way than the pipeline writes them (float, or a normalized width the
-// reader does not know) fails loudly: the allowance is stated in the
-// pipeline's storage, and a file stored differently is that file's
-// contract break, named by the storage rule.
+// Reads the home-fit facts. Positions decode the way the glTF core decodes
+// any accessor storage, so a file stored another way than the pipeline
+// writes it still measures; its storage is the storage rule's violation.
 export function readHomeFitFacts(doc: Document, channels: readonly ChannelFact[]): HomeFitFacts {
   const rest = posedWorldMatricesOf(doc, [])
   const exploded = posedWorldMatricesOf(doc, channels)
   const assembled = posePointsOf(doc, rest, (node) => isPartOwned(node) || inShadowSubtree(node))
+  if (assembled.points.length === 0) {
+    return { kind: 'problem', reason: 'the assembled pose holds no stored vertices' }
+  }
   const explodedPoints = posePointsOf(doc, exploded, isPartOwned)
+  if (explodedPoints.points.length === 0) {
+    return { kind: 'problem', reason: 'the exploded pose holds no stored vertices' }
+  }
+  const parentSigmaByName = parentSigmasOf(doc, channels, rest)
+  if (typeof parentSigmaByName === 'string') {
+    return { kind: 'problem', reason: parentSigmaByName }
+  }
   const sigmaMax = Math.max(
     0,
     ...meshNodesOf(doc)
       .filter((node) => isPartOwned(node) || inShadowSubtree(node))
       .map((node) => worldSigmaOf(rest.get(node) ?? IDENTITY)),
   )
+  return {
+    kind: 'measured',
+    assembled,
+    exploded: explodedPoints,
+    sigmaMax,
+    parentSigmaByName,
+  }
+}
+
+// The world scale of every animated node's parent chain, by node name, or
+// the problem that keeps a channel's chain from being read.
+function parentSigmasOf(
+  doc: Document,
+  channels: readonly ChannelFact[],
+  rest: ReadonlyMap<Node, Mat4>,
+): ReadonlyMap<string, number> | string {
   const parentSigmaByName = new Map<string, number>()
   for (const channel of channels) {
     if (parentSigmaByName.has(channel.targetName)) {
@@ -61,22 +91,18 @@ export function readHomeFitFacts(doc: Document, channels: readonly ChannelFact[]
       .listNodes()
       .find((candidate) => candidate.getName() === channel.targetName)
     if (node === undefined) {
-      throw new Error(
-        `the clip drives '${channel.targetName}', which the document holds no node for`,
-      )
+      return `the clip drives '${channel.targetName}', which the document holds no node for`
     }
     const parent = node.getParentNode()
     if (parent !== null && !rest.has(parent)) {
-      throw new Error(
-        `the parent of the animated node '${channel.targetName}' is outside the document's scene`,
-      )
+      return `the parent of the animated node '${channel.targetName}' is outside the document's scene`
     }
     parentSigmaByName.set(
       channel.targetName,
       parent === null ? 1 : worldSigmaOf(rest.get(parent) ?? IDENTITY),
     )
   }
-  return { assembled, exploded: explodedPoints, sigmaMax, parentSigmaByName }
+  return parentSigmaByName
 }
 
 function posePointsOf(
@@ -99,26 +125,19 @@ function posePointsOf(
       if (position === null) {
         continue
       }
-      const stored = position.getArray()
-      const decode = storedComponentDecoderOf(position.getComponentType(), position.getNormalized())
       // The name the violation reports: the mesh node's own name, or its
       // nearest named ancestor when quantization wrapped it, the way the
       // hotspot and bounds readers resolve a node.
       const name = node.getName() !== '' ? node.getName() : nearestNamedAncestorOf(node)
       const count = position.getCount()
+      const element = [0, 0, 0]
       for (let i = 0; i < count; i += 1) {
-        const local: Vec3 = [
-          decode(stored?.[i * 3] ?? 0),
-          decode(stored?.[i * 3 + 1] ?? 0),
-          decode(stored?.[i * 3 + 2] ?? 0),
-        ]
+        position.getElement(i, element)
+        const local: Vec3 = [element[0] ?? 0, element[1] ?? 0, element[2] ?? 0]
         points.push(transformPointOf(world, local))
         nodeNames.push(name)
       }
     }
-  }
-  if (points.length === 0) {
-    throw new Error('the requested pose holds no stored vertices')
   }
   return { points, nodeNames }
 }
@@ -128,28 +147,6 @@ function meshNodesOf(doc: Document): Node[] {
     .getRoot()
     .listNodes()
     .filter((node) => node.getMesh() !== null)
-}
-
-// The decoder of one stored position component, by the accessor's storage:
-// identity for float storage, the glTF core's normalized Int16 rule for the
-// integer storage the pipeline writes (the same rule the storage-error
-// derivation decodes with). Any other storage fails loudly: the allowance
-// is stated in the pipeline's storage, and a file stored differently is
-// that file's contract break, named by the storage rule.
-function storedComponentDecoderOf(
-  componentType: number,
-  normalized: boolean,
-): (stored: number) => number {
-  if (componentType === FLOAT_COMPONENT_TYPE) {
-    return (stored) => stored
-  }
-  if (normalized && componentType === INT16_COMPONENT_TYPE) {
-    return (stored) => Math.max(stored / INT16_MAX, -1)
-  }
-  throw new Error(
-    `position storage ${componentType}${normalized ? ' normalized' : ''} is not the ` +
-      'pipeline storage the home fit reads: float, or normalized Int16',
-  )
 }
 
 // The largest world scale of one world matrix's linear part: the largest
@@ -229,7 +226,4 @@ function hasAncestorName(node: Node, matches: (name: string) => boolean): boolea
   return false
 }
 
-const FLOAT_COMPONENT_TYPE = 5126
-const INT16_COMPONENT_TYPE = 5122
-const INT16_MAX = 32767
 const IDENTITY: Mat4 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]

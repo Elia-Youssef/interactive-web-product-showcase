@@ -3,21 +3,28 @@
 // The report is plain data the rule turns into messages, so a suite reads
 // the same verdicts the rule prints, never a recomputation beside it.
 import { authoredCameraAspect, homeFitMargin } from '../src/lib/camera/config.ts'
-import { homeFitVerdictsOf, round5, type HomeFitVerdict } from './homeFit.ts'
+import { homeFitVerdictsOf, round5, type HomeFitVerdict, type PoseOutcome } from './homeFit.ts'
 import { translationKeyComponentBound } from './storageBounds.ts'
 import type { ContractRuleInput } from './contractRules.ts'
+import type { MeasuredHomeFitFacts } from './homeFitFacts.ts'
 
-// One pose's verdict with the mesh node its binding point came from.
-export type PoseVerdict = HomeFitVerdict & { readonly bindingNode: string }
+// One pose's verdict with the mesh node its binding point came from, or the
+// pose the home camera cannot frame with the reason, in words.
+export type PoseVerdict = { readonly kind: 'verdict' } & HomeFitVerdict & {
+    readonly bindingNode: string
+  }
+export type PoseReport =
+  PoseVerdict | { readonly kind: 'unframed'; readonly pose: string; readonly reason: string }
 
 // What the home fit answers for one product: no home camera to measure
-// through, or the measured verdicts plus the channels that leave the
-// exploded pose unbounded.
+// through, facts the file cannot give, or the poses' reports plus the
+// channels that leave the exploded pose unbounded.
 export type HomeFitReport =
   | { readonly kind: 'noHomeCamera' }
+  | { readonly kind: 'unreadable'; readonly reason: string }
   | {
       readonly kind: 'measured'
-      readonly verdicts: readonly PoseVerdict[]
+      readonly poses: readonly PoseReport[]
       readonly unbounded: readonly { readonly path: string; readonly targetName: string }[]
     }
 
@@ -31,6 +38,9 @@ export function homeFitReportOf({
   const home = structure.cameraFacts.find((fact) => fact.name === 'CAM_home')
   if (home === undefined || home.ray === null) {
     return { kind: 'noHomeCamera' }
+  }
+  if (homeFit.kind === 'problem') {
+    return { kind: 'unreadable', reason: homeFit.reason }
   }
   const ray = home.ray
   const restError = Math.sqrt(3) * storageBounds.positionNormalizedError * homeFit.sigmaMax
@@ -57,7 +67,7 @@ export function homeFitReportOf({
         ]
       : []),
   ]
-  const verdicts = homeFitVerdictsOf(
+  const outcomes = homeFitVerdictsOf(
     poses,
     ray.position,
     ray.forward,
@@ -67,11 +77,27 @@ export function homeFitReportOf({
   )
   return {
     kind: 'measured',
-    verdicts: verdicts.map((verdict, index) => ({
-      ...verdict,
-      bindingNode: poses[index]?.nodeNames[verdict.bindingPoint] ?? 'scene',
-    })),
+    poses: outcomes.map((outcome, index) => poseReportOf(outcome, poses[index]?.nodeNames ?? [])),
     unbounded: unbounded.map(({ path, targetName }) => ({ path, targetName })),
+  }
+}
+
+// One pose's outcome in the report's words: the verdict with the mesh its
+// binding point came from, or the reason the pose cannot be framed.
+function poseReportOf(outcome: PoseOutcome, nodeNames: readonly string[]): PoseReport {
+  const nodeNameAt = (point: number) => nodeNames[point] ?? 'scene'
+  switch (outcome.kind) {
+    case 'verdict':
+      return { ...outcome, bindingNode: nodeNameAt(outcome.bindingPoint) }
+    case 'unprojectable':
+      return {
+        kind: 'unframed',
+        pose: outcome.pose,
+        reason:
+          outcome.extent.kind === 'behindCamera'
+            ? `a point of the ${nodeNameAt(outcome.extent.point)} mesh lies behind the home camera plane`
+            : 'the home camera looks straight along world up, which has no roll-free view',
+      }
   }
 }
 
@@ -79,9 +105,18 @@ export function homeFitViolationsOf(report: HomeFitReport): string[] {
   switch (report.kind) {
     case 'noHomeCamera':
       return ['the home fit needs a perspective CAM_home with a stored ray']
+    case 'unreadable':
+      return [`the home fit cannot read the model: ${report.reason}`]
     case 'measured':
       return [
-        ...report.verdicts.filter((verdict) => !verdict.holds).map(poseViolationOf),
+        ...report.poses.flatMap((pose) => {
+          switch (pose.kind) {
+            case 'verdict':
+              return pose.holds ? [] : [poseViolationOf(pose)]
+            case 'unframed':
+              return [`the ${pose.pose} pose cannot be framed at home: ${pose.reason}`]
+          }
+        }),
         ...report.unbounded.map(
           (channel) =>
             `the exploded pose is not compared: the clip drives ${channel.path} on ` +
@@ -106,7 +141,7 @@ export function poseViolationOf(verdict: PoseVerdict): string {
 // of the chain that carries it.
 function storageKeyErrorOf(
   structure: HomeFitInput['structure'],
-  homeFit: HomeFitInput['homeFit'],
+  homeFit: MeasuredHomeFitFacts,
 ): number {
   let keyError = 0
   for (const channel of structure.animationChannels) {

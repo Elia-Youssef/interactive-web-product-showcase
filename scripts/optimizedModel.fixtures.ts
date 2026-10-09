@@ -7,7 +7,7 @@
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { NodeIO, type Document } from '@gltf-transform/core'
+import { Logger, NodeIO, type Document } from '@gltf-transform/core'
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions'
 import { meshopt, type MeshoptOptions } from '@gltf-transform/functions'
 import { MeshoptDecoder, MeshoptEncoder } from 'meshoptimizer'
@@ -24,6 +24,8 @@ export async function writeOptimizedModel(
 ): Promise<void> {
   await MeshoptEncoder.ready
   await MeshoptDecoder.ready
+  // The transform logs what it prunes; a suite reads the written file.
+  doc.setLogger(new Logger(Logger.Verbosity.SILENT))
   await doc.transform(meshopt({ encoder: MeshoptEncoder, ...overrides }))
   const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({
     'meshopt.encoder': MeshoptEncoder,

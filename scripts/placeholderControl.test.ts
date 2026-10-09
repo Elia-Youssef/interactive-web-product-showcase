@@ -61,8 +61,8 @@ describe('the placeholder fixture, validated explicitly', () => {
     if (report.kind !== 'measured') {
       throw new Error(`the fixture's home fit answered ${report.kind}, not a measurement`)
     }
-    const assembled = report.verdicts.find((verdict) => verdict.pose === 'assembled')
-    if (assembled === undefined) {
+    const assembled = report.poses.find((pose) => pose.pose === 'assembled')
+    if (assembled?.kind !== 'verdict') {
       throw new Error('the home fit measured no assembled pose')
     }
     // The assembled pose reads no animation key, so its verdict stands

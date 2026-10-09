@@ -44,6 +44,13 @@ const RULE_FIXTURE_INPUT = {
   explode: { clip: 'Explode', label: 'See inside' },
 } as const
 
+// The manifest input of the rule fixtures under another slug: what a suite
+// writes beside a planted model file, so the validate step reads a product
+// whose words match the fixture document.
+export function ruleFixtureManifestInputOf(slug: string) {
+  return { ...RULE_FIXTURE_INPUT, slug }
+}
+
 // The rule table's input over a fixture document: the parsed fixture
 // manifest, the document's structure, contract and home-fit facts, and the
 // storage the fixture declares (an in-memory document stands for an

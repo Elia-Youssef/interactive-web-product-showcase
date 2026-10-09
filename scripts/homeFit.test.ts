@@ -13,9 +13,18 @@ const FORWARD: [number, number, number] = [0, 0, -1]
 const POSITION: [number, number, number] = [0, 0, 4]
 const RIGHT_ANGLE = Math.PI / 2
 
+// The extent of a projection that must succeed.
+function extentOf(...args: Parameters<typeof frameExtentOf>) {
+  const extent = frameExtentOf(...args)
+  if (extent.kind !== 'extent') {
+    throw new Error(`the projection answered ${extent.kind}`)
+  }
+  return extent
+}
+
 describe('frameExtentOf', () => {
   it('projects a point to its exact normalized device coordinates', () => {
-    const extent = frameExtentOf([[2, 1, 0]], POSITION, FORWARD, RIGHT_ANGLE, 2)
+    const extent = extentOf([[2, 1, 0]], POSITION, FORWARD, RIGHT_ANGLE, 2)
     expect(extent.x[0]).toBeCloseTo(0.25, 12)
     expect(extent.x[1]).toBeCloseTo(0.25, 12)
     expect(extent.y[0]).toBeCloseTo(0.25, 12)
@@ -26,7 +35,7 @@ describe('frameExtentOf', () => {
 
   it('takes the free share from the farthest point and names it', () => {
     // (1, 1, 0) reads (0.125, 0.25); (3, 2, 0) reads (0.375, 0.5) and binds.
-    const extent = frameExtentOf(
+    const extent = extentOf(
       [
         [1, 1, 0],
         [3, 2, 0],
@@ -42,14 +51,32 @@ describe('frameExtentOf', () => {
 
   it('answers a negative share for a point outside the frame', () => {
     // (0, 8, 0) reads y = 2, a full half frame outside.
-    const extent = frameExtentOf([[0, 8, 0]], POSITION, FORWARD, RIGHT_ANGLE, 2)
+    const extent = extentOf([[0, 8, 0]], POSITION, FORWARD, RIGHT_ANGLE, 2)
     expect(extent.free).toBeCloseTo(-1, 12)
   })
 
-  it('refuses a point behind the camera plane', () => {
-    expect(() => frameExtentOf([[0, 0, 8]], POSITION, FORWARD, RIGHT_ANGLE, 2)).toThrow(
-      /behind the camera plane/,
-    )
+  it('names a point behind the camera plane instead of projecting it', () => {
+    expect(
+      frameExtentOf(
+        [
+          [0, 0, 0],
+          [0, 0, 8],
+        ],
+        POSITION,
+        FORWARD,
+        RIGHT_ANGLE,
+        2,
+      ),
+    ).toEqual({
+      kind: 'behindCamera',
+      point: 1,
+    })
+  })
+
+  it('names a view straight along world up, which has no roll-free basis', () => {
+    expect(frameExtentOf([[0, 0, 0]], [0, 4, 0], [0, -1, 0], RIGHT_ANGLE, 2)).toEqual({
+      kind: 'noRollFreeBasis',
+    })
   })
 })
 

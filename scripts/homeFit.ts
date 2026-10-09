@@ -12,6 +12,22 @@ import type { Vec3 } from '../src/lib/camera/frame.ts'
 // The world up of glTF space, the up the controls rebuild every view from.
 const WORLD_UP: Vec3 = [0, 1, 0]
 
+// What projecting a pose answers: the frame extent, or the reason the pose
+// has none through this camera. A point behind the camera plane has no
+// screen position at all, and a view straight along world up has no
+// roll-free basis to project with; both are facts of the file, reported by
+// the rule, never thrown.
+export type FrameExtent =
+  | {
+      readonly kind: 'extent'
+      readonly x: [number, number]
+      readonly y: [number, number]
+      readonly free: number
+      readonly bindingPoint: number
+    }
+  | { readonly kind: 'behindCamera'; readonly point: number }
+  | { readonly kind: 'noRollFreeBasis' }
+
 // The normalized device bounds (-1..1) of points seen from a roll-free
 // camera: per axis, the smallest and largest reach, and the smallest share
 // of the half frame any one side keeps free (negative when a point falls
@@ -23,14 +39,12 @@ export function frameExtentOf(
   forward: Vec3,
   fovYRadians: number,
   aspect: number,
-): {
-  readonly x: [number, number]
-  readonly y: [number, number]
-  readonly free: number
-  readonly bindingPoint: number
-} {
+): FrameExtent {
   const f = unitOf(forward)
   const r = rightOf(f)
+  if (r === null) {
+    return { kind: 'noRollFreeBasis' }
+  }
   const u = crossOf(r, f)
   const t = Math.tan(fovYRadians / 2)
   const xs: number[] = []
@@ -41,7 +55,7 @@ export function frameExtentOf(
     const q = subOf(point, cameraPosition)
     const depth = dotOf(q, f)
     if (depth <= 0) {
-      throw new Error('a point lies behind the camera plane')
+      return { kind: 'behindCamera', point: index }
     }
     const x = dotOf(q, r) / (depth * t * aspect)
     const y = dotOf(q, u) / (depth * t)
@@ -54,6 +68,7 @@ export function frameExtentOf(
     }
   }
   return {
+    kind: 'extent',
     x: [Math.min(...xs), Math.max(...xs)],
     y: [Math.min(...ys), Math.max(...ys)],
     free: 1 - reach,
@@ -125,6 +140,16 @@ export type HomeFitVerdict = {
   readonly holds: boolean
 }
 
+// One pose's verdict, or the pose the camera cannot project with the
+// reason: what the home fit answers per pose.
+export type PoseOutcome =
+  | ({ readonly kind: 'verdict' } & HomeFitVerdict)
+  | {
+      readonly kind: 'unprojectable'
+      readonly pose: string
+      readonly extent: Exclude<FrameExtent, { kind: 'extent' }>
+    }
+
 // Both poses' verdicts under one camera: the whole home fit in one pure
 // pass, compared exactly against the margin less each pose's allowance.
 export function homeFitVerdictsOf(
@@ -134,12 +159,16 @@ export function homeFitVerdictsOf(
   fovYRadians: number,
   aspect: number,
   margin: number,
-): readonly HomeFitVerdict[] {
+): readonly PoseOutcome[] {
   return poses.map((pose) => {
     const extent = frameExtentOf(pose.points, cameraPosition, forward, fovYRadians, aspect)
+    if (extent.kind !== 'extent') {
+      return { kind: 'unprojectable', pose: pose.label, extent }
+    }
     const nearestDepth = nearestCornerDepthOf(pose.points, cameraPosition, forward)
     const allowance = allowanceShareOf(pose.worldError, nearestDepth, fovYRadians)
     return {
+      kind: 'verdict',
       pose: pose.label,
       free: extent.free,
       allowance,
@@ -165,13 +194,13 @@ function unitOf(vector: Vec3): Vec3 {
 }
 
 // The roll-free right of a view direction over world up: the same basis
-// the viewer rebuilds, degenerate only along world up, where the polar
-// limits own the camera.
-function rightOf(forward: Vec3): Vec3 {
+// the viewer rebuilds, or null along world up, where the polar limits own
+// the camera.
+function rightOf(forward: Vec3): Vec3 | null {
   const right = crossOf(forward, WORLD_UP)
   const length = lengthOf(right)
   if (length < 1e-9) {
-    throw new Error('a view straight along world up has no roll-free basis')
+    return null
   }
   return scaleOf(right, 1 / length)
 }
