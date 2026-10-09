@@ -20,6 +20,7 @@ import {
   waitForPhase,
   waitForRest,
 } from './productSwitchFacts'
+import { switchBandRed } from './switchBandRed'
 
 // The product switch proofs run on the app itself, over the real
 // collection: one stage lives across every move, every way the route moves
@@ -202,6 +203,58 @@ test('a load that fails during a switch is revealed with the product alert', asy
   expect(await recordedPhases(page)).toEqual(SWITCH_SEQUENCE)
   await expectSwapsUnderCover(page, [next])
   await expect(page.getByTestId('product-alert')).toBeVisible()
+})
+
+// The band of the real transition, read off the app mid-switch: the band
+// rides the stage for the whole switch, so the reading never races a
+// phase, and the phase order itself is the sequence proofs' claim. The
+// words it rides are the collection's own copy; the red is read from the
+// tokens, so a token change is never a test edit.
+test('the switch draws the brand ticker band over the stage, in the token red', async ({
+  page,
+  backendPath,
+}) => {
+  test.setTimeout(testBudgetMs({ productLoads: 2 }))
+  await page.goto(productPathOf(backendPath, start))
+  await waitForRest(page, start)
+
+  await rowControls(page, collection, start).next.click()
+  const layer = page.locator('[data-product-transition]')
+  const mover = layer.locator('> div > div')
+  await expect(mover).toHaveCount(1)
+  await expect(mover.locator('span').first()).toBeVisible()
+  const drawn = await mover.evaluate((element) => getComputedStyle(element).backgroundColor)
+  expect(drawn).toBe(await switchBandRed(page))
+
+  await waitForRest(page, next)
+  await expectRestingAlone(page, next)
+})
+
+// Reduced motion swaps the band for the plain crossfade of the same red,
+// through the same phases and the same callback order: the surface draws
+// no ticker words.
+test('reduced motion runs the same switch on the crossfade, with no ticker words', async ({
+  page,
+  backendPath,
+}) => {
+  test.setTimeout(testBudgetMs({ productLoads: 2 }))
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto(productPathOf(backendPath, start))
+  await waitForRest(page, start)
+  await recordPhases(page)
+
+  await rowControls(page, collection, start).next.click()
+  const layer = page.locator('[data-product-transition]')
+  const mover = layer.locator('> div > div')
+  await expect(mover).toHaveCount(1)
+  await expect(mover.locator('span')).toHaveCount(0)
+  const drawn = await mover.evaluate((element) => getComputedStyle(element).backgroundColor)
+  expect(drawn).toBe(await switchBandRed(page))
+
+  await waitForRest(page, next)
+  expect(await recordedPhases(page)).toEqual(SWITCH_SEQUENCE)
+  await expectSwapsUnderCover(page, [next])
+  await expectRestingAlone(page, next)
 })
 
 test('a fast second click during the cover asks for the product it already targets, and one switch runs', async ({
