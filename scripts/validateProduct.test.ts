@@ -14,7 +14,9 @@ import { MeshoptDecoder, MeshoptEncoder } from 'meshoptimizer'
 import { loadParseProduct, type ParseProduct } from './manifestIo.ts'
 import { MANIFEST_SUFFIX, productPaths } from './productPaths.ts'
 import { validateShippedProduct } from './validateProduct.ts'
+import { POSITION_QUANTIZE_BITS } from './settings.ts'
 import { listShippedSlugs } from './shippedProducts.ts'
+import { positionGridOf } from './storageGrid.ts'
 import { countViolations, countWarnings } from './validateChecks.ts'
 import { buildDocument, PASSING_CAMERA_POSE } from './validateFixtures.ts'
 
@@ -24,6 +26,10 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url))
 // The shipped products of this checkout, by the discovery the validate step
 // itself runs.
 const SHIPPED_SLUGS = await listShippedSlugs(ROOT)
+
+// The pipeline's quantize grid, as the validate step derives it once for its
+// run and passes to every product.
+const POSITION_GRID = await positionGridOf(POSITION_QUANTIZE_BITS)
 
 // A manifest file that parses, for a product whose model never exists.
 const GHOST_MANIFEST = [
@@ -44,7 +50,7 @@ const GHOST_MANIFEST = [
 describe('the validate step on every shipped product', () => {
   it.each(SHIPPED_SLUGS)('reports zero violations and zero warnings for %s', async (slug) => {
     const parseProduct = await loadParseProduct()
-    const validation = await validateShippedProduct(ROOT, slug, parseProduct)
+    const validation = await validateShippedProduct(ROOT, slug, parseProduct, POSITION_GRID)
     expect(validation.checks.map((check) => check.name)).toEqual([
       'manifest',
       'model',
@@ -116,7 +122,12 @@ describe('the validate step on a planted product at the old aspect', () => {
   })
 
   it('fails by name on every camera aspect', async () => {
-    const validation = await validateShippedProduct(tempRoot, 'planted-speaker', parseProduct)
+    const validation = await validateShippedProduct(
+      tempRoot,
+      'planted-speaker',
+      parseProduct,
+      POSITION_GRID,
+    )
     const cameras = validation.checks.find((check) => check.name === 'cameras')
     expect(cameras?.status).toBe('fail')
     expect(cameras?.violations).toEqual([
@@ -176,7 +187,12 @@ describe('the validate step on a temp root, one side missing', () => {
   })
 
   it('validates a manifest-only product as exactly the model missing violation', async () => {
-    const validation = await validateShippedProduct(tempRoot, 'ghost-speaker', parseProduct)
+    const validation = await validateShippedProduct(
+      tempRoot,
+      'ghost-speaker',
+      parseProduct,
+      POSITION_GRID,
+    )
     expect(countViolations(validation)).toBe(1)
     const model = validation.checks.find((check) => check.name === 'model')
     expect(model?.violations).toEqual([
@@ -197,7 +213,12 @@ describe('the validate step on a temp root, one side missing', () => {
   })
 
   it('validates a model-only product as exactly the manifest missing violation', async () => {
-    const validation = await validateShippedProduct(tempRoot, 'orphan-speaker', parseProduct)
+    const validation = await validateShippedProduct(
+      tempRoot,
+      'orphan-speaker',
+      parseProduct,
+      POSITION_GRID,
+    )
     expect(countViolations(validation)).toBe(1)
     const manifest = validation.checks.find((check) => check.name === 'manifest')
     expect(manifest?.violations).toEqual([

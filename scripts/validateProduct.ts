@@ -13,7 +13,6 @@ import { createModelIO } from './modelIo.ts'
 import type { ParseProduct } from './manifestIo.ts'
 import { loadCameraContract, readManifestFile } from './manifestIo.ts'
 import type { CameraContract } from './manifestIo.ts'
-import { pipelinePositionGrid } from './storageGrid.ts'
 import { readPositionStorage, readTranslationOutputs } from './storageFacts.ts'
 import type { StorageFacts } from './storageFacts.ts'
 import { productPaths, repoPath, type ProductPaths } from './productPaths.ts'
@@ -120,7 +119,12 @@ function unreadableModel(detail: string, violation: string, fileBytes: number | 
 // texture reports and the draw-call count. A
 // missing or unreadable model is this group's violation; the model check
 // groups then skip for want of their input.
-async function loadModel(io: NodeIO, root: string, paths: ProductPaths): Promise<ModelSide> {
+async function loadModel(
+  io: NodeIO,
+  root: string,
+  paths: ProductPaths,
+  positionGrid: ReadonlySet<number>,
+): Promise<ModelSide> {
   const shown = repoPath(root, paths.modelGlb)
   const fileBytes = await fileSizeBytes(paths.modelGlb)
   if (fileBytes === null) {
@@ -138,7 +142,7 @@ async function loadModel(io: NodeIO, root: string, paths: ProductPaths): Promise
     structure,
     facts: readContractModelFacts(doc),
     homeFit: readHomeFitFacts(doc, structure.animationChannels),
-    storage: await readStorageFacts(io, paths.modelGlb, doc),
+    storage: await readStorageFacts(io, paths.modelGlb, doc, positionGrid),
     fileBytes,
     textures: describeTextures(doc),
     drawCalls: countDrawCalls(doc),
@@ -146,15 +150,16 @@ async function loadModel(io: NodeIO, root: string, paths: ProductPaths): Promise
 }
 
 // The storage facts of one written model: the position storage from the
-// read-back document, held against the pipeline's quantize grid, and the
-// translation outputs from the file's own glTF JSON and binary chunk.
+// read-back document, held against the quantize grid the run passes in, and
+// the translation outputs from the file's own glTF JSON and binary chunk.
 async function readStorageFacts(
   io: NodeIO,
   modelPath: string,
   doc: Document,
+  positionGrid: ReadonlySet<number>,
 ): Promise<StorageFacts> {
   return {
-    positions: readPositionStorage(doc, await pipelinePositionGrid()),
+    positions: readPositionStorage(doc, positionGrid),
     translationOutputs: await readTranslationOutputs(io, modelPath),
   }
 }
@@ -207,16 +212,20 @@ function contractChecks(
   ]
 }
 
+// The position grid is the run's: derived once from the pipeline's bits and
+// passed down, so a file's stored positions are held against the grid the
+// caller names.
 export async function validateShippedProduct(
   root: string,
   slug: string,
   parseProduct: ParseProduct,
+  positionGrid: ReadonlySet<number>,
 ): Promise<ProductValidation> {
   const io = await createModelIO()
   const paths = productPaths(root, slug)
   const contract = await loadCameraContract()
   const manifestSide = await loadManifest(root, paths, parseProduct)
-  const modelSide = await loadModel(io, root, paths)
+  const modelSide = await loadModel(io, root, paths, positionGrid)
   const checks: CheckResult[] = [
     manifestSide.check,
     ...contractChecks(manifestSide, modelSide, contract),

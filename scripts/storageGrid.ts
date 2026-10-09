@@ -8,7 +8,6 @@
 // types say.
 import { Document, Logger } from '@gltf-transform/core'
 import { quantize } from '@gltf-transform/functions'
-import { POSITION_QUANTIZE_BITS } from './settings.ts'
 
 // Every Int16 magnitude the quantize step can store a normalized position
 // component as at the given bits: the encoder run over every quantization
@@ -53,13 +52,4 @@ export function keyBitsOfMantissa(magnitude: number): number {
     throw new Error(`a stored mantissa magnitude is a whole number, got ${magnitude}`)
   }
   return magnitude <= 1 ? 1 : 1 + Math.ceil(Math.log2(magnitude))
-}
-
-// The pipeline's position grid, derived once per process: the encoder is
-// deterministic, so every product of a run reads the same set.
-let pipelineGrid: Promise<ReadonlySet<number>> | null = null
-
-export function pipelinePositionGrid(): Promise<ReadonlySet<number>> {
-  pipelineGrid ??= positionGridOf(POSITION_QUANTIZE_BITS)
-  return pipelineGrid
 }

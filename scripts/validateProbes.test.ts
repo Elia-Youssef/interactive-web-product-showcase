@@ -7,19 +7,25 @@ import type { Document } from '@gltf-transform/core'
 import { loadParseProduct } from './manifestIo.ts'
 import { withTempDir, type OptimizeOverrides } from './optimizedModel.fixtures.ts'
 import { plantProduct } from './plantedProduct.fixtures.ts'
+import { POSITION_QUANTIZE_BITS } from './settings.ts'
+import { positionGridOf } from './storageGrid.ts'
 import { validateShippedProduct } from './validateProduct.ts'
 import type { ProductValidation } from './validateChecks.ts'
 import { buildDocument, PASSING_CAMERA_POSE } from './validateFixtures.ts'
 
 const SLUG = 'probe-speaker'
 
+// The grid the run passes down: the pipeline's own, unless a probe names one.
+const PIPELINE_GRID = await positionGridOf(POSITION_QUANTIZE_BITS)
+
 async function validatePlanted(
   doc: Document,
   overrides: OptimizeOverrides = {},
+  positionGrid: ReadonlySet<number> = PIPELINE_GRID,
 ): Promise<ProductValidation> {
   return withTempDir(async (root) => {
     await plantProduct(root, SLUG, doc, overrides)
-    return validateShippedProduct(root, SLUG, await loadParseProduct())
+    return validateShippedProduct(root, SLUG, await loadParseProduct(), positionGrid)
   })
 }
 
@@ -43,6 +49,24 @@ describe('the validate step on bytes the home fit cannot take at face value', ()
       ),
     )
     expect(messagesOf(validation, 'cameras', 'home-holds-both-poses')).toEqual([])
+  })
+
+  it('holds the stored positions against the grid it is given, not a fixed one', async () => {
+    const doc = () => buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] })
+    const atPipeline = await validatePlanted(doc())
+    expect(messagesOf(atPipeline, 'model', 'storage-matches-pipeline')).toEqual([])
+    // The same bytes against the grid of another width: the one mesh whose
+    // stored values are not corners of the unit cube falls off it, by the
+    // bytes alone, in the model group's own report.
+    const offGrid = await validatePlanted(
+      doc(),
+      {},
+      await positionGridOf(POSITION_QUANTIZE_BITS - 4),
+    )
+    expect(messagesOf(offGrid, 'model', 'storage-matches-pipeline')).toEqual([
+      "storage-matches-pipeline: the POSITION of the mesh 'shadow' holds 4 stored values " +
+        `off the grid of the pipeline's ${POSITION_QUANTIZE_BITS}-bit quantize`,
+    ])
   })
 
   it('names a home camera with geometry behind its plane', async () => {
