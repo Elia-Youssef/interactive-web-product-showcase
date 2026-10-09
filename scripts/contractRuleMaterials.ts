@@ -89,8 +89,14 @@ export const materialRules: readonly ContractRule[] = [
           material.occlusionImage === null ? [] : [material.occlusionImage],
         ),
       )
-      if (images.size <= 1) {
+      if (images.size === 1) {
         return { violations: [], warnings: [] }
+      }
+      if (images.size === 0) {
+        return {
+          violations: ['no occlusion slot samples an image, one occlusion image across the file'],
+          warnings: [],
+        }
       }
       return {
         violations: [

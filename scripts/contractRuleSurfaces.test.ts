@@ -25,7 +25,7 @@ async function violationsOf(
   if (rule === undefined) {
     throw new Error(`the surface rules hold no ${key}`)
   }
-  return rule.check(await contractRuleInputOf(doc)).violations
+  return rule.check(contractRuleInputOf(doc)).violations
 }
 
 // A closed cube mesh grafted on a part: twelve triangles, every edge
@@ -67,9 +67,7 @@ function bodyVariantList(doc: ReturnType<typeof buildDocument>): MappingList {
 
 describe('the surface contract rules', () => {
   it('passes every rule on the valid document', async () => {
-    const input = await contractRuleInputOf(
-      buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }),
-    )
+    const input = contractRuleInputOf(buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }))
     for (const rule of surfaceRules) {
       expect(rule.check(input), rule.key).toEqual({ violations: [], warnings: [] })
     }
@@ -167,6 +165,16 @@ describe('the surface contract rules', () => {
         graphite?.setOcclusionTexture(doc.createTexture('T_ao_second').setMimeType('image/png'))
       }),
     ).toEqual(['the occlusion slots sample 2 images (0, 1), one occlusion image across the file'])
+  })
+
+  it('the one-image rule reports a file whose occlusion slots sample no image', async () => {
+    expect(
+      await violationsOf('one-occlusion-image', (doc) => {
+        for (const material of doc.getRoot().listMaterials()) {
+          material.setOcclusionTexture(null)
+        }
+      }),
+    ).toEqual(['no occlusion slot samples an image, one occlusion image across the file'])
   })
 
   it('the occlusion texCoord rule reports a slot off the second UV set', async () => {

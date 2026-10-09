@@ -1,7 +1,7 @@
 // The explode-group rules of the contract, as table entries: channels
-// drive PART_ nodes only and only location and rotation, each channel's
-// first key equals its node's rest transform within what the file's own
-// key storage can move, and the clip has no dead head or tail.
+// drive PART_ nodes only and only their location, each channel's first key
+// equals its node's rest transform within what the file's own key storage
+// can move, and the clip has no dead head or tail.
 
 import { PART_PREFIX } from '../src/lib/product/contractNames.ts'
 import { translationKeyComponentBound } from './storageBounds.ts'
@@ -25,9 +25,10 @@ export const explodeRules: readonly ContractRule[] = [
             `the animation drives ${channel.path} on '${channel.targetName}', channels drive PART_ nodes only`,
           ]
         }
-        if (channel.path !== 'translation' && channel.path !== 'rotation') {
+        if (channel.path !== 'translation') {
           return [
-            `the animation drives ${channel.path} on ${channel.targetName}, only location and rotation channels are allowed`,
+            `the animation drives ${channel.path} on ${channel.targetName}, only location channels ` +
+              'are allowed: the storage bound of a stored key is derived for translation keys only',
           ]
         }
         return []
@@ -38,18 +39,18 @@ export const explodeRules: readonly ContractRule[] = [
   {
     key: 'clip-first-key-at-rest',
     group: 'explode',
+    // A channel of another path is the channels rule's violation; this rule
+    // compares the location keys it allows.
     check: ({ facts, structure }) => ({
-      violations: structure.animationChannels.flatMap((channel) => {
-        const node = facts.nodes.find((candidate) => candidate.name === channel.targetName)
-        if (node === undefined) {
-          return []
-        }
-        const rest =
-          channel.path === 'rotation'
-            ? (node.rotation ?? [0, 0, 0, 1])
-            : (node.translation ?? [0, 0, 0])
-        return firstKeyOffRest(channel, rest)
-      }),
+      violations: structure.animationChannels
+        .filter((channel) => channel.path === 'translation')
+        .flatMap((channel) => {
+          const node = facts.nodes.find((candidate) => candidate.name === channel.targetName)
+          if (node === undefined) {
+            return []
+          }
+          return firstKeyOffRest(channel, node.translation ?? [0, 0, 0])
+        }),
       warnings: [],
     }),
   },
@@ -88,20 +89,11 @@ export const explodeRules: readonly ContractRule[] = [
   },
 ]
 
-// The message for a channel whose first key sits off its node's rest pose
-// beyond what the file's own key storage can move. A translation key is
-// stored through the pipeline's EXPONENTIAL filter, whose bound the
-// storage bounds derive from the key's own magnitude; a rotation key has
-// no derived bound, and the rule names that rather than comparing with a
-// picked window.
+// The message for a translation channel whose first key sits off its
+// node's rest location beyond what the file's own key storage can move: the
+// key is stored through the pipeline's EXPONENTIAL filter, whose bound the
+// storage bounds derive from the key's own magnitude.
 function firstKeyOffRest(channel: ChannelFact, rest: readonly number[]): readonly string[] {
-  if (channel.path === 'rotation') {
-    return [
-      `rotation channel bound not implemented: ${channel.targetName} drives rotation, ` +
-        'and the storage bound of a rotation output is not derived; ' +
-        'the first-key rule covers translation keys only',
-    ]
-  }
   const first = keyValuesSlice(channel, 0)
   const worst = Math.max(
     ...Array.from({ length: channel.components }, (_, k) =>

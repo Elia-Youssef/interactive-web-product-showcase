@@ -10,7 +10,6 @@ import type { Product } from '../src/lib/product/index.ts'
 import type { ProductStructure } from './structure.ts'
 import type { ContractModelFacts } from './contractFacts.ts'
 import type { HomeFitFacts } from './homeFitFacts.ts'
-import type { StorageBounds } from './storageBounds.ts'
 import type { StorageFacts } from './storageFacts.ts'
 import type { CameraContract } from './manifestIo.ts'
 import { checkResult, type CheckResult } from './validateChecks.ts'
@@ -27,15 +26,14 @@ export type ContractRuleGroup =
   'model' | 'cameras' | 'geometry' | 'finishes' | 'materials' | 'explode'
 
 // What one rule check reads: the parsed manifest, the structure facts, the
-// contract facts, the home-fit facts, the storage facts with the derived
-// storage bounds, and the camera contract assembly bridge.
+// contract facts, the home-fit facts, the storage facts, and the camera
+// contract assembly bridge.
 export type ContractRuleInput = {
   readonly manifest: Product
   readonly structure: ProductStructure
   readonly facts: ContractModelFacts
   readonly homeFit: HomeFitFacts
   readonly storage: StorageFacts
-  readonly storageBounds: StorageBounds
   readonly contract: CameraContract
 }
 

@@ -20,14 +20,12 @@ async function violationsOf(
   if (rule === undefined) {
     throw new Error(`the model rules hold no ${key}`)
   }
-  return rule.check(await contractRuleInputOf(doc)).violations
+  return rule.check(contractRuleInputOf(doc)).violations
 }
 
 describe('the model-group contract rules', () => {
   it('passes every rule on the valid document', async () => {
-    const input = await contractRuleInputOf(
-      buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }),
-    )
+    const input = contractRuleInputOf(buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }))
     for (const rule of modelRules) {
       expect(rule.check(input), rule.key).toEqual({ violations: [], warnings: [] })
     }
@@ -35,7 +33,7 @@ describe('the model-group contract rules', () => {
 
   it('the storage rule reports a position stored another way than the pipeline stores it', async () => {
     const doc = buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] })
-    const input = await contractRuleInputOf(doc)
+    const input = contractRuleInputOf(doc)
     const rule = byKey.get('storage-matches-pipeline')
     if (rule === undefined) {
       throw new Error('the model rules hold no storage-matches-pipeline')
@@ -45,7 +43,9 @@ describe('the model-group contract rules', () => {
         ...input,
         storage: {
           ...input.storage,
-          positions: [{ meshName: 'PART_base', componentType: 5126, normalized: false }],
+          positions: [
+            { meshName: 'PART_base', componentType: 5126, normalized: false, offGridValues: 0 },
+          ],
         },
       }).violations,
     ).toEqual([
@@ -58,19 +58,51 @@ describe('the model-group contract rules', () => {
     if (rule === undefined) {
       throw new Error('the model rules hold no storage-matches-pipeline')
     }
-    const input = await contractRuleInputOf(
-      buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }),
-    )
+    const input = contractRuleInputOf(buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }))
     expect(
       rule.check({
         ...input,
         storage: {
           ...input.storage,
-          translationFilters: [{ animationName: 'Explode', filter: null }],
+          translationOutputs: [
+            {
+              animationName: 'Explode',
+              targetName: 'PART_base',
+              storage: { kind: 'otherFilter', filter: null },
+            },
+          ],
         },
       }).violations,
     ).toEqual([
-      "a translation output of the animation 'Explode' is stored with filter none, the pipeline's key filter is EXPONENTIAL at 12 bits",
+      "the translation output of 'PART_base' in the animation 'Explode' is stored with filter none, the pipeline's key filter is EXPONENTIAL at 12 bits",
+    ])
+  })
+
+  it('the storage rule reports stored positions off the grid and keys wider than the key bits', async () => {
+    const rule = byKey.get('storage-matches-pipeline')
+    if (rule === undefined) {
+      throw new Error('the model rules hold no storage-matches-pipeline')
+    }
+    const input = contractRuleInputOf(buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }))
+    expect(
+      rule.check({
+        ...input,
+        storage: {
+          positions: [
+            { meshName: 'PART_base', componentType: 5122, normalized: true, offGridValues: 3 },
+          ],
+          translationOutputs: [
+            {
+              animationName: 'Explode',
+              targetName: 'PART_base',
+              storage: { kind: 'exponential', keyBits: 16 },
+            },
+          ],
+        },
+      }).violations,
+    ).toEqual([
+      "the POSITION of the mesh 'PART_base' holds 3 stored values off the grid of the pipeline's 14-bit quantize",
+      "the translation output of 'PART_base' in the animation 'Explode' stores mantissas of 16 bits, the pipeline's key filter stores 12",
     ])
   })
 

@@ -1,13 +1,14 @@
 // The deploy check of the build, run after the prerender over the written
-// dist/: it lists the files and hands them, with the _headers text and the
-// products that carry a meta block, to the pure check in deployRules.ts, and
-// fails the build naming each finding.
+// dist/: it lists the files and hands them, with the _headers text, the
+// products that carry a meta block and the shipped products, to the pure
+// check in deployRules.ts, and fails the build naming each finding.
 import { readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { checkDeploy, describeFinding } from './deployRules.ts'
 import { isMissingFileError } from './fsErrors.ts'
 import { loadMetaPages } from './metaPages.ts'
+import { listManifestSlugs } from './shippedProducts.ts'
 
 // The repo root of this checkout: the parent of the scripts folder.
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
@@ -41,15 +42,17 @@ async function readHeaders(): Promise<string> {
 }
 
 async function main(): Promise<void> {
-  const [files, headersText, { pages }] = await Promise.all([
+  const [files, headersText, { pages }, shippedSlugs] = await Promise.all([
     listFiles(DIST),
     readHeaders(),
     loadMetaPages(),
+    listManifestSlugs(ROOT),
   ])
   const findings = checkDeploy({
     files,
     headersText,
     metaSlugs: pages.map((page) => page.slug),
+    shippedSlugs,
   })
   if (findings.length > 0) {
     const lines = findings.map((finding) => `  ${describeFinding(finding)}`)

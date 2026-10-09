@@ -3,8 +3,8 @@
 // contract name, exactly one SHADOW mesh, no extras, no lights, the shadow
 // plane's own contract (a root object with one material; unlit blend with
 // no mapping), and the file stored the way the pipeline writes it: its
-// positions normalized Int16, its translation outputs through the key
-// filter the storage bounds are derived from.
+// positions normalized Int16 on the quantize grid, its translation outputs
+// through the key filter at the pipeline's key bits.
 
 import {
   CAMERA_PREFIX,
@@ -12,7 +12,9 @@ import {
   PART_PREFIX,
   SHADOW_NODE_NAME,
 } from '../src/lib/product/contractNames.ts'
+import { SHORT_COMPONENT_TYPE } from './componentTypes.ts'
 import { POSITION_QUANTIZE_BITS, KEY_FILTER_BITS } from './settings.ts'
+import type { PositionStorageFact, TranslationOutputFact } from './storageFacts.ts'
 import type { ContractRule } from './contractRules.ts'
 
 // A name the contract knows: one of its three prefixes, or the shadow.
@@ -149,30 +151,55 @@ export const modelRules: readonly ContractRule[] = [
   {
     key: 'storage-matches-pipeline',
     group: 'model',
-    check: ({ storage }) => {
-      const violations: string[] = []
-      for (const position of storage.positions) {
-        if (position.componentType !== 5122 || !position.normalized) {
-          violations.push(
-            `the POSITION of the mesh '${position.meshName}' is stored as component type ` +
-              `${position.componentType}${position.normalized ? ', normalized' : ', not normalized'}, ` +
-              `the pipeline's ${POSITION_QUANTIZE_BITS}-bit quantize stores normalized Int16`,
-          )
-        }
-      }
-      for (const filter of storage.translationFilters) {
-        if (filter.filter !== 'EXPONENTIAL') {
-          violations.push(
-            `a translation output of the animation '${filter.animationName}' is stored with ` +
-              `filter ${filter.filter ?? 'none'}, the pipeline's key filter is EXPONENTIAL ` +
-              `at ${KEY_FILTER_BITS} bits`,
-          )
-        }
-      }
-      return { violations, warnings: [] }
-    },
+    check: ({ storage }) => ({
+      violations: [
+        ...storage.positions.flatMap(positionStorageViolations),
+        ...storage.translationOutputs.flatMap(keyStorageViolations),
+      ],
+      warnings: [],
+    }),
   },
 ]
+
+// What one mesh's position storage breaks: a storage other than the
+// normalized Int16 the pipeline's quantize writes, or stored values off its
+// grid, which a file quantized at other bits carries in the right type.
+function positionStorageViolations(position: PositionStorageFact): string[] {
+  if (position.componentType !== SHORT_COMPONENT_TYPE || !position.normalized) {
+    return [
+      `the POSITION of the mesh '${position.meshName}' is stored as component type ` +
+        `${position.componentType}${position.normalized ? ', normalized' : ', not normalized'}, ` +
+        `the pipeline's ${POSITION_QUANTIZE_BITS}-bit quantize stores normalized Int16`,
+    ]
+  }
+  if (position.offGridValues > 0) {
+    return [
+      `the POSITION of the mesh '${position.meshName}' holds ${position.offGridValues} stored ` +
+        `values off the grid of the pipeline's ${POSITION_QUANTIZE_BITS}-bit quantize`,
+    ]
+  }
+  return []
+}
+
+// What one translation output's storage breaks: a filter other than the
+// pipeline's key filter, or mantissas wider than its key bits.
+function keyStorageViolations(output: TranslationOutputFact): string[] {
+  const named = `the translation output of '${output.targetName}' in the animation '${output.animationName}'`
+  switch (output.storage.kind) {
+    case 'otherFilter':
+      return [
+        `${named} is stored with filter ${output.storage.filter ?? 'none'}, ` +
+          `the pipeline's key filter is EXPONENTIAL at ${KEY_FILTER_BITS} bits`,
+      ]
+    case 'exponential':
+      return output.storage.keyBits > KEY_FILTER_BITS
+        ? [
+            `${named} stores mantissas of ${output.storage.keyBits} bits, ` +
+              `the pipeline's key filter stores ${KEY_FILTER_BITS}`,
+          ]
+        : []
+  }
+}
 
 // How many primitives the shadow's mesh holds, from the primitive facts.
 function countShadowPrimitives(facts: { primitives: readonly { nodeName: string }[] }): number {

@@ -4,7 +4,8 @@
 // needed, and stays quiet about one a view needs.
 import { describe, expect, it } from 'vitest'
 import { cameraRules } from './contractRuleCameras.ts'
-import { buildDocument, nodeNamed } from './validateFixtures.ts'
+import { homeFitReportOf } from './homeFitRule.ts'
+import { addRotationChannel, buildDocument, nodeNamed } from './validateFixtures.ts'
 import { contractRuleInputOf, ruleFixtureManifest } from './contractRuleFixtures.ts'
 import type { ContractRuleInput } from './contractRules.ts'
 
@@ -16,7 +17,7 @@ async function inputOf(
 ): Promise<ContractRuleInput> {
   const doc = buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] })
   plant(doc)
-  const input = await contractRuleInputOf(doc)
+  const input = contractRuleInputOf(doc)
   return camera === undefined ? input : { ...input, manifest: ruleFixtureManifest(camera) }
 }
 
@@ -107,10 +108,9 @@ describe('the camera-group contract rules', () => {
     expect(messagesOf('home-holds-both-poses', await inputOf(() => {})).violations).toEqual([])
   })
 
-  it('the home-fit rule reports a pose that falls below the margin beyond the storage allowance', async () => {
+  it('the home-fit rule reports a pose that falls below the margin', async () => {
     // The body part grown fourfold overflows the home frame outright: the
-    // assembled free share goes negative, orders past what the file's own
-    // storage can spend.
+    // assembled free share goes negative.
     const grown = (doc: ReturnType<typeof buildDocument>) => {
       const mesh = nodeNamed(doc, 'PART_body').getMesh()
       const position = mesh?.listPrimitives()[0]?.getAttribute('POSITION')
@@ -127,23 +127,19 @@ describe('the camera-group contract rules', () => {
     )
   })
 
-  it('the home-fit rule reports a rotation channel as an unimplemented bound', async () => {
-    const rotated = (doc: ReturnType<typeof buildDocument>) => {
-      const sampler = doc.getRoot().listAnimations()[0]?.listSamplers()[0]
-      const channel = doc.getRoot().listAnimations()[0]?.listChannels()[0]
-      channel?.setTargetPath('rotation')
-      sampler?.setOutput(
-        doc
-          .createAccessor('rotation-keys')
-          .setType('VEC4')
-          .setArray(new Float32Array([0, 0, 0, 1, 0, 0.5, 0, 1])),
-      )
+  it('the home-fit rule measures both poses of a clip with a rotation channel', async () => {
+    // The comparison reads the stored bytes the viewer draws, so a rotation
+    // key needs no bound: the exploded pose is posed by it and measured.
+    const rotated = (doc: ReturnType<typeof buildDocument>) => addRotationChannel(doc, 'PART_knob')
+    const report = homeFitReportOf(await inputOf(rotated))
+    if (report.kind !== 'measured') {
+      throw new Error(`the home fit answered ${report.kind}`)
     }
-    expect(messagesOf('home-holds-both-poses', await inputOf(rotated)).violations).toEqual([
-      'rotation channel bound not implemented: the clip drives rotation on PART_base, ' +
-        'and the storage bound of a rotation output is not derived; ' +
-        'the home fit covers translation keys only',
+    expect(report.poses.map((pose) => [pose.pose, pose.kind])).toEqual([
+      ['assembled', 'verdict'],
+      ['exploded', 'verdict'],
     ])
+    expect(messagesOf('home-holds-both-poses', await inputOf(rotated)).violations).toEqual([])
   })
 
   it('the home-fit rule reports a document without a home camera', async () => {
@@ -155,7 +151,7 @@ describe('the camera-group contract rules', () => {
     if (rule === undefined) {
       throw new Error('the camera rules hold no home-holds-both-poses')
     }
-    expect(rule.check(await contractRuleInputOf(doc)).violations).toEqual([
+    expect(rule.check(contractRuleInputOf(doc)).violations).toEqual([
       'the home fit needs a perspective CAM_home with a stored ray',
     ])
   })

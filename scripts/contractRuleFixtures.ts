@@ -6,8 +6,7 @@ import { parseProduct } from '../src/lib/product/index.ts'
 import { readContractModelFacts } from './contractFacts.ts'
 import { readHomeFitFacts } from './homeFitFacts.ts'
 import { readProductStructure } from './structure.ts'
-import { deriveStorageBounds } from './storageBounds.ts'
-import { declaredPositionStorage, declaredTranslationFilters } from './storageFacts.ts'
+import { declaredPositionStorage, declaredTranslationOutputs } from './storageFacts.ts'
 import type { ContractRuleInput } from './contractRules.ts'
 import { cameraContract } from './validateFixtures.ts'
 
@@ -44,13 +43,18 @@ const RULE_FIXTURE_INPUT = {
   explode: { clip: 'Explode', label: 'See inside' },
 } as const
 
+// The manifest input of the rule fixtures under another slug: what a suite
+// writes beside a planted model file, so the validate step reads a product
+// whose words match the fixture document.
+export function ruleFixtureManifestInputOf(slug: string) {
+  return { ...RULE_FIXTURE_INPUT, slug }
+}
+
 // The rule table's input over a fixture document: the parsed fixture
 // manifest, the document's structure, contract and home-fit facts, and the
 // storage the fixture declares (an in-memory document stands for an
-// optimized file, so its storage is declared, not read). The storage bounds
-// are derived, never picked: the same derivation the validate step runs,
-// so a rule suite holds its rules against the pipeline's own numbers.
-export async function contractRuleInputOf(doc: Document): Promise<ContractRuleInput> {
+// optimized file, so its storage is declared, not read).
+export function contractRuleInputOf(doc: Document): ContractRuleInput {
   const structure = readProductStructure(doc)
   return {
     manifest: parseProduct(RULE_FIXTURE_INPUT, 'fixture'),
@@ -59,9 +63,8 @@ export async function contractRuleInputOf(doc: Document): Promise<ContractRuleIn
     homeFit: readHomeFitFacts(doc, structure.animationChannels),
     storage: {
       positions: declaredPositionStorage(doc),
-      translationFilters: declaredTranslationFilters(doc),
+      translationOutputs: declaredTranslationOutputs(doc),
     },
-    storageBounds: await deriveStorageBounds(),
     contract: cameraContract,
   }
 }

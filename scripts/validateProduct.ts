@@ -13,9 +13,8 @@ import { createModelIO } from './modelIo.ts'
 import type { ParseProduct } from './manifestIo.ts'
 import { loadCameraContract, readManifestFile } from './manifestIo.ts'
 import type { CameraContract } from './manifestIo.ts'
-import { deriveStorageBounds } from './storageBounds.ts'
-import type { StorageBounds } from './storageBounds.ts'
-import { readPositionStorage, readTranslationFilters } from './storageFacts.ts'
+import { pipelinePositionGrid } from './storageGrid.ts'
+import { readPositionStorage, readTranslationOutputs } from './storageFacts.ts'
 import type { StorageFacts } from './storageFacts.ts'
 import { productPaths, repoPath, type ProductPaths } from './productPaths.ts'
 import { describeTextures, fileSizeBytes, formatBytes } from './report.ts'
@@ -85,13 +84,6 @@ async function loadManifest(
   return { check: checkManifest(paths.slug, manifest), manifest }
 }
 
-// The model side: the file exists, reads back, and yields the facts every
-// model check reads: the structure, the contract and home-fit facts, the
-// storage facts (the position storage from the read-back document, the
-// translation filters from the file's own glTF JSON), the derived storage
-// bounds, the texture reports and the draw-call count. A missing or
-// unreadable model is this group's violation; the model check groups then
-// skip for want of their input.
 // The model facts of one product side, as the load answers them: every
 // fact null when the model never loaded, so the contract groups skip for
 // want of their input.
@@ -101,7 +93,6 @@ type ModelSide = {
   readonly facts: ContractModelFacts | null
   readonly homeFit: HomeFitFacts | null
   readonly storage: StorageFacts | null
-  readonly storageBounds: StorageBounds | null
   readonly fileBytes: number | null
   readonly textures: readonly TextureFact[]
   readonly drawCalls: number | null
@@ -116,13 +107,19 @@ function unreadableModel(detail: string, violation: string, fileBytes: number | 
     facts: null,
     homeFit: null,
     storage: null,
-    storageBounds: null,
     fileBytes,
     textures: [],
     drawCalls: null,
   }
 }
 
+// The model side: the file exists, reads back, and yields the facts every
+// model check reads: the structure, the contract and home-fit facts, the
+// storage facts (the position storage from the read-back document, the
+// translation outputs from the file's own glTF JSON and binary chunk), the
+// texture reports and the draw-call count. A
+// missing or unreadable model is this group's violation; the model check
+// groups then skip for want of their input.
 async function loadModel(io: NodeIO, root: string, paths: ProductPaths): Promise<ModelSide> {
   const shown = repoPath(root, paths.modelGlb)
   const fileBytes = await fileSizeBytes(paths.modelGlb)
@@ -141,8 +138,7 @@ async function loadModel(io: NodeIO, root: string, paths: ProductPaths): Promise
     structure,
     facts: readContractModelFacts(doc),
     homeFit: readHomeFitFacts(doc, structure.animationChannels),
-    storage: await readStorageFacts(paths.modelGlb, doc),
-    storageBounds: await deriveStorageBounds(),
+    storage: await readStorageFacts(io, paths.modelGlb, doc),
     fileBytes,
     textures: describeTextures(doc),
     drawCalls: countDrawCalls(doc),
@@ -150,12 +146,16 @@ async function loadModel(io: NodeIO, root: string, paths: ProductPaths): Promise
 }
 
 // The storage facts of one written model: the position storage from the
-// read-back document, the translation filters from the file's own glTF
-// JSON, and the derived bounds the file's storage precision implies.
-async function readStorageFacts(modelPath: string, doc: Document): Promise<StorageFacts> {
+// read-back document, held against the pipeline's quantize grid, and the
+// translation outputs from the file's own glTF JSON and binary chunk.
+async function readStorageFacts(
+  io: NodeIO,
+  modelPath: string,
+  doc: Document,
+): Promise<StorageFacts> {
   return {
-    positions: readPositionStorage(doc),
-    translationFilters: await readTranslationFilters(modelPath),
+    positions: readPositionStorage(doc, await pipelinePositionGrid()),
+    translationOutputs: await readTranslationOutputs(io, modelPath),
   }
 }
 
@@ -175,8 +175,7 @@ function contractChecks(
     structure !== null &&
     modelSide.facts !== null &&
     modelSide.homeFit !== null &&
-    modelSide.storage !== null &&
-    modelSide.storageBounds !== null
+    modelSide.storage !== null
   ) {
     const findings = runContractRules({
       manifest,
@@ -184,7 +183,6 @@ function contractChecks(
       facts: modelSide.facts,
       homeFit: modelSide.homeFit,
       storage: modelSide.storage,
-      storageBounds: modelSide.storageBounds,
       contract,
     })
     return [

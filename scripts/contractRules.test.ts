@@ -83,9 +83,7 @@ describe('the contract rule table', () => {
   })
 
   it('runs every rule clean over the valid document', async () => {
-    const input = await contractRuleInputOf(
-      buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }),
-    )
+    const input = contractRuleInputOf(buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }))
     for (const messages of runContractRules(input).values()) {
       expect(messages).toEqual({ violations: [], warnings: [] })
     }
@@ -95,7 +93,7 @@ describe('the contract rule table', () => {
     const doc = buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] })
     addRootNode(doc, 'PREVIEW_front')
     nodeNamed(doc, 'PART_knob').setRotation([0, 0, Math.SQRT1_2, Math.SQRT1_2])
-    const findings = runContractRules(await contractRuleInputOf(doc))
+    const findings = runContractRules(contractRuleInputOf(doc))
     expect(findings.get('model')?.violations).toEqual([
       "nodes-carry-contract-names: node 'PREVIEW_front' is outside the contract names PART_, HS_, CAM_ and SHADOW",
     ])

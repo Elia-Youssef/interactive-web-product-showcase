@@ -18,14 +18,12 @@ async function violationsOf(
   if (rule === undefined) {
     throw new Error(`the geometry rules hold no ${key}`)
   }
-  return rule.check(await contractRuleInputOf(doc)).violations
+  return rule.check(contractRuleInputOf(doc)).violations
 }
 
 describe('the geometry-group contract rules', () => {
   it('passes every rule on the valid document', async () => {
-    const input = await contractRuleInputOf(
-      buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }),
-    )
+    const input = contractRuleInputOf(buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }))
     for (const rule of geometryRules) {
       expect(rule.check(input), rule.key).toEqual({ violations: [], warnings: [] })
     }

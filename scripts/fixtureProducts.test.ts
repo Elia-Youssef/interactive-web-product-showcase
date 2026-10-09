@@ -4,7 +4,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import {
   fixtureManifestPathOf,
   fixtureModelPathOf,
@@ -13,10 +13,18 @@ import {
   modelPathOf,
 } from './fixtureProducts.ts'
 
+// Every temp root a test builds, removed after each test.
+const roots: string[] = []
+
+afterEach(async () => {
+  await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })))
+})
+
 // Builds a temp repo root with the given fixture product folders, each
 // carrying a manifest and a model, and one stray folder that carries neither.
 async function buildRoot(slugs: readonly string[]): Promise<string> {
   const root = await mkdtemp(path.join(tmpdir(), 'fixture-test-'))
+  roots.push(root)
   for (const slug of slugs) {
     const dir = path.join(root, 'tests', 'fixtures', 'products', slug)
     await mkdir(dir, { recursive: true })
@@ -31,46 +39,28 @@ async function buildRoot(slugs: readonly string[]): Promise<string> {
 }
 
 describe('listFixtureProductSlugs', () => {
-  let tempDir = ''
-
-  afterAll(async () => {
-    await rm(tempDir, { recursive: true, force: true })
-  })
-
   it('lists the folders that carry their own manifest, sorted, once each', async () => {
-    tempDir = await buildRoot(['beta-speaker', 'alpha-speaker'])
+    const tempDir = await buildRoot(['beta-speaker', 'alpha-speaker'])
     expect(await listFixtureProductSlugs(tempDir)).toEqual(['alpha-speaker', 'beta-speaker'])
   })
 
   it('lists no slug for a folder without its manifest file', async () => {
-    tempDir = await buildRoot([])
+    const tempDir = await buildRoot([])
     expect(await listFixtureProductSlugs(tempDir)).toEqual([])
   })
 })
 
 describe('isFixtureProductSlug', () => {
-  let tempDir = ''
-
-  afterAll(async () => {
-    await rm(tempDir, { recursive: true, force: true })
-  })
-
   it('answers true for a slug the fixture set holds and false otherwise', async () => {
-    tempDir = await buildRoot(['alpha-speaker'])
+    const tempDir = await buildRoot(['alpha-speaker'])
     expect(await isFixtureProductSlug(tempDir, 'alpha-speaker')).toBe(true)
     expect(await isFixtureProductSlug(tempDir, 'shipped-speaker')).toBe(false)
   })
 })
 
 describe('modelPathOf', () => {
-  let tempDir = ''
-
-  afterAll(async () => {
-    await rm(tempDir, { recursive: true, force: true })
-  })
-
   it('answers the fixture location for a fixture slug', async () => {
-    tempDir = await buildRoot(['alpha-speaker'])
+    const tempDir = await buildRoot(['alpha-speaker'])
     expect(await modelPathOf(tempDir, 'alpha-speaker')).toBe(
       fixtureModelPathOf(tempDir, 'alpha-speaker'),
     )
@@ -79,8 +69,16 @@ describe('modelPathOf', () => {
     )
   })
 
+  it('refuses a slug the fixture set and the shipped set both hold', async () => {
+    const tempDir = await buildRoot(['alpha-speaker'])
+    await mkdir(path.join(tempDir, 'public', 'models', 'alpha-speaker'), { recursive: true })
+    await expect(modelPathOf(tempDir, 'alpha-speaker')).rejects.toThrow(
+      /'alpha-speaker' is a fixture product .* and a shipped product too/,
+    )
+  })
+
   it('answers the shipped location otherwise', async () => {
-    tempDir = await buildRoot([])
+    const tempDir = await buildRoot([])
     expect(await modelPathOf(tempDir, 'shipped-speaker')).toBe(
       path.join(tempDir, 'public', 'models', 'shipped-speaker', 'model.glb'),
     )

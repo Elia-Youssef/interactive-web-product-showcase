@@ -135,7 +135,7 @@ describe('the validate step on a planted product at the old aspect', () => {
       "storage-matches-pipeline: the POSITION of the mesh 'PART_knob' is stored as component type 5126, not normalized, the pipeline's 14-bit quantize stores normalized Int16",
       "storage-matches-pipeline: the POSITION of the mesh 'body-variants' is stored as component type 5126, not normalized, the pipeline's 14-bit quantize stores normalized Int16",
       "storage-matches-pipeline: the POSITION of the mesh 'shadow' is stored as component type 5126, not normalized, the pipeline's 14-bit quantize stores normalized Int16",
-      "storage-matches-pipeline: a translation output of the animation 'Explode' is stored with filter none, the pipeline's key filter is EXPONENTIAL at 12 bits",
+      "storage-matches-pipeline: the translation output of 'PART_base' in the animation 'Explode' is stored with filter NONE, the pipeline's key filter is EXPONENTIAL at 12 bits",
     ])
     expect(countViolations(validation)).toBe(8)
   })

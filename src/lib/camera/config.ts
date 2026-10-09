@@ -37,7 +37,8 @@ export const authoredCameraAspect: number =
 
 // The share of the half frame every side of the product keeps free, at the
 // authored aspect, at home: the authored home camera frames both poses of
-// the product, assembled and exploded, with this margin. The authoring
-// fits the home distance to it and the validate step holds the shipped
-// bytes against it, so a rule tuned in one place is tuned in both.
+// the product, assembled and exploded, with this margin. The validate step
+// holds the shipped bytes against it. The authoring side fits the home
+// distance to its own home fit margin, which a product's camera block may
+// raise, so a shipped home camera keeps at least this margin, never less.
 export const homeFitMargin = 0.06
