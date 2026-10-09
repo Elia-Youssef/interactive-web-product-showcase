@@ -5,6 +5,7 @@ import { installCanvasLifeEnvironment } from './canvasLifeEnvironment'
 import { useStageEnvironmentEntry } from './stageEnvironmentProvider'
 import { isStageRenderer } from './stageIdentity'
 import { useStageSettle } from './stageSettleContext'
+import { reportStageSettleFailure } from './reportStageSettleFailure'
 
 // The stage's lighting: the studio environment preprocessed into the PMREM
 // the node pipeline samples, on the scene for reflections only, never a
@@ -56,7 +57,9 @@ export function StageEnvironment() {
       if (cancelled) {
         return
       }
-      throw error
+      reportStageSettleFailure(error, (failure) => {
+        throw failure
+      })
     })
     return () => {
       cancelled = true

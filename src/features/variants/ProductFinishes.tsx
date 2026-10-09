@@ -4,6 +4,7 @@ import { useStageProbes } from '@viewer/automation/stageProbesContext'
 import { useLoadedProduct } from '@viewer/product/loadedProduct'
 import { useProductReadyGate } from '@viewer/product/productReadyGate'
 import { useStageSettle } from '@viewer/stageSettleContext'
+import { reportStageSettleFailure } from '@viewer/reportStageSettleFailure'
 import { createFinishApplier, type FinishApplier } from './finishApplier'
 
 // The finish controller of a loaded product: it owns one applier for the
@@ -49,7 +50,7 @@ export function ProductFinishes() {
   const applier = useRef<FinishApplier | null>(null)
   const [failure, setFailure] = useState<Error | null>(null)
   const fail = useCallback((error: Error) => {
-    setFailure((first) => first ?? error)
+    reportStageSettleFailure(error, (cause) => setFailure((first) => first ?? cause))
   }, [])
 
   useLayoutEffect(() => {
