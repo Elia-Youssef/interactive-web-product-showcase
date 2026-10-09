@@ -71,6 +71,28 @@ export async function waitForStageWarm(page: Page): Promise<void> {
     .toBe(true)
 }
 
+// The presents of one settle: a product's leave settles the stage like any
+// other scene mutation.
+const LEAVE_PRESENTS = 2
+
+function renderedFrames(page: Page): Promise<number> {
+  return page.evaluate(() => window.__viewer?.renderedFrames ?? 0)
+}
+
+// Takes the harness's product off the stage and waits for the leave to land:
+// the store's product is idle, and the stage has presented itself without
+// the product, so the engine let go of the frame callbacks it ran for it.
+export async function leaveProduct(page: Page): Promise<void> {
+  const framesBeforeLeave = await renderedFrames(page)
+  await page.getByTestId('remount-product').click()
+  await expect
+    .poll(() => page.evaluate(() => window.__viewer?.product), { timeout: productLoadBudgetMs })
+    .toBe('idle')
+  await expect
+    .poll(() => renderedFrames(page), { timeout: productLoadBudgetMs })
+    .toBeGreaterThanOrEqual(framesBeforeLeave + LEAVE_PRESENTS)
+}
+
 // The stage's memory probe reading: the renderer's resource counters with
 // their byte sizes, and the WebGL2 fallback's vertex array cache.
 export type RendererMemory = ViewerRendererMemory

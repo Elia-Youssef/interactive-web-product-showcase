@@ -36,6 +36,9 @@ type ProductPresentationProps = {
 // therefore means a presented product at its home view, never one whose
 // render pipelines may still be pending.
 //
+// The leave settles as well: the stage presents itself without the product
+// in the frames after it leaves.
+//
 // Both anticipated failures of the life reach the product's channel as
 // typed values: the camera rules the authored data breaks, with every
 // problem the plan computed, and a settle that rejects. Neither is thrown,
@@ -78,4 +81,17 @@ export function useProductPresentation({
       cancelled = true
     }
   }, [settleScene, report, fail, readyGate])
+
+  // The product leaving the stage is a scene mutation like any other, so
+  // its leave settles too: the stage presents itself without the product.
+  // Without that present the canvas keeps showing a product whose
+  // resources were released, and the engine's frame loop keeps the list of
+  // frame callbacks it ran last, the product's own among them, which holds
+  // the whole released product reachable until some later frame renders.
+  useEffect(
+    () => () => {
+      void settleScene()
+    },
+    [settleScene],
+  )
 }
