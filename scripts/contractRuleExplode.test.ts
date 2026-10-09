@@ -18,7 +18,7 @@ async function violationsOf(
   if (rule === undefined) {
     throw new Error(`the explode rules hold no ${key}`)
   }
-  return rule.check(await contractRuleInputOf(doc)).violations
+  return rule.check(contractRuleInputOf(doc)).violations
 }
 
 // The fixture clip's one sampler, to bend its times and keys.
@@ -33,9 +33,7 @@ function samplerOf(doc: ReturnType<typeof buildDocument>) {
 
 describe('the explode-group contract rules', () => {
   it('passes every rule on the valid document', async () => {
-    const input = await contractRuleInputOf(
-      buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }),
-    )
+    const input = contractRuleInputOf(buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }))
     for (const rule of explodeRules) {
       expect(rule.check(input), rule.key).toEqual({ violations: [], warnings: [] })
     }

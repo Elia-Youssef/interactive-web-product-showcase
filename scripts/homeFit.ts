@@ -1,11 +1,12 @@
 // The home fit (contract C5) as pure math: how much of the half frame a
 // pose keeps free around the product, seen through the authored home
-// camera, and how large a storage allowance the file's own precision can
-// spend before a pose that reads below the margin is still held. The
-// projection is the one the viewer rebuilds for a presented view: the
-// camera's stored ray and vertical fov, the authored aspect, vertical fit,
-// a roll-free basis over world up. Every function is exact: no tolerance
-// sits anywhere in the comparison.
+// camera, compared with the margin exactly. The points are the stored
+// vertices the viewer draws, so no allowance for the file's storage enters
+// the comparison: the authoring side folds the storage shift into its own
+// fit. The projection is the one the viewer rebuilds for a presented view:
+// the camera's stored ray and vertical fov, the authored aspect (any
+// positive width over height), vertical fit, a roll-free basis over world
+// up.
 
 import type { Vec3 } from '../src/lib/camera/frame.ts'
 import { dot, rollFreeBasisOf, sub, unitOf } from './viewBasis.ts'
@@ -74,66 +75,17 @@ export function frameExtentOf(
   }
 }
 
-// The nearest a pose's bounding-box corner comes to the camera plane along
-// the view direction: the box's eight corners over the pose's points, each
-// projected onto the camera's forward axis, the smallest depth taken.
-export function nearestCornerDepthOf(
-  points: readonly Vec3[],
-  cameraPosition: Vec3,
-  forward: Vec3,
-): number {
-  const f = unitOf(forward)
-  const min: [number, number, number] = [Infinity, Infinity, Infinity]
-  const max: [number, number, number] = [-Infinity, -Infinity, -Infinity]
-  for (const point of points) {
-    for (let axis = 0; axis < 3; axis += 1) {
-      min[axis] = Math.min(min[axis] ?? Infinity, point[axis] ?? Infinity)
-      max[axis] = Math.max(max[axis] ?? -Infinity, point[axis] ?? -Infinity)
-    }
-  }
-  let nearest = Infinity
-  for (const x of [min[0] ?? 0, max[0] ?? 0]) {
-    for (const y of [min[1] ?? 0, max[1] ?? 0]) {
-      for (const z of [min[2] ?? 0, max[2] ?? 0]) {
-        nearest = Math.min(nearest, dot(sub([x, y, z], cameraPosition), f))
-      }
-    }
-  }
-  return nearest
-}
-
-// The storage allowance of one pose, as a share of the half frame: a
-// position error of the given world size at the pose's nearest corner
-// depth reads as this much less free frame, in the form the authoring
-// side compares (free >= margin - allowance).
-export function allowanceShareOf(
-  worldError: number,
-  nearestDepth: number,
-  fovYRadians: number,
-): number {
-  if (nearestDepth <= 0) {
-    throw new Error('the nearest bounding-box corner is behind the camera plane')
-  }
-  return worldError / (nearestDepth * Math.sin(fovYRadians / 2))
-}
-
-// One pose the home view must hold: its name, its stored vertices, and the
-// world distance the file's own storage can move them by.
+// One pose the home view must hold: its name and its stored vertices.
 export type HomeFitPose = {
   readonly label: string
   readonly points: readonly Vec3[]
-  readonly worldError: number
 }
 
 // What the home fit answers for one pose: the free share it measures, the
-// storage allowance the pose spends, the nearest corner depth the allowance
-// reads through, the index of the binding point, and whether the pose
-// holds the margin beyond the allowance.
+// index of the binding point, and whether the pose keeps the margin.
 export type HomeFitVerdict = {
   readonly pose: string
   readonly free: number
-  readonly allowance: number
-  readonly nearestDepth: number
   readonly bindingPoint: number
   readonly holds: boolean
 }
@@ -149,7 +101,7 @@ export type PoseOutcome =
     }
 
 // Both poses' verdicts under one camera: the whole home fit in one pure
-// pass, compared exactly against the margin less each pose's allowance.
+// pass, each free share compared exactly against the margin.
 export function homeFitVerdictsOf(
   poses: readonly HomeFitPose[],
   cameraPosition: Vec3,
@@ -163,22 +115,24 @@ export function homeFitVerdictsOf(
     if (extent.kind !== 'extent') {
       return { kind: 'unprojectable', pose: pose.label, extent }
     }
-    const nearestDepth = nearestCornerDepthOf(pose.points, cameraPosition, forward)
-    const allowance = allowanceShareOf(pose.worldError, nearestDepth, fovYRadians)
     return {
       kind: 'verdict',
       pose: pose.label,
       free: extent.free,
-      allowance,
-      nearestDepth,
       bindingPoint: extent.bindingPoint,
-      holds: extent.free >= margin - allowance,
+      holds: extent.free >= margin,
     }
   })
 }
 
-// A value in a report at five decimals: the free shares and allowances
-// read against a 0.06 margin, so the noise one order below never shows.
-export function round5(value: number): number {
-  return Math.round(value * 100000) / 100000
+// The decimals that tell a measured share from the margin it is held to:
+// the fewest, from four up, at which the two no longer print alike, so a
+// pose short by a hundred-thousandth never reads as the margin itself.
+export function decimalsApart(value: number, margin: number): number {
+  for (let decimals = 4; decimals < 17; decimals += 1) {
+    if (value.toFixed(decimals) !== margin.toFixed(decimals)) {
+      return decimals
+    }
+  }
+  return 17
 }

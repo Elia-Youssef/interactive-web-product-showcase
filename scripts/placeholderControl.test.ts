@@ -17,7 +17,6 @@ import { homeFitReportOf, poseViolationOf } from './homeFitRule.ts'
 import { readHomeFitFacts } from './homeFitFacts.ts'
 import { loadParseProduct, readManifestFile } from './manifestIo.ts'
 import { createModelIO } from './modelIo.ts'
-import { deriveStorageBounds } from './storageBounds.ts'
 import { pipelinePositionGrid } from './storageGrid.ts'
 import { readPositionStorage, readTranslationOutputs } from './storageFacts.ts'
 import { readProductStructure } from './structure.ts'
@@ -46,7 +45,6 @@ async function controlInput(): Promise<ContractRuleInput> {
       positions: readPositionStorage(doc, await pipelinePositionGrid()),
       translationOutputs: await readTranslationOutputs(io, modelPath),
     },
-    storageBounds: await deriveStorageBounds(),
     contract: cameraContract,
   }
 }

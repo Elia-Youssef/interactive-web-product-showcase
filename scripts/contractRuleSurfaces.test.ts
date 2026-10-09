@@ -25,7 +25,7 @@ async function violationsOf(
   if (rule === undefined) {
     throw new Error(`the surface rules hold no ${key}`)
   }
-  return rule.check(await contractRuleInputOf(doc)).violations
+  return rule.check(contractRuleInputOf(doc)).violations
 }
 
 // A closed cube mesh grafted on a part: twelve triangles, every edge
@@ -67,9 +67,7 @@ function bodyVariantList(doc: ReturnType<typeof buildDocument>): MappingList {
 
 describe('the surface contract rules', () => {
   it('passes every rule on the valid document', async () => {
-    const input = await contractRuleInputOf(
-      buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }),
-    )
+    const input = contractRuleInputOf(buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }))
     for (const rule of surfaceRules) {
       expect(rule.check(input), rule.key).toEqual({ violations: [], warnings: [] })
     }

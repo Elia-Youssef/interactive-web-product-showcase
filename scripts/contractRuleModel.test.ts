@@ -20,14 +20,12 @@ async function violationsOf(
   if (rule === undefined) {
     throw new Error(`the model rules hold no ${key}`)
   }
-  return rule.check(await contractRuleInputOf(doc)).violations
+  return rule.check(contractRuleInputOf(doc)).violations
 }
 
 describe('the model-group contract rules', () => {
   it('passes every rule on the valid document', async () => {
-    const input = await contractRuleInputOf(
-      buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }),
-    )
+    const input = contractRuleInputOf(buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }))
     for (const rule of modelRules) {
       expect(rule.check(input), rule.key).toEqual({ violations: [], warnings: [] })
     }
@@ -35,7 +33,7 @@ describe('the model-group contract rules', () => {
 
   it('the storage rule reports a position stored another way than the pipeline stores it', async () => {
     const doc = buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] })
-    const input = await contractRuleInputOf(doc)
+    const input = contractRuleInputOf(doc)
     const rule = byKey.get('storage-matches-pipeline')
     if (rule === undefined) {
       throw new Error('the model rules hold no storage-matches-pipeline')
@@ -60,9 +58,7 @@ describe('the model-group contract rules', () => {
     if (rule === undefined) {
       throw new Error('the model rules hold no storage-matches-pipeline')
     }
-    const input = await contractRuleInputOf(
-      buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }),
-    )
+    const input = contractRuleInputOf(buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }))
     expect(
       rule.check({
         ...input,
@@ -87,9 +83,7 @@ describe('the model-group contract rules', () => {
     if (rule === undefined) {
       throw new Error('the model rules hold no storage-matches-pipeline')
     }
-    const input = await contractRuleInputOf(
-      buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }),
-    )
+    const input = contractRuleInputOf(buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }))
     expect(
       rule.check({
         ...input,

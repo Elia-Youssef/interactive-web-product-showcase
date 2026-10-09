@@ -3,7 +3,7 @@
 // minimum's cause (a warning: an authored value the default limits never
 // needed is a tolerance with no product cause), and the home fit: the
 // stored home camera holds both poses of the product with the contract
-// margin, beyond what the file's own storage can move.
+// margin, exactly, on the stored bytes.
 
 import type { Vec3 } from '../src/lib/camera/frame.ts'
 import { homeFitReportOf, homeFitViolationsOf } from './homeFitRule.ts'
