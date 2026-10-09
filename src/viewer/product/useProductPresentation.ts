@@ -73,6 +73,7 @@ export function useProductPresentation({
     let cancelled = false
     const isCancelled = (): boolean => cancelled
     void reportSettledProduct({
+      outcome: 'ready',
       settle: settleWhenReady({ gate: readyGate, settle: settleScene, isCancelled }),
       report,
       fail,

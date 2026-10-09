@@ -14,10 +14,11 @@ import { ProductBoundary } from './ProductBoundary'
 import { ProductContent } from './ProductContent'
 import { enterProductLife } from './productLife'
 import { useProductModel } from './useProductModel'
+import { useProductFailureReport } from './useProductFailureReport'
 
 type ProductProps = {
   readonly manifest: Product
-  // Told once the life's load has settled, presented or failed, for the
+  // Told once the stage has settled, with presented or failed content, for the
   // owner that sequences what the stage shows. A life reports to the owner
   // that mounted it, so a report can never be mistaken for another life's.
   readonly onSettled?: (outcome: ProductSettleOutcome) => void
@@ -57,9 +58,8 @@ export function Product({ manifest, onSettled, children }: ProductProps) {
   const fail = useCallback(
     (failure: ProductFailure) => {
       productFailed(slug, failure)
-      onSettled?.('failed')
     },
-    [productFailed, slug, onSettled],
+    [productFailed, slug],
   )
   const ready = useCallback(
     (rig: ProductRigSummary, model: ProductModelCounts) => {
@@ -79,6 +79,7 @@ export function Product({ manifest, onSettled, children }: ProductProps) {
   // hold starts in the commit that mounts the life, so a load the stage
   // leaves mid-flight is never held by nobody.
   const model = useProductModel(productModelUrl(slug), presentable)
+  useProductFailureReport(failed, onSettled)
 
   return (
     <ProductBoundary fail={fail}>
