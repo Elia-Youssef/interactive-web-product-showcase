@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
-import type { Product, ProductFailure } from '@lib/product'
-import { useAppStore } from '@store/index'
+import type { Product, ProductFailure, ProductModelCounts, ProductRigSummary } from '@lib/product'
 import { measureModelFrame } from '../modelFrame'
 import { ProductLook } from '../look/ProductLook'
 import { ShadowOpacityContext } from '../look/shadowOpacityContext'
@@ -23,6 +22,8 @@ type PresentedProductProps = {
   readonly finishes: ProductFinishMaterials
   // The product's failure channel, for the failures of the presentation.
   readonly fail: (failure: ProductFailure) => void
+  // The product's ready report, with the rig summary and the model counts.
+  readonly ready: (rig: ProductRigSummary, model: ProductModelCounts) => void
   // The product's extensions, mounted with the presented product.
   readonly children?: ReactNode
 }
@@ -39,10 +40,9 @@ export function PresentedProduct({
   rig,
   finishes,
   fail,
+  ready,
   children,
 }: PresentedProductProps) {
-  const slug = manifest.slug
-  const productReady = useAppStore((state) => state.productReady)
   // The shadow opacity's per-product slot, one per presented product like
   // the loaded product itself: the look installs its owner into it and the
   // features that fade the shadow claim their factor through it.
@@ -61,8 +61,8 @@ export function PresentedProduct({
   const frame = useMemo(() => measureModelFrame(model.scene), [model.scene])
 
   const report = useCallback(() => {
-    productReady(slug, summary, { meshes: frame.meshes, triangles: frame.triangles })
-  }, [productReady, slug, summary, frame])
+    ready(summary, { meshes: frame.meshes, triangles: frame.triangles })
+  }, [ready, summary, frame])
 
   useProductPresentation({ rig, manifest, frame, report, fail, readyGate })
 

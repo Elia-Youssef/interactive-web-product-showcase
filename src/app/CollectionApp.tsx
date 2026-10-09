@@ -41,8 +41,12 @@ export function CollectionApp({ manifests }: CollectionAppProps) {
 // rendered. The switch on the resolved page kind is the only place where
 // the page tree changes shape: a product page and the not-found page
 // really are different pages, so a move between them remounts the page
-// and its stage. A move inside one kind, the root's replace included,
-// renders the same tree, so nothing remounts under a redirect.
+// and its stage. The not-found page shows no product, so no renderer is
+// kept alive behind it, and a move back to a product starts a fresh stage
+// the way a deep link does. A move inside one kind, the root's replace
+// included, renders the same tree: between products the one product page
+// stays mounted and its product switch runs the move, so nothing remounts
+// under a redirect or a product switch.
 function RoutedCollection({ collection }: { readonly collection: ProductCollection }) {
   const route = parseRoute(useRoutePath())
 

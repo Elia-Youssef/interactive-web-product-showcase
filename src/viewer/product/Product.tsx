@@ -1,5 +1,12 @@
 import { Suspense, useCallback, useEffect, useSyncExternalStore, type ReactNode } from 'react'
-import { productModelUrl, type Product, type ProductFailure } from '@lib/product'
+import {
+  productModelUrl,
+  type Product,
+  type ProductFailure,
+  type ProductModelCounts,
+  type ProductRigSummary,
+} from '@lib/product'
+import type { ProductSettleOutcome } from '@lib/product-switch'
 import { selectProductFailed, useAppStore } from '@store/index'
 import { useStageOverlay } from '../overlay/stageOverlayContext'
 import { useStageFramePath } from '../stageFrameContext'
@@ -10,6 +17,10 @@ import { useProductModel } from './useProductModel'
 
 type ProductProps = {
   readonly manifest: Product
+  // Told once the life's load has settled, presented or failed, for the
+  // owner that sequences what the stage shows. A life reports to the owner
+  // that mounted it, so a report can never be mistaken for another life's.
+  readonly onSettled?: (outcome: ProductSettleOutcome) => void
   // The features that extend the loaded product (finishes, hotspots, the
   // exploded view): mounted with it and reading it through
   // useLoadedProduct, so the composition decides which features a product
@@ -28,9 +39,10 @@ type ProductProps = {
 // there is no branded loader yet, and around it sits the product's own
 // error boundary, for programming errors only; it reports them to the same
 // channel, so even those fail the product, never the renderer.
-export function Product({ manifest, children }: ProductProps) {
+export function Product({ manifest, onSettled, children }: ProductProps) {
   const slug = manifest.slug
   const productLoad = useAppStore((state) => state.productLoad)
+  const productReady = useAppStore((state) => state.productReady)
   const productReset = useAppStore((state) => state.productReset)
   const productFailed = useAppStore((state) => state.productFailed)
   const failed = useAppStore((state) => selectProductFailed(state, slug))
@@ -43,8 +55,18 @@ export function Product({ manifest, children }: ProductProps) {
   )
 
   const fail = useCallback(
-    (failure: ProductFailure) => productFailed(slug, failure),
-    [productFailed, slug],
+    (failure: ProductFailure) => {
+      productFailed(slug, failure)
+      onSettled?.('failed')
+    },
+    [productFailed, slug, onSettled],
+  )
+  const ready = useCallback(
+    (rig: ProductRigSummary, model: ProductModelCounts) => {
+      productReady(slug, rig, model)
+      onSettled?.('ready')
+    },
+    [productReady, slug, onSettled],
   )
   // A canvas whose renderer is retired never takes new content: the stage
   // replaces it with a fresh canvas once this life has started, and the
@@ -62,7 +84,7 @@ export function Product({ manifest, children }: ProductProps) {
     <ProductBoundary fail={fail}>
       {presentable && model !== null && (
         <Suspense fallback={null}>
-          <ProductContent manifest={manifest} model={model} fail={fail}>
+          <ProductContent manifest={manifest} model={model} fail={fail} ready={ready}>
             {children}
           </ProductContent>
         </Suspense>

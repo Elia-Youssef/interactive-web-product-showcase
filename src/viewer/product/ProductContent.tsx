@@ -1,5 +1,5 @@
 import { use, useMemo, type ReactNode } from 'react'
-import type { Product, ProductFailure } from '@lib/product'
+import type { Product, ProductFailure, ProductModelCounts, ProductRigSummary } from '@lib/product'
 import { ProductFailureReport } from './ProductFailureReport'
 import { PresentedProduct } from './PresentedProduct'
 import { openProduct } from './productOutcomes'
@@ -12,6 +12,9 @@ type ProductContentProps = {
   // The product's failure channel: every anticipated failure of the load,
   // the rig and the presentation reaches it as a typed value.
   readonly fail: (failure: ProductFailure) => void
+  // The product's ready report, fired once the presented product is on a
+  // settled stage.
+  readonly ready: (rig: ProductRigSummary, model: ProductModelCounts) => void
   // The product's extensions, mounted once the product is presented.
   readonly children?: ReactNode
 }
@@ -22,7 +25,7 @@ type ProductContentProps = {
 // load or breaks the contract reaches the product's channel as a typed
 // failure and nothing is thrown into the render. An opened model is
 // handed to the presentation.
-export function ProductContent({ manifest, model, fail, children }: ProductContentProps) {
+export function ProductContent({ manifest, model, fail, ready, children }: ProductContentProps) {
   // The held entry is the same object on every render while it is live, so
   // the suspension resumes on the very promise it suspended on.
   const load = use(model.value)
@@ -38,6 +41,7 @@ export function ProductContent({ manifest, model, fail, children }: ProductConte
       rig={opened.rig}
       finishes={opened.finishes}
       fail={fail}
+      ready={ready}
     >
       {children}
     </PresentedProduct>
