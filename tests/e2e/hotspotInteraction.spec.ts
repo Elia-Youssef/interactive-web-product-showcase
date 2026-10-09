@@ -1,6 +1,6 @@
 import { expect, test } from './fixtures'
 import { testBodyBudgetMs, testBudgetMs } from './budgets'
-import { harnessPath, waitForProductReady } from './productSpecs'
+import { harnessPath, harnessProducts, shippedProducts, waitForProductReady } from './productSpecs'
 import { settledFrames } from './stageSettle'
 import { renderedFrames } from './stageCamera'
 import {
@@ -39,9 +39,8 @@ function pulseStartTimes(page: Parameters<typeof markerOf>[0], title: string): P
 // replays and reduced motion never shows. The open card and its camera
 // close-up live in hotspotFlow.spec.ts.
 
-const facts = await flowFacts()
-const { flows, factsBySlug } = facts
-const applicationPlains = applicationPlainSubjects(facts)
+const { flows, factsBySlug } = await flowFacts(await harnessProducts())
+const applicationPlains = applicationPlainSubjects(await flowFacts(await shippedProducts()))
 
 // The pulse proof's round trip passes the hiding view of the subject the
 // selection resolved at collection, where the title names the hotspot: a
@@ -58,9 +57,9 @@ for (const flow of flows) {
   // and one with, whose opening moves the camera. No product is required to
   // carry both kinds; the subject selection fails at collection when the
   // whole set lacks one.
-  const plain = applicationPlains.plainOf(flow)
-  const closeUp = flow.subject.closeUps[0]
   const slug = product.slug
+  const plain = applicationPlains.plainOf(slug)
+  const closeUp = flow.subject.closeUps[0]
   const occluded = occlusionSubjects.get(slug)
 
   if (plain !== undefined) {

@@ -5,7 +5,6 @@ import { readProductHotspotFacts, type ProductHotspotFacts } from './productHots
 import { markerViewsOf, type MarkerStage, type MarkerViews } from './productMarkerViews'
 import { harnessStageBox } from './e2eViewport'
 import { readMarkerExtentTokens } from './markerExtentTokens'
-import { harnessProducts } from './productSpecs'
 import { resolvedDistanceRange, viewExpectation } from './stageCamera'
 import { selectFlowSubjects, type FlowSubject } from './flowSubjects'
 import { cardCloseButtonOf, harnessCanvasDrivePoint, markerOf } from './hotspotViews'
@@ -16,12 +15,13 @@ import { cardCloseButtonOf, harnessCanvasDrivePoint, markerOf } from './hotspotV
 // (selectFlowSubjects, which fails at collection when the whole set
 // carries no close-up hotspot, no plain hotspot or no switch whose camera
 // moves), so each test runs for every product that has what it drives.
-// The set is the test set by default, as the harness specs drive it; a
-// spec that drives the site's own pages passes the shipped collection's
-// products, since a fixture product has no site route. The camera flow
-// (open, switch, close) lives in hotspotFlow.spec.ts, the card itself
-// (follow, hide, leave, reduced motion, rest) in hotspotCard.spec.ts,
-// both over these facts.
+// The product set is a required argument, so every spec chooses it: a spec
+// that drives the harness page passes harnessProducts() (the shipped
+// collection plus the fixture products), and a spec that drives the site's
+// own pages passes shippedProducts(), since a fixture product has no site
+// route. The camera flow (open, switch, close) lives in
+// hotspotFlow.spec.ts, the card itself (follow, hide, leave, reduced
+// motion, rest) in hotspotCard.spec.ts, both over these facts.
 
 // The view expectations of one product's views at one stage aspect: the
 // home view, and any authored view the specs read a hotspot's close-up
@@ -44,8 +44,7 @@ export type FlowFacts = {
   readonly markerViewsAt: (box: MarkerStage['box']) => ReadonlyMap<string, MarkerViews>
 }
 
-export async function flowFacts(productsOverride?: readonly Product[]): Promise<FlowFacts> {
-  const products = productsOverride ?? (await harnessProducts())
+export async function flowFacts(products: readonly Product[]): Promise<FlowFacts> {
   const viewFactsBySlug = new Map<string, ProductCameraFacts>()
   const factsBySlug = new Map<string, ProductHotspotFacts>()
   for (const product of products) {

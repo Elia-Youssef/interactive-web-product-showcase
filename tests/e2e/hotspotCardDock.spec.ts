@@ -2,7 +2,7 @@ import { expect, test } from './fixtures'
 import type { Page } from '@playwright/test'
 import { siteCopy } from '../../src/lib/copy/site'
 import { expectProduct, productPathOf } from './collectionFacts'
-import { loadCollection } from './productList'
+import { shippedProducts } from './productSpecs'
 import { settledFrames } from './stageSettle'
 import { expectOrbitAtRest, readCamera, stageAspectOfCanvas } from './stageCamera'
 import { cardHeadingOf, markerOf } from './hotspotViews'
@@ -25,7 +25,7 @@ import {
 // Each routed product runs the cases its authored views and visible markers
 // support.
 
-const { flowsAt, markerViewsAt } = await flowFacts((await loadCollection()).products)
+const { flowsAt, markerViewsAt } = await flowFacts(await shippedProducts())
 const dockingLayouts = viewportContracts.filter((contract) => contract.hotspotCard === 'docks')
 
 for (const contract of dockingLayouts) {

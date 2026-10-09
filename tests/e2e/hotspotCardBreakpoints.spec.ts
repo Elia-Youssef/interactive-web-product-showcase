@@ -1,7 +1,7 @@
 import { expect, test } from './fixtures'
 import type { Page } from '@playwright/test'
 import { expectProduct, productPathOf } from './collectionFacts'
-import { loadCollection } from './productList'
+import { shippedProducts } from './productSpecs'
 import { settledFrames } from './stageSettle'
 import { cardHeadingOf, markerOf } from './hotspotViews'
 import { flowFacts } from './hotspotFlowFacts'
@@ -16,7 +16,7 @@ import { expectCardWhereTheLayoutPutsIt } from './hotspotCardOracle'
 // plain hotspot keeps the camera at home, so only the layout moves. Every
 // routed product with a plain hotspot runs the same layout transition.
 
-const { flows } = await flowFacts((await loadCollection()).products)
+const { flows } = await flowFacts(await shippedProducts())
 
 const floating = viewportContracts.find((contract) => contract.hotspotCard === 'floats')
 const docking = viewportContracts.find((contract) => contract.hotspotCard === 'docks')

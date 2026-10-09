@@ -1,5 +1,6 @@
 import { expect, test } from './fixtures'
 import { expectProduct, productPathOf } from './collectionFacts'
+import { shippedProducts } from './productSpecs'
 import { settledFrames } from './stageSettle'
 import { flowFacts } from './hotspotFlowFacts'
 import { decodePng } from './imageInk'
@@ -109,7 +110,7 @@ function luminanceOfHex(hex: string): number {
   return luminanceOf((value >> 16) & 0xff, (value >> 8) & 0xff, value & 0xff)
 }
 
-const { flows } = await flowFacts()
+const { flows } = await flowFacts(await shippedProducts())
 
 for (const flow of flows) {
   const { product } = flow.subject

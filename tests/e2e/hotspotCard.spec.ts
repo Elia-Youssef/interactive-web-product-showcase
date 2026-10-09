@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures'
-import { expectPoll, harnessPath, waitForProductReady } from './productSpecs'
+import { expectPoll, harnessPath, harnessProducts, waitForProductReady } from './productSpecs'
 import { productLoadBudgetMs, testBudgetMs } from './budgets'
 import { dragOnCanvas } from './stageCamera'
 import { settledFrames } from './stageSettle'
@@ -30,7 +30,7 @@ import { flowFacts } from './hotspotFlowFacts'
 // it drives. The camera flow (open, switch, close) lives in
 // hotspotFlow.spec.ts, over the same facts module.
 
-const { flows, factsBySlug } = await flowFacts()
+const { flows, factsBySlug } = await flowFacts(await harnessProducts())
 
 // The follow test's hiding half opens the occludable hotspot's card, so the
 // subjects are resolved at collection, where the test's title names the

@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures'
-import { harnessPath, waitForProductReady } from './productSpecs'
+import { harnessPath, harnessProducts, waitForProductReady } from './productSpecs'
 import { settledFrames } from './stageSettle'
 import {
   harnessCanvasDrivePoint,
@@ -19,7 +19,7 @@ import { dragOnCanvas } from './stageCamera'
 // is equality, at rest and after an orbit drag, which turns the camera
 // around the target and never moves it.
 
-const { flows } = await flowFacts()
+const { flows } = await flowFacts(await harnessProducts())
 
 for (const flow of flows) {
   const slug = flow.subject.product.slug

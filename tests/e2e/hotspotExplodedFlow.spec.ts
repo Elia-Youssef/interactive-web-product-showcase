@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from './fixtures'
-import { harnessPath, waitForProductReady } from './productSpecs'
+import { harnessPath, harnessProducts, shippedProducts, waitForProductReady } from './productSpecs'
 import { settledFrames } from './stageSettle'
 import { waitForExplodeRestingAt } from './explodeRest'
 import {
@@ -12,7 +12,6 @@ import {
   requireCamera,
 } from './hotspotViews'
 import { flowFacts, type HotspotFlow } from './hotspotFlowFacts'
-import { loadCollection } from './productList'
 import { siteCopy } from '../../src/lib/copy/site'
 import { formatProductPath } from '../../src/lib/routing'
 import {
@@ -36,12 +35,12 @@ import {
 // the orbit angles of a move at rest sit within the controls' rest
 // threshold of the view (expectOrbitAtRest, which cites it).
 
-const { flows } = await flowFacts()
+const { flows } = await flowFacts(await harnessProducts())
 
 // The Reset case drives the product page's own chrome, which only a routed
 // product presents: the fixture products run the spec's harness cases and
 // the routed ones run this case too.
-const routedSlugs = new Set((await loadCollection()).products.map((product) => product.slug))
+const routedSlugs = new Set((await shippedProducts()).map((product) => product.slug))
 
 for (const flow of flows) {
   const { product } = flow.subject

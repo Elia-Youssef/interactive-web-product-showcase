@@ -1,6 +1,12 @@
 import { productLoadBudgetMs } from './budgets'
 import { expect, test } from './fixtures'
-import { harnessPath, expectPoll, waitForProductReady } from './productSpecs'
+import {
+  harnessPath,
+  harnessProducts,
+  expectPoll,
+  shippedProducts,
+  waitForProductReady,
+} from './productSpecs'
 import { dragOnCanvas, expectLensAtRest, expectOrbitAtRest, renderedFrames } from './stageCamera'
 import { settledFrames } from './stageSettle'
 import { applicationPlainSubjects } from './applicationPlainSubjects'
@@ -31,16 +37,15 @@ import {
 // card itself, its leaving and reduced motion live in hotspotCard.spec.ts,
 // over the same facts module.
 
-const facts = await flowFacts()
-const { flows } = facts
-const applicationPlains = applicationPlainSubjects(facts)
+const { flows } = await flowFacts(await harnessProducts())
+const applicationPlains = applicationPlainSubjects(await flowFacts(await shippedProducts()))
 
 for (const flow of flows) {
   const { product } = flow.subject
   const slug = product.slug
   const closeUp = flow.subject.closeUps[0]
   const plain = flow.subject.plains[0]
-  const appPlain = applicationPlains.plainOf(flow)
+  const appPlain = applicationPlains.plainOf(slug)
 
   const pressSubject = closeUp ?? plain
   if (pressSubject !== undefined) {

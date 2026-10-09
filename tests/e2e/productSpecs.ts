@@ -1,7 +1,7 @@
 import { expect, type Page } from '@playwright/test'
 import type { Product } from '../../src/lib/product'
 import { productLoadBudgetMs } from './budgets'
-import { loadTestCollection } from './productList'
+import { loadCollection, loadTestCollection } from './productList'
 import { resolveE2ETier, sampleProducts } from './tiers'
 
 export { productLoadBudgetMs }
@@ -12,9 +12,15 @@ export { productLoadBudgetMs }
 // exactly as the runtime sees it. The specs register per product from this
 // list; a fixture product that joins tests/fixtures/products is under test
 // without a change here, and a spec driving the site's own pages reads the
-// shipped set alone (productList.loadCollection).
+// shipped set alone (shippedProducts below).
 export async function harnessProducts(): Promise<readonly Product[]> {
   return (await loadTestCollection()).products
+}
+
+// The shipped collection's products alone, the set a spec driving the site's
+// own pages (productPathOf) reads: a fixture product has no site route.
+export async function shippedProducts(): Promise<readonly Product[]> {
+  return (await loadCollection()).products
 }
 
 // The products a product independent spec covers: a sample of the shipped
