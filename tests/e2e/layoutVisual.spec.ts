@@ -1,7 +1,7 @@
 import { expect, test } from './fixtures'
 import { siteCopy } from '../../src/lib/copy/site'
 import { formatProductCounter } from '../../src/lib/product'
-import { expectProduct, productPathOf } from './collectionFacts'
+import { expectProduct, openIndexAtRest, productPathOf } from './collectionFacts'
 import { loadCollection } from './productList'
 import { productLoadBudgetMs } from './productSpecs'
 import { viewportContracts } from './layoutContracts'
@@ -58,9 +58,10 @@ for (const spec of viewportContracts) {
     await page.setViewportSize({ width: spec.width, height: spec.height })
     await page.goto(productPathOf(backendPath, collection.first))
     await expectProduct(page, collection.first)
-    await page.getByRole('button', { name: siteCopy.openIndexLabel }).click()
-    const dialog = page.getByRole('dialog', { name: siteCopy.indexLabel })
-    await expect(dialog).toBeVisible()
+    // The index opens over the page at rest: the open never scrolls the
+    // panel to its counter first, and the scroll offsets are pinned across
+    // it, so the shot is the page every viewport lands on.
+    const dialog = await openIndexAtRest(page)
     await expect(dialog.getByRole('link')).toHaveCount(collection.products.length)
     await expectSettledStageScreenshot(page, `collection-index-${spec.width}x${spec.height}.png`)
   })

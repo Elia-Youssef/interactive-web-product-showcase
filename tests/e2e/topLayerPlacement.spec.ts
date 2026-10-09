@@ -1,7 +1,6 @@
 import { expect, test } from './fixtures'
 import type { Page } from '@playwright/test'
-import { siteCopy } from '../../src/lib/copy/site'
-import { expectProduct, productPathOf } from './collectionFacts'
+import { expectProduct, openIndexAtRest, productPathOf } from './collectionFacts'
 import { loadCollection } from './productList'
 import { viewportContracts } from './layoutContracts'
 
@@ -49,9 +48,7 @@ for (const contract of viewportContracts) {
     await page.goto(productPathOf(backendPath, collection.first))
     await expectProduct(page, collection.first)
 
-    await page.getByRole('button', { name: siteCopy.openIndexLabel }).dispatchEvent('click')
-    const dialog = page.getByRole('dialog', { name: siteCopy.indexLabel })
-    await expect(dialog).toBeVisible()
+    const dialog = await openIndexAtRest(page)
     await expectCentered(page, await dialog.boundingBox(), 'the index dialog')
   })
 
