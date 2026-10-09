@@ -12,6 +12,7 @@ import {
   requireCamera,
 } from './hotspotViews'
 import { flowFacts, type HotspotFlow } from './hotspotFlowFacts'
+import { loadCollection } from './productList'
 import { siteCopy } from '../../src/lib/copy/site'
 import { formatProductPath } from '../../src/lib/routing'
 import {
@@ -36,6 +37,11 @@ import {
 // threshold of the view (expectOrbitAtRest, which cites it).
 
 const { flows } = await flowFacts()
+
+// The Reset case drives the product page's own chrome, which only a routed
+// product presents: the fixture products run the spec's harness cases and
+// the routed ones run this case too.
+const routedSlugs = new Set((await loadCollection()).products.map((product) => product.slug))
 
 for (const flow of flows) {
   const { product } = flow.subject
@@ -129,6 +135,10 @@ for (const flow of flows) {
       page,
       backendPath,
     }) => {
+      test.skip(
+        !routedSlugs.has(slug),
+        'Reset is the product page chrome: it runs on routed products',
+      )
       // The stage controls that carry Reset are the product page's chrome.
       await page.goto(formatProductPath(slug) + new URL(backendPath, 'https://app.invalid').search)
       await waitForProductReady(page)
