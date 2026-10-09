@@ -89,6 +89,8 @@ export type StageProbeReads = {
   hotspots: ViewerHotspotsAutomation
   overlay: ViewerOverlay
   explode: ViewerExplode
+  loads: ViewerLoads
+  memory: ViewerRendererMemory
 }
 
 export type StageProbeKey = keyof StageProbeReads
@@ -155,6 +157,33 @@ export type ViewerExplode = {
   readonly target: number
   readonly moving: boolean
   readonly parts: Readonly<Record<string, ViewerExplodePart>>
+}
+
+// The model loads of the stage's renderer: the model URL of every live
+// load, the model files read ahead, and how many loads the stage has
+// released while they were still running, whose resources are released the
+// moment each settles. Read from the stage's loads at access time.
+export type ViewerLoads = {
+  readonly models: readonly string[]
+  readonly bytes: readonly string[]
+  readonly settling: number
+}
+
+// The live renderer's own memory counters: the geometries, attributes,
+// index attributes and textures it holds on the GPU right now, each with
+// the bytes it counts for them, plus the entries of the WebGL2 fallback's
+// vertex array cache, the one resource class those counters do not count.
+// Read from the renderer at access time; the cache reads null where the
+// renderer runs on WebGPU and has none.
+export type ViewerRendererMemory = {
+  readonly geometries: number
+  readonly textures: number
+  readonly textureBytes: number
+  readonly attributes: number
+  readonly attributeBytes: number
+  readonly indexAttributes: number
+  readonly indexAttributeBytes: number
+  readonly vaoCache: number | null
 }
 
 // The probe-backed fields of the automation: one entry per stage probe key,
@@ -288,6 +317,14 @@ class StageViewerAutomation implements ViewerAutomation {
 
   get explode(): ViewerExplode | null {
     return this.#sources.probes.read('explode')
+  }
+
+  get loads(): ViewerLoads | null {
+    return this.#sources.probes.read('loads')
+  }
+
+  get memory(): ViewerRendererMemory | null {
+    return this.#sources.probes.read('memory')
   }
 }
 

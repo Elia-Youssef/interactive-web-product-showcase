@@ -32,6 +32,8 @@ export class StageProbes {
     hotspots: null,
     overlay: null,
     explode: null,
+    loads: null,
+    memory: null,
   }
 
   // Holds a reader for the key, for as long as the calling component's

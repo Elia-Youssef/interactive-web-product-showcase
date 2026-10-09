@@ -7,8 +7,10 @@ import type {
   ViewerExplode,
   ViewerFinish,
   ViewerHotspotsAutomation,
+  ViewerLoads,
   ViewerLook,
   ViewerOverlay,
+  ViewerRendererMemory,
 } from './viewerAutomation'
 import { createViewerAutomation, type ViewerAutomationSources } from './viewerAutomation'
 import {
@@ -64,6 +66,23 @@ const explode: ViewerExplode = {
   parts: { PART_base: { x: 0, y: 0.4, z: 0 } },
 }
 
+const loads: ViewerLoads = {
+  models: ['/models/forma-one/model.glb'],
+  bytes: ['/models/orsa-kvern/model.glb'],
+  settling: 1,
+}
+
+const memory: ViewerRendererMemory = {
+  geometries: 41,
+  textures: 17,
+  textureBytes: 9_000_000,
+  attributes: 120,
+  attributeBytes: 1_200_000,
+  indexAttributes: 41,
+  indexAttributeBytes: 600_000,
+  vaoCache: null,
+}
+
 const rig: ProductRigSummary = {
   parts: ['PART_base'],
   hotspots: [],
@@ -85,6 +104,8 @@ function sourcesWith(overrides?: Partial<ViewerAutomationSources>): ViewerAutoma
   probes.register('hotspots', () => hotspots)
   probes.register('overlay', () => overlay)
   probes.register('explode', () => explode)
+  probes.register('loads', () => loads)
+  probes.register('memory', () => memory)
   return {
     probes,
     getStatus: () => readyRenderer,
@@ -105,6 +126,8 @@ describe('createViewerAutomation', () => {
     expect(automation.hotspots).toEqual(hotspots)
     expect(automation.overlay).toEqual(overlay)
     expect(automation.explode).toEqual(explode)
+    expect(automation.loads).toEqual(loads)
+    expect(automation.memory).toEqual(memory)
   })
 
   it('reads null for a probe key no component holds', () => {
@@ -116,6 +139,8 @@ describe('createViewerAutomation', () => {
     expect(automation.hotspots).toBeNull()
     expect(automation.overlay).toBeNull()
     expect(automation.explode).toBeNull()
+    expect(automation.loads).toBeNull()
+    expect(automation.memory).toBeNull()
   })
 
   it('reads a probe registered after the automation was created', () => {
