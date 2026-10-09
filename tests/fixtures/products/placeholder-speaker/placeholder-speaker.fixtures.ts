@@ -1,9 +1,13 @@
-// The placeholder speaker's manifest: the words the site shows for
-// public/models/placeholder-speaker/model.glb. The file holds data only and
-// its one import is a type, so the validate step loads it with plain Node.
+// The placeholder speaker's manifest: the words the site shows for this
+// fixture product's model.glb beside this file. The file holds data only
+// and its one import is a type, so the Node-side readers load it with plain
+// Node. The speaker is test-only fixture data: it is the one product with
+// both a plain hotspot and an occlusion subject, which the card follow
+// proof drives, and the one real model with an authored camera minimum,
+// which the camera validate suite reads. It never enters the shipped set,
+// so the site, the build and the validate step present four products.
 //
-// The speaker holds a slot of the collection until the launch set ships:
-// the copy is deliberately neutral and names itself as a sample.
+// The copy is deliberately neutral and names itself as a sample.
 import type { ProductInput } from '@lib/product'
 
 export const manifest = {

@@ -13,6 +13,7 @@ import {
 import { authoredCameraAspect } from '../src/lib/camera/config.ts'
 import { cameraContractProblems } from '../src/lib/camera/contract.ts'
 import { viewPivotOf } from '../src/lib/camera/pivot.ts'
+import { pngBytes } from './texture.fixtures.ts'
 import type { CameraContract } from './manifestIo.ts'
 
 // The camera contract the check suites run, as the real module export: one
@@ -148,18 +149,29 @@ function addVariants(doc: Document, names: readonly string[]): void {
   const primitive = doc.createPrimitive()
   primitive.setAttribute('POSITION', vec3Accessor(doc, [0, 0, 0, 2, 0, 0, 0, 2, 0, 2, 2, 0]))
   primitive.setIndices(quadIndices(doc))
+  // The one occlusion image every lit material samples, through the second
+  // UV set: the contract's occlusion rule, so the default document is its
+  // passing case like every other rule's. The image bytes are a valid
+  // minimal PNG, so a write and read back of the document keeps the slot.
+  const occlusion = doc.createTexture('T_ao').setMimeType('image/png').setImage(pngBytes(4, 4))
   const mappingList: MappingList = variants.createMappingList()
   for (const name of names) {
     const variant = variants.createVariant(name)
     const mapping = variants.createMapping()
-    mapping.setMaterial(doc.createMaterial(`body-${name}`))
+    const material = doc.createMaterial(`body-${name}`).setOcclusionTexture(occlusion)
+    material.getOcclusionTextureInfo()?.setTexCoord(1)
+    mapping.setMaterial(material)
     mapping.addVariant(variant)
     mappingList.addMapping(mapping)
   }
   primitive.setExtension('KHR_materials_variants', mappingList)
   // The assigned material is the first declared finish, the default the
   // panel names when nothing is selected.
-  primitive.setMaterial(doc.createMaterial(`body-${names[0] ?? 'default'}`))
+  const defaultMaterial = doc
+    .createMaterial(`body-${names[0] ?? 'default'}`)
+    .setOcclusionTexture(occlusion)
+  defaultMaterial.getOcclusionTextureInfo()?.setTexCoord(1)
+  primitive.setMaterial(defaultMaterial)
   mesh.addPrimitive(primitive)
   addSceneNode(doc, doc.createNode('PART_body').setMesh(mesh))
 }

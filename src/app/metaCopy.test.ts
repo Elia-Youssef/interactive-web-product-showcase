@@ -3,7 +3,6 @@ import { parseProduct } from '@lib/product'
 import { manifest as fjorTast } from '@products/fjor-tast.manifest'
 import { manifest as formaOne } from '@products/forma-one.manifest'
 import { manifest as orsaKvern } from '@products/orsa-kvern.manifest'
-import { manifest as placeholderSpeaker } from '@products/placeholder-speaker.manifest'
 import { manifest as viddeSpak } from '@products/vidde-spak.manifest'
 import { productMetaSet, siteMetaSet } from '@lib/copy/meta'
 import { siteCopy } from '@lib/copy/site'
@@ -75,7 +74,20 @@ describe('productMetaSet', () => {
   }
 
   test('gives a product without a meta block no words of its own', () => {
-    expect(productMetaSet(parseProduct(placeholderSpeaker, 'test'))).toBeNull()
+    const withoutMeta = {
+      slug: 'sample-speaker',
+      number: 5,
+      category: 'Audio',
+      brand: 'Sample',
+      model: 'Speaker',
+      eyebrow: 'Compact speaker / 005',
+      tagline: 'A quiet box that fills the room.',
+      intro: ['One line.'],
+      finishes: [{ variant: 'sage', label: 'Sage Green', swatch: '#9DB89D' }],
+      hotspots: [],
+      explode: { label: 'See inside' },
+    }
+    expect(productMetaSet(parseProduct(withoutMeta, 'test'))).toBeNull()
   })
 })
 

@@ -1,4 +1,3 @@
-import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Camera, Document } from '@gltf-transform/core'
 import type { Node as GltfNode, vec3 } from '@gltf-transform/core'
@@ -11,6 +10,7 @@ import {
 import { viewPivotOf } from '../../src/lib/camera/pivot.ts'
 import { orbitAnglesOf, orbitViewOfAuthoredCamera } from '../../src/lib/camera/view.ts'
 import { CAMERA_HOME_ID, CAMERA_PREFIX } from '../../src/lib/product/contractNames.ts'
+import { modelPathOf } from '../../scripts/fixtureProducts.ts'
 import { createModelIO } from '../../scripts/modelIo.ts'
 import { readCameraFacts, readMeshBoxes } from '../../scripts/modelFacts.ts'
 import type { CameraFact } from '../../scripts/modelFacts.ts'
@@ -71,7 +71,7 @@ const ROOT = fileURLToPath(new URL('../..', import.meta.url))
 
 export async function readProductCameraFacts(slug: string): Promise<ProductCameraFacts> {
   const io = await createModelIO()
-  const modelPath = path.join(ROOT, 'public', 'models', slug, 'model.glb')
+  const modelPath = await modelPathOf(ROOT, slug)
   const doc = await io.read(modelPath)
   return productCameraFactsOf(doc, modelPath)
 }

@@ -1,17 +1,20 @@
 import { expect, type Page } from '@playwright/test'
 import type { Product } from '../../src/lib/product'
 import { productLoadBudgetMs } from './budgets'
-import { loadCollection } from './productList'
+import { loadTestCollection } from './productList'
 import { resolveE2ETier, sampleProducts } from './tiers'
 
 export { productLoadBudgetMs }
 
-// The products under test: every shipped product, as the collection's own
-// validation parsed them, so the explode block is normalized exactly as the
-// runtime sees it. The specs register per product from this list; a product
-// that joins the set is under test without a change here.
+// The products under test: the shipped collection plus the fixture
+// products, as the dev harness presents them (one collection the product
+// domain's own validation parsed), so the explode block is normalized
+// exactly as the runtime sees it. The specs register per product from this
+// list; a fixture product that joins tests/fixtures/products is under test
+// without a change here, and a spec driving the site's own pages reads the
+// shipped set alone (productList.loadCollection).
 export async function harnessProducts(): Promise<readonly Product[]> {
-  return (await loadCollection()).products
+  return (await loadTestCollection()).products
 }
 
 // The products a product independent spec covers: a sample of the shipped

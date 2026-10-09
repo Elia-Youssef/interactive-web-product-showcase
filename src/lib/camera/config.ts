@@ -34,3 +34,10 @@ export const AUTHORED_CAMERA_RESOLUTION = {
 
 export const authoredCameraAspect: number =
   AUTHORED_CAMERA_RESOLUTION.width / AUTHORED_CAMERA_RESOLUTION.height
+
+// The share of the half frame every side of the product keeps free, at the
+// authored aspect, at home: the authored home camera frames both poses of
+// the product, assembled and exploded, with this margin. The authoring
+// fits the home distance to it and the validate step holds the shipped
+// bytes against it, so a rule tuned in one place is tuned in both.
+export const homeFitMargin = 0.06

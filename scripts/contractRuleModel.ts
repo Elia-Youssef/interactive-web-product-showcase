@@ -1,8 +1,10 @@
-// The naming, node and shadow rules of the contract's model group, as
-// table entries: every node carries a contract name, one node per contract
-// name, exactly one SHADOW mesh, no extras, no lights, and the shadow
+// The naming, node, shadow and storage rules of the contract's model
+// group, as table entries: every node carries a contract name, one node per
+// contract name, exactly one SHADOW mesh, no extras, no lights, the shadow
 // plane's own contract (a root object with one material; unlit blend with
-// no mapping).
+// no mapping), and the file stored the way the pipeline writes it: its
+// positions normalized Int16, its translation outputs through the key
+// filter the storage bounds are derived from.
 
 import {
   CAMERA_PREFIX,
@@ -10,6 +12,7 @@ import {
   PART_PREFIX,
   SHADOW_NODE_NAME,
 } from '../src/lib/product/contractNames.ts'
+import { POSITION_QUANTIZE_BITS, KEY_FILTER_BITS } from './settings.ts'
 import type { ContractRule } from './contractRules.ts'
 
 // A name the contract knows: one of its three prefixes, or the shadow.
@@ -139,6 +142,32 @@ export const modelRules: readonly ContractRule[] = [
         violations.push(
           `the ${SHADOW_NODE_NAME} primitive carries a variant mapping, the shadow shows in every finish`,
         )
+      }
+      return { violations, warnings: [] }
+    },
+  },
+  {
+    key: 'storage-matches-pipeline',
+    group: 'model',
+    check: ({ storage }) => {
+      const violations: string[] = []
+      for (const position of storage.positions) {
+        if (position.componentType !== 5122 || !position.normalized) {
+          violations.push(
+            `the POSITION of the mesh '${position.meshName}' is stored as component type ` +
+              `${position.componentType}${position.normalized ? ', normalized' : ', not normalized'}, ` +
+              `the pipeline's ${POSITION_QUANTIZE_BITS}-bit quantize stores normalized Int16`,
+          )
+        }
+      }
+      for (const filter of storage.translationFilters) {
+        if (filter.filter !== 'EXPONENTIAL') {
+          violations.push(
+            `a translation output of the animation '${filter.animationName}' is stored with ` +
+              `filter ${filter.filter ?? 'none'}, the pipeline's key filter is EXPONENTIAL ` +
+              `at ${KEY_FILTER_BITS} bits`,
+          )
+        }
       }
       return { violations, warnings: [] }
     },

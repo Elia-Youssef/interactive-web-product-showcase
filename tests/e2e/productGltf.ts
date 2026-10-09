@@ -1,9 +1,9 @@
-import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import type { AnimationClip, Group } from 'three'
 import type { Document } from '@gltf-transform/core'
+import { modelPathOf } from '../../scripts/fixtureProducts.ts'
 import { createModelIO } from '../../scripts/modelIo.ts'
 
 // The runtime side of the agreement proof: each shipped `.glb` parsed by
@@ -29,7 +29,7 @@ export type ParsedProduct = {
 const ROOT = fileURLToPath(new URL('../..', import.meta.url))
 
 export async function parseShippedGltf(slug: string): Promise<ParsedProduct> {
-  return parseGltfWithLoader(path.join(ROOT, 'public', 'models', slug, 'model.glb'))
+  return parseGltfWithLoader(await modelPathOf(ROOT, slug))
 }
 
 // Parses one .glb file with the real loader, for the fixture files the

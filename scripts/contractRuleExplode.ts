@@ -1,9 +1,10 @@
 // The explode-group rules of the contract, as table entries: channels
 // drive PART_ nodes only and only location and rotation, each channel's
-// first key equals its node's rest transform, and the clip has no dead
-// head or tail.
+// first key equals its node's rest transform within what the file's own
+// key storage can move, and the clip has no dead head or tail.
 
 import { PART_PREFIX } from '../src/lib/product/contractNames.ts'
+import { translationKeyComponentBound } from './storageBounds.ts'
 import type { ChannelFact } from './animationFacts.ts'
 import type { ContractRule } from './contractRules.ts'
 
@@ -12,12 +13,6 @@ import type { ContractRule } from './contractRules.ts'
 function round4(value: number): number {
   return Math.round(value * 10000) / 10000
 }
-
-// How far a channel's first key may sit from its node's rest transform and
-// still be the rest pose: the optimize step stores animation keys
-// quantized, which moves them by up to about a tenth of a millimetre on
-// the shipped products, and a wrong first key is off by a whole offset.
-const ANIMATION_STORAGE_WINDOW = 0.001
 
 export const explodeRules: readonly ContractRule[] = [
   {
@@ -94,19 +89,32 @@ export const explodeRules: readonly ContractRule[] = [
 ]
 
 // The message for a channel whose first key sits off its node's rest pose
-// beyond the animation storage window.
+// beyond what the file's own key storage can move. A translation key is
+// stored through the pipeline's EXPONENTIAL filter, whose bound the
+// storage bounds derive from the key's own magnitude; a rotation key has
+// no derived bound, and the rule names that rather than comparing with a
+// picked window.
 function firstKeyOffRest(channel: ChannelFact, rest: readonly number[]): readonly string[] {
+  if (channel.path === 'rotation') {
+    return [
+      `rotation channel bound not implemented: ${channel.targetName} drives rotation, ` +
+        'and the storage bound of a rotation output is not derived; ' +
+        'the first-key rule covers translation keys only',
+    ]
+  }
+  const first = keyValuesSlice(channel, 0)
   const worst = Math.max(
     ...Array.from({ length: channel.components }, (_, k) =>
-      Math.abs((channel.keyValues[k] ?? 0) - (rest[k] ?? 0)),
+      Math.abs((first[k] ?? 0) - (rest[k] ?? 0)),
     ),
   )
-  if (worst <= ANIMATION_STORAGE_WINDOW) {
+  const bound = translationKeyComponentBound(first)
+  if (worst <= bound) {
     return []
   }
   return [
     `the first ${channel.path} key of ${channel.targetName} sits ${round4(worst)} off the node's rest pose, ` +
-      `beyond the animation storage window ${ANIMATION_STORAGE_WINDOW}`,
+      `beyond the stored key's bound ${bound.toExponential(3)}`,
   ]
 }
 

@@ -17,7 +17,7 @@ import { startTouchSweep } from './syntheticTouch'
 // the app URL with its own backend mode.
 
 const product = (await loadCollection()).first
-const expectations = readFinishExpectations(product.slug)
+const expectations = await readFinishExpectations(product.slug)
 
 // The relative luminance of a manifest swatch, the word the schema keeps
 // for the UI dot and this spec reads for the direction of the change: the

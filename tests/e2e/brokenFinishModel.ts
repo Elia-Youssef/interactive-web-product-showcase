@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
-import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { modelPathOf } from '../../scripts/fixtureProducts.ts'
 
 // A shipped model with its finish mapping broken, built in memory from the
 // shipped bytes: the first KHR_materials_variants mapping is pointed at a
@@ -57,7 +57,7 @@ function firstMapping(json: unknown): Record<string, unknown> {
 }
 
 export async function brokenFinishModel(slug: string): Promise<BrokenFinishModel> {
-  const shipped = await readFile(path.join(ROOT, 'public', 'models', slug, 'model.glb'))
+  const shipped = await readFile(await modelPathOf(ROOT, slug))
   const jsonLength = shipped.readUInt32LE(glbHeaderBytes)
   if (shipped.readUInt32LE(glbHeaderBytes + 4) !== jsonChunkType) {
     throw new Error(`the shipped model of ${slug} does not open with its JSON chunk`)

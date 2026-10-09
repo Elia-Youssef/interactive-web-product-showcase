@@ -2,6 +2,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { devClientStubPlugin } from './tooling/devClientStub.ts'
+import { devFixtureModelsPlugin } from './tooling/devFixtureModels.ts'
 import { devHost, isE2EServer } from './tooling/devHost.ts'
 import { resolveDevPort } from './tooling/devPort.ts'
 import { outputDuplicateGuardPlugin } from './tooling/outputDuplicateGuard.ts'
@@ -29,6 +30,10 @@ export default defineConfig({
     // in an e2e run hot-updates, so the client's WebSocket and its
     // reconnect polling would be pure risk on the console gate.
     ...(e2eServer ? [devClientStubPlugin()] : []),
+    // The dev server answers a fixture product's model at the model URL
+    // every product loads by, from tests/fixtures/products; the build and
+    // the preview of dist never carry a fixture model.
+    devFixtureModelsPlugin(),
   ],
   resolve: {
     tsconfigPaths: true,

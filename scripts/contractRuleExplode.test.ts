@@ -8,17 +8,17 @@ import { contractRuleInputOf } from './contractRuleFixtures.ts'
 
 const byKey = new Map(explodeRules.map((rule) => [rule.key, rule]))
 
-function violationsOf(
+async function violationsOf(
   key: string,
   plant: (doc: ReturnType<typeof buildDocument>) => void,
-): readonly string[] {
+): Promise<readonly string[]> {
   const doc = buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] })
   plant(doc)
   const rule = byKey.get(key)
   if (rule === undefined) {
     throw new Error(`the explode rules hold no ${key}`)
   }
-  return rule.check(contractRuleInputOf(doc)).violations
+  return rule.check(await contractRuleInputOf(doc)).violations
 }
 
 // The fixture clip's one sampler, to bend its times and keys.
@@ -32,16 +32,18 @@ function samplerOf(doc: ReturnType<typeof buildDocument>) {
 }
 
 describe('the explode-group contract rules', () => {
-  it('passes every rule on the valid document', () => {
-    const input = contractRuleInputOf(buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }))
+  it('passes every rule on the valid document', async () => {
+    const input = await contractRuleInputOf(
+      buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }),
+    )
     for (const rule of explodeRules) {
       expect(rule.check(input), rule.key).toEqual({ violations: [], warnings: [] })
     }
   })
 
-  it('the channels rule reports one on a node that is no part, and a scale channel', () => {
+  it('the channels rule reports one on a node that is no part, and a scale channel', async () => {
     expect(
-      violationsOf('clip-channels-on-parts', (doc) => {
+      await violationsOf('clip-channels-on-parts', (doc) => {
         const animation = doc.getRoot().listAnimations()[0]
         const sampler = samplerOf(doc)
         const channel = doc.createAnimationChannel()
@@ -52,7 +54,7 @@ describe('the explode-group contract rules', () => {
       }),
     ).toEqual(["the animation drives translation on 'SHADOW', channels drive PART_ nodes only"])
     expect(
-      violationsOf('clip-channels-on-parts', (doc) => {
+      await violationsOf('clip-channels-on-parts', (doc) => {
         const animation = doc.getRoot().listAnimations()[0]
         const sampler = samplerOf(doc)
         const channel = doc.createAnimationChannel()
@@ -66,26 +68,49 @@ describe('the explode-group contract rules', () => {
     ])
   })
 
-  it('the first-key rule reports one off the rest pose, and passes the stored one', () => {
+  it('the first-key rule reports one off the rest pose, and passes the stored one', async () => {
     expect(
-      violationsOf('clip-first-key-at-rest', (doc) => {
+      await violationsOf('clip-first-key-at-rest', (doc) => {
         const output = samplerOf(doc).getOutput()
         output?.setArray(new Float32Array([0.2, 0, 0, 0, 1, 0]))
       }),
     ).toEqual([
-      "the first translation key of PART_base sits 0.2 off the node's rest pose, beyond the animation storage window 0.001",
+      "the first translation key of PART_base sits 0.2 off the node's rest pose, beyond the stored key's bound 9.766e-5",
     ])
     expect(
-      violationsOf('clip-first-key-at-rest', (doc) => {
+      await violationsOf('clip-first-key-at-rest', (doc) => {
+        nodeNamed(doc, 'PART_base').setTranslation([1, 0, 0])
         const output = samplerOf(doc).getOutput()
-        output?.setArray(new Float32Array([0.0005, 0, 0, 0, 1, 0]))
+        // 0.0004 off a rest at 1 sits inside the key's own bound: 2^-11 of
+        // the stored magnitude 1.0004 is 4.9e-4, and this is what the key
+        // filter may move a stored key by.
+        output?.setArray(new Float32Array([1.0004, 0, 0, 1.0004, 1, 0]))
       }),
     ).toEqual([])
   })
 
-  it('the dead-length rule reports a dead head, a dead tail, a late start and a still clip', () => {
+  it('the first-key rule reports a rotation channel as an unimplemented bound, never a window comparison', async () => {
     expect(
-      violationsOf('clip-no-dead-head-or-tail', (doc) => {
+      await violationsOf('clip-first-key-at-rest', (doc) => {
+        const sampler = samplerOf(doc)
+        const channel = doc.getRoot().listAnimations()[0]?.listChannels()[0]
+        channel?.setTargetPath('rotation')
+        sampler.setOutput(
+          doc
+            .createAccessor('rotation-keys')
+            .setType('VEC4')
+            .setArray(new Float32Array([0, 0, 0, 1, 0, 0.5, 0, 1])),
+        )
+      }),
+    ).toEqual([
+      'rotation channel bound not implemented: PART_base drives rotation, and the storage ' +
+        'bound of a rotation output is not derived; the first-key rule covers translation keys only',
+    ])
+  })
+
+  it('the dead-length rule reports a dead head, a dead tail, a late start and a still clip', async () => {
+    expect(
+      await violationsOf('clip-no-dead-head-or-tail', (doc) => {
         const sampler = samplerOf(doc)
         const input = sampler.getInput()
         input?.setArray(new Float32Array([0, 0.5, 1]))
@@ -96,7 +121,7 @@ describe('the explode-group contract rules', () => {
       "the clip's first motion starts at 0.5 s, after its first key at 0 s: its head is dead",
     ])
     expect(
-      violationsOf('clip-no-dead-head-or-tail', (doc) => {
+      await violationsOf('clip-no-dead-head-or-tail', (doc) => {
         const sampler = samplerOf(doc)
         const input = sampler.getInput()
         input?.setArray(new Float32Array([0, 0.5, 1]))
@@ -105,7 +130,7 @@ describe('the explode-group contract rules', () => {
       }),
     ).toEqual(['the clip ends at 1 s but its last motion ends at 0.5 s, its tail is dead'])
     expect(
-      violationsOf('clip-no-dead-head-or-tail', (doc) => {
+      await violationsOf('clip-no-dead-head-or-tail', (doc) => {
         const sampler = samplerOf(doc)
         const input = sampler.getInput()
         input?.setArray(new Float32Array([0.2, 1]))
@@ -114,7 +139,7 @@ describe('the explode-group contract rules', () => {
       }),
     ).toEqual(['the clip starts at 0.2 s, motion starts at 0 s'])
     expect(
-      violationsOf('clip-no-dead-head-or-tail', (doc) => {
+      await violationsOf('clip-no-dead-head-or-tail', (doc) => {
         const output = samplerOf(doc).getOutput()
         output?.setArray(new Float32Array([0, 0, 0, 0, 0, 0]))
       }),

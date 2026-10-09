@@ -19,6 +19,7 @@ import { fileURLToPath } from 'node:url'
 import { productCameraFactsOf } from './productCamera'
 import { parseDocumentWithLoader, parseShippedGltf } from './productGltf'
 import { bracketsOf, planProblems, plannedCamera, presentedProduct } from './productAgreementSides'
+import { modelPathOf } from '../../scripts/fixtureProducts.ts'
 import { createModelIO } from '../../scripts/modelIo.ts'
 import { readCameraFacts, readMeshBoxes } from '../../scripts/modelFacts.ts'
 import { listShippedSlugs } from '../../scripts/shippedProducts.ts'
@@ -60,7 +61,7 @@ async function shippedManifest(slug: string): Promise<{ manifest: Product; input
 
 // The document of a shipped model, and the frame its mesh boxes span.
 async function shippedDocument(slug: string): Promise<{ doc: Document; frame: FrameSpan }> {
-  const doc = await (await modelIOSoon()).read(`public/models/${slug}/model.glb`)
+  const doc = await (await modelIOSoon()).read(await modelPathOf(ROOT, slug))
   return { doc, frame: frameSpanOfMeshBoxes(readMeshBoxes(doc)) }
 }
 
@@ -102,7 +103,7 @@ describe('the document facts agree with the real loader on every shipped product
   })
 
   it.each(SHIPPED_SLUGS)('builds the same views and limits for %s', async (slug) => {
-    const modelPath = `public/models/${slug}/model.glb`
+    const modelPath = await modelPathOf(ROOT, slug)
     const { doc, frame: documentFrame } = await shippedDocument(slug)
     const facts = productCameraFactsOf(doc, modelPath)
     const { manifest } = await shippedManifest(slug)

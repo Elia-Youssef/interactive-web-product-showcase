@@ -1,7 +1,8 @@
 // The material-group rules of the contract, as table entries: only the
 // extensions the loader parses and the contract allows (which also
 // refuses the emissive strength extension), single-sided materials unless
-// a mesh has open edges, and lit materials opaque.
+// a mesh has open edges, lit materials opaque, and the occlusion contract:
+// every lit material samples one shared occlusion image through texCoord 1.
 
 import type { ContractRule } from './contractRules.ts'
 
@@ -61,6 +62,57 @@ export const materialRules: readonly ContractRule[] = [
         .map(
           (material) =>
             `the lit material '${material.name}' is alphaMode ${material.alphaMode}, lit materials are opaque`,
+        ),
+      warnings: [],
+    }),
+  },
+  {
+    key: 'lit-materials-occluded',
+    group: 'materials',
+    check: ({ facts }) => ({
+      violations: facts.materials
+        .filter((material) => !material.unlit && material.occlusionImage === null)
+        .map(
+          (material) =>
+            `the lit material '${material.name}' carries no occlusion texture, ` +
+            'every lit material samples the shared occlusion image',
+        ),
+      warnings: [],
+    }),
+  },
+  {
+    key: 'one-occlusion-image',
+    group: 'materials',
+    check: ({ facts }) => {
+      const images = new Set<number>(
+        facts.materials.flatMap((material) =>
+          material.occlusionImage === null ? [] : [material.occlusionImage],
+        ),
+      )
+      if (images.size <= 1) {
+        return { violations: [], warnings: [] }
+      }
+      return {
+        violations: [
+          `the occlusion slots sample ${images.size} images (${[...images].sort((a, b) => a - b).join(', ')}), ` +
+            'one occlusion image across the file',
+        ],
+        warnings: [],
+      }
+    },
+  },
+  {
+    key: 'occlusion-texcoord-second-set',
+    group: 'materials',
+    check: ({ facts }) => ({
+      violations: facts.materials
+        .filter(
+          (material) => material.occlusionTexCoord !== null && material.occlusionTexCoord !== 1,
+        )
+        .map(
+          (material) =>
+            `the occlusion slot of '${material.name}' samples texCoord ${material.occlusionTexCoord}, ` +
+            'the occlusion UV map is TEXCOORD_1',
         ),
       warnings: [],
     }),
