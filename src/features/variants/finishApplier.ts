@@ -94,7 +94,7 @@ export function createFinishApplier(owner: FinishApplierOwner): FinishApplier {
     const materials = carriedMaterials(mapped)
     return {
       product: loaded.manifest.slug,
-      applied: appliedVariantOf(loaded, mapped, materials),
+      applied: appliedVariantOf(loaded, mapped),
       requested,
       materials,
     }
@@ -143,22 +143,17 @@ function carriedMaterials(mapped: readonly MappedSceneNode[]): Record<string, st
 function appliedVariantOf(
   loaded: LoadedProduct,
   mapped: readonly MappedSceneNode[],
-  materials: Record<string, string>,
 ): string | null {
   variantLoop: for (const [variantIndex, variant] of loaded.finishes.plan.variants.entries()) {
-    for (const { entry } of mapped) {
+    for (const { mesh, entry } of mapped) {
       // A variant the plan cannot dress every mapped mesh in is no
       // candidate: the apply path would refuse it the same way, so it can
       // never be what the meshes carry.
       if (!prescribesMaterial(entry, variantIndex)) {
         continue variantLoop
       }
-      const expected = resolvedMaterial(
-        loaded,
-        entry,
-        finishMaterialIndex(entry, variantIndex),
-      ).name
-      if (materials[finishPrimitiveKey(entry.mesh, entry.primitive)] !== expected) {
+      const expected = resolvedMaterial(loaded, entry, finishMaterialIndex(entry, variantIndex))
+      if (mesh.material !== expected) {
         continue variantLoop
       }
     }

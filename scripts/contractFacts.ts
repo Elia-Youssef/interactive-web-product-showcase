@@ -37,6 +37,7 @@ export type ContractCameraFact = {
 // shared by two materials is one image), and the texCoord set the slot
 // reads; both are null when the material carries no occlusion texture.
 export type ContractMaterialFact = {
+  readonly index: number
   readonly name: string
   readonly unlit: boolean
   readonly doubleSided: boolean
@@ -57,8 +58,10 @@ export type { ContractPrimitiveFact } from './contractPrimitiveFacts.ts'
 export type ContractMappingFact = {
   readonly nodeName: string
   readonly defaultMaterialName: string | null
+  readonly defaultMaterialIndex: number | null
   readonly mappings: readonly {
     readonly materialName: string | null
+    readonly materialIndex: number | null
     readonly variantNames: readonly string[]
   }[]
 }
@@ -92,9 +95,10 @@ export function readContractModelFacts(doc: Document): ContractModelFacts {
       .listNodes()
       .map(cameraUpOf)
       .filter((fact) => fact !== null),
-    materials: root.listMaterials().map((material) => {
+    materials: root.listMaterials().map((material, index) => {
       const occlusion = material.getOcclusionTexture()
       return {
+        index,
         name: material.getName(),
         unlit: material.getExtension('KHR_materials_unlit') !== null,
         doubleSided: material.getDoubleSided(),
@@ -149,6 +153,7 @@ function quaternionOrNull(
 // Every mapped primitive's variant table.
 function mappingFacts(doc: Document): ContractMappingFact[] {
   const facts: ContractMappingFact[] = []
+  const materials = doc.getRoot().listMaterials()
   for (const node of doc.getRoot().listNodes()) {
     const mesh = node.getMesh()
     if (mesh === null) {
@@ -160,13 +165,19 @@ function mappingFacts(doc: Document): ContractMappingFact[] {
       if (list === null) {
         continue
       }
+      const defaultMaterial = primitive.getMaterial()
       facts.push({
         nodeName,
-        defaultMaterialName: primitive.getMaterial()?.getName() ?? null,
-        mappings: list.listMappings().map((mapping) => ({
-          materialName: mapping.getMaterial()?.getName() ?? null,
-          variantNames: mapping.listVariants().map((variant) => variant.getName()),
-        })),
+        defaultMaterialName: defaultMaterial?.getName() ?? null,
+        defaultMaterialIndex: defaultMaterial === null ? null : materials.indexOf(defaultMaterial),
+        mappings: list.listMappings().map((mapping) => {
+          const material = mapping.getMaterial()
+          return {
+            materialName: material?.getName() ?? null,
+            materialIndex: material === null ? null : materials.indexOf(material),
+            variantNames: mapping.listVariants().map((variant) => variant.getName()),
+          }
+        }),
       })
     }
   }

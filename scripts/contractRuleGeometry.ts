@@ -46,8 +46,8 @@ export const geometryRules: readonly ContractRule[] = [
         .filter(
           (primitive) =>
             !primitive.tangent &&
-            primitive.materialNames.some((name) =>
-              facts.materials.some((m) => m.name === name && m.normalMapped),
+            primitive.materialIndices.some((index) =>
+              facts.materials.some((m) => m.index === index && m.normalMapped),
             ),
         )
         .map(

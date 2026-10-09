@@ -223,10 +223,10 @@ function shadowPrimitiveViolations(facts: {
 
 // The material the shadow's one primitive wears, when it wears one.
 function shadowMaterialOf(facts: {
-  materials: readonly { name: string; unlit: boolean; alphaMode: string }[]
-  primitives: readonly { nodeName: string; materialNames: readonly string[] }[]
+  materials: readonly { index: number; name: string; unlit: boolean; alphaMode: string }[]
+  primitives: readonly { nodeName: string; materialIndices: readonly number[] }[]
 }): { name: string; unlit: boolean; alphaMode: string } | undefined {
   const primitive = facts.primitives.find((candidate) => candidate.nodeName === SHADOW_NODE_NAME)
-  const materialName = primitive?.materialNames[0]
-  return facts.materials.find((material) => material.name === materialName)
+  const materialIndex = primitive?.materialIndices[0]
+  return facts.materials.find((material) => material.index === materialIndex)
 }

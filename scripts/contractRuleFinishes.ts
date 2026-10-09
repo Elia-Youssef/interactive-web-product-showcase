@@ -17,8 +17,8 @@ export const finishRules: readonly ContractRule[] = [
       for (const mapping of facts.mappings) {
         for (const entry of mapping.mappings) {
           if (
-            entry.materialName === null ||
-            !facts.materials.some((m) => m.name === entry.materialName)
+            entry.materialIndex === null ||
+            !facts.materials.some((m) => m.index === entry.materialIndex)
           ) {
             violations.push(
               `the variant mapping of ${mapping.nodeName} names no material of the file: '${entry.materialName ?? 'none'}'`,
@@ -66,7 +66,7 @@ export const finishRules: readonly ContractRule[] = [
         const entry = mapping.mappings.find((candidate) =>
           candidate.variantNames.includes(first.variant),
         )
-        if (entry === undefined || entry.materialName === mapping.defaultMaterialName) {
+        if (entry === undefined || entry.materialIndex === mapping.defaultMaterialIndex) {
           continue
         }
         violations.push(

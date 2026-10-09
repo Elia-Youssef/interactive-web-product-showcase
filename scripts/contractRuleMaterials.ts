@@ -42,7 +42,7 @@ export const materialRules: readonly ContractRule[] = [
           facts.primitives
             .filter(
               (primitive) =>
-                primitive.materialNames.includes(material.name) && !primitive.openEdges,
+                primitive.materialIndices.includes(material.index) && !primitive.openEdges,
             )
             .map(
               (primitive) =>

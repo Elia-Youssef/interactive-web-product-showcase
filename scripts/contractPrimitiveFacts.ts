@@ -3,7 +3,7 @@
 // rules read. Plain data, like the rest of the contract facts, so every
 // rule stays a pure function and the document never leaves the model step.
 
-import type { Document, Node, Primitive } from '@gltf-transform/core'
+import type { Document, Material, Node, Primitive } from '@gltf-transform/core'
 import { KHRMaterialsVariants, type MappingList } from '@gltf-transform/extensions'
 
 // One primitive, named by the node whose mesh holds it: the materials it
@@ -12,7 +12,7 @@ import { KHRMaterialsVariants, type MappingList } from '@gltf-transform/extensio
 // many coincident duplicate triangles it holds.
 export type ContractPrimitiveFact = {
   readonly nodeName: string
-  readonly materialNames: readonly string[]
+  readonly materialIndices: readonly number[]
   readonly tangent: boolean
   readonly openEdges: boolean
   readonly duplicateTriangles: number
@@ -32,7 +32,7 @@ export function primitiveFacts(doc: Document): ContractPrimitiveFact[] {
     for (const primitive of mesh.listPrimitives()) {
       facts.push({
         nodeName,
-        materialNames: materialNamesOf(primitive),
+        materialIndices: materialIndicesOf(primitive, doc.getRoot().listMaterials()),
         tangent: primitive.getAttribute('TANGENT') !== null,
         openEdges: hasOpenEdges(primitive),
         duplicateTriangles: duplicateTriangleCount(primitive),
@@ -51,23 +51,26 @@ export function nearestNamedAncestorOf(node: Node): string {
   return 'the scene root'
 }
 
-// The default material plus every mapped variant material, by name.
-function materialNamesOf(primitive: Primitive): readonly string[] {
-  const names: string[] = []
+// The default material plus every mapped variant material, by table index.
+function materialIndicesOf(
+  primitive: Primitive,
+  materials: readonly Material[],
+): readonly number[] {
+  const indices: number[] = []
   const material = primitive.getMaterial()
   if (material !== null) {
-    names.push(material.getName())
+    indices.push(materials.indexOf(material))
   }
   const list = primitive.getExtension(KHRMaterialsVariants.EXTENSION_NAME) as MappingList | null
   if (list !== null) {
     for (const mapping of list.listMappings()) {
       const mapped = mapping.getMaterial()
       if (mapped !== null) {
-        names.push(mapped.getName())
+        indices.push(materials.indexOf(mapped))
       }
     }
   }
-  return names
+  return indices
 }
 
 // Whether the primitive's triangles leave an open edge: an edge used by
