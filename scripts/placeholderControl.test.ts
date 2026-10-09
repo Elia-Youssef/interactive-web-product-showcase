@@ -33,6 +33,7 @@ async function controlInput(): Promise<ContractRuleInput> {
   const modelPath = await modelPathOf(ROOT, SLUG)
   const doc = await io.read(modelPath)
   const structure = readProductStructure(doc)
+  const positionGrid = await positionGridOf(POSITION_QUANTIZE_BITS)
   const load = await readManifestFile(fixtureManifestPathOf(ROOT, SLUG))
   if (load.kind !== 'loaded') {
     throw new Error(`the fixture manifest of ${SLUG} did not load`)
@@ -43,7 +44,8 @@ async function controlInput(): Promise<ContractRuleInput> {
     facts: readContractModelFacts(doc),
     homeFit: readHomeFitFacts(doc, structure.animationChannels),
     storage: {
-      positions: readPositionStorage(doc, await positionGridOf(POSITION_QUANTIZE_BITS)),
+      positionGrid,
+      positions: readPositionStorage(doc, positionGrid),
       translationOutputs: await readTranslationOutputs(io, modelPath),
     },
     contract: cameraContract,

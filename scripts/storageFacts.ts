@@ -9,7 +9,7 @@
 import { GLB_BUFFER, type Document, type GLTF, type NodeIO } from '@gltf-transform/core'
 import { MeshoptDecoder } from 'meshoptimizer'
 import { SHORT_COMPONENT_TYPE } from './componentTypes.ts'
-import { keyBitsOfMantissa } from './storageGrid.ts'
+import { keyBitsOfMantissa, type PositionGrid } from './storageGrid.ts'
 import { KEY_FILTER_BITS } from './settings.ts'
 
 // How one mesh's POSITION is stored, by the mesh's own name: the
@@ -39,17 +39,16 @@ export type TranslationOutputFact = {
   readonly storage: KeyStorage
 }
 
+// The file's storage facts and the position grid those facts were measured against.
 export type StorageFacts = {
+  readonly positionGrid: PositionGrid
   readonly positions: readonly PositionStorageFact[]
   readonly translationOutputs: readonly TranslationOutputFact[]
 }
 
 // The position facts of a document, in mesh order, with every stored
 // integer of a normalized Int16 position held against the grid.
-export function readPositionStorage(
-  doc: Document,
-  grid: ReadonlySet<number>,
-): PositionStorageFact[] {
+export function readPositionStorage(doc: Document, grid: PositionGrid): PositionStorageFact[] {
   const facts: PositionStorageFact[] = []
   for (const mesh of doc.getRoot().listMeshes()) {
     for (const primitive of mesh.listPrimitives()) {
@@ -66,7 +65,7 @@ export function readPositionStorage(
         normalized,
         offGridValues:
           componentType === SHORT_COMPONENT_TYPE && normalized
-            ? Array.from(stored).filter((value) => !grid.has(Math.abs(value))).length
+            ? Array.from(stored).filter((value) => !grid.magnitudes.has(Math.abs(value))).length
             : 0,
       })
     }

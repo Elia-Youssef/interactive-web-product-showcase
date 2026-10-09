@@ -15,6 +15,7 @@ import { loadCameraContract, readManifestFile } from './manifestIo.ts'
 import type { CameraContract } from './manifestIo.ts'
 import { readPositionStorage, readTranslationOutputs } from './storageFacts.ts'
 import type { StorageFacts } from './storageFacts.ts'
+import type { PositionGrid } from './storageGrid.ts'
 import { productPaths, repoPath, type ProductPaths } from './productPaths.ts'
 import { describeTextures, fileSizeBytes, formatBytes } from './report.ts'
 import { readProductStructure, type ProductStructure } from './structure.ts'
@@ -123,7 +124,7 @@ async function loadModel(
   io: NodeIO,
   root: string,
   paths: ProductPaths,
-  positionGrid: ReadonlySet<number>,
+  positionGrid: PositionGrid,
 ): Promise<ModelSide> {
   const shown = repoPath(root, paths.modelGlb)
   const fileBytes = await fileSizeBytes(paths.modelGlb)
@@ -156,9 +157,10 @@ async function readStorageFacts(
   io: NodeIO,
   modelPath: string,
   doc: Document,
-  positionGrid: ReadonlySet<number>,
+  positionGrid: PositionGrid,
 ): Promise<StorageFacts> {
   return {
+    positionGrid,
     positions: readPositionStorage(doc, positionGrid),
     translationOutputs: await readTranslationOutputs(io, modelPath),
   }
@@ -219,7 +221,7 @@ export async function validateShippedProduct(
   root: string,
   slug: string,
   parseProduct: ParseProduct,
-  positionGrid: ReadonlySet<number>,
+  positionGrid: PositionGrid,
 ): Promise<ProductValidation> {
   const io = await createModelIO()
   const paths = productPaths(root, slug)

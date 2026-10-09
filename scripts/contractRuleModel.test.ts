@@ -88,6 +88,7 @@ describe('the model-group contract rules', () => {
       rule.check({
         ...input,
         storage: {
+          ...input.storage,
           positions: [
             { meshName: 'PART_base', componentType: 5122, normalized: true, offGridValues: 3 },
           ],

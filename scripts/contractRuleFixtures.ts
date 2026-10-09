@@ -7,8 +7,13 @@ import { readContractModelFacts } from './contractFacts.ts'
 import { readHomeFitFacts } from './homeFitFacts.ts'
 import { readProductStructure } from './structure.ts'
 import { declaredPositionStorage, declaredTranslationOutputs } from './storageFacts.ts'
+import { positionGridOf } from './storageGrid.ts'
+import { POSITION_QUANTIZE_BITS } from './settings.ts'
 import type { ContractRuleInput } from './contractRules.ts'
 import { cameraContract } from './validateFixtures.ts'
+
+// The in-memory fixtures declare storage on the pipeline's derived position grid.
+const POSITION_GRID = await positionGridOf(POSITION_QUANTIZE_BITS)
 
 // The manifest the contract rule fixtures run against: the fixture
 // document's own hotspots and finishes, so the default document is the
@@ -62,6 +67,7 @@ export function contractRuleInputOf(doc: Document): ContractRuleInput {
     facts: readContractModelFacts(doc),
     homeFit: readHomeFitFacts(doc, structure.animationChannels),
     storage: {
+      positionGrid: POSITION_GRID,
       positions: declaredPositionStorage(doc),
       translationOutputs: declaredTranslationOutputs(doc),
     },
