@@ -69,6 +69,12 @@ export function markerOf(page: Page, title: string) {
   return page.getByRole('button', { name: title })
 }
 
+// State reads cover mounted markers even when projection hides them from
+// the role tree. Pointer and focus drives still use the visible markerOf.
+export function mountedMarkerOf(page: Page, title: string) {
+  return page.getByRole('button', { name: title, includeHidden: true })
+}
+
 // The card of the open hotspot: its title heading, the one card the single
 // selection renders, floating beside its marker or docked in the layout's
 // dock.

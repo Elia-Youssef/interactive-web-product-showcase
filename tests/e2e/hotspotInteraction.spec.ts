@@ -9,10 +9,12 @@ import {
   driveToHidingView,
   oppositeAzimuthOf,
 } from './hotspotDrives'
-import { markerOf, requireCamera } from './hotspotViews'
+import { markerOf, mountedMarkerOf, requireCamera } from './hotspotViews'
 import { selectOcclusionSubjects } from './occlusionSubjects'
 import { flowFacts } from './hotspotFlowFacts'
 import { resolvedTokenColor } from './tokenColor'
+import { applicationPlainSubjects } from './applicationPlainSubjects'
+import { productPathOf } from './collectionFacts'
 
 // The pulse animations of one marker, read through the Web Animations API.
 // The marker subtree carries exactly one animation, the pulse; its keyframes
@@ -37,7 +39,9 @@ function pulseStartTimes(page: Parameters<typeof markerOf>[0], title: string): P
 // replays and reduced motion never shows. The open card and its camera
 // close-up live in hotspotFlow.spec.ts.
 
-const { flows, factsBySlug } = await flowFacts()
+const facts = await flowFacts()
+const { flows, factsBySlug } = facts
+const applicationPlains = applicationPlainSubjects(facts)
 
 // The pulse proof's round trip passes the hiding view of the subject the
 // selection resolved at collection, where the title names the hotspot: a
@@ -54,7 +58,7 @@ for (const flow of flows) {
   // and one with, whose opening moves the camera. No product is required to
   // carry both kinds; the subject selection fails at collection when the
   // whole set lacks one.
-  const plain = flow.subject.plains[0]
+  const plain = applicationPlains.plainOf(flow)
   const closeUp = flow.subject.closeUps[0]
   const slug = product.slug
   const occluded = occlusionSubjects.get(slug)
@@ -64,7 +68,8 @@ for (const flow of flows) {
       page,
       backendPath,
     }) => {
-      await page.goto(harnessPath(backendPath, slug))
+      await page.setViewportSize(applicationPlains.viewport)
+      await page.goto(productPathOf(backendPath, product))
       await waitForProductReady(page)
       // The red token as the browser resolves it, read before the settle so
       // the probe is gone before the frame and camera baselines are taken.
@@ -77,7 +82,7 @@ for (const flow of flows) {
       await markerOf(page, plain.title).click()
       await expect(markerOf(page, plain.title)).toHaveAttribute('aria-pressed', 'true')
       for (const other of product.hotspots.filter((hotspot) => hotspot.id !== plain.id)) {
-        await expect(markerOf(page, other.title)).toHaveAttribute('aria-pressed', 'false')
+        await expect(mountedMarkerOf(page, other.title)).toHaveAttribute('aria-pressed', 'false')
       }
 
       // The dot's computed color is the red token, resolved from the tokens
@@ -96,6 +101,7 @@ for (const flow of flows) {
 
       // A press without a close-up is not a drag and not a camera move: the
       // camera holds, and the press renders no frame.
+      await settledFrames(page)
       const cameraAfter = await requireCamera(page)
       expect(cameraAfter.azimuth).toBeCloseTo(cameraBefore.azimuth, 9)
       expect(cameraAfter.polar).toBeCloseTo(cameraBefore.polar, 9)
@@ -110,7 +116,7 @@ for (const flow of flows) {
       await markerOf(page, plain.title).click()
       await expect(markerOf(page, plain.title)).toHaveAttribute('aria-pressed', 'false')
       for (const other of product.hotspots.filter((hotspot) => hotspot.id !== plain.id)) {
-        await expect(markerOf(page, other.title)).toHaveAttribute('aria-pressed', 'false')
+        await expect(mountedMarkerOf(page, other.title)).toHaveAttribute('aria-pressed', 'false')
       }
       await expect
         .poll(
