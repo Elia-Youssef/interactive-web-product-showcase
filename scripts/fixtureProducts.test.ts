@@ -69,6 +69,14 @@ describe('modelPathOf', () => {
     )
   })
 
+  it('refuses a slug the fixture set and the shipped set both hold', async () => {
+    const tempDir = await buildRoot(['alpha-speaker'])
+    await mkdir(path.join(tempDir, 'public', 'models', 'alpha-speaker'), { recursive: true })
+    await expect(modelPathOf(tempDir, 'alpha-speaker')).rejects.toThrow(
+      /'alpha-speaker' is a fixture product .* and a shipped product too/,
+    )
+  })
+
   it('answers the shipped location otherwise', async () => {
     const tempDir = await buildRoot([])
     expect(await modelPathOf(tempDir, 'shipped-speaker')).toBe(

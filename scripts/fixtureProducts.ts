@@ -5,11 +5,13 @@
 // every reader of a fixture product (the dev harness, the e2e facts
 // helpers, the validate suites) resolves through this module and never by
 // hand. A fixture slug that names a shipped product too is a setup error:
-// the collection the test set builds fails on the duplicate, so the two
-// sets stay disjoint by construction.
+// the model path rule refuses it, and the collection the test set builds
+// fails on the duplicate, so the two sets stay disjoint.
 import { readdir } from 'node:fs/promises'
 import path from 'node:path'
 import { isFile } from './fsErrors.ts'
+import { productPaths } from './productPaths.ts'
+import { isShippedSlug } from './shippedProducts.ts'
 
 // The marker that makes a file in a fixture folder the product's manifest:
 // <slug>.fixtures.ts exporting `manifest`. The fixture module marker puts
@@ -55,10 +57,18 @@ export async function isFixtureProductSlug(root: string, slug: string): Promise<
 // fixture location when the slug is a fixture product, the shipped location
 // when it is not. The one disk rule the Node-side readers of a product
 // model resolve through, so a spec that takes a fixture slug reads the
-// fixture bytes without knowing the sets exist.
+// fixture bytes without knowing the sets exist. A slug in both sets has no
+// one answer, so it is refused, naming both places.
 export async function modelPathOf(root: string, slug: string): Promise<string> {
-  if (await isFixtureProductSlug(root, slug)) {
-    return fixtureModelPathOf(root, slug)
+  const shippedModel = productPaths(root, slug).modelGlb
+  if (!(await isFixtureProductSlug(root, slug))) {
+    return shippedModel
   }
-  return path.join(root, 'public', 'models', slug, 'model.glb')
+  if (await isShippedSlug(root, slug)) {
+    throw new Error(
+      `'${slug}' is a fixture product under ${fixtureProductsDir(root)} and a shipped ` +
+        'product too: the two product sets never share a slug',
+    )
+  }
+  return fixtureModelPathOf(root, slug)
 }
