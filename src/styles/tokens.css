@@ -187,6 +187,17 @@ their minimum below it, switched by the breakpoints at the end of this file.
   --underline-partial: dotted;
 
   /*
+  Stage controls and highlights.
+  The pill spaces its clusters by the column gap and its two rows, where it
+  wraps, by the row gap; the angle row keeps its rotate buttons close to
+  the readout they turn.
+  */
+  --gap-stage-controls: var(--space-4);
+  --width-stage-controls-max: calc(100cqi - 2 * var(--inset-stage-chrome));
+  --gap-stage-controls-rows: var(--space-2);
+  --gap-stage-angle: var(--space-1);
+
+  /*
   Layout structural sizes.
   The panel is clamped between 380px and 520px at about 34% width.
   Top bar height, mark size, and stage chrome insets.

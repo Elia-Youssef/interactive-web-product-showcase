@@ -20,7 +20,8 @@ import {
   stageAspectOnSide,
 } from './stageCamera'
 // Reset and the chrome's controls contract: the eased return to the home
-// view, its instant form under reduced motion, and the phone's control set.
+// view, its instant form under reduced motion, and the phone's control set,
+// which keeps every control.
 // The interaction contract itself (drag, wheel, clamps, buttons) lives in
 // cameraControls.spec.ts.
 
@@ -30,6 +31,13 @@ const facts = await readProductCameraFacts(first.slug)
 const zoomIn = (page: Page): Locator => page.getByRole('button', { name: siteCopy.zoomInLabel })
 const zoomOut = (page: Page): Locator => page.getByRole('button', { name: siteCopy.zoomOutLabel })
 const reset = (page: Page): Locator => page.getByRole('button', { name: siteCopy.resetLabel })
+const turns = (page: Page): readonly Locator[] =>
+  [
+    siteCopy.rotateLeftLabel,
+    siteCopy.rotateRightLabel,
+    siteCopy.tiltUpLabel,
+    siteCopy.tiltDownLabel,
+  ].map((name) => page.getByRole('button', { name }))
 
 async function readyStage(page: Page, backendPath: string): Promise<void> {
   await page.goto(backendPath)
@@ -139,16 +147,20 @@ for (const side of ASPECT_SIDES) {
   })
 }
 
-test('under 640px the zoom cluster drops and Reset stays', async ({ page, backendPath }) => {
+test('under 640px the pill keeps every control, so a single pointer zooms', async ({
+  page,
+  backendPath,
+}) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await readyStage(page, backendPath)
 
-  // The pill keeps Reset; the zoom buttons and the percentage readout are
-  // display-none, not merely off-screen. The readout is named inside its
-  // own corner: the page carries other percent texts, such as the panel's
-  // exploded view readout, which this check is not about.
-  await expect(zoomIn(page)).toBeHidden()
-  await expect(zoomOut(page)).toBeHidden()
-  await expect(page.locator('[data-corner="bottom-right"]').getByText('%')).toBeHidden()
-  await expect(reset(page)).toBeVisible()
+  // Pinch is a two-finger gesture, so the phone keeps the zoom buttons and
+  // their percentage beside the tilt pair and Reset, and the rotate pair
+  // beside the angle. The readout is named inside its own corner: the page
+  // carries other percent texts, such as the panel's exploded view
+  // readout, which this check is not about.
+  for (const control of [zoomIn(page), zoomOut(page), reset(page), ...turns(page)]) {
+    await expect(control).toBeVisible()
+  }
+  await expect(page.locator('[data-corner="bottom-right"]').getByText('%')).toBeVisible()
 })

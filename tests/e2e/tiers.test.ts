@@ -68,6 +68,7 @@ describe('the spec families', () => {
       'stageModel',
     ])
     expect(family('layout')).toEqual([
+      'chromeControls',
       'hotspotCardBreakpoints',
       'hotspotCardDock',
       'hotspotCardPlacement',

@@ -1,29 +1,41 @@
 @import '../../styles/tokens.css';
 
 /*
-The stage controls pill: one surface behind the zoom cluster and Reset.
-Values are tokens. Under 640px the pinch zooms, so the zoom cluster drops
-and Reset stays.
+The stage controls. The pill's two groups share a row while their content
+fits, and wrap against its end edge when the available width needs two.
+The angle row: the readout between its rotate buttons. Every control keeps
+its hit area at every width; the zoom cluster shows on phones too. Values
+are tokens.
 */
 
 .pill {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-4);
+  justify-content: flex-end;
+  max-inline-size: var(--width-stage-controls-max);
+  column-gap: var(--gap-stage-controls);
+  row-gap: var(--gap-stage-controls-rows);
   padding: var(--space-2) var(--space-4);
   border: var(--hairline-width) solid var(--boundary);
   border-radius: var(--radius);
   background-color: var(--surface);
 }
 
-.zoom {
+.row {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gap-stage-controls);
+}
+
+.cluster {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
 }
 
-@media (--vp-phone) {
-  .zoom {
-    display: none;
-  }
+.angle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gap-stage-angle);
 }

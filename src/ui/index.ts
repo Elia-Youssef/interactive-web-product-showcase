@@ -30,8 +30,10 @@ export { useEscapeLayer } from './useEscapeLayer'
 export { useFocusReturn, focusWasLost } from './useFocusReturn'
 export type { LinkComponent, LinkProps } from './link'
 export {
+  ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  ChevronUpIcon,
   CloseIcon,
   MinusIcon,
   PlusIcon,

@@ -2,8 +2,10 @@
 // and may only be reached through this file.
 
 export { CloseIcon } from './CloseIcon'
+export { ChevronDownIcon } from './ChevronDownIcon'
 export { ChevronLeftIcon } from './ChevronLeftIcon'
 export { ChevronRightIcon } from './ChevronRightIcon'
+export { ChevronUpIcon } from './ChevronUpIcon'
 export { MinusIcon } from './MinusIcon'
 export { PlusIcon } from './PlusIcon'
 export { ResetIcon } from './ResetIcon'

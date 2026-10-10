@@ -13,6 +13,7 @@ export {
   type CameraOutcomeEvent,
   type CameraOutcomeRecord,
   type CameraReadout,
+  type LiveCameraReadout,
   type CameraRequest,
   type CameraRequestOutcome,
   type CameraRequestRejectionReason,

@@ -1,3 +1,4 @@
+import { canvasDrivePoint } from './canvasDrivePoint'
 import type { Page } from '@playwright/test'
 import { siteCopy } from '../../src/lib/copy/site'
 import { expect } from './fixtures'
@@ -45,16 +46,9 @@ export async function harnessCanvasCenter(page: Page): Promise<{ x: number; y: n
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
 }
 
-// The canvas point the camera drives start from: inside the canvas, in its
-// lower left quadrant, where no marker and no open card of the presented
-// product sits, because the overlay content hugs the product's projection
-// at the center of the view. A drag or a wheel needs the canvas under the
-// pointer only at its start; camera-controls tracks the drag on the
-// document from there (camera-controls dist/camera-controls.module.js,
-// onPointerDown: the move and up listeners attach to the ownerDocument).
+// The current exposed canvas point for a native drive or outside press.
 export async function harnessCanvasDrivePoint(page: Page): Promise<{ x: number; y: number }> {
-  const box = await harnessStageBox(page)
-  return { x: box.x + box.width * 0.15, y: box.y + box.height * 0.85 }
+  return canvasDrivePoint(page)
 }
 
 // The stage aspect the harness page's renderer sees: the canvas box in CSS

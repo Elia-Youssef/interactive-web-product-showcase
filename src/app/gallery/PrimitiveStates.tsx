@@ -9,8 +9,10 @@
 import type { ReactNode } from 'react'
 import {
   Card,
+  ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  ChevronUpIcon,
   CloseIcon,
   Divider,
   Eyebrow,
@@ -85,6 +87,12 @@ const iconStates = (
     </State>
     <State caption="chevron right">
       <ChevronRightIcon />
+    </State>
+    <State caption="chevron up">
+      <ChevronUpIcon />
+    </State>
+    <State caption="chevron down">
+      <ChevronDownIcon />
     </State>
   </>
 )
