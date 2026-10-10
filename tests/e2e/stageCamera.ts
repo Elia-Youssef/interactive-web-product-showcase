@@ -374,9 +374,9 @@ function recordFramesAtNextPointerMove(page: Page) {
   }))
 }
 
-// The center of the stage canvas, in page coordinates.
+// The center of the page's one stage canvas, on the app or harness.
 export async function canvasCenter(page: Page): Promise<{ x: number; y: number }> {
-  const box = await page.locator('[data-slot="stage"] canvas').boundingBox()
+  const box = await page.locator('canvas').boundingBox()
   if (box === null) {
     throw new Error('the stage canvas must have a bounding box')
   }
