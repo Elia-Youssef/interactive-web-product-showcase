@@ -21,7 +21,15 @@ function cardProps(slot: CardSlot) {
     layout: neverRead,
     obstacles: neverRead,
   })
-  return { hotspot, slot, overlay, presenter, dock: null, onClose: () => {} } as const
+  return {
+    hotspot,
+    slot,
+    overlay,
+    presenter,
+    dock: null,
+    listHost: null,
+    onClose: () => {},
+  } as const
 }
 
 test('the floating card renders the manifest copy and the site close label', () => {
@@ -43,4 +51,9 @@ test('a docked card with no dock from its composition fails loudly', () => {
   expect(() => renderToString(<HotspotCard {...cardProps(docked)} />)).toThrow(
     'gave the markers no dock',
   )
+})
+
+test('a listed card renders into the host of its own hotspot only, titled h3', () => {
+  const listed: CardSlot = { hotspotId: hotspot.id, where: 'listed' }
+  expect(renderToString(<HotspotCard {...cardProps(listed)} />), 'no host yet').toBe('')
 })

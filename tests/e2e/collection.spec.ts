@@ -7,12 +7,15 @@ import { formatProductPath } from '../../src/lib/routing'
 import { loadCollection } from './productList'
 import { waitForProductReady } from './productSpecs'
 import { routePath } from './appPaths'
+import { markerOf } from './hotspotViews'
+import { clickCompleted } from './presentationCompletion'
 import {
   dialogTabStops,
   expectProduct,
   expectTabHeldInsideDialog,
   focusedAccessibleName,
   neighborsOf,
+  openCardWith,
   openShownCard,
   plainTabReachesLinks,
   productPathOf,
@@ -177,7 +180,7 @@ test('escape over the open index closes the index alone: an open hotspot card st
   const card = page.getByRole('heading', { name: cardTitle })
   await expect(card).toBeVisible()
 
-  await page.getByRole('button', { name: siteCopy.openIndexLabel }).click()
+  await clickCompleted(page, page.getByRole('button', { name: siteCopy.openIndexLabel }))
   const dialog = page.getByRole('dialog', { name: siteCopy.indexLabel })
   await expect(dialog).toBeVisible()
 
@@ -198,13 +201,13 @@ test('escape at every stop of the open index closes the index alone, and the nex
 
   const cardTitle = await openShownCard(page, subject)
   const card = page.getByRole('heading', { name: cardTitle })
-  const marker = page.getByRole('button', { name: cardTitle })
+  const marker = markerOf(page, cardTitle)
   const dialog = page.getByRole('dialog', { name: siteCopy.indexLabel })
 
   // The stops of the cycle, enumerated once with the card and the index
   // open. The platform rests one stop of the cycle on the body, where no
   // handler scoped to the dialog ever sees the key.
-  await page.getByRole('button', { name: siteCopy.openIndexLabel }).click()
+  await clickCompleted(page, page.getByRole('button', { name: siteCopy.openIndexLabel }))
   await expect(dialog).toBeVisible()
   const stops = await dialogTabStops(page)
 
@@ -217,9 +220,9 @@ test('escape at every stop of the open index closes the index alone, and the nex
     await page.keyboard.press('Escape')
     await expect(card).toHaveCount(0)
 
-    await marker.click()
+    await openCardWith(page, marker)
     await expect(card).toBeVisible()
-    await page.getByRole('button', { name: siteCopy.openIndexLabel }).click()
+    await clickCompleted(page, page.getByRole('button', { name: siteCopy.openIndexLabel }))
     await expect(dialog).toBeVisible()
     await walkToDialogStop(page, stop)
 

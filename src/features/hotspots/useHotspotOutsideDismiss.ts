@@ -1,15 +1,9 @@
 import { useEffect } from 'react'
-import { useStageElement } from '@viewer/stageElementContext'
-import { listenForCanvasPress } from './listenForCanvasPress'
+import { useStagePointerGestures } from '@viewer/stagePointerGesturesContext'
 
 export function useHotspotOutsideDismiss(active: boolean, dismiss: () => void): void {
-  const surface = useStageElement()
+  const gestures = useStagePointerGestures()
   useEffect(() => {
-    if (!active) return
-    const element = surface.current
-    if (element === null) {
-      throw new Error('an open hotspot must have its stage element')
-    }
-    return listenForCanvasPress(element, dismiss)
-  }, [active, dismiss, surface])
+    if (active) return gestures.consumePressWith(dismiss)
+  }, [active, dismiss, gestures])
 }

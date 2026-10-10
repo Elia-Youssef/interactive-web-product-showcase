@@ -1,11 +1,15 @@
-// How the open hotspot card presents, as one pure decision over the layout's
-// dock policy, the selected marker's placement, the card's measured size,
-// the placement geometry and the slot the card is in now. The answer is a
-// slot, floating on the stage or docked in the layout's dock, and whether
-// the card shows in it.
+// How the open hotspot card presents, as one pure decision over where the
+// selection was opened from, the layout's dock policy, the selected
+// marker's placement, the card's measured size, the placement geometry and
+// the slot the card is in now. The answer is a slot, listed under its own
+// Highlights list item, floating on the stage or docked in the layout's
+// dock, and whether the card shows in it.
 //
-// - A layout that docks every card (the phone's sheet) docks it whatever
-//   the stage shows.
+// - A card opened from the Highlights list is listed, always shown: it
+//   renders under the list item that opened it, so it never hides with a
+//   marker the view hides, whatever the stage shows.
+// - A layout that docks every card (the phone's sheet) docks a marker's
+//   card whatever the stage shows.
 // - The open card hides with its marker, in either slot: it points at a
 //   spot the visitor cannot see. A hidden card keeps the slot it is in, so a
 //   marker that hides and shows again never moves its card between slots.
@@ -13,6 +17,7 @@
 //   then floats beside its marker without covering its subject, or docks
 //   when no side has room.
 
+import type { HotspotOrigin } from './flow'
 import type { StageBox } from './projection'
 import { placeHotspotCard, type BoxSize, type CardMetrics, type CardSide } from './cardPlacement'
 import type { StagePoint, StageRect } from './markerBox'
@@ -23,10 +28,12 @@ export const CARD_DOCK_POLICIES = ['always', 'when-crowded'] as const
 
 export type CardDockPolicy = (typeof CARD_DOCK_POLICIES)[number]
 
-// The two places a card can be.
-export type CardSlotKind = 'floating' | 'docked'
+// The three places a card can be.
+export type CardSlotKind = 'listed' | 'floating' | 'docked'
 
 export type CardPresentationInput = {
+  // Where the selection was opened from.
+  readonly origin: HotspotOrigin
   readonly policy: CardDockPolicy
   // The stage box of the last placement pass, or null before the first.
   readonly stage: StageBox | null
@@ -44,21 +51,27 @@ export type CardPresentationInput = {
   readonly current: CardSlotKind | null
 }
 
-// A floating card is placed beside its marker, or hidden (at null) while
-// its marker is hidden or before its first measure. A docked card is shown
-// or hidden in the dock.
+// A listed card shows under its list item. A floating card is placed
+// beside its marker, or hidden (at null) while its marker is hidden or
+// before its first measure. A docked card is shown or hidden in the dock.
 export type CardPresentation =
+  | { readonly slot: 'listed' }
   | {
       readonly slot: 'floating'
       readonly at: { readonly side: CardSide; readonly box: StageRect } | null
     }
   | { readonly slot: 'docked'; readonly shown: boolean }
 
+const LISTED: CardPresentation = { slot: 'listed' }
+
 const FLOATING_HIDDEN: CardPresentation = { slot: 'floating', at: null }
 const DOCKED_SHOWN: CardPresentation = { slot: 'docked', shown: true }
 const DOCKED_HIDDEN: CardPresentation = { slot: 'docked', shown: false }
 
 export function presentHotspotCard(input: CardPresentationInput): CardPresentation {
+  if (input.origin === 'list') {
+    return LISTED
+  }
   const placed = input.stage !== null && input.marker !== null
   if (input.policy === 'always') {
     return placed ? DOCKED_SHOWN : DOCKED_HIDDEN

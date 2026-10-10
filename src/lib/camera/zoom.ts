@@ -22,15 +22,11 @@ export function distanceOfZoomPercent(percent: number, range: DistanceRange): nu
   return range.max - (percent / 100) * (range.max - range.min)
 }
 
-// The zoom percentage one button step away, in percentage points: zooming
-// in (direction 1) moves toward 100, zooming out toward 0, and the result
-// clamps to [0, 100], so the buttons stop at the limits.
-export function steppedZoomPercent(
-  percent: number,
-  direction: 1 | -1,
-  stepPercent: number,
-): number {
-  const stepped = percent + direction * stepPercent
+// The zoom percentage a number of steps away, in percentage points: steps
+// in (positive) move toward 100, steps out (negative) toward 0, and the
+// result clamps to [0, 100], so steps stop at the limits.
+export function steppedZoomPercent(percent: number, steps: number, stepPercent: number): number {
+  const stepped = percent + steps * stepPercent
   return Math.min(Math.max(stepped, 0), 100)
 }
 
@@ -39,4 +35,19 @@ export function steppedZoomPercent(
 // exact even when percentage arithmetic would round an interior value.
 export function zoomStepMoves(distance: number, range: DistanceRange, direction: 1 | -1): boolean {
   return direction === 1 ? distance > range.min : distance < range.max
+}
+
+// The zoom limit an end distance sits at: closest at the minimum distance,
+// farthest at the maximum, null inside the range. Exact comparisons, like
+// zoomStepMoves: the controls hold a reached limit exactly.
+export type ZoomLimit = 'closest' | 'farthest'
+
+export function zoomLimitOf(distance: number, range: DistanceRange): ZoomLimit | null {
+  if (distance === range.min) {
+    return 'closest'
+  }
+  if (distance === range.max) {
+    return 'farthest'
+  }
+  return null
 }

@@ -20,6 +20,10 @@ export class StageSettle {
 
   constructor(private readonly clock: Pick<FrameClock, 'onceFrame'>) {}
 
+  get pending(): number {
+    return this.chain.pending
+  }
+
   // Settles the scene as it stands when the step runs. Resolves when every
   // settle pushed before it, this one, and any pushed while it presented
   // have presented twice.

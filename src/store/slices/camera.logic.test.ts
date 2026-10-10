@@ -3,15 +3,12 @@ import {
   applyCameraOutcomeEvent,
   applyCameraReadoutEvent,
   hasUnhandledCameraRequest,
-  initialCameraOutcomes,
+  initialCameraOutcome,
   initialCameraReadout,
   initialCameraRequestChannel,
   nextCameraRequest,
-  type CameraOutcomeEvent,
-  type CameraOutcomes,
   type CameraReadout,
   type CameraReadoutEvent,
-  type CameraRequestOutcome,
 } from './camera.logic'
 
 const live = (
@@ -23,6 +20,9 @@ const live = (
   endDistance: 2,
   minDistance: 1,
   maxDistance: 4,
+  endPolar: 1,
+  minPolar: 0.25,
+  maxPolar: 2.75,
   ...overrides,
 })
 
@@ -44,6 +44,9 @@ describe('applyCameraReadoutEvent', () => {
         endDistance: 2,
         minDistance: 1,
         maxDistance: 4,
+        endPolar: 1,
+        minPolar: 0.25,
+        maxPolar: 2.75,
       },
       expected: live(),
     },
@@ -57,8 +60,27 @@ describe('applyCameraReadoutEvent', () => {
         endDistance: 3,
         minDistance: 1,
         maxDistance: 4,
+        endPolar: 1,
+        minPolar: 0.25,
+        maxPolar: 2.75,
       },
       expected: live({ azimuth: 1.5, distance: 3, endDistance: 3 }),
+    },
+    {
+      name: 'live + live with a new end polar angle carries it, so the tilt reads where it ends',
+      from: live(),
+      event: {
+        kind: 'live',
+        azimuth: 0.5,
+        distance: 2,
+        endDistance: 2,
+        minDistance: 1,
+        maxDistance: 4,
+        endPolar: 0.25,
+        minPolar: 0.25,
+        maxPolar: 2.75,
+      },
+      expected: live({ endPolar: 0.25 }),
     },
     {
       name: 'live + idle becomes idle',
@@ -83,6 +105,9 @@ describe('applyCameraReadoutEvent', () => {
         endDistance: 2,
         minDistance: 1,
         maxDistance: 4,
+        endPolar: 1,
+        minPolar: 0.25,
+        maxPolar: 2.75,
       },
       expected: live(),
       identical: true,
@@ -103,18 +128,18 @@ describe('applyCameraReadoutEvent', () => {
 describe('nextCameraRequest', () => {
   it('sequences each request above the one before it', () => {
     const first = nextCameraRequest(initialCameraRequestChannel, { kind: 'view', viewId: 'home' })
-    const second = nextCameraRequest(first, { kind: 'zoom', direction: 1 })
-    const third = nextCameraRequest(second, { kind: 'zoom', direction: 1 })
+    const second = nextCameraRequest(first, { kind: 'zoom', steps: 1 })
+    const third = nextCameraRequest(second, { kind: 'zoom', steps: 1 })
 
     expect(first).toEqual({ sequence: 1, request: { kind: 'view', viewId: 'home' } })
     expect(second.sequence).toBe(2)
     expect(third.sequence).toBe(3)
-    expect(third.request).toEqual({ kind: 'zoom', direction: 1 })
+    expect(third.request).toEqual({ kind: 'zoom', steps: 1 })
   })
 
   it('gives a repeated request its own sequence, so it runs twice', () => {
-    const first = nextCameraRequest(initialCameraRequestChannel, { kind: 'zoom', direction: -1 })
-    const second = nextCameraRequest(first, { kind: 'zoom', direction: -1 })
+    const first = nextCameraRequest(initialCameraRequestChannel, { kind: 'zoom', steps: -1 })
+    const second = nextCameraRequest(first, { kind: 'zoom', steps: -1 })
 
     expect(first.request).toEqual(second.request)
     expect(second.sequence).toBe(first.sequence + 1)
@@ -139,88 +164,74 @@ describe('hasUnhandledCameraRequest', () => {
 })
 
 describe('applyCameraOutcomeEvent', () => {
-  // The outcomes the row's `from` state is seeded with, in order.
-  const arrived = (sequences: readonly number[]): CameraOutcomes => {
-    let outcomes = initialCameraOutcomes
-    for (const sequence of sequences) {
-      outcomes = applyCameraOutcomeEvent(outcomes, { kind: 'arrived', sequence })
-    }
-    return outcomes
-  }
+  const home = { kind: 'view', viewId: 'home' } as const
+  const zoomIn = { kind: 'zoom', steps: 1 } as const
 
-  const table: readonly {
-    name: string
-    seed: readonly number[]
-    event: CameraOutcomeEvent
-    expected: ReadonlyMap<number, CameraRequestOutcome>
-  }[] = [
-    {
-      name: 'an arrived request is recorded by its sequence',
-      seed: [],
-      event: { kind: 'arrived', sequence: 3 },
-      expected: new Map([[3, { kind: 'arrived' }]]),
-    },
-    {
-      name: 'a no-plan rejection is recorded with its reason',
-      seed: [],
-      event: { kind: 'rejected', sequence: 1, reason: 'no-plan' },
-      expected: new Map([[1, { kind: 'rejected', reason: 'no-plan' }]]),
-    },
-    {
-      name: 'an unknown-view rejection is recorded with its reason',
-      seed: [],
-      event: { kind: 'rejected', sequence: 2, reason: 'unknown-view' },
-      expected: new Map([[2, { kind: 'rejected', reason: 'unknown-view' }]]),
-    },
-    {
-      name: 'two overlapping requests record one outcome each, both arrived at the final rest',
-      seed: [1],
-      event: { kind: 'arrived', sequence: 2 },
-      expected: new Map([
-        [1, { kind: 'arrived' }],
-        [2, { kind: 'arrived' }],
-      ]),
-    },
-  ]
-
-  for (const row of table) {
-    it(row.name, () => {
-      const next = applyCameraOutcomeEvent(arrived(row.seed), row.event)
-
-      expect(next).toEqual(row.expected)
-    })
-  }
-
-  it('keeps the outcomes of earlier sequences', () => {
-    const withFirst = applyCameraOutcomeEvent(initialCameraOutcomes, {
+  it('records an arrived request with its sequence and its request', () => {
+    const next = applyCameraOutcomeEvent(initialCameraOutcome, {
       kind: 'arrived',
-      sequence: 1,
+      sequence: 3,
+      request: home,
     })
-    const next = applyCameraOutcomeEvent(withFirst, { kind: 'arrived', sequence: 2 })
-
-    expect(next.get(1)).toEqual({ kind: 'arrived' })
-    expect(next.get(2)).toEqual({ kind: 'arrived' })
+    expect(next).toEqual({ sequence: 3, request: home, outcome: { kind: 'arrived' } })
   })
 
-  it('keeps the input outcomes untouched', () => {
-    const from = applyCameraOutcomeEvent(initialCameraOutcomes, { kind: 'arrived', sequence: 1 })
-    applyCameraOutcomeEvent(from, { kind: 'rejected', sequence: 2, reason: 'no-plan' })
+  it.each(['no-plan', 'unknown-view'] as const)(
+    'records a %s rejection with its reason',
+    (reason) => {
+      const next = applyCameraOutcomeEvent(initialCameraOutcome, {
+        kind: 'rejected',
+        sequence: 1,
+        request: zoomIn,
+        reason,
+      })
+      expect(next).toEqual({ sequence: 1, request: zoomIn, outcome: { kind: 'rejected', reason } })
+    },
+  )
 
-    expect(from.size).toBe(1)
-    expect(from.get(2)).toBeUndefined()
-  })
-
-  it('replaces the outcome of a sequence written again', () => {
-    const withArrived = applyCameraOutcomeEvent(initialCameraOutcomes, {
+  it('moves on to a newer sequence', () => {
+    const first = applyCameraOutcomeEvent(initialCameraOutcome, {
       kind: 'arrived',
       sequence: 1,
+      request: home,
     })
-    const next = applyCameraOutcomeEvent(withArrived, {
+    const next = applyCameraOutcomeEvent(first, { kind: 'arrived', sequence: 2, request: zoomIn })
+    expect(next).toEqual({ sequence: 2, request: zoomIn, outcome: { kind: 'arrived' } })
+  })
+
+  it('keeps the newer outcome when an older sequence reports after it', () => {
+    const newer = applyCameraOutcomeEvent(initialCameraOutcome, {
+      kind: 'arrived',
+      sequence: 5,
+      request: zoomIn,
+    })
+    const next = applyCameraOutcomeEvent(newer, { kind: 'arrived', sequence: 4, request: home })
+    expect(next).toBe(newer)
+  })
+
+  it('replaces the outcome of the recorded sequence written again', () => {
+    const arrived = applyCameraOutcomeEvent(initialCameraOutcome, {
+      kind: 'arrived',
+      sequence: 1,
+      request: home,
+    })
+    const next = applyCameraOutcomeEvent(arrived, {
       kind: 'rejected',
       sequence: 1,
+      request: home,
       reason: 'no-plan',
     })
+    expect(next?.outcome).toEqual({ kind: 'rejected', reason: 'no-plan' })
+  })
 
-    expect(next.get(1)).toEqual({ kind: 'rejected', reason: 'no-plan' })
+  // The bound is the design: a held key asks once per frame for as long as
+  // it is held, and the record stays one entry however many settle.
+  it('stays one entry over any number of requests', () => {
+    let record = initialCameraOutcome
+    for (let sequence = 1; sequence <= 10_000; sequence += 1) {
+      record = applyCameraOutcomeEvent(record, { kind: 'arrived', sequence, request: zoomIn })
+    }
+    expect(record).toEqual({ sequence: 10_000, request: zoomIn, outcome: { kind: 'arrived' } })
+    expect(Object.keys(record ?? {})).toEqual(['sequence', 'request', 'outcome'])
   })
 })

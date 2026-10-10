@@ -1,5 +1,6 @@
 import { expect, type Page } from '@playwright/test'
 import { testBodyBudgetMs } from './budgets'
+import { canvasDrivePoint } from './canvasDrivePoint'
 import type { AuthoredView, ProductCameraFacts } from './productCamera'
 import { resolvedDistanceLimits, type DistanceRange } from '../../src/lib/camera/limits'
 import type { Product } from '../../src/lib/product'
@@ -311,6 +312,8 @@ export async function stageAspectOfCanvas(page: Page): Promise<number> {
 // click.
 const DRAG_STEPS = 8
 
+// Choose an exposed canvas start whose complete requested displacement
+// ends inside the viewport, so every engine delivers the native release.
 // One drag of the pointer across the canvas: press, move in steps, release,
 // with every step delivered after a frame that followed the previous step,
 // the way a real pointer moves over time. camera-controls applies a pointer
@@ -336,13 +339,15 @@ export async function dragOnCanvas(
   from: { readonly x: number; readonly y: number },
   to: { readonly x: number; readonly y: number },
 ): Promise<void> {
-  await page.mouse.move(from.x, from.y)
+  const travel = { x: to.x - from.x, y: to.y - from.y }
+  const start = await canvasDrivePoint(page, { preferred: from, travel })
+  await page.mouse.move(start.x, start.y)
   await page.mouse.down()
   for (let step = 1; step <= DRAG_STEPS; step += 1) {
     const framesAtStep = await recordFramesAtNextPointerMove(page)
     await page.mouse.move(
-      from.x + ((to.x - from.x) * step) / DRAG_STEPS,
-      from.y + ((to.y - from.y) * step) / DRAG_STEPS,
+      start.x + (travel.x * step) / DRAG_STEPS,
+      start.y + (travel.y * step) / DRAG_STEPS,
     )
     const handledAt = await framesAtStep.evaluate((record) => record.frames)
     await framesAtStep.dispose()

@@ -48,6 +48,22 @@ async function stillPending(promise: Promise<void>): Promise<boolean> {
 }
 
 describe('TaskChain', () => {
+  it('reports pending work until the actual chain drains, including tasks pushed while it runs', async () => {
+    const chain = new TaskChain()
+    const first = deferredTask()
+    const second = deferredTask()
+    expect(chain.pending).toBe(0)
+    const firstDone = chain.push(first.run)
+    const secondDone = chain.push(second.run)
+    expect(chain.pending).toBe(2)
+    first.finish()
+    await drainMicrotasks()
+    expect(chain.pending).toBe(1)
+    second.finish()
+    await Promise.all([firstDone, secondDone])
+    expect(chain.pending).toBe(0)
+  })
+
   it('runs pushed tasks one after another, in push order', async () => {
     const chain = new TaskChain()
     const order: string[] = []

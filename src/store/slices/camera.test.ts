@@ -1,7 +1,11 @@
 import { expect, test } from 'vitest'
 import {
   createCameraSlice,
-  selectCameraOutcomes,
+  selectCameraLive,
+  selectCameraOutcome,
+  selectHomeArrival,
+  selectTiltLimit,
+  selectZoomLimit,
   selectCameraReadout,
   selectCameraRequestChannel,
   type CameraSliceState,
@@ -14,7 +18,7 @@ function makeSlice() {
   let state: CameraSliceState = {
     cameraReadout: initialCameraReadout,
     cameraRequestChannel: { sequence: 0, request: null },
-    cameraOutcomes: new Map(),
+    cameraOutcome: null,
   }
   const slice = createCameraSlice((updater) => {
     state = { ...state, ...updater(state) }
@@ -40,6 +44,9 @@ test('publishing a live readout carries the exact camera values', () => {
     endDistance: 1.75,
     minDistance: 0.875,
     maxDistance: 4.125,
+    endPolar: 1,
+    minPolar: 0.25,
+    maxPolar: 2.75,
   })
 
   const readout = selectCameraReadout(read())
@@ -50,6 +57,9 @@ test('publishing a live readout carries the exact camera values', () => {
     endDistance: 1.75,
     minDistance: 0.875,
     maxDistance: 4.125,
+    endPolar: 1,
+    minPolar: 0.25,
+    maxPolar: 2.75,
   })
 })
 
@@ -62,6 +72,9 @@ test('publishing the same live values twice keeps one live readout', () => {
     endDistance: 2,
     minDistance: 1,
     maxDistance: 4,
+    endPolar: 1,
+    minPolar: 0.25,
+    maxPolar: 2.75,
   } as const
 
   slice.cameraPublishReadout(event)
@@ -81,6 +94,9 @@ test('publishing idle clears a live readout', () => {
     endDistance: 2,
     minDistance: 1,
     maxDistance: 4,
+    endPolar: 1,
+    minPolar: 0.25,
+    maxPolar: 2.75,
   })
   slice.cameraPublishReadout({ kind: 'idle' })
 
@@ -90,16 +106,16 @@ test('publishing idle clears a live readout', () => {
 test('requests reach the channel sequenced, the same one twice included', () => {
   const { slice, read } = makeSlice()
 
-  slice.cameraRequest({ kind: 'zoom', direction: 1 })
+  slice.cameraRequest({ kind: 'zoom', steps: 1 })
   expect(selectCameraRequestChannel(read())).toEqual({
     sequence: 1,
-    request: { kind: 'zoom', direction: 1 },
+    request: { kind: 'zoom', steps: 1 },
   })
 
-  slice.cameraRequest({ kind: 'zoom', direction: 1 })
+  slice.cameraRequest({ kind: 'zoom', steps: 1 })
   expect(selectCameraRequestChannel(read())).toEqual({
     sequence: 2,
-    request: { kind: 'zoom', direction: 1 },
+    request: { kind: 'zoom', steps: 1 },
   })
 
   slice.cameraRequest({ kind: 'view', viewId: 'home' })
@@ -109,22 +125,88 @@ test('requests reach the channel sequenced, the same one twice included', () => 
   })
 })
 
-test('a fresh slice starts with no recorded outcomes', () => {
+test('a fresh slice starts with no recorded outcome', () => {
   const { read } = makeSlice()
 
-  expect(selectCameraOutcomes(read()).size).toBe(0)
+  expect(selectCameraOutcome(read())).toBeNull()
 })
 
-test('a recorded outcome lands in the slice keyed by its sequence', () => {
+test('a recorded outcome lands in the slice with its sequence, the newest kept', () => {
   const { slice, read } = makeSlice()
+  const home = { kind: 'view', viewId: 'home' } as const
 
-  slice.cameraRequestOutcome({ kind: 'arrived', sequence: 1 })
-  slice.cameraRequestOutcome({ kind: 'rejected', sequence: 2, reason: 'unknown-view' })
+  slice.cameraRequestOutcome({ kind: 'arrived', sequence: 1, request: home })
+  slice.cameraRequestOutcome({
+    kind: 'rejected',
+    sequence: 2,
+    request: home,
+    reason: 'unknown-view',
+  })
 
-  expect(selectCameraOutcomes(read())).toEqual(
-    new Map([
-      [1, { kind: 'arrived' }],
-      [2, { kind: 'rejected', reason: 'unknown-view' }],
-    ]),
-  )
+  expect(selectCameraOutcome(read())).toEqual({
+    sequence: 2,
+    request: home,
+    outcome: { kind: 'rejected', reason: 'unknown-view' },
+  })
+})
+
+test('the limit selectors read the end state exactly, and nothing while idle', () => {
+  const { slice, read } = makeSlice()
+  expect(selectCameraLive(read())).toBe(false)
+  expect(selectZoomLimit(read())).toBeNull()
+  expect(selectTiltLimit(read())).toBeNull()
+
+  const live = {
+    kind: 'live',
+    azimuth: 0,
+    distance: 2,
+    endDistance: 2,
+    minDistance: 1,
+    maxDistance: 4,
+    endPolar: 1,
+    minPolar: 0.25,
+    maxPolar: 2.75,
+  } as const
+  slice.cameraPublishReadout(live)
+  expect(selectCameraLive(read())).toBe(true)
+  expect(selectZoomLimit(read())).toBeNull()
+  expect(selectTiltLimit(read())).toBeNull()
+
+  slice.cameraPublishReadout({ ...live, endDistance: 1, endPolar: 2.75 })
+  expect(selectZoomLimit(read())).toBe('closest')
+  expect(selectTiltLimit(read())).toBe('bottom')
+
+  slice.cameraPublishReadout({ ...live, endDistance: 4, endPolar: 0.25 })
+  expect(selectZoomLimit(read())).toBe('farthest')
+  expect(selectTiltLimit(read())).toBe('top')
+})
+
+test('the home arrival is the sequence of the newest request settled at home', () => {
+  const { slice, read } = makeSlice()
+  expect(selectHomeArrival(read())).toBeNull()
+
+  slice.cameraRequestOutcome({
+    kind: 'arrived',
+    sequence: 3,
+    request: { kind: 'view', viewId: 'home' },
+  })
+  expect(selectHomeArrival(read())).toBe(3)
+
+  slice.cameraRequestOutcome({ kind: 'arrived', sequence: 4, request: { kind: 'zoom', steps: 1 } })
+  expect(selectHomeArrival(read()), 'a newer request moved the camera on').toBeNull()
+
+  slice.cameraRequestOutcome({
+    kind: 'rejected',
+    sequence: 5,
+    request: { kind: 'view', viewId: 'home' },
+    reason: 'no-plan',
+  })
+  expect(selectHomeArrival(read()), 'a rejected request arrived nowhere').toBeNull()
+
+  slice.cameraRequestOutcome({
+    kind: 'arrived',
+    sequence: 6,
+    request: { kind: 'view', viewId: 'driver' },
+  })
+  expect(selectHomeArrival(read())).toBeNull()
 })

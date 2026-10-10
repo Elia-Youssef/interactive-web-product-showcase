@@ -187,6 +187,29 @@ their minimum below it, switched by the breakpoints at the end of this file.
   --underline-partial: dotted;
 
   /*
+  Stage controls and highlights.
+  The pill spaces its clusters by the column gap and its two rows, where it
+  wraps, by the row gap; the angle row keeps its rotate buttons close to
+  the readout they turn.
+  */
+  --gap-stage-controls: var(--space-4);
+  --width-stage-controls-max: calc(100cqi - 2 * var(--inset-stage-chrome));
+  --gap-stage-controls-rows: var(--space-2);
+  --gap-stage-angle: var(--space-1);
+  /*
+  How far inside the stage edge the stage's keyboard target draws its focus
+  ring: the stage clips its edges, and the chrome's corners sit further in
+  at every breakpoint, so no control covers the ring.
+  */
+  --inset-stage-target-focus-ring: var(--space-2);
+  /*
+  How far below its scroller's top a card opened from the Highlights list
+  lands when it scrolls into view: one list row and its gap, so the list
+  button that opened it stays in view above it.
+  */
+  --scroll-margin-highlight-card: calc(var(--size-hit-min) + var(--space-2));
+
+  /*
   Layout structural sizes.
   The panel is clamped between 380px and 520px at about 34% width.
   Top bar height, mark size, and stage chrome insets.

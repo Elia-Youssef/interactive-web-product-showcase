@@ -46,3 +46,9 @@ export function activeFinish(product: Product, selectedVariant: string | null): 
   }
   return first
 }
+
+// The Highlights section's heading and button text, named with the count of
+// hotspots it lists: `Highlights, 4`.
+export function highlightsLabel(count: number): string {
+  return `${siteCopy.highlightsHeading}, ${count}`
+}

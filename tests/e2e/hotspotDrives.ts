@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import { dragOnCanvas } from './stageCamera'
-import { settledFrames } from './stageSettle'
+import { completedStage } from './stageSettle'
 import { harnessCanvasDrivePoint, requireCamera } from './hotspotViews'
 import type { Point3 } from './hotspotPlacement'
 
@@ -59,7 +59,7 @@ async function calibrateTurnRate(page: Page, axis: 'x' | 'y'): Promise<number> {
   } else {
     await dragOnCanvas(page, center, { x: center.x, y: center.y - stepPx })
   }
-  await settledFrames(page)
+  await completedStage(page)
   const after = await requireCamera(page)
   if (axis === 'x') {
     const turned = Math.abs(angleTo(before.azimuth, after.azimuth))
@@ -91,7 +91,7 @@ export async function dragToAzimuth(page: Page, targetAzimuth: number): Promise<
     )
     const direction = error > 0 ? -1 : 1
     await dragOnCanvas(page, center, { x: center.x + direction * dragPx, y: center.y })
-    await settledFrames(page)
+    await completedStage(page)
   }
   const camera = await requireCamera(page)
   const error = angleTo(camera.azimuth, targetAzimuth)
@@ -124,7 +124,7 @@ export async function dragToPolarAtLeast(page: Page, minPolar: number): Promise<
       Math.max(minDragPx, Math.round((driveDamping * (minPolar - camera.polar)) / rate)),
     )
     await dragOnCanvas(page, center, { x: center.x, y: center.y - dragPx })
-    await settledFrames(page)
+    await completedStage(page)
   }
   const camera = await requireCamera(page)
   throw new Error(
@@ -147,7 +147,7 @@ export async function dragToPolarAtMost(page: Page, maxPolar: number): Promise<v
       Math.max(minDragPx, Math.round((driveDamping * (camera.polar - maxPolar)) / rate)),
     )
     await dragOnCanvas(page, center, { x: center.x, y: center.y + dragPx })
-    await settledFrames(page)
+    await completedStage(page)
   }
   const camera = await requireCamera(page)
   throw new Error(
@@ -181,7 +181,7 @@ export async function driveToPolar(page: Page, targetPolar: number): Promise<voi
     )
     const direction = error > 0 ? -1 : 1
     await dragOnCanvas(page, center, { x: center.x, y: center.y + direction * dragPx })
-    await settledFrames(page)
+    await completedStage(page)
   }
   const camera = await requireCamera(page)
   const error = targetPolar - camera.polar
@@ -233,7 +233,7 @@ export async function zoomToDistanceBand(
       return
     }
     await page.mouse.wheel(0, camera.distance < band.min ? WHEEL_STEP : -WHEEL_STEP)
-    await settledFrames(page)
+    await completedStage(page)
   }
   const camera = await requireCamera(page)
   throw new Error(

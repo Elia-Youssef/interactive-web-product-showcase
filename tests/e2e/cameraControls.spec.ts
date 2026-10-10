@@ -7,6 +7,7 @@ import { loadCollection } from './productList'
 import { readProductCameraFacts } from './productCamera'
 import { settledFrames, settledStage } from './stageSettle'
 import { waitForProductReady } from './productSpecs'
+import { resolvedTokenColor } from './tokenColor'
 import {
   canvasCenter,
   dragOnCanvas,
@@ -274,11 +275,12 @@ test('the zoom buttons move the percentage by one step and wait disabled at thei
   await expectShownPercent(100, 'the third press clamps at the minimum distance')
 
   // At the limit the camera's own state says so: zoom in has reached the
-  // minimum distance, and its button waits disabled, muted like the other
-  // waiting controls.
+  // minimum distance, and its button waits disabled, in the one disabled
+  // color the waiting controls share.
+  const disabledColor = await resolvedTokenColor(page, '--disabled')
   await expect(zoomIn(page)).toBeDisabled()
   await expect(zoomOut(page)).toBeEnabled()
-  await expect(zoomIn(page)).toHaveCSS('color', 'rgb(160, 160, 160)')
+  await expect(zoomIn(page)).toHaveCSS('color', disabledColor)
   // The button state reads the move's end, which is exact at the limit
   // before the live distance has finished easing into it; the read waits
   // for the rest the way every live-camera check does.
@@ -302,7 +304,7 @@ test('the zoom buttons move the percentage by one step and wait disabled at thei
   // At the outer limit zoom out waits, and its inward twin works again.
   await expect(zoomOut(page)).toBeDisabled()
   await expect(zoomIn(page)).toBeEnabled()
-  await expect(zoomOut(page)).toHaveCSS('color', 'rgb(160, 160, 160)')
+  await expect(zoomOut(page)).toHaveCSS('color', disabledColor)
   await settledFrames(page)
   const emptiest = await readCamera(page)
   if (emptiest === null) {

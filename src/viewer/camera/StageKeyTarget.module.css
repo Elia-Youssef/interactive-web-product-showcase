@@ -1,0 +1,13 @@
+@import '../../styles/tokens.css';
+
+/* The stage's keyboard target: the box of the canvas life it belongs to,
+   under the overlay, taking no pointer, so a drag reaches the canvas. The
+   stage clips what passes its edges, so the focus ring is drawn inside the
+   box, at an inset the stage chrome's corners stay clear of. Values are
+   tokens. */
+.target {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  --focus-ring-offset: calc(-1 * var(--inset-stage-target-focus-ring));
+}

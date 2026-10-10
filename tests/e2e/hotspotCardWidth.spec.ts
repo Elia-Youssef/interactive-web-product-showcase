@@ -1,7 +1,7 @@
 import { hotspotTestProducts } from './hotspotTestProducts'
 import { expect, test } from './fixtures'
 import { harnessPath, harnessProducts, waitForProductReady } from './productSpecs'
-import { settledFrames } from './stageSettle'
+import { completedPresentation } from './presentationCompletion'
 import { cardHeadingOf, markerOf } from './hotspotViews'
 import { tokenPx } from './hotspotCardChecks'
 
@@ -30,11 +30,11 @@ for (const product of products) {
       await page.setViewportSize({ width: 1280, height: 720 })
       await page.goto(harnessPath(backendPath, product.slug))
       await waitForProductReady(page)
-      await settledFrames(page)
+      await completedPresentation(page)
 
       await markerOf(page, hotspot.title).click()
       await expect(cardHeadingOf(page, hotspot.title)).toBeVisible()
-      await settledFrames(page)
+      await completedPresentation(page)
 
       const widths = await markerOf(page, hotspot.title).evaluate(async (marker, title) => {
         const overlayBox = marker.parentElement?.parentElement

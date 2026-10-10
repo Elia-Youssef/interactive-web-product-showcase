@@ -78,4 +78,26 @@ describe('isMarkerPlaceable', () => {
     expect(isMarkerPlaceable({ x: HALF - 1, y: 300, inFront: true }, stage, extent)).toBe(false)
     expect(isMarkerPlaceable({ ...center, inFront: false }, stage, extent)).toBe(false)
   })
+
+  it.each([
+    ['left hit area', { left: 374, top: 290, right: 379, bottom: 310 }],
+    ['right ring', { left: 424, top: 290, right: 440, bottom: 310 }],
+    ['top ring', { left: 390, top: 260, right: 410, bottom: 276 }],
+    ['bottom ring', { left: 390, top: 324, right: 410, bottom: 340 }],
+    ['ring edge contact', { left: 427, top: 290, right: 440, bottom: 310 }],
+  ])('hides a marker whose whole keep-out meets the %s obstacle', (_name, obstacle) => {
+    const projection = { ...center, inFront: true }
+    expect(isMarkerPlaceable(projection, stage, extent, [obstacle])).toBe(false)
+    expect(isMarkerVisible(projection, stage, extent, false, [obstacle])).toBe(false)
+  })
+
+  it('shows with several clear obstacles and follows their current geometry', () => {
+    const projection = { ...center, inFront: true }
+    const obstacle = { left: 428, top: 290, right: 450, bottom: 310 }
+    const obstacles = [{ left: 0, top: 0, right: 100, bottom: 100 }, obstacle]
+    expect(isMarkerVisible(projection, stage, extent, false, obstacles)).toBe(true)
+    obstacle.left = 426
+    expect(isMarkerVisible(projection, stage, extent, false, obstacles)).toBe(false)
+    expect(isMarkerVisible(projection, stage, extent, true, [])).toBe(false)
+  })
 })

@@ -8,6 +8,8 @@ import { routePath } from './appPaths'
 import { productLoadBudgetMs } from './budgets'
 import type { BrowserName } from './matrix'
 import { waitForProductReady } from './productSpecs'
+import { markerOf } from './hotspotViews'
+import { clickCompleted, completedPresentation } from './presentationCompletion'
 
 // The reads and expectations of the collection spec: the collection's own
 // neighbors, the row's controls by accessible name, the wait for a
@@ -135,17 +137,32 @@ export function productWithHotspots(collection: ProductCollection): Product {
 }
 
 // Opens the card of the first hotspot whose marker is shown at the home
-// view and returns its title. A marker the view hides leaves the role
-// tree, so the role query finds a shown one only.
+// view and returns its title once the card has landed. A marker the view
+// hides leaves the role tree, so the role query finds a shown one only.
 export async function openShownCard(page: Page, product: Product): Promise<string> {
   for (const candidate of product.hotspots) {
-    const marker = page.getByRole('button', { name: candidate.title })
+    const marker = markerOf(page, candidate.title)
     if (await marker.isVisible()) {
-      await marker.click()
+      await openCardWith(page, marker)
       return candidate.title
     }
   }
   throw new Error(`no marker of '${product.slug}' is shown at the home view`)
+}
+
+// Presses a marker and waits for its card to land: a card that docks
+// brings itself into view through the panel's smooth scroll, and a press
+// on another panel control while that scroll still runs can go down on the
+// control and come up past it, so no click lands. The native scroll and
+// presented camera complete before the caller can act on another control.
+export async function openCardWith(page: Page, marker: Locator): Promise<void> {
+  await clickCompleted(page, marker)
+  await expect(page.getByTestId('hotspot-card')).toHaveCount(1)
+  await completedPresentation(page)
+}
+
+export async function scrollsAtRest(page: Page): Promise<void> {
+  await completedPresentation(page)
 }
 
 // The accessible name of the element focus rests on: its aria-label, its

@@ -1,9 +1,9 @@
 // The stage's overlay channel: one instance per stage mount, created beside
-// the settle, the holds and the probes. It knows keys and placements, never
-// what the overlay shows: DOM content registers an element under a key, and
+// the settle, the holds and the probes. DOM content registers an element under a key, and
 // the stage's canvas content writes a placement for the key per presented
 // frame. A placement is written straight to the element's style, so a frame
-// allocates no React state and re-renders nothing.
+// allocates no React state. A slot change commits its DOM before observers
+// read the card host, while steady placements remain imperative writes.
 //
 // The canvas side writes one presented frame's placements as one pass, in
 // the overlay box that frame used. Once every placement of the pass is
@@ -19,6 +19,10 @@
 // The surface the channel writes: exactly the two style properties a
 // placement moves. A real element's style satisfies it, and so does a test
 // stand-in, because the channel touches nothing else.
+import { StageGeometry } from './StageGeometry'
+import { CommittedCard } from './CommittedCard'
+import { ScrollCompletion } from '@lib/scroll/ScrollCompletion'
+
 export type OverlayElement = {
   readonly style: {
     visibility: string
@@ -93,6 +97,10 @@ function emptyOverlayProductState(): OverlayProductState {
 }
 
 export class StageOverlay {
+  readonly card = new CommittedCard()
+  readonly scroll = new ScrollCompletion()
+  presentedFrame = 0
+  readonly geometry = new StageGeometry()
   private mounts = new Map<string, OverlayMount>()
   private product: OverlayProductState = emptyOverlayProductState()
   private readonly passListeners: Readonly<Record<OverlayPassPhase, Set<OverlayPassListener>>> = {
@@ -104,6 +112,11 @@ export class StageOverlay {
   // pass allocates no closure.
   private readonly placeInPass: OverlayPlace = (key, placement) => this.place(key, placement)
   private readonly placeBoxInPass: OverlayPlaceBox = (key, box) => this.placeBox(key, box)
+  private readonly presentContent = () => {
+    for (const listener of this.passListeners.presenter) listener()
+  }
+
+  constructor(private readonly commit: (present: () => void) => void = (present) => present()) {}
 
   // Holds the element under the key for as long as the caller keeps it and
   // returns the release of this one mount. A second mount under a held key
@@ -159,10 +172,11 @@ export class StageOverlay {
   // presenters.
   pass(box: OverlayBox, writeAll: (place: OverlayPlace, placeBox: OverlayPlaceBox) => void): void {
     this.passBox = box
+    this.geometry.read(box)
     writeAll(this.placeInPass, this.placeBoxInPass)
-    for (const listener of this.passListeners.presenter) {
-      listener()
-    }
+    this.commit(this.presentContent)
+    this.card.present()
+    this.presentedFrame += 1
     for (const listener of this.passListeners.observer) {
       listener()
     }

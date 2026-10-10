@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, expect, test, vi } from 'vitest'
 import { Spherical } from 'three/webgpu'
 import { DomRectStandIn, staged } from './lensEaseFixtures'
-import { readControlsEndDistance } from './controls'
+import { readControlsEnd } from './controls'
 import { zoomStepMoves } from '@lib/camera/zoom'
 
 beforeAll(() => vi.stubGlobal('DOMRect', DomRectStandIn))
@@ -24,7 +24,7 @@ test.each([
 
     expect(controls.getSpherical(new Spherical(), true).radius).toBe(distance)
     expect(controls.distance).not.toBe(distance)
-    const endDistance = readControlsEndDistance(controls, scratch)
+    const endDistance = readControlsEnd(controls, scratch).radius
     expect(endDistance).toBe(distance)
     expect(zoomStepMoves(endDistance, range, direction)).toBe(false)
     controls.dispose()

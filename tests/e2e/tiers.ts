@@ -62,6 +62,7 @@ export const specFamilies: Readonly<Record<string, SpecFamily>> = {
   routing: 'smoke',
   failure: 'smoke',
   cameraHome: 'smoke',
+  chromeControls: 'layout',
   hotspotCardPlacement: 'layout',
   hotspotCardDock: 'layout',
   hotspotCardWidth: 'layout',

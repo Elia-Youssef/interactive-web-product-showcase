@@ -1,0 +1,54 @@
+/* The panel's Highlights section: it spans the panel's width, so a card
+opened under an item lays out from the narrowest phone's content width to
+the panel's widest. Each item is a quiet text button in the body type that
+keeps the control's hit height and wraps a long title, lifted to white on
+hover and while its card is open; its card sits right under it. Values are
+tokens. */
+
+.highlights {
+  justify-self: stretch;
+}
+
+.list {
+  display: grid;
+  row-gap: var(--space-1);
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: grid;
+  row-gap: var(--space-2);
+}
+
+.button {
+  display: flex;
+  align-items: center;
+  min-block-size: var(--size-hit-min);
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: start;
+  font-size: var(--fs-body);
+  font-weight: var(--weight-body);
+  color: var(--muted);
+  transition: color var(--duration-hover);
+}
+
+.button:hover,
+.button[aria-expanded='true'] {
+  color: var(--white);
+}
+
+/* Disabled: the item waits for the product it opens. It mutes to the one
+disabled color the controls share and keeps no hover; declared after the
+hover rule, so the wait wins. */
+.button:disabled {
+  color: var(--disabled);
+  cursor: default;
+}
+
+.host:empty {
+  display: none;
+}

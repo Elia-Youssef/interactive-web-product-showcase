@@ -1,4 +1,5 @@
-import type { Page } from '@playwright/test'
+import { canvasDrivePoint } from './canvasDrivePoint'
+import type { Locator, Page } from '@playwright/test'
 import { siteCopy } from '../../src/lib/copy/site'
 import { expect } from './fixtures'
 import { readCamera } from './stageCamera'
@@ -45,16 +46,9 @@ export async function harnessCanvasCenter(page: Page): Promise<{ x: number; y: n
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
 }
 
-// The canvas point the camera drives start from: inside the canvas, in its
-// lower left quadrant, where no marker and no open card of the presented
-// product sits, because the overlay content hugs the product's projection
-// at the center of the view. A drag or a wheel needs the canvas under the
-// pointer only at its start; camera-controls tracks the drag on the
-// document from there (camera-controls dist/camera-controls.module.js,
-// onPointerDown: the move and up listeners attach to the ownerDocument).
+// The current exposed canvas point for a native drive or outside press.
 export async function harnessCanvasDrivePoint(page: Page): Promise<{ x: number; y: number }> {
-  const box = await harnessStageBox(page)
-  return { x: box.x + box.width * 0.15, y: box.y + box.height * 0.85 }
+  return canvasDrivePoint(page)
 }
 
 // The stage aspect the harness page's renderer sees: the canvas box in CSS
@@ -65,14 +59,21 @@ export async function harnessStageAspect(page: Page): Promise<number> {
   return box.width / box.height
 }
 
+// The stage overlay, where the markers live, on the site's pages and the
+// harness page alike. The panel's Highlights list names its items with the
+// same hotspot titles, so every marker read is scoped to the overlay.
+export function stageOverlayOf(page: Page): Locator {
+  return page.locator('[data-stage-overlay]')
+}
+
 export function markerOf(page: Page, title: string) {
-  return page.getByRole('button', { name: title })
+  return stageOverlayOf(page).getByRole('button', { name: title })
 }
 
 // State reads cover mounted markers even when projection hides them from
 // the role tree. Pointer and focus drives still use the visible markerOf.
 export function mountedMarkerOf(page: Page, title: string) {
-  return page.getByRole('button', { name: title, includeHidden: true })
+  return stageOverlayOf(page).getByRole('button', { name: title, includeHidden: true })
 }
 
 // The card of the open hotspot: its title heading, the one card the single
@@ -173,7 +174,7 @@ export async function expectHiddenEverywhere(
   title: string,
   why: string,
 ): Promise<void> {
-  const marker = page.getByRole('button', { name: title, includeHidden: true })
+  const marker = mountedMarkerOf(page, title)
   await expect(marker, `${why}: ${title} must be hidden`).toBeHidden()
   // The verdicts compute inside the page: a DOM element does not survive
   // the evaluate boundary, so the page answers with facts about it.

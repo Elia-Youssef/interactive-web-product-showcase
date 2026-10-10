@@ -81,7 +81,9 @@ export function resolvedPolarRange(limits: CameraLimitConfig): PolarRange {
   }
 }
 
-function degreesToRadians(degrees: number): number {
+// Degrees to radians the way three's MathUtils.degToRad converts them, the
+// one conversion every camera rule shares.
+export function degreesToRadians(degrees: number): number {
   return degrees * (Math.PI / 180)
 }
 

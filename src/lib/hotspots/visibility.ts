@@ -7,7 +7,8 @@
 // is the anchor's own part at worst, never a nearer occluder.
 
 import type { StageBox, StageProjection } from './projection'
-import { isKeepOutInsideStage, type MarkerExtent } from './markerBox'
+import { isKeepOutInsideStage, type MarkerExtent, type StageRect } from './markerBox'
+import { rectsMeetBounds } from './chromeGeometry'
 
 // The nearest occluder hit along the ray from the camera to the anchor, or
 // null when the ray reaches the anchor without touching any occluder. The
@@ -19,17 +20,33 @@ export function isOccluded(anchorDistance: number, nearestHitDistance: number | 
 
 // A marker shows when its anchor is in front of the camera, its whole
 // keep-out box (the hit box grown by the focus ring's reach, centered on
-// the projection) fits inside the stage box, and nothing stands between
-// the camera and the anchor. Every other combination hides it: a marker
-// whose box crosses a stage edge hides like an occluded one, so no part of
-// a shown marker's hit area or focus ring ever lies under whatever sits
-// beside the stage.
+// the projection) fits inside the stage box and clears every current chrome
+// obstacle, and nothing stands between the camera and the anchor. Contact
+// with chrome hides the entire marker, like crossing a stage edge.
 export function isMarkerPlaceable(
   projection: StageProjection,
   stage: StageBox,
   extent: MarkerExtent,
+  obstacles: readonly StageRect[] = [],
 ): boolean {
-  return projection.inFront && isKeepOutInsideStage(projection, stage, extent)
+  if (!projection.inFront || !isKeepOutInsideStage(projection, stage, extent)) {
+    return false
+  }
+  const half = extent.markerHitPx / 2 + extent.focusOutsetPx
+  for (const obstacle of obstacles) {
+    if (
+      rectsMeetBounds(
+        projection.x - half,
+        projection.y - half,
+        projection.x + half,
+        projection.y + half,
+        obstacle,
+      )
+    ) {
+      return false
+    }
+  }
+  return true
 }
 
 export function isMarkerVisible(
@@ -37,6 +54,7 @@ export function isMarkerVisible(
   stage: StageBox,
   extent: MarkerExtent,
   occluded: boolean,
+  obstacles: readonly StageRect[] = [],
 ): boolean {
-  return isMarkerPlaceable(projection, stage, extent) && !occluded
+  return isMarkerPlaceable(projection, stage, extent, obstacles) && !occluded
 }

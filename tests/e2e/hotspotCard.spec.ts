@@ -2,7 +2,7 @@ import { expect, test } from './fixtures'
 import { expectPoll, harnessPath, harnessProducts, waitForProductReady } from './productSpecs'
 import { productLoadBudgetMs, testBudgetMs } from './budgets'
 import { dragOnCanvas } from './stageCamera'
-import { settledFrames } from './stageSettle'
+import { completedPresentation } from './presentationCompletion'
 import {
   cardCloseButtonOf,
   cardHeadingOf,
@@ -69,7 +69,7 @@ for (const flow of flows) {
       test.setTimeout(testBudgetMs({ productLoads: 1, cameraDrives: 3 }))
       await page.goto(harnessPath(backendPath, slug))
       await waitForProductReady(page)
-      await settledFrames(page)
+      await completedPresentation(page)
 
       // With the plain card open at home, a drag moves the marker, and the
       // card follows it: at rest the marker sits on its projection, and the
@@ -80,7 +80,7 @@ for (const flow of flows) {
       // cover: the open card hugs the marker at the center of the view.
       const drivePoint = await harnessCanvasDrivePoint(page)
       await dragOnCanvas(page, drivePoint, { x: drivePoint.x + 240, y: drivePoint.y })
-      const framesAfterDrag = await settledFrames(page)
+      const framesAfterDrag = await completedPresentation(page)
       await expectMarkersAtProjection(page, [plain], 'with the card open, after a drag')
 
       // The card hangs beside the marker it belongs to, the token offset off
@@ -90,7 +90,7 @@ for (const flow of flows) {
 
       // The stage stays put: the open card asked for no frame of its own.
       expect(
-        await settledFrames(page),
+        await completedPresentation(page),
         'the settled stage must render no frame for the open card',
       ).toBe(framesAfterDrag)
 
@@ -136,7 +136,7 @@ for (const flow of flows) {
     }) => {
       await page.goto(harnessPath(backendPath, slug))
       await waitForProductReady(page)
-      await settledFrames(page)
+      await completedPresentation(page)
 
       await markerOf(page, anyHotspot.title).click()
       await expect(cardHeadingOf(page, anyHotspot.title)).toBeVisible()
@@ -152,7 +152,7 @@ for (const flow of flows) {
 
       await page.getByTestId('remount-product').click()
       await waitForProductReady(page)
-      await settledFrames(page)
+      await completedPresentation(page)
       for (const hotspot of product.hotspots) {
         await expect(
           markerOf(page, hotspot.title),
@@ -168,14 +168,14 @@ for (const flow of flows) {
     }) => {
       await page.goto(harnessPath(backendPath, slug))
       await waitForProductReady(page)
-      await settledFrames(page)
+      await completedPresentation(page)
 
       await markerOf(page, anyHotspot.title).click()
       await expect(cardHeadingOf(page, anyHotspot.title)).toBeVisible()
-      const frames = await settledFrames(page)
+      const frames = await completedPresentation(page)
 
       expect(
-        await settledFrames(page),
+        await completedPresentation(page),
         'the stage must render no frame while a card is open at rest',
       ).toBe(frames)
     })
@@ -189,10 +189,10 @@ for (const flow of flows) {
       await page.emulateMedia({ reducedMotion: 'reduce' })
       await page.goto(harnessPath(backendPath, slug))
       await waitForProductReady(page)
-      await settledFrames(page)
+      await completedPresentation(page)
 
       const expected = flow.viewAt(closeUp.view, await harnessStageAspect(page))
-      const framesBefore = await settledFrames(page)
+      const framesBefore = await completedPresentation(page)
       await markerOf(page, closeUp.title).click()
       await page.waitForFunction(
         (previous: number) => (window.__viewer?.renderedFrames ?? -1) > previous,
@@ -209,7 +209,7 @@ for (const flow of flows) {
 
       // Pressing the active marker again closes and returns home, the same
       // instant way.
-      const framesAtCloseUp = await settledFrames(page)
+      const framesAtCloseUp = await completedPresentation(page)
       await markerOf(page, closeUp.title).click()
       await page.waitForFunction(
         (previous: number) => (window.__viewer?.renderedFrames ?? -1) > previous,

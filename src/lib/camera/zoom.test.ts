@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   distanceOfZoomPercent,
   steppedZoomPercent,
+  zoomLimitOf,
   zoomPercentOfDistance,
   zoomStepMoves,
 } from './zoom'
@@ -59,6 +60,31 @@ describe('steppedZoomPercent', () => {
     expect(steppedZoomPercent(5, -1, 10)).toBe(0)
     expect(steppedZoomPercent(100, 1, 10)).toBe(100)
     expect(steppedZoomPercent(0, -1, 10)).toBe(0)
+  })
+
+  it('moves several steps at once and clamps them like one', () => {
+    expect(steppedZoomPercent(50, 3, 10)).toBe(80)
+    expect(steppedZoomPercent(50, -2, 10)).toBe(30)
+    expect(steppedZoomPercent(50, 7, 10)).toBe(100)
+    expect(steppedZoomPercent(50, -9, 10)).toBe(0)
+    expect(steppedZoomPercent(50, 0, 10)).toBe(50)
+  })
+})
+
+describe('zoomLimitOf', () => {
+  it('names the limit an end distance sits at exactly, and none inside', () => {
+    expect(zoomLimitOf(range.min, range)).toBe('closest')
+    expect(zoomLimitOf(range.max, range)).toBe('farthest')
+    expect(zoomLimitOf(2.5, range)).toBeNull()
+    expect(zoomLimitOf(range.min + Number.EPSILON, range)).toBeNull()
+    expect(zoomLimitOf(range.max - 2 * Number.EPSILON, range)).toBeNull()
+  })
+
+  it('reads the limit a clamped step lands on', () => {
+    const closest = distanceOfZoomPercent(steppedZoomPercent(95, 1, 10), range)
+    const farthest = distanceOfZoomPercent(steppedZoomPercent(5, -1, 10), range)
+    expect(zoomLimitOf(closest, range)).toBe('closest')
+    expect(zoomLimitOf(farthest, range)).toBe('farthest')
   })
 })
 

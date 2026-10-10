@@ -1,5 +1,9 @@
 import { createStore } from 'zustand/vanilla'
-import { transitionHotspotFlow, type HotspotFlowEvent } from '@lib/hotspots/flow'
+import {
+  transitionHotspotFlow,
+  type HotspotFlowEvent,
+  type HotspotOrigin,
+} from '@lib/hotspots/flow'
 import { closeUpHotspotIds } from '@lib/product'
 import { nextCameraRequest } from './slices/camera.logic'
 import { createCameraSlice, type CameraSlice } from './slices/camera'
@@ -15,10 +19,11 @@ import { createRendererSlice, type RendererSlice } from './slices/renderer'
 // change in one update, the flow's next status together with the camera
 // request it owes, so a subscriber never sees half of an event.
 export type FlowActions = {
-  // A marker press: opens the hotspot, or closes it when it is the active
-  // one. The close-up set and the assembled pose are read from the store
-  // at the press.
-  hotspotPressed: (product: string, hotspot: string) => void
+  // A marker or a Highlights list item press: opens the hotspot from that
+  // origin, closes it when it is the active one from the same origin, or
+  // moves its card to the other origin. The close-up set and the assembled
+  // pose are read from the store at the press.
+  hotspotPressed: (product: string, hotspot: string, origin: HotspotOrigin) => void
   // Escape or the card's close button.
   hotspotClosed: (product: string) => void
   // The product stops being presented: its selection clears with no move.
@@ -58,7 +63,7 @@ export function createAppStore() {
 function createFlowActions(set: SetAppState): FlowActions {
   const applyFlow = (event: HotspotFlowEvent) => set((state) => flowChange(state, event) ?? state)
   return {
-    hotspotPressed: (product, hotspot) =>
+    hotspotPressed: (product, hotspot, origin) =>
       set(
         (state) =>
           flowChange(state, {
@@ -67,6 +72,7 @@ function createFlowActions(set: SetAppState): FlowActions {
             hotspot,
             hasCloseUp: closeUpsOf(state, product).has(hotspot),
             assembled: selectExplodeTarget(state, product) === 0,
+            origin,
           }) ?? state,
       ),
     hotspotClosed: (product) => applyFlow({ kind: 'closed', product }),

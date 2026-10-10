@@ -7,13 +7,17 @@
 // writes both in one update.
 //
 // The rules:
-// - Pressing a marker opens its hotspot, or closes it when it is the active
-//   one. An opened hotspot enters its close-up only when it has one and the
-//   product is assembled (its explode target is 0): close-ups frame the
-//   assembled product. Opening owes the close-up's view, or home when the
-//   selection it replaces was in a close-up, or nothing.
-// - Closing (Escape, the card's close, the active marker) clears the
-//   selection and owes home only from a close-up.
+// - Pressing a marker or a Highlights list item opens its hotspot, from
+//   that origin. Pressing the active hotspot again from the same origin
+//   closes it; from the other origin it moves the open card there and owes
+//   no move: a marker press takes a list card to the stage, a list press
+//   takes a marker card into the list. An opened hotspot enters its
+//   close-up only when it has one and the product is assembled (its
+//   explode target is 0): close-ups frame the assembled product. Opening
+//   owes the close-up's view, or home when the selection it replaces was
+//   in a close-up, or nothing.
+// - Closing (Escape, the card's close, the active marker or list item)
+//   clears the selection and owes home only from a close-up.
 // - The product leaving its assembled pose (its explode target leaves 0)
 //   keeps the selection, leaves the close-up and owes home from one.
 // - Reset clears any selection and always owes home.
@@ -21,6 +25,11 @@
 //   product presents its own home view.
 
 import { CAMERA_HOME_ID } from '../product/contractNames'
+
+// Where a selection was opened from: a marker on the stage, or an item of
+// the panel's Highlights list. The card presents by it: a marker's card
+// on the stage, a list item's under its own item.
+export type HotspotOrigin = 'marker' | 'list'
 
 export type HotspotStatus =
   | { readonly kind: 'idle' }
@@ -33,6 +42,7 @@ export type HotspotStatus =
       // Whether the flow entered this hotspot's close-up and has not left
       // it: the camera presents the close-up view.
       readonly closeUp: boolean
+      readonly origin: HotspotOrigin
     }
 
 export type SelectedHotspot = Extract<HotspotStatus, { kind: 'selected' }>
@@ -48,6 +58,7 @@ export type HotspotFlowEvent =
       readonly hasCloseUp: boolean
       // Whether the product's explode target is 0.
       readonly assembled: boolean
+      readonly origin: HotspotOrigin
     }
   | { readonly kind: 'closed'; readonly product: string }
   | { readonly kind: 'disassembled'; readonly product: string }
@@ -94,11 +105,19 @@ function pressed(
 ): HotspotFlowTransition {
   const selection = selectionOf(status, event.product)
   if (selection !== null && selection.hotspot === event.hotspot) {
-    return closed(status, event.product)
+    return selection.origin === event.origin
+      ? closed(status, event.product)
+      : { status: { ...selection, origin: event.origin }, view: null }
   }
   const closeUp = event.hasCloseUp && event.assembled
   return {
-    status: { kind: 'selected', product: event.product, hotspot: event.hotspot, closeUp },
+    status: {
+      kind: 'selected',
+      product: event.product,
+      hotspot: event.hotspot,
+      closeUp,
+      origin: event.origin,
+    },
     view: closeUp ? event.hotspot : homeFrom(selection),
   }
 }

@@ -1,13 +1,18 @@
+import { StagePointerGestures } from '@lib/input/StagePointerGestures'
+import { StagePointerGesturesContext } from './stagePointerGesturesContext'
 import { useEffect, useState } from 'react'
-import type { ReactNode } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 import { useStageProbes } from './automation/stageProbesContext'
 import { StageOverlay } from './overlay/StageOverlay'
 import { StageOverlayContext } from './overlay/stageOverlayContext'
+import { StageKeyTarget } from './camera/StageKeyTarget'
 import styles from './StageLife.module.css'
+import { flushSync } from 'react-dom'
+import { scrollIntoView } from './scrollIntoView'
 
 type StageLifeProps = {
-  // The canvas of this life, or nothing for a stage that mounts none.
-  readonly canvas: ReactNode
+  // The canvas of this life, or null for a stage that mounts none.
+  readonly canvas: ReactElement | null
   // The DOM content shown over the canvas, or nothing.
   readonly overlay?: ReactNode
 }
@@ -23,27 +28,42 @@ type StageLifeProps = {
 // it. No stale marker can outlive the canvas it was measured on, whatever
 // the order the fresh content mounts in. The life registers the stage's
 // overlay probe for as long as it is mounted, so the automation reads the
-// channel of the canvas on the stage now. The overlay box carries the
+// channel of the canvas on the stage now. A life with a canvas carries the
+// stage's keyboard target, ahead of the overlay in the focus order, so Tab
+// reaches the stage before the markers on it. The overlay box carries the
 // stage overlay mark: everything inside it is the product's own content
 // laid over the canvas, apart from whatever a page lays over the stage
 // beside it.
 export function StageLife({ canvas, overlay }: StageLifeProps) {
-  const [channel] = useState(() => new StageOverlay())
+  const [channel] = useState(() => new StageOverlay(flushSync))
+  const [gestures] = useState(() => new StagePointerGestures())
   const probes = useStageProbes()
 
   useEffect(
-    () => probes.register('overlay', () => ({ placements: channel.placementRecord() })),
+    () =>
+      probes.register('overlay', () => ({
+        placements: channel.placementRecord(),
+        card: channel.card.read(),
+        scroll: channel.scroll.read(),
+        frame: channel.presentedFrame,
+        committed: channel.card.idle,
+        reveal: (element) => scrollIntoView(element, channel.scroll, 'nearest'),
+      })),
     [probes, channel],
   )
+  useEffect(() => () => channel.scroll.release(), [channel])
 
   return (
-    <StageOverlayContext.Provider value={channel}>
-      {canvas}
-      {overlay !== undefined && (
-        <div className={styles.overlay} data-stage-overlay>
-          {overlay}
-        </div>
-      )}
-    </StageOverlayContext.Provider>
+    <StagePointerGesturesContext.Provider value={gestures}>
+      <StageOverlayContext.Provider value={channel}>
+        {canvas}
+        {canvas !== null && <StageKeyTarget />}
+        {overlay !== undefined && (
+          <div className={styles.overlay} data-stage-overlay>
+            {overlay}
+          </div>
+        )}
+      </StageOverlayContext.Provider>
+    </StagePointerGesturesContext.Provider>
   )
 }

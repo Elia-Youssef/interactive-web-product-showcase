@@ -5,7 +5,8 @@ import { zoomOfLens } from '@lib/camera/lens'
 import { orbitAnglesOf, positionOfOrbitAngles } from '@lib/camera/view'
 import type { OrbitAngles } from '@lib/camera/view'
 import { distanceOfZoomPercent, steppedZoomPercent, zoomPercentOfDistance } from '@lib/camera/zoom'
-import type { DistanceRange } from '@lib/camera/limits'
+import type { DistanceRange, PolarRange } from '@lib/camera/limits'
+import { steppedOrbit, type OrbitTurn } from '@lib/camera/orbitStep'
 import { stageCameraConfig } from './config'
 import type { CameraPlan, CameraView } from './productPlan'
 
@@ -26,12 +27,13 @@ export function readControlsEndOrbit(controls: CameraControlsImpl): OrbitAngles 
   return { azimuth: end.theta, polar: end.phi, distance: end.radius }
 }
 
-// The distance the controls' current transition ends at, or the live
-// distance at rest: the state a zoom step reads and clamps. The scratch
-// spherical value is the caller's, reused across reads, so a reader that runs per
-// controls update allocates nothing.
-export function readControlsEndDistance(controls: CameraControlsImpl, scratch: Spherical): number {
-  return controls.getSpherical(scratch, true).radius
+// The spherical coordinates the controls' current transition ends at, or
+// the live ones at rest: the state a zoom or tilt step reads and clamps,
+// its radius the end distance and its phi the end polar angle. The scratch
+// spherical value is the caller's, reused across reads, so a reader that
+// runs per controls update allocates nothing.
+export function readControlsEnd(controls: CameraControlsImpl, scratch: Spherical): Spherical {
+  return controls.getSpherical(scratch, true)
 }
 
 // The distance limits of a plan at one stage aspect, by the aspect rule:
@@ -96,15 +98,28 @@ export function applyView(
   return Promise.all([pose, lens]).then(() => undefined)
 }
 
-// One zoom button step from the end distance, clamped by the percentage
-// math to the limits.
+// Zoom steps from the end distance, clamped by the percentage math to the
+// limits.
 export function stepZoom(
   controls: CameraControlsImpl,
   range: DistanceRange,
-  direction: 1 | -1,
+  steps: number,
   enableTransition: boolean,
 ): Promise<void> {
   const percent = zoomPercentOfDistance(readControlsEndOrbit(controls).distance, range)
-  const stepped = steppedZoomPercent(percent, direction, stageCameraConfig.zoomStepPercent)
+  const stepped = steppedZoomPercent(percent, steps, stageCameraConfig.zoomStepPercent)
   return controls.dollyTo(distanceOfZoomPercent(stepped, range), enableTransition)
+}
+
+// A turn of the orbit from the end angles, the polar angle clamped exactly
+// to the plan's limits by the orbit step rule, so repeated steps stop on a
+// limit and the controls' own clamp never has to round one.
+export function stepOrbit(
+  controls: CameraControlsImpl,
+  polarRange: PolarRange,
+  turn: OrbitTurn,
+  enableTransition: boolean,
+): Promise<void> {
+  const end = steppedOrbit(readControlsEndOrbit(controls), turn, polarRange)
+  return controls.rotateTo(end.azimuth, end.polar, enableTransition)
 }

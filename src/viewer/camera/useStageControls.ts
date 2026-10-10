@@ -15,6 +15,8 @@ import {
 } from 'three/webgpu'
 import { useStageFrame } from '../stageFrameContext'
 import { ControlsFrameClock } from './controlsFrameClock'
+import { useControlsDemand } from './useControlsDemand'
+import type { CameraRequestCompletion } from '@lib/camera/requestCompletion'
 
 // The stage's controls mount: one camera-controls instance per stage,
 // mounted in the stage's own component so the controls' frame step is ours
@@ -38,7 +40,7 @@ const CONTROLS_THREE = {
   Vector4,
 }
 
-export function useStageControls(): CameraControlsImpl {
+export function useStageControls(completion: CameraRequestCompletion): CameraControlsImpl {
   const camera = useThree((state) => state.camera)
   const gl = useThree((state) => state.gl)
   const invalidate = useThree((state) => state.invalidate)
@@ -61,7 +63,9 @@ export function useStageControls(): CameraControlsImpl {
     'stage',
     () => {
       const step = frameClock.stepSeconds(performance.now())
-      frameClock.recordUpdate(controls.update(step))
+      const updated = controls.update(step)
+      frameClock.recordUpdate(updated)
+      completion.updated(updated)
     },
     -1,
   )
@@ -74,29 +78,7 @@ export function useStageControls(): CameraControlsImpl {
     return () => void controls.disconnect()
   }, [controls, events, gl])
 
-  // The demand frame loop renders on the controls' own events. The
-  // move-start events, transitionstart and controlstart, also timestamp the
-  // move's start; camera-controls fires them on every applied input step,
-  // and the clock anchors on them only while the controls were asleep.
-  useEffect(() => {
-    const beginMove = () => {
-      frameClock.beginMove(performance.now())
-      invalidate()
-    }
-    const invalidateOnly = () => invalidate()
-    controls.addEventListener('controlstart', beginMove)
-    controls.addEventListener('transitionstart', beginMove)
-    controls.addEventListener('control', invalidateOnly)
-    controls.addEventListener('update', invalidateOnly)
-    controls.addEventListener('wake', invalidateOnly)
-    return () => {
-      controls.removeEventListener('controlstart', beginMove)
-      controls.removeEventListener('transitionstart', beginMove)
-      controls.removeEventListener('control', invalidateOnly)
-      controls.removeEventListener('update', invalidateOnly)
-      controls.removeEventListener('wake', invalidateOnly)
-    }
-  }, [controls, frameClock, invalidate])
+  useControlsDemand(controls, frameClock, completion, invalidate)
 
   return controls
 }

@@ -4,6 +4,8 @@
 
 export { Card } from './Card'
 export type { CardProps } from './Card'
+export { Disclosure } from './Disclosure'
+export type { DisclosureProps } from './Disclosure'
 export { Divider } from './Divider'
 export { Eyebrow } from './Eyebrow'
 export type { EyebrowProps } from './Eyebrow'
@@ -31,8 +33,10 @@ export { useEscapeLayer } from './useEscapeLayer'
 export { useFocusReturn, focusWasLost } from './useFocusReturn'
 export type { LinkComponent, LinkProps } from './link'
 export {
+  ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  ChevronUpIcon,
   CloseIcon,
   MinusIcon,
   PlusIcon,

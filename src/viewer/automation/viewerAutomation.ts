@@ -3,6 +3,9 @@ import type { RendererBackend } from '@lib/renderer/backend'
 import { selectRendererBackend, type ProductStatus, type RendererStatus } from '@store/index'
 import type { OverlayPlacement } from '../overlay/StageOverlay'
 import type { ViewerModel } from './viewerAutomation.logic'
+import type { CameraCompletionRead } from '@lib/camera/requestCompletion'
+import type { ScrollCompletionRead } from '@lib/scroll/ScrollCompletion'
+import type { CommittedCardRead } from '../overlay/CommittedCard'
 import {
   productFailureOf,
   productModelOf,
@@ -83,6 +86,7 @@ export type ViewerCameraAutomation = {
 // its key here; the automation's probe fields below are this
 // table as a mapped type, so the table and the fields cannot drift apart.
 export type StageProbeReads = {
+  completion: CameraCompletionRead
   look: ViewerLook
   camera: ViewerCameraAutomation
   finish: ViewerFinish
@@ -126,7 +130,12 @@ export type ViewerHotspotsAutomation = {
 // markers are the visible truth; this probe shows what the channel holds
 // while no marker is mounted to show it.
 export type ViewerOverlay = {
+  readonly committed: boolean
   readonly placements: Readonly<Record<string, OverlayPlacement>>
+  readonly card: CommittedCardRead | null
+  readonly scroll: ScrollCompletionRead
+  readonly frame: number
+  readonly reveal: (element: HTMLElement) => void
 }
 
 // The finish a product on the stage carries: the applied variant name and,
@@ -307,6 +316,10 @@ class StageViewerAutomation implements ViewerAutomation {
 
   get camera(): ViewerCameraAutomation | null {
     return this.#sources.probes.read('camera')
+  }
+
+  get completion(): CameraCompletionRead | null {
+    return this.#sources.probes.read('completion')
   }
 
   get finish(): ViewerFinish | null {

@@ -88,19 +88,21 @@ function readStageSample(page: Page, titles: readonly string[]): Promise<StageSa
     const hotspots = viewer?.hotspots ?? null
     const drawnAnchors = window.__harnessPresentedAnchors?.() ?? null
     const canvas = document.querySelector('main canvas')
+    const overlay = document.querySelector('[data-stage-overlay]')
     if (
       explode === null ||
       camera === null ||
       hotspots === null ||
       drawnAnchors === null ||
-      canvas === null
+      canvas === null ||
+      overlay === null
     ) {
       return null
     }
     const canvasBox = canvas.getBoundingClientRect()
     const markers = []
     for (const title of markerTitles) {
-      const matches = [...document.querySelectorAll('button')].filter(
+      const matches = [...overlay.querySelectorAll('button')].filter(
         (button) => button.getAttribute('aria-label') === title,
       )
       const marker = matches[0]
@@ -120,7 +122,7 @@ function readStageSample(page: Page, titles: readonly string[]): Promise<StageSa
       moving: explode.moving,
       camera,
       canvas: { x: canvasBox.x, y: canvasBox.y, width: canvasBox.width, height: canvasBox.height },
-      anchors: hotspots.hotspots,
+      anchors: hotspots.hotspots.map(({ id, position }) => ({ id, position })),
       drawnAnchors: [...drawnAnchors],
       markers,
     }

@@ -4,6 +4,7 @@ import { expectProduct, openIndexAtRest, productPathOf } from './collectionFacts
 import { loadCollection } from './productList'
 import { scrollsAsDocument, viewportContracts } from './layoutContracts'
 import { inside, overlaps, readReflowFacts } from './reflowFacts'
+import { scrollToReveal } from './scrollToReveal'
 
 // The layout reflows at every layout viewport, down to 320 px wide and to
 // the 320 x 256 window of a 1280 px screen at 400 percent zoom, for every
@@ -97,7 +98,7 @@ for (const contract of viewportContracts) {
       .locator('[data-slot="panel"] > * > *')
       .filter({ visible: true })
       .last()
-    await last.scrollIntoViewIfNeeded()
+    await scrollToReveal(last)
     await expect(last).toBeInViewport({ ratio: 1 })
   })
 

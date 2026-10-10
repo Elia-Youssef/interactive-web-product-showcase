@@ -8,6 +8,7 @@ import { StageCameraContext, type StageCameraApi } from './StageCameraContext'
 import {
   presentPlan,
   releasePresentation,
+  rotateStep,
   stepZoomBy,
   transitionToView,
   type StageCameraState,
@@ -17,7 +18,10 @@ import { useCameraControlsConfig } from './useCameraControlsConfig'
 import { useCameraAutomationSource } from './useCameraAutomationSource'
 import { useCameraReadoutPublish, useCameraRequests } from './useCameraStoreBridge'
 import { useCameraResize } from './useCameraResize'
+import { useCameraStepFrame } from './useCameraStepFrame'
 import { useStageAspect } from './useStageAspect'
+import { CameraRequestCompletion } from '@lib/camera/requestCompletion'
+import { useCameraCompletion } from './useCameraCompletion'
 
 type StageCameraProps = {
   // The scene content the camera presents, which reaches the camera API
@@ -34,7 +38,9 @@ type StageCameraProps = {
 // beside this file; the component only mounts the controls and hands the
 // API out.
 export function StageCamera({ children }: StageCameraProps) {
-  const controls = useStageControls()
+  const completion = useMemo(() => new CameraRequestCompletion(), [])
+  const controls = useStageControls(completion)
+  useCameraCompletion(completion, controls)
   const camera = useThree((state) => state.camera)
   const size = useThree((state) => state.size)
   const invalidate = useThree((state) => state.invalidate)
@@ -58,14 +64,16 @@ export function StageCamera({ children }: StageCameraProps) {
 
   useCameraControlsConfig(controls)
   useCameraReadoutPublish(controls, store)
-  useCameraRequests(controls, store, state)
+  const stepFrame = useCameraStepFrame(invalidate)
+  useCameraRequests(controls, store, state, stepFrame)
   useCameraResize(controls, size, planRef, appliedRangeRef, invalidate)
   useCameraAutomationSource(controls, camera instanceof PerspectiveCamera ? camera : null)
   const api = useMemo<StageCameraApi>(
     () => ({
       present: (plan, viewId) => presentPlan(state, plan, viewId),
       transitionTo: (viewId) => transitionToView(state, viewId),
-      zoomStep: (direction) => stepZoomBy(state, direction),
+      zoomStep: (steps) => stepZoomBy(state, steps),
+      rotateStep: (turn) => rotateStep(state, turn),
       release: () =>
         releasePresentation(state, () => store.getState().cameraPublishReadout({ kind: 'idle' })),
     }),

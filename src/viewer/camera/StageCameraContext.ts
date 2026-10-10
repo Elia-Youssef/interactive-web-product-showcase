@@ -1,4 +1,5 @@
 import { createContext, useContext } from 'react'
+import type { OrbitTurn } from '@lib/camera/orbitStep'
 import type { CameraPlan } from './productPlan'
 
 // The stage camera's API, for the components inside the Canvas that move
@@ -15,9 +16,12 @@ export type StageCameraApi = {
   // motion. Resolves when the controls reach rest. The API hotspot
   // close-ups reuse later.
   transitionTo(viewId: string): Promise<void>
-  // Steps the zoom one configured step toward the product (1) or away
-  // from it (-1), eased like a transition, and resolves at rest.
-  zoomStep(direction: 1 | -1): Promise<void>
+  // Steps the zoom by configured steps toward the product (positive) or
+  // away from it (negative), eased like a transition, and resolves at rest.
+  zoomStep(steps: number): Promise<void>
+  // Turns the orbit from where the current move ends, the tilt clamped to
+  // the plan's polar limits, eased like a transition, and resolves at rest.
+  rotateStep(turn: OrbitTurn): Promise<void>
   // Ends the presentation: the plan is dropped, the controls stop
   // listening, and the readouts go idle. The product presentation calls
   // this when its product leaves the stage.

@@ -51,13 +51,14 @@ describe('the composed flow actions', () => {
   it('write each event in one update, the selection with the camera request it owes', () => {
     const { store, actions, notifications } = presented(FORMA, ['driver'])
 
-    actions.hotspotPressed(FORMA, 'driver')
+    actions.hotspotPressed(FORMA, 'driver', 'marker')
     expect(notifications.count).toBe(1)
     expect(store.getState().hotspotStatus).toEqual({
       kind: 'selected',
       product: FORMA,
       hotspot: 'driver',
       closeUp: true,
+      origin: 'marker',
     })
     expect(cameraRequestOf(store)).toEqual({
       sequence: 1,
@@ -76,6 +77,7 @@ describe('the composed flow actions', () => {
       product: FORMA,
       hotspot: 'driver',
       closeUp: false,
+      origin: 'marker',
     })
     expect(cameraRequestOf(store)).toEqual({
       sequence: 2,
@@ -94,8 +96,8 @@ describe('the composed flow actions', () => {
   it('advances the camera sequence exactly as a direct request does', () => {
     const { store, actions } = presented(FORMA, ['driver'])
 
-    actions.cameraRequest({ kind: 'zoom', direction: 1 })
-    actions.hotspotPressed(FORMA, 'driver')
+    actions.cameraRequest({ kind: 'zoom', steps: 1 })
+    actions.hotspotPressed(FORMA, 'driver', 'marker')
     actions.hotspotClosed(FORMA)
 
     expect(cameraRequestOf(store)).toEqual({
@@ -108,13 +110,14 @@ describe('the composed flow actions', () => {
     const { store, actions } = presented(FORMA, ['driver'])
 
     actions.explodeScrub(FORMA, 0.25)
-    actions.hotspotPressed(FORMA, 'driver')
+    actions.hotspotPressed(FORMA, 'driver', 'marker')
 
     expect(store.getState().hotspotStatus).toEqual({
       kind: 'selected',
       product: FORMA,
       hotspot: 'driver',
       closeUp: false,
+      origin: 'marker',
     })
     expect(cameraRequestOf(store)).toEqual({ sequence: 0, request: null })
   })
@@ -122,7 +125,7 @@ describe('the composed flow actions', () => {
   it('keeps the selection through every change of the explode', () => {
     const { store, actions, notifications } = presented(FORMA, ['driver'])
 
-    actions.hotspotPressed(FORMA, 'knob')
+    actions.hotspotPressed(FORMA, 'knob', 'marker')
     actions.explodeScrub(FORMA, 0.5)
     actions.explodeScrub(FORMA, 0)
     actions.explodeToggle(FORMA)
@@ -133,6 +136,7 @@ describe('the composed flow actions', () => {
       product: FORMA,
       hotspot: 'knob',
       closeUp: false,
+      origin: 'marker',
     })
     expect(cameraRequestOf(store)).toEqual({ sequence: 0, request: null })
   })
@@ -141,7 +145,7 @@ describe('the composed flow actions', () => {
     const { store, actions } = presented(FORMA, ['driver'])
 
     actions.explodeScrub(FORMA, 0.5)
-    actions.hotspotPressed(FORMA, 'driver')
+    actions.hotspotPressed(FORMA, 'driver', 'marker')
     actions.explodeScrub(FORMA, 0)
 
     expect(store.getState().hotspotStatus).toEqual({
@@ -149,6 +153,7 @@ describe('the composed flow actions', () => {
       product: FORMA,
       hotspot: 'driver',
       closeUp: false,
+      origin: 'marker',
     })
     expect(cameraRequestOf(store)).toEqual({ sequence: 0, request: null })
   })
@@ -165,7 +170,7 @@ describe('the composed flow actions', () => {
 
   it('keeps a close-up scoped to its product across a switch to a product with the same id', () => {
     const { store, actions } = presented(FORMA, ['driver'])
-    actions.hotspotPressed(FORMA, 'driver')
+    actions.hotspotPressed(FORMA, 'driver', 'marker')
     const entered = cameraRequestOf(store)
 
     // The second product presents, its driver without a close-up, and its
@@ -181,19 +186,20 @@ describe('the composed flow actions', () => {
     actions.explodeToggle(SPEAKER)
     expect(cameraRequestOf(store)).toBe(entered)
 
-    actions.hotspotPressed(SPEAKER, 'driver')
+    actions.hotspotPressed(SPEAKER, 'driver', 'marker')
     expect(store.getState().hotspotStatus).toEqual({
       kind: 'selected',
       product: SPEAKER,
       hotspot: 'driver',
       closeUp: false,
+      origin: 'marker',
     })
     expect(cameraRequestOf(store)).toBe(entered)
   })
 
   it('clears the selection of the product that leaves only, with no camera request', () => {
     const { store, actions } = presented(FORMA, ['driver'])
-    actions.hotspotPressed(FORMA, 'driver')
+    actions.hotspotPressed(FORMA, 'driver', 'marker')
     const entered = cameraRequestOf(store)
 
     actions.hotspotLeft(SPEAKER)
@@ -202,5 +208,30 @@ describe('the composed flow actions', () => {
     actions.hotspotLeft(FORMA)
     expect(store.getState().hotspotStatus).toEqual({ kind: 'idle' })
     expect(cameraRequestOf(store)).toBe(entered)
+  })
+
+  it('opens from the list with the list as the origin, and a marker press moves it to the stage', () => {
+    const { store, actions } = presented(FORMA, ['driver'])
+
+    actions.hotspotPressed(FORMA, 'driver', 'list')
+    expect(store.getState().hotspotStatus).toEqual({
+      kind: 'selected',
+      product: FORMA,
+      hotspot: 'driver',
+      closeUp: true,
+      origin: 'list',
+    })
+    expect(cameraRequestOf(store).request).toEqual({ kind: 'view', viewId: 'driver' })
+    const sequence = cameraRequestOf(store).sequence
+
+    actions.hotspotPressed(FORMA, 'driver', 'marker')
+    expect(store.getState().hotspotStatus).toEqual({
+      kind: 'selected',
+      product: FORMA,
+      hotspot: 'driver',
+      closeUp: true,
+      origin: 'marker',
+    })
+    expect(cameraRequestOf(store).sequence, 'moving the card owes no camera move').toBe(sequence)
   })
 })
