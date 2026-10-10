@@ -1,8 +1,3 @@
-// The browser side of the routing: the one writer of history and the one
-// subscription source React reads the location through. The location is
-// never copied into module state: the snapshot is location read at access
-// time, so no mirror of it can go stale.
-
 import { formatAppHref } from '@lib/routing'
 
 export type NavigationOptions = {
@@ -12,57 +7,72 @@ export type NavigationOptions = {
   readonly replace?: boolean
 }
 
-type PathListener = () => void
-
-const listeners = new Set<PathListener>()
-
-function notifyListeners(): void {
-  for (const listener of listeners) {
-    listener()
-  }
+export type RouterWindow = {
+  readonly location: Pick<Location, 'pathname' | 'search'>
+  readonly history: Pick<History, 'state' | 'pushState' | 'replaceState'>
+  readonly addEventListener: (type: 'popstate', listener: () => void) => void
+  readonly removeEventListener: (type: 'popstate', listener: () => void) => void
 }
 
-// The useSyncExternalStore snapshot: location.pathname itself. Strings
-// compare by value, so a notification that did not move the path
-// re-renders nothing.
-export function currentPathname(): string {
-  return window.location.pathname
-}
+// One history writer and subscription source for the window its root owns.
+// Construction has no effects; subscriptions alone attach the browser listener.
+export class BrowserRouter {
+  private readonly listeners = new Set<() => void>()
+  private disposed = false
 
-// The query string of the address bar, read at access time like the
-// pathname. The in-app address is the path and the query together, so a
-// reader that renders part of the address reads both through the router.
-export function currentSearch(): string {
-  return window.location.search
-}
+  constructor(private readonly browser: RouterWindow) {}
 
-// Subscribes to every way the path can change: the browser's back and
-// forward (popstate), and this module's own navigations, which fire no
-// event and are told to the listeners directly in navigate.
-export function subscribeToPath(listener: PathListener): () => void {
-  const isFirst = listeners.size === 0
-  listeners.add(listener)
-  if (isFirst) {
-    window.addEventListener('popstate', notifyListeners)
-  }
-  return () => {
-    const wasLast = listeners.size === 1
-    listeners.delete(listener)
-    if (wasLast) {
-      window.removeEventListener('popstate', notifyListeners)
+  // Read the address at access time rather than retaining a second copy.
+  readonly currentPathname = (): string => this.browser.location.pathname
+  readonly currentSearch = (): string => this.browser.location.search
+
+  readonly subscribeToPath = (listener: () => void): (() => void) => {
+    this.assertLive()
+    // Each subscription owns its registration, even for the same callback.
+    const registration = () => listener()
+    if (this.listeners.size === 0) {
+      this.browser.addEventListener('popstate', this.notifyListeners)
+    }
+    this.listeners.add(registration)
+    return () => {
+      if (this.listeners.delete(registration) && this.listeners.size === 0) {
+        this.browser.removeEventListener('popstate', this.notifyListeners)
+      }
     }
   }
-}
 
-// The only history writer of the app. The query string always rides along
-// through the one href formatter, so the entry pushed here is the same
-// address a link on the page renders.
-export function navigate(path: string, options: NavigationOptions = {}): void {
-  const target = formatAppHref(path, currentSearch())
-  if (options.replace === true) {
-    window.history.replaceState(window.history.state, '', target)
-  } else {
-    window.history.pushState(window.history.state, '', target)
+  // Links and history entries use the same formatter, including the query.
+  readonly navigate = (path: string, options: NavigationOptions = {}): void => {
+    this.assertLive()
+    const target = formatAppHref(path, this.currentSearch())
+    if (options.replace === true) {
+      this.browser.history.replaceState(this.browser.history.state, '', target)
+    } else {
+      this.browser.history.pushState(this.browser.history.state, '', target)
+    }
+    this.notifyListeners()
   }
-  notifyListeners()
+
+  readonly dispose = (): void => {
+    if (this.disposed) {
+      return
+    }
+    this.disposed = true
+    if (this.listeners.size > 0) {
+      this.browser.removeEventListener('popstate', this.notifyListeners)
+    }
+    this.listeners.clear()
+  }
+
+  private readonly notifyListeners = (): void => {
+    for (const listener of this.listeners) {
+      listener()
+    }
+  }
+
+  private assertLive(): void {
+    if (this.disposed) {
+      throw new Error('a disposed router cannot navigate or subscribe')
+    }
+  }
 }

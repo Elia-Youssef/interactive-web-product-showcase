@@ -7,6 +7,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { CollectionApp } from '../CollectionApp'
 import { invalidManifests } from './invalidManifests'
+import { BrowserRouter, RouterProvider } from '../routing'
 
 const rootElement = document.getElementById('root')
 
@@ -14,8 +15,12 @@ if (rootElement === null) {
   throw new Error('The #root element is missing from invalid-collection.html')
 }
 
+const router = new BrowserRouter(window)
+
 createRoot(rootElement).render(
   <StrictMode>
-    <CollectionApp manifests={invalidManifests} />
+    <RouterProvider router={router}>
+      <CollectionApp manifests={invalidManifests} />
+    </RouterProvider>
   </StrictMode>,
 )

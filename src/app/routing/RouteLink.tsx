@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react'
 import { formatAppHref } from '@lib/routing'
-import { navigate } from './browserRouter'
+import { useNavigate } from './useNavigate'
 import { isInAppNavigationClick } from './routeLink.logic'
 import { useRouteSearch } from './useRouteSearch'
 
@@ -16,6 +16,7 @@ export type RouteLinkProps = Omit<ComponentProps<'a'>, 'href' | 'target'> & {
 // an in-app link. The href is the one in-app address, the query included,
 // so the address a navigation pushes is the address the link shows.
 export function RouteLink({ to, onClick, ...rest }: RouteLinkProps) {
+  const navigate = useNavigate()
   const href = formatAppHref(to, useRouteSearch())
   return (
     <a
