@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { observeTaskStarts } from '@lib/async/taskStarts.fixtures'
+
 import { FrameClock } from './FrameClock'
 import { StageSettle } from './StageSettle'
 import type { SettleResources } from './StageSettle'
@@ -35,23 +37,20 @@ function settleHarness(): {
   }
 }
 
-// The next macrotask turn: the step's await chain and R3F's frame
-// scheduling both settle across macrotasks, never inside one.
-function nextTurn(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 10))
-}
+afterEach(() => vi.restoreAllMocks())
 
 describe('StageSettle', () => {
   it.each(['retire', 'dispose'] as const)(
     'propagates the clock %s rejection unchanged through pending and queued settles',
     async (end) => {
+      const task = observeTaskStarts()
       const stage = settleHarness()
       const first = stage.nextStep()
       const second = stage.nextStep()
       const firstDone = stage.run(first.resources)
       const secondDone = stage.run(second.resources)
       const results = Promise.allSettled([firstDone, secondDone])
-      await nextTurn()
+      await task(0).started
       stage.clock[end]()
       const settled = await results
       const reason = await stage.clock.onceFrame().catch((cause: unknown) => cause)
@@ -66,26 +65,29 @@ describe('StageSettle', () => {
   )
 
   it('rejects a settle when the canvas retires between its two frames', async () => {
+    const task = observeTaskStarts()
     const clock = new FrameClock()
     const life = clock.createFrameLife()
     const settle = new StageSettle(life)
     const done = settle.settle({ invalidate: () => {} })
     const result = Promise.allSettled([done])
-    await nextTurn()
+    await task(0).started
     clock.recordFrame(1, 0)
-    await nextTurn()
+    await Promise.resolve()
     life.retire()
     const reason = await life.onceFrame().catch((cause: unknown) => cause)
     expect(reason).toBeInstanceOf(StageRetiredError)
     expect(await result).toEqual([{ status: 'rejected', reason }])
   })
   it('presents twice: invalidates, waits for a recorded frame, invalidates again and resolves after the second frame', async () => {
+    const task = observeTaskStarts(() => first.presents())
     const stage = settleHarness()
     const first = stage.nextStep()
     const done = stage.run(first.resources)
 
     // The first present is requested as soon as the step runs.
-    await nextTurn()
+    await task(0).started
+    expect(task(0).atStart).toBe(1)
     expect(first.presents()).toBe(1)
 
     // The first recorded frame brings the second present, and the step
@@ -95,7 +97,7 @@ describe('StageSettle', () => {
       resolved = true
     })
     stage.clock.recordFrame(performance.now(), 0)
-    await nextTurn()
+    await Promise.resolve()
     expect(resolved).toBe(false)
     expect(first.presents()).toBe(2)
 
@@ -107,15 +109,21 @@ describe('StageSettle', () => {
   })
 
   it('runs one settle at a time: a settle pushed while another presents waits for it', async () => {
+    const task = observeTaskStarts(() => first.presents())
     const stage = settleHarness()
     const first = stage.nextStep()
     const firstDone = stage.run(first.resources)
+    let firstResolved = false
+    void firstDone.then(() => {
+      firstResolved = true
+    })
     const second = stage.nextStep()
     const secondDone = stage.run(second.resources)
 
-    await nextTurn()
+    await task(0).started
     // The second settle waits while the first presents: the chain runs one
     // step at a time.
+    expect(task(0).atStart).toBe(1)
     expect(first.presents()).toBe(1)
     expect(second.presents()).toBe(0)
 
@@ -123,14 +131,15 @@ describe('StageSettle', () => {
     // starts the second. The first caller's promise covers the drain, so it
     // resolves only together with the second.
     stage.clock.recordFrame(performance.now(), 0)
-    await nextTurn()
+    await Promise.resolve()
     stage.clock.recordFrame(performance.now(), 0)
-    await nextTurn()
+    await task(1).started
+    expect(firstResolved).toBe(false)
     expect(first.presents()).toBe(2)
     expect(second.presents()).toBe(1)
 
     stage.clock.recordFrame(performance.now(), 0)
-    await nextTurn()
+    await Promise.resolve()
     stage.clock.recordFrame(performance.now(), 0)
     await Promise.all([firstDone, secondDone])
     expect(second.presents()).toBe(2)
@@ -142,15 +151,18 @@ describe('StageSettle', () => {
     // renderer has. Its presents ask for nothing else: two recorded frames
     // settle the step, because each present builds the pipelines it draws
     // within its own frame.
+    const task = observeTaskStarts(() => step.presents())
     const stage = settleHarness()
     const step = stage.nextStep()
     expect(Object.keys(step.resources)).toEqual(['invalidate'])
     const done = stage.run(step.resources)
-    // The frames arrive at frame cadence, one per turn, the way the stage's
-    // observer records them.
-    await nextTurn()
+    // The task start proves the first invalidate needs no timer. Each
+    // recorded frame resumes the settle's registered promise continuation.
+    await task(0).started
+    expect(task(0).atStart).toBe(1)
+    expect(step.presents()).toBe(1)
     stage.clock.recordFrame(performance.now(), 0)
-    await nextTurn()
+    await Promise.resolve()
     stage.clock.recordFrame(performance.now(), 0)
     await done
   })

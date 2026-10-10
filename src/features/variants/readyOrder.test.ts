@@ -1,8 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { observeTaskStarts } from '@lib/async/taskStarts.fixtures'
+import { drainApplications } from './finishScheduling.fixtures'
 import { PendingGate } from '@lib/async/pendingGate'
 import { settleWhenReady } from '@viewer/product/productReadyGate'
 import { createFinishApplier, type FinishApplier } from './finishApplier'
-import { drain, fakeLoad, fakeSettle, nextTurn, ownerOf, SAGE } from './finishApplier.fixtures'
+import { fakeLoad, fakeSettle, ownerOf, SAGE } from './finishApplier.fixtures'
 
 // The order between the first finish application and the presentation's
 // ready settle, driven the way the product's effects drive it: the finish
@@ -31,8 +33,11 @@ function mountFinishes(
   }
 }
 
+afterEach(() => vi.restoreAllMocks())
+
 describe('the ready settle', () => {
   it('runs only after the first application has settled', async () => {
+    const task = observeTaskStarts(() => fake.settleCalls())
     const world = fakeLoad()
     const fake = fakeSettle(world)
     const gate = new PendingGate()
@@ -48,12 +53,13 @@ describe('the ready settle', () => {
       isCancelled: () => false,
     })
 
-    await nextTurn()
+    await task(0).started
+    expect(task(0).atStart).toBe(1)
     expect(fake.settleCalls()).toBe(1)
     expect(fake.precompiledAtSettle()).toEqual([true])
     expect(ready).toEqual([])
 
-    await drain(fake, 1)
+    await drainApplications(task, fake, 1)
     await readySettled
     expect(ready).toEqual(['ready after 1 finish settles'])
     expect(world.loaded.scene.children.some((child) => child.name === 'FINISH_precompile')).toBe(
@@ -62,6 +68,7 @@ describe('the ready settle', () => {
   })
 
   it('waits for the remounted applier through the StrictMode apply, dispose, apply sequence', async () => {
+    const task = observeTaskStarts(() => fake.settleCalls())
     const world = fakeLoad()
     const fake = fakeSettle(world)
     const gate = new PendingGate()
@@ -80,17 +87,22 @@ describe('the ready settle', () => {
       isCancelled: () => false,
     })
 
-    await nextTurn()
+    await task(0).started
+    expect(task(0).atStart).toBe(0)
+    await task(1).started
+    expect(task(1).atStart).toBe(1)
     // The disposed applier applied nothing: one precompile per mount.
     expect(fake.settleCalls()).toBe(1)
     expect(ready).toEqual([])
 
-    await drain(fake, 1)
+    fake.release(0)
+    await task(1).finished
     await readySettled
     expect(ready).toEqual([1])
   })
 
   it('settles nothing for a presentation cancelled while it waited', async () => {
+    const task = observeTaskStarts(() => fake.settleCalls())
     const world = fakeLoad()
     const fake = fakeSettle(world)
     const gate = new PendingGate()
@@ -108,7 +120,7 @@ describe('the ready settle', () => {
     })
     cancelled = true
 
-    await drain(fake, 1)
+    await drainApplications(task, fake, 1)
     await readySettled
     expect(readySettles).toBe(0)
   })

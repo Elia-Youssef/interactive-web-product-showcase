@@ -46,122 +46,95 @@ declare global {
 // on the page is timestamped too: the capture listener at the window runs
 // before the clicked control's own handler starts the move.
 export async function installCameraFrameRecorder(page: Page): Promise<void> {
-  await page.evaluate(() => {
+  await page.evaluate(cameraFrameRecorderBootstrap)
+}
+
+export function cameraFrameRecorderBootstrap(): void {
+  if (window.__moveRecorder !== undefined) {
+    throw new Error('the camera frame recorder is already installed')
+  }
+  const records: MoveRecorderState['records'] = []
+  const channel = new MessageChannel()
+  let running = true
+  let frameRequest = 0
+  let recordedFrames = -1
+  channel.port1.onmessage = () => {
+    const frames = window.__viewer?.renderedFrames ?? -1
+    if (!running || frames === recordedFrames) {
+      return
+    }
+    recordedFrames = frames
+    const camera = window.__viewer?.camera ?? null
+    records.push({
+      atMs: performance.now(),
+      frames,
+      distance: camera === null ? null : camera.distance,
+      azimuth: camera === null ? null : camera.azimuth,
+    })
+  }
+  const tick = () => {
+    if (!running) {
+      return
+    }
+    channel.port2.postMessage(0)
+    frameRequest = requestAnimationFrame(tick)
+  }
+  frameRequest = requestAnimationFrame(tick)
+  const onClick = () => {
     if (window.__moveRecorder !== undefined) {
-      throw new Error('the camera frame recorder is already installed')
+      window.__moveRecorder.clickedAtMs = performance.now()
     }
-    const records: MoveRecorderState['records'] = []
-    const channel = new MessageChannel()
-    let recordedFrames = -1
-    channel.port1.onmessage = () => {
-      const frames = window.__viewer?.renderedFrames ?? -1
-      if (frames === recordedFrames) {
-        return
-      }
-      recordedFrames = frames
-      const camera = window.__viewer?.camera ?? null
-      records.push({
-        atMs: performance.now(),
-        frames,
-        distance: camera === null ? null : camera.distance,
-        azimuth: camera === null ? null : camera.azimuth,
-      })
-    }
-    const tick = () => {
-      channel.port2.postMessage(0)
-      requestAnimationFrame(tick)
-    }
-    requestAnimationFrame(tick)
-    window.__moveRecorder = {
-      clickedAtMs: null,
-      records,
-      stop() {
-        channel.port1.close()
-        channel.port2.close()
-      },
-    }
-    window.addEventListener(
-      'click',
-      () => {
-        if (window.__moveRecorder !== undefined) {
-          window.__moveRecorder.clickedAtMs = performance.now()
-        }
-      },
-      { capture: true, once: true },
-    )
-  })
+  }
+  window.__moveRecorder = {
+    clickedAtMs: null,
+    records,
+    stop() {
+      running = false
+      cancelAnimationFrame(frameRequest)
+      window.removeEventListener('click', onClick, { capture: true })
+      channel.port1.close()
+      channel.port2.close()
+    },
+  }
+  window.addEventListener('click', onClick, { capture: true, once: true })
 }
 
 // Stops the recorder and hands the recording back, failing when a record
 // carried no camera read. The click time is null when the recording spans
 // no click.
-export async function stopCameraFrameRecorder(page: Page): Promise<CameraMoveRecording> {
-  const recording = await page.evaluate(() => {
-    const recorder = window.__moveRecorder
-    if (recorder === undefined) {
-      throw new Error('the camera frame recorder is not installed')
-    }
-    recorder.stop()
-    if (recorder.clickedAtMs === null) {
-      throw new Error('the recorder captured no click, so the move has no start time')
-    }
-    const records: {
-      atMs: number
-      frames: number
-      distance: number
-      azimuth: number
-    }[] = []
-    for (const record of recorder.records) {
-      if (record.distance === null || record.azimuth === null) {
-        throw new Error('a recorded frame carried no camera read')
-      }
-      records.push({
-        atMs: record.atMs,
-        frames: record.frames,
-        distance: record.distance,
-        azimuth: record.azimuth,
-      })
-    }
-    return { clickedAtMs: recorder.clickedAtMs, records }
-  })
-  await page.evaluate(() => {
-    delete window.__moveRecorder
-  })
-  return recording
+export function stopCameraFrameRecorder(page: Page): Promise<CameraMoveRecording> {
+  return page.evaluate(takeCameraFrameRecording, true)
 }
 
-// Stops the recorder without requiring a click, for recordings of moves
-// that input other than a click starts. The click time is null then.
-export async function stopCameraFrameRecording(page: Page): Promise<CameraMoveRecording> {
-  const recording = await page.evaluate(() => {
-    const recorder = window.__moveRecorder
-    if (recorder === undefined) {
-      throw new Error('the camera frame recorder is not installed')
+// Stops a recording that input other than a click started.
+export function stopCameraFrameRecording(page: Page): Promise<CameraMoveRecording> {
+  return page.evaluate(takeCameraFrameRecording, false)
+}
+
+// Extraction runs inside the page and releases the recorder even when its
+// evidence is incomplete, so a failed recording cannot poison the next one.
+export function takeCameraFrameRecording(requireClick: boolean): CameraMoveRecording {
+  const recorder = window.__moveRecorder
+  if (recorder === undefined) {
+    throw new Error('the camera frame recorder is not installed')
+  }
+  recorder.stop()
+  delete window.__moveRecorder
+  if (requireClick && recorder.clickedAtMs === null) {
+    throw new Error('the recorder captured no click, so the move has no start time')
+  }
+  const records: CameraFrameRecord[] = recorder.records.map((record) => {
+    if (record.distance === null || record.azimuth === null) {
+      throw new Error('a recorded frame carried no camera read')
     }
-    recorder.stop()
-    const records: {
-      atMs: number
-      frames: number
-      distance: number
-      azimuth: number
-    }[] = []
-    for (const record of recorder.records) {
-      if (record.distance === null || record.azimuth === null) {
-        throw new Error('a recorded frame carried no camera read')
-      }
-      records.push({
-        atMs: record.atMs,
-        frames: record.frames,
-        distance: record.distance,
-        azimuth: record.azimuth,
-      })
+    return {
+      atMs: record.atMs,
+      frames: record.frames,
+      distance: record.distance,
+      azimuth: record.azimuth,
     }
-    return { clickedAtMs: recorder.clickedAtMs, records }
   })
-  await page.evaluate(() => {
-    delete window.__moveRecorder
-  })
-  return recording
+  return { clickedAtMs: recorder.clickedAtMs, records }
 }
 
 // Waits until the recorder holds the given number of presented frames after

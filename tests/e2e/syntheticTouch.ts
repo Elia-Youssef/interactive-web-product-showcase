@@ -17,7 +17,8 @@ type PointerEventInit = {
 
 async function dispatchTouchPointer(page: Page, event: PointerEventInit): Promise<void> {
   await page.evaluate((probe) => {
-    const canvas = document.querySelector('[data-slot="stage"] canvas')
+    // Both the app and the harness own one stage canvas.
+    const canvas = document.querySelector('canvas')
     if (canvas === null) {
       throw new Error('the stage canvas is missing')
     }

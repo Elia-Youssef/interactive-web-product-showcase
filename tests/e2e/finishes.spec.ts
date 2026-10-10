@@ -5,7 +5,8 @@ import { measureFinishChange } from './finishPixels'
 import { settledStageCapture } from './stageCapture'
 import { settledFrames } from './stageSettle'
 import { testBodyBudgetMs } from './budgets'
-import { waitForProductReady } from './productSpecs'
+import { manifest as colorSubject } from '../fixtures/products/finish-colors/finish-colors.fixtures'
+import { harnessPath, waitForProductReady } from './productSpecs'
 import { canvasCenter } from './stageCamera'
 import { startTouchSweep } from './syntheticTouch'
 
@@ -18,14 +19,6 @@ import { startTouchSweep } from './syntheticTouch'
 
 const product = (await loadCollection()).first
 const expectations = await readFinishExpectations(product.slug)
-
-// The relative luminance of a manifest swatch, the word the schema keeps
-// for the UI dot and this spec reads for the direction of the change: the
-// darker swatch must land on the darker pixels.
-function swatchLuminance(swatch: string): number {
-  const channel = (at: number): number => parseInt(swatch.slice(at, at + 2), 16) / 255
-  return 0.2126 * channel(1) + 0.7015 * channel(3) + 0.0722 * channel(5)
-}
 
 // How long the drag keeps waiting for the mid-drag settle, and why it is
 // this long: the settle under test is two presented frames, the slowest
@@ -107,19 +100,17 @@ test(`clicking each swatch of ${product.slug} applies exactly that finish's mate
 // settled state twice, so a capture taken after it shows the applied finish
 // everywhere: the engines' compositors hold the canvas one present behind at
 // rest, and the second present is the one the capture sees.
-test('the finish change repaints the model in the manifest direction, past the noise of its own run', async ({
+test('the controlled finish change repaints from red to lighter gray past its own noise', async ({
   page,
   backendPath,
 }) => {
-  await page.goto(backendPath)
+  await page.goto(harnessPath(backendPath, colorSubject.slug))
   await waitForProductReady(page)
 
-  const [defaultFinish, otherFinish] = product.finishes
+  const [defaultFinish, otherFinish] = colorSubject.finishes
   if (defaultFinish === undefined || otherFinish === undefined) {
-    throw new Error('a product with one finish has no finish change to measure')
+    throw new Error('the controlled fixture needs its red and gray finishes')
   }
-  const defaultIsLighter =
-    swatchLuminance(defaultFinish.swatch) > swatchLuminance(otherFinish.swatch)
 
   // Three captures through the settled capture helper: two back-to-back at
   // the default finish, one after switching to the other. The first two are
@@ -131,26 +122,26 @@ test('the finish change repaints the model in the manifest direction, past the n
   // stage, drains the dev HUD and waits out the one-time DOM animations (the
   // markers' first-load pulse) before each shot, so the pair cannot race the
   // HUD's mask box or a pulse.
-  const atDefault = await settledStageCapture(page)
-  const atDefaultAgain = await settledStageCapture(page)
-  await page.getByRole('radio', { name: otherFinish.label }).click()
+  const atDefault = await settledStageCapture(page, ['harnessControls'])
+  const atDefaultAgain = await settledStageCapture(page, ['harnessControls'])
+  await page.getByTestId(`harness-finish-${otherFinish.variant}`).click()
   await expect
     .poll(() => page.evaluate(() => window.__viewer?.finish?.applied ?? null), {
       timeout: testBodyBudgetMs,
     })
     .toBe(otherFinish.variant)
-  const atOther = await settledStageCapture(page)
+  const atOther = await settledStageCapture(page, ['harnessControls'])
 
-  const stageBox = await page.locator('[data-slot="stage"]').boundingBox()
+  const stageBox = await page.locator('canvas').boundingBox()
   if (stageBox === null) {
     throw new Error('the stage slot must have a bounding box')
   }
-  const noise = await measureFinishChange(page, atDefault, atDefaultAgain, stageBox)
+  const noise = measureFinishChange(atDefault, atDefaultAgain, stageBox)
   expect(
     noise.changedPixels,
     'the captures jitter at the same state, so no pixel count of this run can prove a direction',
   ).toBe(0)
-  const change = await measureFinishChange(page, atDefault, atOther, stageBox)
+  const change = measureFinishChange(atDefault, atOther, stageBox)
   expect(
     change.changedPixels,
     'the capture after the switch holds the previous present, so the applied finish never reached the pixels',
@@ -159,24 +150,20 @@ test('the finish change repaints the model in the manifest direction, past the n
   // a tuned count: the switch must change strictly more than the
   // same-finish pair, which is pixel-exact.
   expect(change.changedPixels).toBeGreaterThan(noise.changedPixels)
-  // And over the surface the change covers, the darker manifest finish
-  // must sit on the darker pixels.
-  if (defaultIsLighter) {
-    expect(change.meanSecond).toBeLessThan(change.meanFirst)
-  } else {
-    expect(change.meanFirst).toBeLessThan(change.meanSecond)
-  }
+  // The fixture's texture-free unlit gray is independently known to have
+  // greater weighted RGB than its saturated red, on the same geometry.
+  expect(change.meanFirst).toBeLessThan(change.meanSecond)
 })
 
-test(`a finish switch of ${product.slug} during a continuous drag settles before the drag ends`, async ({
+test(`a finish switch of ${colorSubject.slug} during a continuous drag settles before the drag ends`, async ({
   page,
   backendPath,
 }) => {
-  await page.goto(backendPath)
+  await page.goto(harnessPath(backendPath, colorSubject.slug))
   await waitForProductReady(page)
   await settledFrames(page)
 
-  const [firstFinish, secondFinish] = product.finishes
+  const [firstFinish, secondFinish] = colorSubject.finishes
   if (firstFinish === undefined || secondFinish === undefined) {
     throw new Error('a product with one finish has no second switch to serialize behind the first')
   }
@@ -234,9 +221,9 @@ test(`a finish switch of ${product.slug} during a continuous drag settles before
   // The first click must be a real switch: the store already holds the
   // default, and a click that selects it again re-runs nothing, so the
   // serialization below would have no first settle to wait for.
-  await page.getByRole('radio', { name: secondFinish.label }).click()
+  await page.getByTestId(`harness-finish-${secondFinish.variant}`).click()
   await appliedWithinBudget(secondFinish.variant)
-  await page.getByRole('radio', { name: firstFinish.label }).click()
+  await page.getByTestId(`harness-finish-${firstFinish.variant}`).click()
   await appliedWithinBudget(firstFinish.variant)
 
   await sweep.stop()

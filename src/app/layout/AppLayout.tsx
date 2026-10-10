@@ -1,5 +1,5 @@
 // The responsive app shell: top bar header and main landmark wrapping the
-// product panel and 3D stage. Slots are empty by default for parallel sprints;
+// product panel and 3D stage. Optional slots keep the shell reusable;
 // the panel's dock element and the stage chrome element reach the
 // composition through dockRef and chromeRef.
 
