@@ -15,8 +15,10 @@
 // `optimize` with the structure flags and --texture-compress=false: the
 // plan already encoded every texture, so the geometry stage needs no
 // KTX-Software at all.
-import { mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
+import { mkdir, mkdtemp, open, rename, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
+import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import type { Document } from '@gltf-transform/core'
 import { executeEncodePlan, type Ktx2Runner } from './ktx2Encode.ts'
@@ -35,7 +37,7 @@ export function buildGeometryStageArgs(
   settings: OptimizeSettings,
 ): string[] {
   return [
-    'optimize',
+    'optimize-preserving',
     inputPath,
     outputPath,
     `--flatten=${settings.flatten}`,
@@ -45,6 +47,9 @@ export function buildGeometryStageArgs(
     `--prune=${settings.prune}`,
     '--texture-compress=false',
     `--compress=${settings.compress}`,
+    `--resample-tolerance=${settings.resampleTolerance}`,
+    '--config',
+    fileURLToPath(new URL('./geometryCli.config.ts', import.meta.url)),
   ]
 }
 
@@ -62,6 +67,7 @@ export type PipelineParams = {
   io: ModelDocumentIO
   runKtx: Ktx2Runner
   run: CliRunner
+  validateCandidate: (candidatePath: string) => Promise<void>
 }
 
 // The outcome of one pipeline run: the tangent report and the encode plan
@@ -81,11 +87,12 @@ export type PipelineRun = {
 // the encode plan it executed with the texture report drawn from it, so
 // the run report and the tests print and assert from the same values the
 // stages ran. The stages run on one in-memory Document, written through a
-// temporary folder, then the geometry pass runs straight to the output
-// path, creating its folder. The temporary folder is removed even when a
-// stage fails.
+// temporary folder. The candidate lives beside the destination so rename
+// publishes the checked bytes atomically on the same filesystem. Workspace
+// cleanup completes before publication, leaving no fallible work after it.
 export async function runOptimizePipeline(params: PipelineParams): Promise<PipelineRun> {
-  const tempDir = await mkdtemp(path.join(tmpdir(), 'optimize-'))
+  let tempDir: string | undefined = await mkdtemp(path.join(tmpdir(), 'optimize-'))
+  let candidatePath: string | undefined
   try {
     const doc = await params.io.read(params.inputPath)
     const tangents = dropUnusedTangents(doc)
@@ -101,9 +108,23 @@ export async function runOptimizePipeline(params: PipelineParams): Promise<Pipel
     const afterTextures = path.join(tempDir, 'stage-textures-ktx2.glb')
     await params.io.write(afterTextures, doc)
     await mkdir(path.dirname(params.outputPath), { recursive: true })
-    await params.run(buildGeometryStageArgs(afterTextures, params.outputPath, params.settings))
+    const candidate = path.join(path.dirname(params.outputPath), `.optimize-${randomUUID()}.glb`)
+    const handle = await open(candidate, 'wx')
+    candidatePath = candidate
+    await handle.close()
+    await params.run(buildGeometryStageArgs(afterTextures, candidatePath, params.settings))
+    await params.validateCandidate(candidatePath)
+    await rm(tempDir, { recursive: true, force: true })
+    tempDir = undefined
+    await rename(candidatePath, params.outputPath)
+    candidatePath = undefined
     return { plan, textures, tangents }
   } finally {
-    await rm(tempDir, { recursive: true, force: true })
+    if (candidatePath !== undefined) {
+      await rm(candidatePath, { force: true })
+    }
+    if (tempDir !== undefined) {
+      await rm(tempDir, { recursive: true, force: true })
+    }
   }
 }
