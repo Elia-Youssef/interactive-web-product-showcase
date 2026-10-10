@@ -13,6 +13,7 @@ import {
   viewExpectation,
 } from './stageCamera'
 import { cameraAtRest, readyStage, shownMarkerOf } from './stageKeys'
+import { scrollToReveal } from './scrollToReveal'
 import {
   expectCameraStayed,
   expectFocused,
@@ -191,7 +192,7 @@ for (const viewport of [
         card.getByRole('heading', { name: last.title }),
         ...(await card.getByRole('listitem').all()),
       ]) {
-        await part.scrollIntoViewIfNeeded()
+        await scrollToReveal(part)
         await expect(part).toBeInViewport({ ratio: 1 })
       }
       const panel = await panelOf(page).boundingBox()

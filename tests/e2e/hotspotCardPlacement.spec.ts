@@ -8,7 +8,9 @@ import { expectProduct, productPathOf } from './collectionFacts'
 import { shippedProducts } from './productSpecs'
 import { completedPresentation, fillCompleted, revealCompleted } from './presentationCompletion'
 import { expectOrbitAtRest, readCamera, stageAspectOfCanvas } from './stageCamera'
-import { cardHeadingOf, markerOf } from './hotspotViews'
+import { cardHeadingOf, markerOf, mountedMarkerOf } from './hotspotViews'
+import { chromeCollisionsOf } from './hotspotChromeChecks'
+import { openChromeAlternative } from './chromeAlternative'
 import { flowFacts, type HotspotFlow } from './hotspotFlowFacts'
 import { referenceLayouts, stageBoxOf } from './layoutContracts'
 import { expectCardWhereTheLayoutPutsIt } from './hotspotCardOracle'
@@ -131,7 +133,10 @@ for (const contract of referenceLayouts) {
     const { product } = flow.subject
     const explodeLabel = product.explode.label ?? siteCopy.defaultExplodeLabel
     const titles = product.hotspots.map((entry) => entry.title)
-    const where = contract.hotspotCard === 'docks' ? 'docks in the sheet' : 'stays on the stage'
+    const where =
+      contract.hotspotCard === 'docks'
+        ? 'docks in the sheet or lists a chrome alternative'
+        : 'uses the stage or lists a chrome alternative'
     test(`card placement at ${contract.width}x${contract.height}: ${product.slug} ${hotspot.title} open at ${open.name} leaves every placed marker clear and ${where}`, async ({
       page,
       backendPath,
@@ -148,13 +153,19 @@ for (const contract of referenceLayouts) {
         await fillCompleted(page, explodeScrub, '1')
         await waitForExplodeRestingAt(page, 1)
       }
-      await markerOf(page, hotspot.title).click()
-      await expect(cardHeadingOf(page, hotspot.title)).toBeVisible()
+      let listed = (await chromeCollisionsOf(page, product)).includes(hotspot.id)
+      if (listed) await openChromeAlternative(page, product, hotspot)
+      else await markerOf(page, hotspot.title).click()
       if (open.openedExploded) {
         await fillCompleted(page, explodeScrub, '0')
         await waitForExplodeRestingAt(page, 0)
       }
       await completedPresentation(page)
+      if (!listed && (await chromeCollisionsOf(page, product)).includes(hotspot.id)) {
+        await expect(openCardOf(page)).toBeHidden()
+        await openChromeAlternative(page, product, hotspot)
+        listed = true
+      }
       if (open.openedExploded) {
         // The scrub is panel content, so using it scrolls the panel to it,
         // as it would for a visitor, who scrolls back to the open card once
@@ -165,17 +176,18 @@ for (const contract of referenceLayouts) {
       await expectAtView(page, flow, open)
 
       await expect(
-        markerOf(page, hotspot.title),
+        mountedMarkerOf(page, hotspot.title),
         'the open marker stays selected on the stage',
       ).toHaveAttribute('aria-pressed', 'true')
       await expect(cardHeadingOf(page, hotspot.title)).toBeVisible()
-      await expectCardWhereTheLayoutPutsIt(
-        page,
-        contract.hotspotCard,
-        hotspot.title,
-        titles,
-        hotspot.id,
-      )
+      if (!listed)
+        await expectCardWhereTheLayoutPutsIt(
+          page,
+          contract.hotspotCard,
+          hotspot.title,
+          titles,
+          hotspot.id,
+        )
       const placed = await placedMarkerTitles(page, titles)
       expect(placed.length, 'the open view must show at least one marker').toBeGreaterThan(0)
       for (const title of placed) {
