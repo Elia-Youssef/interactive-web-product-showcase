@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from './fixtures'
 import { productLoadBudgetMs, testBodyBudgetMs } from './budgets'
+import { requireCamera } from './hotspotViews'
 
 function renderedFrames(page: Page): Promise<number> {
   return page.evaluate(() => window.__viewer?.renderedFrames ?? -1)
@@ -66,4 +67,41 @@ test('the stage stands still at rest and renders again on a resize', async ({
       timeout: testBodyBudgetMs,
     })
     .toBeGreaterThan(framesAtRest)
+})
+
+// A page scroll moves the canvas without changing its box, and rendering
+// depends on the box alone, so a scroll at rest owes no frame and no camera
+// change. The scrolling-document layout (a window shorter than the page
+// scroll breakpoint) is the one where the document itself scrolls the
+// canvas; every action that reveals content by scrolling shares the path.
+test('a page scroll at rest renders no frame and moves no camera', async ({
+  page,
+  backendPath,
+}) => {
+  // A phone-width window short enough to be one scrolling document.
+  await page.setViewportSize({ width: 600, height: 400 })
+  await page.goto(backendPath)
+  await expect
+    .poll(() => page.evaluate(() => window.__viewer?.status), {
+      timeout: productLoadBudgetMs,
+    })
+    .toBe('ready')
+  await expect
+    .poll(() => page.evaluate(() => window.__viewer?.model ?? null), {
+      timeout: productLoadBudgetMs,
+    })
+    .not.toBeNull()
+
+  const framesAtRest = await settledFrames(page)
+  const cameraAtRest = await requireCamera(page)
+
+  await page.evaluate(() => window.scrollTo(0, 150))
+  // The premise: the document really scrolled, so the canvas really moved.
+  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
+  // The debounce window of the canvas's own measurement, then the settle
+  // window: a scroll that owed a frame would have rendered it here.
+  await page.waitForTimeout(settleWindowMs)
+
+  expect(await renderedFrames(page)).toBe(framesAtRest)
+  expect(await requireCamera(page)).toEqual(cameraAtRest)
 })

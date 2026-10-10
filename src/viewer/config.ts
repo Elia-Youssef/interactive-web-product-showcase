@@ -8,6 +8,14 @@ export type StageConfig = {
   // rendering of an idle stage. It does not save the loop: three keeps its
   // own rAF running after init().
   readonly frameloop: Frameloop
+  // The measurement of the canvas's box, as R3F's Canvas takes it. A page
+  // scroll moves the canvas without changing its box, and rendering depends
+  // on the box alone (its size drives the lens and the viewport; nothing
+  // reads its page position), so scrolls stay out of the measurement: R3F
+  // turns every measured change into a rendered frame, and a scroll owes
+  // none. Real box changes still arrive through the element's own resize
+  // observer and the window resize.
+  readonly canvasResize: { readonly scroll: boolean }
   // Device pixel ratio, clamped: 1 stays sharp, 2 keeps the fill rate sane.
   readonly dpr: [number, number]
   // After an async gl factory R3F stamps its own tone mapping,
@@ -37,6 +45,7 @@ export type StageConfig = {
 
 export const stageConfig: StageConfig = {
   frameloop: 'demand',
+  canvasResize: { scroll: false },
   dpr: [1, 2],
   toneMapping: NeutralToneMapping,
   outputColorSpace: SRGBColorSpace,
