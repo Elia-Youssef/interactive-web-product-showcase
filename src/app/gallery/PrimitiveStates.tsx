@@ -65,6 +65,9 @@ const cardStates = (
     <State caption="close focus">
       <Card {...cardProps} data-force-focus />
     </State>
+    <State caption="title h3, a group named by its title">
+      <Card {...cardProps} headingLevel={3} />
+    </State>
   </>
 )
 
