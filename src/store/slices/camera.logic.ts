@@ -113,33 +113,47 @@ export type CameraRequestOutcome =
   | { readonly kind: 'arrived' }
   | { readonly kind: 'rejected'; readonly reason: CameraRequestRejectionReason }
 
-// The outcomes of the requests the camera has executed, keyed by the
-// request's sequence. One sequence holds one outcome: its move either comes
-// to rest or is rejected, never both.
-export type CameraOutcomes = ReadonlyMap<number, CameraRequestOutcome>
+// The outcome of the newest request the camera has settled: its sequence,
+// the request itself, and how it ended. The channel holds the newest
+// intent, not a backlog, and the record answers for the same intent: a
+// request a newer one has already settled past is history no reader acts
+// on, so the record is one entry whatever the number of requests, and a
+// held key that asks once per frame costs nothing to keep. A rejection is
+// reported loudly when it happens as well (the bridge), so no failure
+// depends on being read here.
+export type CameraOutcomeRecord = {
+  readonly sequence: number
+  readonly request: CameraRequest
+  readonly outcome: CameraRequestOutcome
+}
 
 export type CameraOutcomeEvent =
-  | { readonly kind: 'arrived'; readonly sequence: number }
+  | { readonly kind: 'arrived'; readonly sequence: number; readonly request: CameraRequest }
   | {
       readonly kind: 'rejected'
       readonly sequence: number
+      readonly request: CameraRequest
       readonly reason: CameraRequestRejectionReason
     }
 
-export const initialCameraOutcomes: CameraOutcomes = new Map()
+export const initialCameraOutcome: CameraOutcomeRecord | null = null
 
-// Pure transition from (outcomes, event) to the next outcomes. The bridge
-// records one event per request, so a sequence is written once; a repeated
-// write for a sequence replaces its outcome, and the newest value is the
-// one a reader sees.
+// Pure transition from (record, event) to the next record. A report for a
+// sequence below the recorded one changes nothing: overlapping moves all
+// resolve at the same final rest, in no promised order, so the newest
+// request's outcome stands whichever report comes last. A repeated write
+// for the recorded sequence replaces its outcome.
 export function applyCameraOutcomeEvent(
-  outcomes: CameraOutcomes,
+  record: CameraOutcomeRecord | null,
   event: CameraOutcomeEvent,
-): CameraOutcomes {
-  const next = new Map(outcomes)
-  next.set(
-    event.sequence,
-    event.kind === 'arrived' ? { kind: 'arrived' } : { kind: 'rejected', reason: event.reason },
-  )
-  return next
+): CameraOutcomeRecord | null {
+  if (record !== null && event.sequence < record.sequence) {
+    return record
+  }
+  return {
+    sequence: event.sequence,
+    request: event.request,
+    outcome:
+      event.kind === 'arrived' ? { kind: 'arrived' } : { kind: 'rejected', reason: event.reason },
+  }
 }

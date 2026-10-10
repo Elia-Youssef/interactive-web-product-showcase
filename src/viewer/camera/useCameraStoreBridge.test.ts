@@ -1,12 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createAppStore, selectCameraOutcomes } from '@store/index'
+import { createAppStore, selectCameraOutcome } from '@store/index'
 import { CameraNoPlanError, CameraUnknownViewError } from './stageCameraApi'
 import { runCameraRequest, watchCameraRequests } from './useCameraStoreBridge'
 
 // The outcome contract of the camera request channel, against a real store
 // and a stand-in move, so the recording path the canvas bridge runs is the
 // one under test: arrived at rest, the two typed rejections, and two
-// overlapping requests that both resolve at the final rest.
+// overlapping requests that both resolve at the final rest, the newer one's
+// outcome kept.
 
 // Flushes the microtasks a recorded move resolves through.
 async function settled(): Promise<void> {
@@ -31,7 +32,11 @@ describe('watchCameraRequests', () => {
     await settled()
 
     expect(move).toHaveBeenCalledTimes(1)
-    expect(selectCameraOutcomes(store.getState()).get(1)).toEqual({ kind: 'arrived' })
+    expect(selectCameraOutcome(store.getState())).toEqual({
+      sequence: 1,
+      request: { kind: 'view', viewId: 'driver' },
+      outcome: { kind: 'arrived' },
+    })
     stop()
   })
 
@@ -45,7 +50,7 @@ describe('watchCameraRequests', () => {
     store.getState().cameraRequest({ kind: 'view', viewId: 'home' })
     await settled()
 
-    expect(selectCameraOutcomes(store.getState()).get(1)).toEqual({
+    expect(selectCameraOutcome(store.getState())?.outcome).toEqual({
       kind: 'rejected',
       reason: 'no-plan',
     })
@@ -66,7 +71,7 @@ describe('watchCameraRequests', () => {
     store.getState().cameraRequest({ kind: 'zoom', direction: 1 })
     await settled()
 
-    expect(selectCameraOutcomes(store.getState()).get(1)).toEqual({
+    expect(selectCameraOutcome(store.getState())?.outcome).toEqual({
       kind: 'rejected',
       reason: 'unknown-view',
     })
@@ -77,7 +82,7 @@ describe('watchCameraRequests', () => {
     stop()
   })
 
-  it('records both of two overlapping requests arrived at the final rest', async () => {
+  it('keeps the newer of two overlapping requests, whichever reports last', async () => {
     const store = createAppStore()
     const first = defer()
     const second = defer()
@@ -93,18 +98,18 @@ describe('watchCameraRequests', () => {
     store.getState().cameraRequest({ kind: 'view', viewId: 'driver' })
     store.getState().cameraRequest({ kind: 'view', viewId: 'home' })
     await settled()
-    expect(selectCameraOutcomes(store.getState()).size, 'no rest, no outcome').toBe(0)
+    expect(selectCameraOutcome(store.getState()), 'no rest, no outcome').toBeNull()
 
-    first.resolve()
     second.resolve()
     await settled()
+    first.resolve()
+    await settled()
 
-    expect(selectCameraOutcomes(store.getState())).toEqual(
-      new Map([
-        [1, { kind: 'arrived' }],
-        [2, { kind: 'arrived' }],
-      ]),
-    )
+    expect(selectCameraOutcome(store.getState())).toEqual({
+      sequence: 2,
+      request: { kind: 'view', viewId: 'home' },
+      outcome: { kind: 'arrived' },
+    })
     stop()
   })
 
@@ -118,7 +123,7 @@ describe('watchCameraRequests', () => {
     await settled()
 
     expect(move).toHaveBeenCalledTimes(2)
-    expect(selectCameraOutcomes(store.getState()).size).toBe(2)
+    expect(selectCameraOutcome(store.getState())?.sequence).toBe(2)
     stop()
   })
 })
@@ -135,7 +140,11 @@ describe('runCameraRequest', () => {
     )
     await settled()
 
-    expect(report).toHaveBeenCalledWith({ kind: 'arrived', sequence: 7 })
+    expect(report).toHaveBeenCalledWith({
+      kind: 'arrived',
+      sequence: 7,
+      request: { kind: 'view', viewId: 'home' },
+    })
   })
 
   it('reports a rejection without awaiting, and never reports arrived', async () => {
@@ -152,8 +161,13 @@ describe('runCameraRequest', () => {
     )
     await settled()
 
-    expect(report).toHaveBeenCalledWith({ kind: 'rejected', sequence: 4, reason: 'unknown-view' })
-    expect(report).not.toHaveBeenCalledWith({ kind: 'arrived', sequence: 4 })
+    expect(report).toHaveBeenCalledWith({
+      kind: 'rejected',
+      sequence: 4,
+      request: { kind: 'view', viewId: 'nowhere' },
+      reason: 'unknown-view',
+    })
+    expect(report).toHaveBeenCalledTimes(1)
     expect(reportRejection).toHaveBeenCalledTimes(1)
   })
 

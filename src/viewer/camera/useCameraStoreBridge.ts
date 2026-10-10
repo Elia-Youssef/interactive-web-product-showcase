@@ -27,8 +27,8 @@ import { readControlsEndDistance } from './controls'
 // rest included, where no frame would run. Every request runs through the
 // stage camera's own API, the same functions the in-canvas callers use, so
 // there is one move path for a view change or a zoom step; every move is
-// awaited and its typed outcome recorded against the request's sequence,
-// so nothing is dropped and nothing throws into the store.
+// awaited and its typed outcome reported with the request's sequence, so
+// nothing throws into the store, and the store keeps the newest one.
 
 export function useCameraReadoutPublish(
   controls: CameraControlsImpl | null,
@@ -81,7 +81,7 @@ export function useCameraRequests(
 
 // The store side of the request channel, outside React so the outcome
 // contract runs against the real store in a unit test. One move per
-// sequenced request, awaited, its outcome recorded against the request's
+// sequenced request, awaited, its outcome reported with the request's
 // sequence; a rejection is reported loudly enough for the e2e console gate
 // to fail any test that hits one.
 export function watchCameraRequests(
@@ -117,7 +117,8 @@ export function watchCameraRequests(
 // failure the channel knows and stays loud. The move is awaited and its
 // outcome reported once. Superseded moves included: camera-controls
 // resolves every superseded promise at the same final rest, so two
-// overlapping requests both record arrived.
+// overlapping requests both report arrived, and the store keeps the
+// newer one's.
 export function runCameraRequest(
   sequence: number,
   request: CameraRequest,
@@ -133,13 +134,13 @@ export function runCameraRequest(
     if (reason === null) {
       throw error
     }
-    report({ kind: 'rejected', sequence, reason })
+    report({ kind: 'rejected', sequence, request, reason })
     reportRejection(
       `the camera request #${sequence} ${describeCameraRequest(request)} was rejected: ${reason}`,
     )
     return
   }
-  void pending.then(() => report({ kind: 'arrived', sequence }))
+  void pending.then(() => report({ kind: 'arrived', sequence, request }))
 }
 
 // The rejection reason of a move failure, or null when the error is not one

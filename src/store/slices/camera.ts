@@ -1,12 +1,12 @@
 import {
   applyCameraOutcomeEvent,
   applyCameraReadoutEvent,
-  initialCameraOutcomes,
+  initialCameraOutcome,
   initialCameraReadout,
   initialCameraRequestChannel,
   nextCameraRequest,
   type CameraOutcomeEvent,
-  type CameraOutcomes,
+  type CameraOutcomeRecord,
   type CameraReadout,
   type CameraReadoutEvent,
   type CameraRequest,
@@ -15,7 +15,7 @@ import {
 
 export type {
   CameraOutcomeEvent,
-  CameraOutcomes,
+  CameraOutcomeRecord,
   CameraReadout,
   CameraReadoutEvent,
   CameraRequest,
@@ -29,7 +29,7 @@ export { hasUnhandledCameraRequest } from './camera.logic'
 export type CameraSliceState = {
   cameraReadout: CameraReadout
   cameraRequestChannel: CameraRequestChannel
-  cameraOutcomes: CameraOutcomes
+  cameraOutcome: CameraOutcomeRecord | null
 }
 
 export type CameraSlice = CameraSliceState & {
@@ -46,7 +46,7 @@ export function createCameraSlice(set: SetCameraState): CameraSlice {
   return {
     cameraReadout: initialCameraReadout,
     cameraRequestChannel: initialCameraRequestChannel,
-    cameraOutcomes: initialCameraOutcomes,
+    cameraOutcome: initialCameraOutcome,
     cameraPublishReadout: (event) => {
       set((state) => ({ cameraReadout: applyCameraReadoutEvent(state.cameraReadout, event) }))
     },
@@ -56,7 +56,7 @@ export function createCameraSlice(set: SetCameraState): CameraSlice {
       }))
     },
     cameraRequestOutcome: (event) => {
-      set((state) => ({ cameraOutcomes: applyCameraOutcomeEvent(state.cameraOutcomes, event) }))
+      set((state) => ({ cameraOutcome: applyCameraOutcomeEvent(state.cameraOutcome, event) }))
     },
   }
 }
@@ -69,6 +69,6 @@ export function selectCameraRequestChannel(state: CameraSliceState): CameraReque
   return state.cameraRequestChannel
 }
 
-export function selectCameraOutcomes(state: CameraSliceState): CameraOutcomes {
-  return state.cameraOutcomes
+export function selectCameraOutcome(state: CameraSliceState): CameraOutcomeRecord | null {
+  return state.cameraOutcome
 }

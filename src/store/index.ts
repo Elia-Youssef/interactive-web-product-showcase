@@ -6,12 +6,12 @@ export { selectFinishStatus, selectSelectedVariant, type FinishStatus } from './
 export { selectSelectedHotspot, type HotspotStatus } from './slices/hotspot'
 export { selectProductFailed, selectProductStatus, type ProductStatus } from './slices/product'
 export {
-  selectCameraOutcomes,
+  selectCameraOutcome,
   selectCameraReadout,
   selectCameraRequestChannel,
   hasUnhandledCameraRequest,
   type CameraOutcomeEvent,
-  type CameraOutcomes,
+  type CameraOutcomeRecord,
   type CameraReadout,
   type CameraRequest,
   type CameraRequestOutcome,

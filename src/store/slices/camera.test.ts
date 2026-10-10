@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest'
 import {
   createCameraSlice,
-  selectCameraOutcomes,
+  selectCameraOutcome,
   selectCameraReadout,
   selectCameraRequestChannel,
   type CameraSliceState,
@@ -14,7 +14,7 @@ function makeSlice() {
   let state: CameraSliceState = {
     cameraReadout: initialCameraReadout,
     cameraRequestChannel: { sequence: 0, request: null },
-    cameraOutcomes: new Map(),
+    cameraOutcome: null,
   }
   const slice = createCameraSlice((updater) => {
     state = { ...state, ...updater(state) }
@@ -109,22 +109,27 @@ test('requests reach the channel sequenced, the same one twice included', () => 
   })
 })
 
-test('a fresh slice starts with no recorded outcomes', () => {
+test('a fresh slice starts with no recorded outcome', () => {
   const { read } = makeSlice()
 
-  expect(selectCameraOutcomes(read()).size).toBe(0)
+  expect(selectCameraOutcome(read())).toBeNull()
 })
 
-test('a recorded outcome lands in the slice keyed by its sequence', () => {
+test('a recorded outcome lands in the slice with its sequence, the newest kept', () => {
   const { slice, read } = makeSlice()
+  const home = { kind: 'view', viewId: 'home' } as const
 
-  slice.cameraRequestOutcome({ kind: 'arrived', sequence: 1 })
-  slice.cameraRequestOutcome({ kind: 'rejected', sequence: 2, reason: 'unknown-view' })
+  slice.cameraRequestOutcome({ kind: 'arrived', sequence: 1, request: home })
+  slice.cameraRequestOutcome({
+    kind: 'rejected',
+    sequence: 2,
+    request: home,
+    reason: 'unknown-view',
+  })
 
-  expect(selectCameraOutcomes(read())).toEqual(
-    new Map([
-      [1, { kind: 'arrived' }],
-      [2, { kind: 'rejected', reason: 'unknown-view' }],
-    ]),
-  )
+  expect(selectCameraOutcome(read())).toEqual({
+    sequence: 2,
+    request: home,
+    outcome: { kind: 'rejected', reason: 'unknown-view' },
+  })
 })
