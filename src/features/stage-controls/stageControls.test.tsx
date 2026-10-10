@@ -6,10 +6,10 @@ import { StageAngleRow } from './StageAngleReadout'
 import { StageControlsPill } from './StageZoomControls'
 
 // The stage controls from plain values, at every limit state: each tilt and
-// zoom button waits disabled exactly at the limit its step cannot pass, and
-// every control renders. A static render reads no store, so the readout is
-// the input; the phone's control set is the camera reset spec's, in a
-// browser at a phone size.
+// zoom button waits unavailable exactly at the limit its step cannot pass,
+// and every control renders. A static render reads no store, so the
+// readout is the input; the phone's control set is the camera reset spec's,
+// in a browser at a phone size.
 
 const noOp = () => {}
 
@@ -31,13 +31,25 @@ function pill(readout: LiveCameraReadout): string {
   )
 }
 
-// Whether the button named by a label renders disabled.
-function disabled(html: string, label: string): boolean {
+// The button element named by a label, or an error: the pill's buttons are
+// matched by their accessible name.
+function buttonOf(html: string, label: string): string {
   const button = new RegExp(`<button[^>]*aria-label="${label}"[^>]*>`).exec(html)
   if (button === null) {
     throw new Error(`no button named ${label} rendered`)
   }
-  return /\sdisabled=""/.test(button[0])
+  return button[0]
+}
+
+// Whether the button announces the wait. The native disabled attribute is
+// asserted away by name: a waiting control keeps the focus, so no button
+// of the pill may ever carry it.
+function waiting(html: string, label: string): boolean {
+  return buttonOf(html, label).includes('aria-disabled="true"')
+}
+
+function nativelyDisabled(html: string, label: string): boolean {
+  return new RegExp(`\\sdisabled[=\\s/>]`).test(buttonOf(html, label))
 }
 
 describe('the stage controls pill', () => {
@@ -49,7 +61,8 @@ describe('the stage controls pill', () => {
       siteCopy.zoomOutLabel,
       siteCopy.zoomInLabel,
     ]) {
-      expect(disabled(html, label), label).toBe(false)
+      expect(waiting(html, label), label).toBe(false)
+      expect(nativelyDisabled(html, label), label).toBe(false)
     }
     expect(html).toContain('67%')
     expect(html).toContain(`>${siteCopy.resetLabel}<`)
@@ -60,15 +73,18 @@ describe('the stage controls pill', () => {
     ['the farthest zoom', { endDistance: 4 }, siteCopy.zoomOutLabel],
     ['the bottom view', { endPolar: 2.75 }, siteCopy.tiltUpLabel],
     ['the top view', { endPolar: 0.25 }, siteCopy.tiltDownLabel],
-  ] as const)('waits at %s with only its own button disabled', (_name, at, label) => {
+  ] as const)('waits at %s with only its own button unavailable', (_name, at, label) => {
     const html = pill({ ...home, ...at })
-    const waiting = [
+    const hold = [
       siteCopy.tiltUpLabel,
       siteCopy.tiltDownLabel,
       siteCopy.zoomOutLabel,
       siteCopy.zoomInLabel,
-    ].filter((candidate) => disabled(html, candidate))
-    expect(waiting).toEqual([label])
+    ]
+    expect(hold.filter((candidate) => waiting(html, candidate))).toEqual([label])
+    for (const candidate of hold) {
+      expect(nativelyDisabled(html, candidate), candidate).toBe(false)
+    }
   })
 })
 

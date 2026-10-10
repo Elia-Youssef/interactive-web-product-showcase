@@ -4,12 +4,15 @@
 // store to reset the stage, which closes any open hotspot card and returns
 // to the home view; the stage camera executes the requests, so the pill is
 // the same on both backends and tracks whichever product is presented.
-// Each tilt and zoom button waits disabled exactly while its step would
+// Each tilt and zoom button waits unavailable exactly while its step would
 // move nothing, read from where the camera's move ends and the limits it
 // enforces, so the bounds are announced, never guessed from the live
 // values, which rest within the controls' own threshold of their end. The
-// zoom buttons stay on phones too: pinch is a two-finger gesture, and the
-// buttons are the single-pointer way to zoom.
+// wait is announced, never the disabled attribute: the button is the
+// control the visitor was pressing when it reached the limit, and the
+// native attribute would drop their focus on the body. The zoom buttons
+// stay on phones too: pinch is a two-finger gesture, and the buttons are
+// the single-pointer way to zoom.
 
 import type { OrbitDirection } from '@lib/camera/orbitStep'
 import { tiltStepMoves } from '@lib/camera/orbitStep'
@@ -48,14 +51,14 @@ export function StageControlsPill({ readout, onTilt, onZoom, onReset }: StageCon
       <span className={styles.cluster}>
         <IconButton
           aria-label={siteCopy.tiltUpLabel}
-          disabled={!tiltStepMoves(readout.endPolar, polarRange, 'up')}
+          unavailable={!tiltStepMoves(readout.endPolar, polarRange, 'up')}
           onClick={() => onTilt('up')}
         >
           <ChevronUpIcon />
         </IconButton>
         <IconButton
           aria-label={siteCopy.tiltDownLabel}
-          disabled={!tiltStepMoves(readout.endPolar, polarRange, 'down')}
+          unavailable={!tiltStepMoves(readout.endPolar, polarRange, 'down')}
           onClick={() => onTilt('down')}
         >
           <ChevronDownIcon />
@@ -65,7 +68,7 @@ export function StageControlsPill({ readout, onTilt, onZoom, onReset }: StageCon
         <span className={styles.cluster}>
           <IconButton
             aria-label={siteCopy.zoomOutLabel}
-            disabled={!zoomStepMoves(readout.endDistance, range, -1)}
+            unavailable={!zoomStepMoves(readout.endDistance, range, -1)}
             onClick={() => onZoom(-1)}
           >
             <MinusIcon />
@@ -73,7 +76,7 @@ export function StageControlsPill({ readout, onTilt, onZoom, onReset }: StageCon
           <Readout>{zoomReadoutText(percent)}</Readout>
           <IconButton
             aria-label={siteCopy.zoomInLabel}
-            disabled={!zoomStepMoves(readout.endDistance, range, 1)}
+            unavailable={!zoomStepMoves(readout.endDistance, range, 1)}
             onClick={() => onZoom(1)}
           >
             <PlusIcon />
