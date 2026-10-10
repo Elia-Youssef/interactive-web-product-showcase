@@ -13,7 +13,7 @@ import {
   type MappingList,
 } from '@gltf-transform/extensions'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { SUBPROCESS_FIXTURE_TIMEOUT_MS } from '../tooling/subprocess.fixtures.ts'
+import { TOOL_FIXTURE_TIMEOUT_MS } from '../tooling/subprocess.fixtures.ts'
 import { runFixtureGltfCli } from './gltfCli.fixtures.ts'
 import { createModelIO } from './modelIo.ts'
 import { buildGeometryStageArgs } from './pipeline.ts'
@@ -179,7 +179,7 @@ describe('the geometry stage keeps the Blender contract', () => {
     const prunedPath = path.join(tempDir, 'contract-pruned.glb')
     await runGeometryStage(sourcePath, prunedPath, { ...DEFAULT_OPTIMIZE_SETTINGS, prune: true })
     pruned = readProductStructure(await io.read(prunedPath))
-  }, SUBPROCESS_FIXTURE_TIMEOUT_MS)
+  }, TOOL_FIXTURE_TIMEOUT_MS)
 
   afterAll(async () => {
     await rm(tempDir, { recursive: true, force: true })

@@ -10,7 +10,7 @@ import { formatRawValueFindings, scanGatedStyleSheets } from './styleGate.ts'
 import { findRawValues } from './styleRawValues.ts'
 import { gatedStyleSheets } from './styleSheets.ts'
 import { tokenSourcePath } from './tokenSource.ts'
-import { SUBPROCESS_FIXTURE_TIMEOUT_MS } from './subprocess.fixtures.ts'
+import { TOOL_FIXTURE_TIMEOUT_MS } from './subprocess.fixtures.ts'
 
 const repoRoot = join(import.meta.dirname, '..')
 let sheets: string[]
@@ -20,7 +20,7 @@ beforeAll(() => {
   sheets = gatedStyleSheets(repoRoot)
   gated = listGatedFiles(repoRoot)
   findings = scanGatedStyleSheets(repoRoot)
-}, SUBPROCESS_FIXTURE_TIMEOUT_MS)
+}, TOOL_FIXTURE_TIMEOUT_MS)
 
 describe('the owned stylesheet list', () => {
   test('is the owned files filtered by the style extensions', () => {

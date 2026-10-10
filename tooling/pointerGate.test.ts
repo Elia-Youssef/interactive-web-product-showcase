@@ -5,7 +5,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
-import { execFixtureFile, SUBPROCESS_FIXTURE_TIMEOUT_MS } from './subprocess.fixtures.ts'
+import { execFixtureFile, TOOL_FIXTURE_TIMEOUT_MS } from './subprocess.fixtures.ts'
 import { generatedFilePaths } from './generatedFiles.ts'
 import { formatPointerFindings, scanGatedFilesForPointers } from './pointerGate.ts'
 import { findPointerFindings } from './pointerRules.ts'
@@ -61,7 +61,7 @@ describe('the scan of the owned files', () => {
       writeFileSync(join(repoRoot, generated), needleText)
     }
     findings = scanGatedFilesForPointers(repoRoot)
-  }, SUBPROCESS_FIXTURE_TIMEOUT_MS)
+  }, TOOL_FIXTURE_TIMEOUT_MS)
 
   afterAll(() => {
     rmSync(repoRoot, { recursive: true, force: true })

@@ -6,7 +6,7 @@ import { beforeAll, expect, test } from 'vitest'
 import { isAuthoredFile, isGatedTextFile, listGatedFiles } from './gatedFiles.ts'
 import { generatedFilePaths } from './generatedFiles.ts'
 import { listOwnedFiles } from './ownedFiles.ts'
-import { SUBPROCESS_FIXTURE_TIMEOUT_MS } from './subprocess.fixtures.ts'
+import { TOOL_FIXTURE_TIMEOUT_MS } from './subprocess.fixtures.ts'
 
 const repoRoot = join(import.meta.dirname, '..')
 let owned: string[]
@@ -14,7 +14,7 @@ let gated: string[]
 beforeAll(() => {
   owned = listOwnedFiles(repoRoot)
   gated = listGatedFiles(repoRoot)
-}, SUBPROCESS_FIXTURE_TIMEOUT_MS)
+}, TOOL_FIXTURE_TIMEOUT_MS)
 
 test('sources are authored, generated files are not', () => {
   expect(isAuthoredFile('src/viewer/Stage.tsx')).toBe(true)

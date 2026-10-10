@@ -125,19 +125,19 @@ export async function plantAndLintCases(cases: readonly PlantedCase[]): Promise<
     }
     violations.configure()
     clean.configure()
-    // The subdirectory run reuses the violations tree, and only happens when
-    // a case needs it: eslint discovers the same config up from there, while
-    // its working directory differs from the tree root.
-    const needsSubdirectoryRun = cases.some(
-      (plantedCase) => plantedCase.lintFrom === 'subdirectory',
-    )
+    // Config discovery needs only the declared subdirectory probes. Keep the
+    // complete configured namespace for their imports and glob expansions.
+    const subdirectoryCases = cases.filter((plantedCase) => plantedCase.lintFrom === 'subdirectory')
     // Each invocation has its own output and reads the planted config only.
     // Settle all children before cleanup, even when one invocation fails.
     const runs = await Promise.allSettled([
       violations.lint(),
       clean.lint(),
-      needsSubdirectoryRun
-        ? violations.lint({ cwd: join(violations.root, 'tooling') })
+      subdirectoryCases.length > 0
+        ? violations.lint({
+            cwd: join(violations.root, 'tooling'),
+            files: subdirectoryCases.map((plantedCase) => plantedCase.file),
+          })
         : Promise.resolve(undefined),
     ])
     const reports = runs.map((run) => {
@@ -150,7 +150,7 @@ export async function plantAndLintCases(cases: readonly PlantedCase[]): Promise<
     }
     return {
       violations: violationReport,
-      ...(needsSubdirectoryRun ? { violationsFromSubdirectory: subdirectoryReport } : {}),
+      ...(subdirectoryCases.length > 0 ? { violationsFromSubdirectory: subdirectoryReport } : {}),
       clean: cleanReport,
     }
   } finally {

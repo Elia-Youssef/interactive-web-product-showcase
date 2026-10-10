@@ -25,11 +25,13 @@ export type LintMessage = {
 // Relative file path inside the planted tree, POSIX style
 export type LintReport = Map<string, LintMessage[]>
 
+type PlantedLintOptions = { readonly cwd?: string; readonly files?: readonly string[] }
+
 export type PlantedProject = {
   readonly root: string
   add(relativePath: string, content: string): void
   configure(): void
-  lint(options?: { readonly cwd?: string }): Promise<LintReport>
+  lint(options?: PlantedLintOptions): Promise<LintReport>
   remove(): void
 }
 
@@ -128,16 +130,13 @@ export function plantProject(name: string): PlantedProject {
       // file set to the factory instead of discovering the parent's files.
       writePlantedConfig(root, factoryImport, files)
     },
-    async lint({ cwd = root }: { readonly cwd?: string } = {}): Promise<LintReport> {
-      // The tree's planted roots are passed absolutely, so the invocation
-      // works from a subdirectory too: there the config is still discovered
-      // at the root, while the process working directory differs from it.
-      // The roots are src and, when a case planted there, tests, so rules
-      // scoped to the tests folder are proven the same way.
-      const roots = lintedRoots
-        .map((folder) => join(root, folder))
-        .filter(existsSync)
-        .map(toPosix)
+    async lint({ cwd = root, files: selectedFiles }: PlantedLintOptions = {}): Promise<LintReport> {
+      // Targets resolve from the planted tree even when config discovery
+      // starts from a subdirectory. Root runs include the tests folder when
+      // present, so its scoped rules are covered too.
+      const targets =
+        selectedFiles ?? lintedRoots.filter((folder) => existsSync(join(root, folder)))
+      const roots = targets.map((file) => toPosix(join(root, file)))
       return lintPlantedRoots(root, cwd, roots)
     },
     remove(): void {

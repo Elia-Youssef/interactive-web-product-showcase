@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { beforeAll, describe, expect, it } from 'vitest'
-import { SUBPROCESS_FIXTURE_TIMEOUT_MS } from '../tooling/subprocess.fixtures.ts'
+import { TOOL_FIXTURE_TIMEOUT_MS } from '../tooling/subprocess.fixtures.ts'
 import { runFixtureGltfCli } from './gltfCli.fixtures.ts'
 import { createModelIO } from './modelIo.ts'
 import { withTempDir } from './optimizedModel.fixtures.ts'
@@ -80,7 +80,7 @@ describe('the stock optimize defaults', () => {
       explicitBytes = await readFile(explicit)
       stockBytes = await readFile(stock)
     })
-  }, SUBPROCESS_FIXTURE_TIMEOUT_MS)
+  }, TOOL_FIXTURE_TIMEOUT_MS)
 
   it('writes identical bytes to the stock optimize command with its existing defaults', () => {
     expect(explicitBytes).toEqual(stockBytes)

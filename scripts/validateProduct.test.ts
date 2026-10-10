@@ -19,6 +19,7 @@ import { listShippedSlugs } from './shippedProducts.ts'
 import { positionGridOf } from './storageGrid.ts'
 import { countViolations, countWarnings } from './validateChecks.ts'
 import { buildDocument, PASSING_CAMERA_POSE } from './validateFixtures.ts'
+import { TOOL_FIXTURE_TIMEOUT_MS } from '../tooling/subprocess.fixtures.ts'
 
 // The repo root of this checkout: the parent of the scripts folder.
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
@@ -55,11 +56,18 @@ const NUMBERED_EYEBROW_MANIFEST = GHOST_MANIFEST.replace(
 ).replace("eyebrow: 'Compact speaker'", "eyebrow: 'Compact speaker / 002'")
 
 describe('the validate step on every shipped product', () => {
+  const validations = new Map<string, Awaited<ReturnType<typeof validateShippedProduct>>>()
+  beforeAll(async () => {
+    const parseProduct = await loadParseProduct()
+    for (const slug of SHIPPED_SLUGS) {
+      validations.set(slug, await validateShippedProduct(ROOT, slug, parseProduct, POSITION_GRID))
+    }
+  }, TOOL_FIXTURE_TIMEOUT_MS)
   it.each(SHIPPED_SLUGS)(
     'reports zero violations and only measured shadow warnings for %s',
-    async (slug) => {
-      const parseProduct = await loadParseProduct()
-      const validation = await validateShippedProduct(ROOT, slug, parseProduct, POSITION_GRID)
+    (slug) => {
+      const validation = validations.get(slug)
+      if (validation === undefined) throw new Error(`missing validation evidence for ${slug}`)
       expect(validation.checks.map((check) => check.name)).toEqual([
         'manifest',
         'model',
@@ -168,6 +176,7 @@ describe('the validate step on a planted product at the old aspect', () => {
 describe('the validate step on a temp root: one side missing, or a manifest that does not parse', () => {
   let tempRoot = ''
   let parseProduct: ParseProduct
+  let orphanValidation: Awaited<ReturnType<typeof validateShippedProduct>>
 
   beforeAll(async () => {
     const scratchRoot = path.join(ROOT, 'scratch')
@@ -198,7 +207,13 @@ describe('the validate step on a temp root: one side missing, or a manifest that
       'utf8',
     )
     parseProduct = await loadParseProduct()
-  })
+    orphanValidation = await validateShippedProduct(
+      tempRoot,
+      'orphan-speaker',
+      parseProduct,
+      POSITION_GRID,
+    )
+  }, TOOL_FIXTURE_TIMEOUT_MS)
 
   afterAll(async () => {
     await rm(tempRoot, { recursive: true, force: true })
@@ -230,13 +245,8 @@ describe('the validate step on a temp root: one side missing, or a manifest that
     }
   })
 
-  it('validates a model-only product as exactly the manifest missing violation', async () => {
-    const validation = await validateShippedProduct(
-      tempRoot,
-      'orphan-speaker',
-      parseProduct,
-      POSITION_GRID,
-    )
+  it('validates a model-only product as exactly the manifest missing violation', () => {
+    const validation = orphanValidation
     expect(countViolations(validation)).toBe(1)
     const manifest = validation.checks.find((check) => check.name === 'manifest')
     expect(manifest?.violations).toEqual([

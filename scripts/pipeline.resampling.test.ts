@@ -1,7 +1,7 @@
 import { readFile, readdir } from 'node:fs/promises'
 import path from 'node:path'
 import { beforeAll, expect, it } from 'vitest'
-import { SUBPROCESS_FIXTURE_TIMEOUT_MS } from '../tooling/subprocess.fixtures.ts'
+import { TOOL_FIXTURE_TIMEOUT_MS } from '../tooling/subprocess.fixtures.ts'
 import { runFixtureGltfCli } from './gltfCli.fixtures.ts'
 import { createModelIO } from './modelIo.ts'
 import { withTempDir } from './optimizedModel.fixtures.ts'
@@ -65,7 +65,7 @@ async function resampledFixture() {
 let fixture: Awaited<ReturnType<typeof resampledFixture>>
 beforeAll(async () => {
   fixture = await resampledFixture()
-}, SUBPROCESS_FIXTURE_TIMEOUT_MS)
+}, TOOL_FIXTURE_TIMEOUT_MS)
 
 it('accepts a dense baked motion thinned by the real resampler within the shared budget', () => {
   const { before, after, track, times, checkedBytes, publishedBytes, files } = fixture

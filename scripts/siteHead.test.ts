@@ -14,7 +14,7 @@ import { dirname, join, sep } from 'node:path'
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 import type { MetaHeadSet } from '../src/lib/copy/meta.ts'
 import { listOwnedFiles } from '../tooling/ownedFiles.ts'
-import { execFixtureFile, SUBPROCESS_FIXTURE_TIMEOUT_MS } from '../tooling/subprocess.fixtures.ts'
+import { execFixtureFile, TOOL_FIXTURE_TIMEOUT_MS } from '../tooling/subprocess.fixtures.ts'
 import { routeFilePath } from './deployRules.ts'
 import type { MetaPages } from './metaPages.ts'
 
@@ -165,7 +165,7 @@ describe('a changed siteUrl', () => {
     await execFixtureFile(process.execPath, ['scripts/siteHeadEvidence.ts'], {
       cwd: copyRoot,
     })
-  }, SUBPROCESS_FIXTURE_TIMEOUT_MS)
+  }, TOOL_FIXTURE_TIMEOUT_MS)
 
   afterAll(() => {
     expect(copyRoot.startsWith(join(ROOT, 'scratch') + sep)).toBe(true)

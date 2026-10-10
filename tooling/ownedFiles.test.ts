@@ -6,7 +6,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { listOwnedFiles } from './ownedFiles.ts'
-import { execFixtureFile, SUBPROCESS_FIXTURE_TIMEOUT_MS } from './subprocess.fixtures.ts'
+import { execFixtureFile, TOOL_FIXTURE_TIMEOUT_MS } from './subprocess.fixtures.ts'
 
 const scratchRoot = join(import.meta.dirname, '..', 'scratch')
 
@@ -38,7 +38,7 @@ describe('listOwnedFiles', () => {
     rmSync(join(repoRoot, 'deleted.ts'))
     writeFileSync(join(repoRoot, 'untracked.ts'), 'export const planted = 3\n')
     owned = listOwnedFiles(repoRoot).sort()
-  }, SUBPROCESS_FIXTURE_TIMEOUT_MS)
+  }, TOOL_FIXTURE_TIMEOUT_MS)
 
   afterAll(() => {
     rmSync(repoRoot, { recursive: true, force: true })
