@@ -15,6 +15,7 @@ export {
   loadProgressPercent,
   selectLoadRevealCount,
   selectLoadWaitPercent,
+  selectLoadWaitRunning,
   type LoadProgress,
   type LoadWait,
 } from './slices/loadProgress'

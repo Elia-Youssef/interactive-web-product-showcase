@@ -44,6 +44,12 @@ export function selectLoadWaitPercent(state: LoadProgressSliceState): number | n
   return state.loadProgress.wait.kind === 'waiting' ? state.loadProgress.wait.percent : null
 }
 
+// Whether a loading wait is running: the announcement derivation clears
+// the loading word when it turns false.
+export function selectLoadWaitRunning(state: LoadProgressSliceState): boolean {
+  return state.loadProgress.wait.kind === 'waiting'
+}
+
 // How many times the readout has revealed, across the waits of this page.
 export function selectLoadRevealCount(state: LoadProgressSliceState): number {
   return state.loadProgress.reveals

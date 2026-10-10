@@ -12,6 +12,8 @@ import {
   selectCameraLive,
   selectHomeArrival,
   selectHotspotSelection,
+  selectLoadRevealCount,
+  selectLoadWaitRunning,
   selectSelectedVariant,
   selectTiltLimit,
   selectZoomLimit,
@@ -23,8 +25,9 @@ import styles from './LiveAnnouncements.module.css'
 // the changes the page itself does not speak: a product switch, by the new
 // product's name; a finish selection, by the new finish's name; a card
 // opened from a marker, by its title and bullets, since focus stays on the
-// marker; the camera arriving at the home view; and a camera step reaching
-// a zoom or tilt limit. One module owns the region and its words, so no
+// marker; the camera arriving at the home view; a camera step reaching a
+// zoom or tilt limit; and the loading readout's reveal, by the loading
+// word, once per wait. One module owns the region and its words, so no
 // component scatters aria-live of its own; what to announce is the pure
 // derivation of the copy module, fed the page's last announced state. The camera reads are
 // primitives, so the region re-renders when a limit or an arrival changes,
@@ -36,8 +39,14 @@ export function LiveAnnouncements({ product }: { readonly product: Product }) {
   const tiltLimit = useAppStore(selectTiltLimit)
   const homeArrival = useAppStore(selectHomeArrival)
   const selection = useAppStore((state) => selectHotspotSelection(state, product.slug))
+  const loadingReveal = useAppStore(selectLoadRevealCount)
+  const loadingWait = useAppStore(selectLoadWaitRunning)
   const [message, setMessage] = useState({ text: '', sequence: 0 })
   const announcedRef = useRef<AnnouncedState | null>(null)
+  // The words the region holds, kept beside the message state it mirrors:
+  // the clear the derivation owes when a wait ends must know whether the
+  // loading word is what it would take out.
+  const regionRef = useRef('')
 
   useEffect(() => {
     const announced: AnnouncedState = {
@@ -47,15 +56,28 @@ export function LiveAnnouncements({ product }: { readonly product: Product }) {
       cameraLimits: cameraLive ? { zoom: zoomLimit, tilt: tiltLimit } : null,
       homeArrival,
       card: selection === null ? null : announcedCard(product, selection.hotspot, selection.origin),
+      loadingReveal,
+      loadingWait,
     }
-    const announcement = nextAnnouncement(announcedRef.current, announced)
+    const announcement = nextAnnouncement(announcedRef.current, announced, regionRef.current)
     announcedRef.current = announced
     if (announcement !== null) {
       // Each change inserts a message node, including consecutive products
       // whose display names match. Equal words still owe an announcement.
+      regionRef.current = announcement
       setMessage((previous) => ({ text: announcement, sequence: previous.sequence + 1 }))
     }
-  }, [product, selectedVariant, cameraLive, zoomLimit, tiltLimit, homeArrival, selection])
+  }, [
+    product,
+    selectedVariant,
+    cameraLive,
+    zoomLimit,
+    tiltLimit,
+    homeArrival,
+    selection,
+    loadingReveal,
+    loadingWait,
+  ])
 
   return (
     <div className={styles.region} aria-live="polite" aria-atomic="true" data-live-announcement>

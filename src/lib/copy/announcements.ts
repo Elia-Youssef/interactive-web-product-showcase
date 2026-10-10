@@ -2,8 +2,9 @@
 // between two snapshots of the page: a product change announces the new
 // product's name, a finish change on the presented product announces the
 // new finish, a card opened from a marker reads its title and bullets, the
-// camera arriving home announces the home view, and a step that reaches a
-// zoom or tilt limit names the limit. A page that only re-rendered
+// camera arriving home announces the home view, a step that reaches a
+// zoom or tilt limit names the limit, and the loading readout's reveal
+// announces the load once per wait. A page that only re-rendered
 // announces nothing, and neither does an ordinary camera step: a turn the
 // visitor cannot see tells a screen reader nothing, and the readouts carry
 // the angle and the zoom as text for anyone who reads them.
@@ -14,6 +15,7 @@
 import type { TiltLimit } from '../camera/orbitStep'
 import type { HotspotOrigin } from '../hotspots/flow'
 import type { ZoomLimit } from '../camera/zoom'
+import { siteCopy } from './site'
 
 // The limits the camera's move ends at, while a view is presented.
 export type CameraLimits = {
@@ -48,23 +50,37 @@ export type AnnouncedState = {
   readonly homeArrival: number | null
   // The open hotspot card of the presented product, or null while none is.
   readonly card: AnnouncedCard | null
+  // How many times the loading readout has revealed so far on this page:
+  // each new count is one reveal the region owes its word for, once per
+  // wait, and the count survives the wait so a later wait's reveal still
+  // reads as a change.
+  readonly loadingReveal: number
+  // Whether a loading wait is running: the wait ending clears the loading
+  // word the region may hold, with no completion word to replace it.
+  readonly loadingWait: boolean
 }
 
 export const announcementCopy = {
   homeView: 'Home view',
+  loading: siteCopy.loadingLabel,
   zoomLimit: { closest: 'Closest zoom', farthest: 'Farthest zoom' },
   tiltLimit: { top: 'Top view limit', bottom: 'Bottom view limit' },
 } as const satisfies {
   readonly homeView: string
+  readonly loading: string
   readonly zoomLimit: Readonly<Record<ZoomLimit, string>>
   readonly tiltLimit: Readonly<Record<TiltLimit, string>>
 }
 
 // The announcement the change from previous to current owes, or null when
-// it owes none.
+// it owes none. The region's current words come along, because the one
+// announcement that depends on them is the clear: a wait that ended takes
+// the loading word out of the region, and nothing else, so every
+// announcement a diff owes wins over the clear.
 export function nextAnnouncement(
   previous: AnnouncedState | null,
   current: AnnouncedState,
+  regionWords: string,
 ): string | null {
   if (previous === null) {
     return null
@@ -78,10 +94,20 @@ export function nextAnnouncement(
   if (openedFromMarker(previous.card, current.card)) {
     return current.card.words
   }
+  if (current.loadingReveal !== previous.loadingReveal) {
+    return announcementCopy.loading
+  }
   if (current.homeArrival !== null && current.homeArrival !== previous.homeArrival) {
     return announcementCopy.homeView
   }
-  return reachedLimit(previous.cameraLimits, current.cameraLimits)
+  const limit = reachedLimit(previous.cameraLimits, current.cameraLimits)
+  if (limit !== null) {
+    return limit
+  }
+  if (previous.loadingWait && !current.loadingWait && regionWords === announcementCopy.loading) {
+    return ''
+  }
+  return null
 }
 
 // The words a card opened from a marker reads, once: its title, then its

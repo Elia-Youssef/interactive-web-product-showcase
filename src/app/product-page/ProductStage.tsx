@@ -1,5 +1,6 @@
 import { ProductExplode } from '@features/explode'
 import { HotspotMarkers, ProductHotspots, type ListedCardHost } from '@features/hotspots'
+import { LoadReadout } from '@features/load-readout'
 import { ProductFinishes } from '@features/variants'
 import { Product } from '@viewer/product/Product'
 import { ProductPreload } from '@viewer/product/ProductPreload'
@@ -29,7 +30,11 @@ export type ProductStageProps = {
 // and the exploded view inside the product, the hotspots as the canvas
 // child plus the markers in the stage's overlay), and nothing built for one
 // life can outlive it. Beside it, the model files of the neighbors are read
-// ahead; over everything, the switch transition's layer.
+// ahead; over everything, the switch transition's layer, and above it the
+// loading readout of the stage's own wait: hidden whenever a switch runs
+// (the band is the switch's signal), last in the box so nothing the stage
+// draws can hide it, outside the overlay's box so the markers and the
+// overlay probe never see it.
 export function ProductStage({ productSwitch, dock, chrome, listHost }: ProductStageProps) {
   const { shown, preload, phase, onCovered, onRevealed } = productSwitch
   useShownStageFailure(shown)
@@ -63,6 +68,7 @@ export function ProductStage({ productSwitch, dock, chrome, listHost }: ProductS
         onCovered={onCovered}
         onRevealed={onRevealed}
       />
+      <LoadReadout phase={phase} />
     </>
   )
 }
