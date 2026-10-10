@@ -1,5 +1,6 @@
 import { expect, test } from './fixtures'
 import { testBudgetMs } from './budgets'
+import { StageRetiredError } from '../../src/viewer/StageRetiredError'
 import {
   expectProductAlert,
   frameFaultPath,
@@ -36,9 +37,12 @@ for (const product of products) {
       if (place === 'present') {
         // The failed report and both StrictMode leave settles reject with
         // the retired canvas, keeping every cause loud.
-        consoleGate.expectError(/StageRetiredError: the stage frame supply was retired/, {
-          times: 3,
-        })
+        consoleGate.expectError(
+          new RegExp(`^console error: ${new StageRetiredError('retired')}$`),
+          {
+            times: 3,
+          },
+        )
       }
 
       await page.goto(harnessPath(backendPath, product.slug))
@@ -73,9 +77,7 @@ for (const product of products) {
       // stage owns it, so the stage fails.
       if (place === 'present') {
         // The environment's live settle receives the same terminal reason.
-        consoleGate.expectError(
-          /page error: the stage frame supply was retired before a requested frame was recorded/,
-        )
+        consoleGate.expectError(new RegExp(`^page error: ${new StageRetiredError('retired')}$`))
       }
       await page.goto(frameFaultPath(backendPath, product.slug, place, 'stage'))
 
