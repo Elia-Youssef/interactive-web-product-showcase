@@ -25,12 +25,15 @@ input, and the token is the empty fill it falls back to. Values are tokens.
   --slider-thumb-color: var(--white);
 }
 
-/* Disabled: the control waits for the state it acts on. Fill and thumb
-take the shared disabled color against the track, and no hover applies. */
-.slider:disabled {
+/* Waiting: the control waits for the state it acts on, native or
+announced. Fill and thumb take the shared disabled color against the track,
+no hover applies, and the pointer cannot scrub a waiting slider. */
+.slider:disabled,
+.slider[aria-disabled='true'] {
   --slider-fill-color: var(--disabled);
   --slider-thumb-color: var(--disabled);
   cursor: default;
+  pointer-events: none;
 }
 
 /* The track, both engines: the hairline line, filled from the start to

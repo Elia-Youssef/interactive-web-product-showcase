@@ -24,10 +24,12 @@ lifts to --raised and the icon to --white on hover. Values are tokens. */
   color: var(--white);
 }
 
-/* Disabled: the control waits at the limit it reached. It mutes to the one
-disabled color the controls share, keeps its own surface, and no
-hover applies. Declared after the hover rule, so the wait wins. */
-.button:disabled {
+/* Waiting: the control waits at the limit it reached, native or announced.
+It mutes to the one disabled color the controls share, keeps its own
+surface, and no hover applies. Declared after the hover rule, so the wait
+wins. */
+.button:disabled,
+.button[aria-disabled='true'] {
   background-color: var(--surface);
   color: var(--disabled);
   cursor: default;
