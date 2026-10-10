@@ -7,5 +7,6 @@
 
 export { ProductHotspots } from './ProductHotspots'
 export { HotspotMarkers } from './HotspotMarkers'
+export { HighlightsList } from './HighlightsList'
 export type { ListedCardHost } from './HotspotCard'
 export { CARD_OVERLAY_KEY, overlayKey } from '@lib/hotspots/hotspotKeys'

@@ -1,5 +1,5 @@
 import { ProductExplode } from '@features/explode'
-import { HotspotMarkers, ProductHotspots } from '@features/hotspots'
+import { HotspotMarkers, ProductHotspots, type ListedCardHost } from '@features/hotspots'
 import { ProductFinishes } from '@features/variants'
 import { Product } from '@viewer/product/Product'
 import { ProductPreload } from '@viewer/product/ProductPreload'
@@ -16,6 +16,9 @@ export type ProductStageProps = {
   readonly dock: HTMLElement | null
   // The stage chrome, which a floating card keeps clear of.
   readonly chrome: HTMLElement | null
+  // The host the open Highlights list item holds, where a card opened
+  // from the list renders.
+  readonly listHost: ListedCardHost | null
 }
 
 // The one stage of the product page, alive across every product switch: the
@@ -26,7 +29,7 @@ export type ProductStageProps = {
 // child plus the markers in the stage's overlay), and nothing built for one
 // life can outlive it. Beside it, the model files of the neighbors are read
 // ahead; over everything, the switch transition's layer.
-export function ProductStage({ productSwitch, dock, chrome }: ProductStageProps) {
+export function ProductStage({ productSwitch, dock, chrome, listHost }: ProductStageProps) {
   const { shown, preload, phase, onCovered, onRevealed } = productSwitch
   const reducedMotion = useReducedMotion()
   return (
@@ -43,7 +46,12 @@ export function ProductStage({ productSwitch, dock, chrome }: ProductStageProps)
           </>
         }
         overlay={
-          <HotspotMarkers product={shown.manifest} dock={dock} chrome={chrome} listHost={null} />
+          <HotspotMarkers
+            product={shown.manifest}
+            dock={dock}
+            chrome={chrome}
+            listHost={listHost}
+          />
         }
       />
       <ProductSwitchLayer

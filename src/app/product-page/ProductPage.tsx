@@ -1,6 +1,7 @@
 import type { Product as ProductManifest, ProductCollection } from '@lib/product'
 import { StageAngleReadout, StageZoomControls } from '@features/stage-controls'
 import { CollectionNavRow } from '@features/collection'
+import { HighlightsList, type ListedCardHost } from '@features/hotspots'
 import { ProductIndexLabel, ProductPanel } from '@features/product-panel'
 import { useState } from 'react'
 import { RouteLink } from '../routing'
@@ -26,10 +27,14 @@ export type ProductPageProps = {
 // phone), and so is the stage chrome, which a floating card keeps clear of.
 // The panel's navigation row slot carries the collection feature with the
 // app's link handed in, so the row moves through the real collection and
-// the feature never reaches the app layer.
+// the feature never reaches the app layer. Its highlights slot carries the
+// hotspots' list, keyed by the shown product so each product's list opens
+// closed; the host its open item holds is handed to the stage, so a card
+// opened from the list renders under its item.
 export function ProductPage({ product, collection }: ProductPageProps) {
   const [dock, setDock] = useState<HTMLElement | null>(null)
   const [chrome, setChrome] = useState<HTMLElement | null>(null)
+  const [listHost, setListHost] = useState<ListedCardHost | null>(null)
   const productSwitch = useProductSwitch(product, collection)
   const shown = productSwitch.shown.manifest
   return (
@@ -43,9 +48,17 @@ export function ProductPage({ product, collection }: ProductPageProps) {
           navigationRow={
             <CollectionNavRow product={shown} collection={collection} link={RouteLink} />
           }
+          highlights={<HighlightsList key={shown.slug} product={shown} onListHost={setListHost} />}
         />
       }
-      stage={<ProductStage productSwitch={productSwitch} dock={dock} chrome={chrome} />}
+      stage={
+        <ProductStage
+          productSwitch={productSwitch}
+          dock={dock}
+          chrome={chrome}
+          listHost={listHost}
+        />
+      }
       angleReadout={<StageAngleReadout />}
       stageControls={<StageZoomControls />}
     />

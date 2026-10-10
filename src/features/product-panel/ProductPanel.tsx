@@ -29,9 +29,12 @@ export type ProductPanelProps = {
   // decides what a product page navigates with, so the panel never
   // reaches another feature for it.
   navigationRow?: ReactNode
+  // The highlights slot, after the explode controls and before the
+  // navigation row: the composition fills it with the hotspots' list.
+  highlights?: ReactNode
 }
 
-export function ProductPanel({ product, navigationRow }: ProductPanelProps) {
+export function ProductPanel({ product, navigationRow, highlights }: ProductPanelProps) {
   const finishSelected = useAppStore((state) => state.finishSelected)
   const selectedVariant = useAppStore((state) => selectSelectedVariant(state, product.slug))
 
@@ -75,6 +78,7 @@ export function ProductPanel({ product, navigationRow }: ProductPanelProps) {
       </div>
       <ProductExplodeToggle product={product} />
       <ProductExplodeScrub product={product} />
+      {highlights}
       {navigationRow}
     </div>
   )

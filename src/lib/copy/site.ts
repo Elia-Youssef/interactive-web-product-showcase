@@ -35,6 +35,7 @@ export const siteCopy = {
   openIndexLabel: 'Open the collection index',
   closeIndexLabel: 'Close the collection index',
   panelLabel: 'Product details',
+  highlightsHeading: 'Highlights',
   credit: 'Elia Youssef, Technical Lead, Rebel Art Studios',
 } as const
 
