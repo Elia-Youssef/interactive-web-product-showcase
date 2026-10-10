@@ -27,16 +27,23 @@ import { reportStageSettleFailure } from './reportStageSettleFailure'
 // their render pipelines for it, so the assignment settles the stage, which
 // presents the lit scene twice and holds the stage's settled promise until
 // both frames are recorded.
-export function StageEnvironment() {
+export function StageEnvironment({
+  onInstalled,
+}: {
+  readonly onInstalled: (installed: boolean) => void
+}) {
   const gl = useThree((state) => state.gl)
   const scene = useThree((state) => state.scene)
   const settleScene = useStageSettle()
   // The load entry is the same object on every render while it is live, so
   // the suspension resumes on the very promise it suspended on.
   const entry = useStageEnvironmentEntry()
-  const equirectangular = use(entry.value)
+  const equirectangular = entry === null ? null : use(entry.value)
 
   useEffect(() => {
+    if (equirectangular === null) {
+      return
+    }
     if (!isStageRenderer(gl)) {
       throw new Error('the stage environment needs the WebGPURenderer its factory built')
     }
@@ -63,11 +70,15 @@ export function StageEnvironment() {
         throw failure
       })
     })
+    // Assignment and its queued settle precede admission of lit content;
+    // presentation then settles behind the environment on the same chain.
+    onInstalled(true)
     return () => {
       cancelled = true
+      onInstalled(false)
       uninstall()
     }
-  }, [gl, scene, settleScene, equirectangular])
+  }, [gl, scene, settleScene, equirectangular, onInstalled])
 
   return null
 }

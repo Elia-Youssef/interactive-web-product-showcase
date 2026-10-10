@@ -124,15 +124,15 @@ test('a teardown disposes every geometry, material and texture the scene holds',
 
   disposeProductScene(parts.root, noFinishes())
 
-  // The geometries go in the walk, then the set of materials the scene
-  // named, in walk order, each with its textures before its dispose.
+  // Identity sets release geometries, then textures, then materials. A
+  // shared slot never changes how many times its resource is released.
   expect(disposals).toEqual([
     'geometryA',
     'geometryB',
     'diffuse',
     'normal',
-    'bodyMaterial',
     'grilleMap',
+    'bodyMaterial',
     'grilleMaterial0',
     'grilleMaterial1',
   ])
@@ -232,7 +232,7 @@ test('every derived and raw finish material the meshes do not carry goes once', 
   // material behind the index is what the derivation started from, carried
   // by the raw record alone. Neither is on the scene, so each table is the
   // one pass that reaches it, and the texture the clone shares with the raw
-  // runs through both, which three's idempotent dispose absorbs.
+  // is collected once by identity from both.
   const derived = parts.variantMaterial.clone()
   track(derived, disposals, 'derivedVariant')
   disposeProductScene(parts.root, finishesOf([['2:0:1', derived]], [[1, parts.variantMaterial]]))
@@ -249,4 +249,19 @@ test('disposing an already disposed scene is safe', () => {
   expect(() =>
     disposeProductScene(parts.root, finishesOf([['0:0:1', parts.variantMaterial]])),
   ).not.toThrow()
+})
+
+test('shared geometry and texture slots across meshes and finish tables are released once', () => {
+  const geometry = new BufferGeometry()
+  const texture = new Texture()
+  const events: string[] = []
+  track(geometry, events, 'geometry')
+  track(texture, events, 'texture')
+  const first = new MeshStandardMaterial({ map: texture, normalMap: texture })
+  const second = new MeshStandardMaterial({ map: texture })
+  const derived = first.clone()
+  const scene = new Object3D().add(new Mesh(geometry, first), new Mesh(geometry, second))
+  disposeProductScene(scene, finishesOf([['0:0:1', derived]], [[1, second]], [first]))
+  expect(events.filter((event) => event === 'geometry')).toHaveLength(1)
+  expect(events.filter((event) => event === 'texture')).toHaveLength(1)
 })

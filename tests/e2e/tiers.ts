@@ -51,6 +51,8 @@ export const projectProfiles: Readonly<Record<string, ProjectProfile>> = {
 export type SpecFamily = 'smoke' | 'layout'
 
 export const specFamilies: Readonly<Record<string, SpecFamily>> = {
+  // Independent asset startup is required on every backend project.
+  loadParallel: 'smoke',
   smoke: 'smoke',
   devClient: 'smoke',
   productReady: 'smoke',

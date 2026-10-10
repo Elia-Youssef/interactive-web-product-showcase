@@ -60,6 +60,7 @@ describe('the spec families', () => {
       'cameraHome',
       'devClient',
       'failure',
+      'loadParallel',
       'productLocalhost',
       'productReady',
       'routing',

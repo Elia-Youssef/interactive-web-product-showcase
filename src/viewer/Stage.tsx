@@ -9,6 +9,7 @@ import { useStageClock } from './useStageClock'
 import { stageConfig } from './config'
 import { StageHoldsContext } from './stageHoldsContext'
 import { StageEnvironmentProvider } from './stageEnvironmentProvider'
+import { StageModelOwnersProvider } from './product/StageModelOwnersProvider'
 import { DevHud } from './hud/DevHud'
 import { productFailureMessage } from './product/failureMessage'
 import { StageAlert } from './StageAlert'
@@ -93,7 +94,9 @@ export function Stage({ content, overlay }: StageProps = {}) {
             <StageEnvironmentProvider
               file={stageEnvironmentFile(request, stageConfig.environmentFile)}
             >
-              <StageLife key={canvasLife.epoch} canvas={canvas} overlay={overlay} />
+              <StageModelOwnersProvider>
+                <StageLife key={canvasLife.epoch} canvas={canvas} overlay={overlay} />
+              </StageModelOwnersProvider>
             </StageEnvironmentProvider>
             {stageFailed && <StageAlert reason={rendererStatus.reason} />}
             {productStatus.kind === 'failed' && (

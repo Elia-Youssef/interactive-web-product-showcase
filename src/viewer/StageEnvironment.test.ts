@@ -56,12 +56,24 @@ function effectFor(backend: string) {
   hooks.useThree.mockReturnValueOnce(gl).mockReturnValueOnce(scene)
   hooks.use.mockReturnValue(stage)
   hooks.prefilter.mockReturnValue(result)
-  StageEnvironment()
+  const installed = vi.fn()
+  StageEnvironment({ onInstalled: installed })
   const setup = hooks.effect.mock.calls[0]?.[0]
   if (setup === undefined) {
     throw new Error('the environment effect was not registered')
   }
-  return { setup, gl, scene, previous, clone, source, sourceDispose, stageDispose, result }
+  return {
+    setup,
+    gl,
+    scene,
+    previous,
+    clone,
+    source,
+    sourceDispose,
+    stageDispose,
+    result,
+    installed,
+  }
 }
 
 describe.each(['webgpu', 'webgl2'])('the %s stage environment effect', (backend) => {
@@ -104,6 +116,7 @@ describe.each(['webgpu', 'webgl2'])('the %s stage environment effect', (backend)
       expect(owned.result.dispose).toHaveBeenCalledTimes(boundary === 'assignment' ? 1 : 0)
       expect(owned.stageDispose).not.toHaveBeenCalled()
       expect(hooks.settle).not.toHaveBeenCalled()
+      expect(owned.installed).not.toHaveBeenCalled()
     },
   )
 
@@ -117,6 +130,7 @@ describe.each(['webgpu', 'webgl2'])('the %s stage environment effect', (backend)
     expect(owned.result.dispose).not.toHaveBeenCalled()
     expect(owned.sourceDispose).not.toHaveBeenCalled()
     expect(hooks.settle).toHaveBeenCalledTimes(1)
+    expect(owned.installed).toHaveBeenCalledWith(true)
     expect(cleanup).toBeTypeOf('function')
     cleanup?.()
     expect(owned.scene.environment).toBe(owned.previous)
@@ -124,5 +138,6 @@ describe.each(['webgpu', 'webgl2'])('the %s stage environment effect', (backend)
     expect(owned.sourceDispose).toHaveBeenCalledTimes(1)
     expect(hooks.generatorDispose).toHaveBeenCalledTimes(1)
     expect(owned.stageDispose).not.toHaveBeenCalled()
+    expect(owned.installed.mock.calls).toEqual([[true], [false]])
   })
 })

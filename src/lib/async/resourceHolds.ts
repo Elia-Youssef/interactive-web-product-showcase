@@ -18,7 +18,8 @@ export type AfterFlush = (callback: () => void) => void
 export class ResourceHolds<Resource extends object> {
   // Releases waiting for the end of the flush, by resource. An entry leaves
   // when a hold takes the resource again or when its release runs.
-  private readonly pending = new Map<Resource, () => void>()
+  private readonly pending = new Map<Resource, { readonly release: () => void }>()
+  private readonly holders = new WeakMap<Resource, number>()
   // Resources whose release has run. Weak, so the record lives only as long
   // as something still references the resource.
   private readonly released = new WeakSet<Resource>()
@@ -29,6 +30,7 @@ export class ResourceHolds<Resource extends object> {
   // the flush is withdrawn.
   hold(resource: Resource): void {
     this.assertLive(resource, 'held')
+    this.holders.set(resource, (this.holders.get(resource) ?? 0) + 1)
     this.pending.delete(resource)
   }
 
@@ -36,19 +38,31 @@ export class ResourceHolds<Resource extends object> {
   // synchronous work ends, the release runs then, once.
   drop(resource: Resource, release: () => void): void {
     this.assertLive(resource, 'dropped')
-    this.pending.set(resource, release)
-    this.afterFlush(() => this.settle(resource, release))
+    const count = this.holders.get(resource) ?? 0
+    if (count === 0) {
+      throw new Error('a resource with no holder was dropped')
+    }
+    if (count > 1) {
+      this.holders.set(resource, count - 1)
+      return
+    }
+    this.holders.delete(resource)
+    // A ticket identifies this zero-holder transition, even when two
+    // different transitions reuse the same release callback.
+    const ticket = { release }
+    this.pending.set(resource, ticket)
+    this.afterFlush(() => this.settle(resource, ticket))
   }
 
-  private settle(resource: Resource, release: () => void): void {
+  private settle(resource: Resource, ticket: { readonly release: () => void }): void {
     // A later hold withdrew this release, or a later drop replaced it with
     // its own scheduled run.
-    if (this.pending.get(resource) !== release) {
+    if (this.pending.get(resource) !== ticket) {
       return
     }
     this.pending.delete(resource)
     this.released.add(resource)
-    release()
+    ticket.release()
   }
 
   private assertLive(resource: Resource, action: 'held' | 'dropped'): void {

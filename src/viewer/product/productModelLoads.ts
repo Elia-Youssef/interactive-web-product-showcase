@@ -68,8 +68,14 @@ export class StageModelLoads<Decoder> {
   readonly #cancels = new Map<string, AbortController>()
   readonly #sources: ProductModelSources<Decoder>
   #settling = 0
+  #leases = 0
+  #retired = false
+  #disposed = false
 
-  constructor(sources: ProductModelSources<Decoder>) {
+  constructor(
+    sources: ProductModelSources<Decoder>,
+    private readonly disposeDecoders = () => {},
+  ) {
     this.#sources = sources
     this.#bytes = new KeyedLoads((url) => {
       const cancel = new AbortController()
@@ -87,29 +93,41 @@ export class StageModelLoads<Decoder> {
       void read.catch(() => undefined)
       return read
     })
-    this.#models = new KeyedLoads((url) =>
-      loadProductModel(this.#sources, url, () => this.#modelBytes(url)),
-    )
+    this.#models = new KeyedLoads((url) => {
+      // The entry borrows the decoders through parsing AND result disposal,
+      // including intentionally uncancelled work after its canvas retires.
+      this.#leases += 1
+      return loadProductModel(this.#sources, url, () => this.#modelBytes(url))
+    })
   }
 
   // The live model load of the URL, started on its first read.
   readModel(url: string): ProductModelEntry {
+    this.#assertActive()
     return this.#models.read(url)
   }
 
   // Releases a model load whose last hold is gone: forgotten now, so the
   // next read loads fresh, and what it created is released once it settles.
   releaseModel(entry: ProductModelEntry): void {
-    this.#models.forget(entry)
+    if (!this.#models.forget(entry)) {
+      return
+    }
     this.#settling += 1
     void entry.value.then((load) => {
-      this.#settling -= 1
-      releaseProductModel(load)
+      try {
+        releaseProductModel(load)
+      } finally {
+        this.#settling -= 1
+        this.#leases -= 1
+        this.#drain()
+      }
     })
   }
 
   // The live read ahead of the URL, started on its first read.
   readAhead(url: string): KeyedLoad<ArrayBuffer> {
+    this.#assertActive()
     return this.#bytes.read(url)
   }
 
@@ -118,6 +136,7 @@ export class StageModelLoads<Decoder> {
   releaseAhead(entry: KeyedLoad<ArrayBuffer>): void {
     if (this.#bytes.forget(entry)) {
       this.#retireCancel(entry.key).abort()
+      this.#drain()
     }
   }
 
@@ -127,6 +146,26 @@ export class StageModelLoads<Decoder> {
       models: this.#models.keys(),
       bytes: this.#bytes.keys(),
       settling: this.#settling,
+    }
+  }
+
+  // End admission, retaining the decoder owner until every borrowing entry
+  // has settled and disposed its result. Entry holds own their releases.
+  retire(): void {
+    this.#retired = true
+    this.#drain()
+  }
+
+  #drain(): void {
+    if (this.#retired && this.#leases === 0 && this.#cancels.size === 0 && !this.#disposed) {
+      this.#disposed = true
+      this.disposeDecoders()
+    }
+  }
+
+  #assertActive(): void {
+    if (this.#retired) {
+      throw new Error('the model loads are retired: use the fresh canvas owner')
     }
   }
 

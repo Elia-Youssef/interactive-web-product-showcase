@@ -23,6 +23,46 @@ function heldResources() {
 }
 
 describe('ResourceHolds', () => {
+  it.each([2, 3, 8])('keeps a resource until all %i overlapping holders drop it', (count) => {
+    const { holds, endFlush } = heldResources()
+    const resource = {}
+    const release = vi.fn()
+    for (let holder = 0; holder < count; holder += 1) {
+      holds.hold(resource)
+    }
+    for (let holder = 1; holder < count; holder += 1) {
+      holds.drop(resource, release)
+      endFlush()
+      expect(release).not.toHaveBeenCalled()
+    }
+    holds.drop(resource, release)
+    endFlush()
+    expect(release).toHaveBeenCalledOnce()
+  })
+
+  it('rejects a drop without a corresponding holder', () => {
+    const { holds } = heldResources()
+    expect(() => holds.drop({}, vi.fn())).toThrow('no holder')
+    const resource = {}
+    holds.hold(resource)
+    holds.drop(resource, vi.fn())
+    expect(() => holds.drop(resource, vi.fn())).toThrow('no holder')
+  })
+
+  it('cancels an obsolete zero-holder release even when the callback is reused', () => {
+    const { holds, scheduled } = heldResources()
+    const resource = {}
+    const release = vi.fn()
+    holds.hold(resource)
+    holds.drop(resource, release)
+    holds.hold(resource)
+    holds.drop(resource, release)
+    scheduled[0]?.()
+    expect(release).not.toHaveBeenCalled()
+    scheduled[1]?.()
+    expect(release).toHaveBeenCalledOnce()
+  })
+
   it('releases a dropped resource at the end of the flush, never inside it', () => {
     const { holds, endFlush } = heldResources()
     const scene = {}
@@ -129,6 +169,8 @@ describe('ResourceHolds', () => {
     const healthy = {}
     const releaseHealthy = vi.fn()
 
+    holds.hold(broken)
+    holds.hold(healthy)
     holds.drop(broken, () => {
       throw new Error('the release failed')
     })
