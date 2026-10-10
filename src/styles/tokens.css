@@ -201,7 +201,19 @@ their minimum below it, switched by the breakpoints at the end of this file.
   --size-fill: 100%;
   /* The height of the viewport, for the app shell that must span it. */
   --height-viewport: 100vh;
-  --size-ra-mark: var(--space-6);
+  --size-ra-mark: var(--space-8);
+  /* The mark's glows read at its small size and scale with its box. */
+  --ra-angle-start: 0deg;
+  --ra-angle-full: 360deg;
+  --ra-mask-clear: transparent;
+  --ra-sweep-glow-near-ratio: 0.0625;
+  --ra-sweep-glow-far-ratio: 0.1875;
+  --ra-sweep-alpha-near: 0.9;
+  --ra-sweep-alpha-far: 0.55;
+  --ra-hover-glow-near-ratio: 0.09375;
+  --ra-hover-glow-far-ratio: 0.25;
+  --ra-hover-alpha-near: 0.95;
+  --ra-hover-alpha-far: 0.55;
   --height-top-bar: 56px;
   --panel-width-min: 380px;
   --panel-width-max: 520px;
@@ -242,6 +254,14 @@ their minimum below it, switched by the breakpoints at the end of this file.
   value, so reduced motion resolves each of them to instant in one place.
   */
   --motion-scale: 1;
+  --duration-ra-spin: calc(24000ms * var(--motion-scale));
+  --duration-ra-sweep: calc(12000ms * var(--motion-scale));
+  --duration-ra-hover: calc(180ms * var(--motion-scale));
+  --animation-ra-spin: ra-spin;
+  --animation-ra-sweep: ra-sweep;
+  --ease-ra-spin: linear;
+  --ease-ra-sweep: linear;
+  --ease-ra-hover: ease-out;
   --duration-camera: calc(700ms * var(--motion-scale));
   --ease-camera: cubic-bezier(0.215, 0.61, 0.355, 1);
   /*
@@ -313,6 +333,25 @@ the fallback of a substitution failure, where no grid shows at all.
   initial-value: 0;
 }
 
+/* One inherited rotation drives both masks; the sweep stays in page space. */
+@property --ra-spin-angle {
+  syntax: '<angle>';
+  inherits: true;
+  initial-value: 0deg;
+}
+
+@property --ra-sweep-start {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@property --ra-sweep-end {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root {
     --motion-scale: 0;
@@ -369,5 +408,29 @@ chrome sits closer to the stage edge, so the narrow stage keeps its room. */
     --fs-tagline: var(--fs-tagline-min);
     --fs-body: var(--fs-body-min);
     --fs-readout: var(--fs-readout-min);
+  }
+}
+
+/* Typed animation tokens have literal endpoints so every engine interpolates. */
+@keyframes ra-spin {
+  from {
+    --ra-spin-angle: 0deg;
+  }
+  to {
+    --ra-spin-angle: 360deg;
+  }
+}
+@keyframes ra-sweep {
+  from {
+    --ra-sweep-start: 0deg;
+    --ra-sweep-end: 0deg;
+  }
+  50% {
+    --ra-sweep-start: 0deg;
+    --ra-sweep-end: 360deg;
+  }
+  to {
+    --ra-sweep-start: 360deg;
+    --ra-sweep-end: 360deg;
   }
 }

@@ -18,6 +18,7 @@
     "e2e": "playwright test",
     "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && pnpm assets:validate && pnpm build && pnpm e2e",
     "assets:fonts": "node scripts/copyFonts.ts",
+    "assets:brand": "node scripts/brandAssets.ts",
     "assets:optimize": "node scripts/optimize.ts",
     "assets:validate": "node scripts/validate.ts",
     "assets:social": "pnpm build && node scripts/socialCapture.ts"

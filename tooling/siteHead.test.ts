@@ -4,7 +4,7 @@ import { extname, join } from 'node:path'
 import { resolveConfig } from 'vite'
 import type { IndexHtmlTransformHook } from 'vite'
 import { beforeAll, describe, expect, test } from 'vitest'
-import { fillHead } from '../scripts/headFill.ts'
+import { fillSiteHead } from '../scripts/headFill.ts'
 import { loadCopyMeta } from '../scripts/manifestIo.ts'
 import { TOOL_FIXTURE_TIMEOUT_MS } from './subprocess.fixtures.ts'
 
@@ -26,6 +26,7 @@ describe('the configured site-head HTML hook', () => {
     await resolveConfig(
       {
         root: ROOT,
+        base: '/portfolio/',
         configFile: join(ROOT, 'vite.config.ts'),
         // Bind the configured handler to Vite's real global hook context.
         plugins: [
@@ -55,7 +56,9 @@ describe('the configured site-head HTML hook', () => {
         filename: join(ROOT, file),
       })
       const expected =
-        file === SITE_ENTRY ? fillHead(original, (await loadCopyMeta()).siteMetaSet()) : original
+        file === SITE_ENTRY
+          ? fillSiteHead(original, (await loadCopyMeta()).siteMetaSet(), '/portfolio/')
+          : original
       heads.set(file, { original, result, expected })
     }
   }, TOOL_FIXTURE_TIMEOUT_MS)

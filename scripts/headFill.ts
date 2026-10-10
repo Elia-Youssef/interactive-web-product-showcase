@@ -8,9 +8,14 @@
 // removed tag fails loudly instead of shipping or passing a stale value.
 
 import type { MetaHeadSet } from '../src/lib/copy/meta.ts'
+import { fillFaviconHead } from './faviconHead.ts'
 
 // The writer takes exactly the builder's head set across the src boundary.
 export type HeadValues = MetaHeadSet
+
+export function fillSiteHead(html: string, values: HeadValues, base: string): string {
+  return fillFaviconHead(fillHead(html, values), base)
+}
 
 // Escapes a value for a double-quoted HTML attribute. The copy holds none
 // of these characters today; the escaping is here so that staying true is
