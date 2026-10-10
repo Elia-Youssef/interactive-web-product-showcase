@@ -12,11 +12,12 @@ test('the mark is decorative and declares ambient motion without entering the ta
   expect(html).not.toMatch(/tabindex|<a\b|<button\b/)
 })
 
-test('both ring layers share one mask class and the inline polygon comes from the geometry', () => {
+test('the mark renders the sweep layer and the inline polygon from the geometry', () => {
   const html = renderToString(<RaMark />)
-  const rings = [...html.matchAll(/class="([^"]+)" data-ra-ring="(white|red)"/g)]
-  expect(rings).toHaveLength(2)
-  expect(rings[0]?.[1]).toBe(rings[1]?.[1])
+  // The ring paint itself lives on pseudo elements of the mark and the
+  // sweep, so the served markup carries the layer hosts only; the masks
+  // are held to the stylesheet by the tooling guard.
+  expect(html).toContain('data-ra-sweep=""')
   expect(html).toContain(`viewBox="${raViewBox}"`)
   expect(html).toContain(`points="${raPolygon}"`)
   expect(html).not.toContain('<img')

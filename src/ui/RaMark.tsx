@@ -9,11 +9,8 @@ export function RaMark() {
       aria-hidden="true"
       {...{ [ambientMotion.attribute]: ambientMotion.value }}
     >
-      <span className={styles.ring} data-ra-ring="white" />
       <span className={styles.glow}>
-        <span className={styles.sweep} data-ra-sweep="">
-          <span className={styles.ring} data-ra-ring="red" />
-        </span>
+        <span className={styles.sweep} data-ra-sweep="" />
       </span>
       <svg className={styles.glyph} viewBox={raViewBox} aria-hidden="true" focusable="false">
         <polygon className={styles.polygon} points={raPolygon} />

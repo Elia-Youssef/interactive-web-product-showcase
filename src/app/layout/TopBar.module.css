@@ -20,6 +20,9 @@ nothing is clipped and nothing is hidden. Values are tokens.
   padding-inline: var(--space-8);
   background-color: var(--bg);
   flex-shrink: 0;
+  /* The mark's turning layers anchor here: the bar already stands tall
+  enough to hold them, so nothing in the layout grows for them. */
+  position: relative;
 }
 
 .left {

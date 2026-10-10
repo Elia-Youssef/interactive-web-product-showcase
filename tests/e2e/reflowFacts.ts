@@ -65,7 +65,7 @@ function placedOf(locator: Locator): Promise<Placed[]> {
 // The shown block elements a locator matches whose content is wider than
 // their box: a block's scroll width passes its client width. Inline boxes
 // report no client width and are measured through the block that holds them.
-function spillsOf(locator: Locator): Promise<string[]> {
+export function spillsOf(locator: Locator): Promise<string[]> {
   return locator.evaluateAll((elements) =>
     elements
       .filter((element) => getComputedStyle(element).display !== 'none')
