@@ -1,6 +1,7 @@
 import { expect, type Locator, type Page } from '@playwright/test'
 import { testBodyBudgetMs } from './budgets'
 import { settledStage } from './stageSettle'
+import { pinAmbientMotion, runningCaptureMotion } from './captureMotion'
 
 // The masked stage captures of the suite. The dev HUD shows live timings, so
 // it is masked, and it is right-anchored and sized by its content, so a
@@ -38,11 +39,12 @@ const maskExtensions: Readonly<Record<StageCaptureExtension, (page: Page) => Loc
 // viewport. The viewport is the extent because Chromium drops a presented
 // WebGPU canvas from element and clip captures, and only the plain viewport
 // capture carries it.
-function maskedViewportCapture(
+async function maskedViewportCapture(
   page: Page,
   extensions: readonly StageCaptureExtension[],
 ): Promise<Uint8Array> {
   const extensionMask = extensions.map((extension) => maskExtensions[extension](page))
+  await pinAmbientMotion(page)
   return page.screenshot({ mask: [...devHudMask(page), ...extensionMask], maskColor: '#000000' })
 }
 
@@ -56,19 +58,12 @@ function maskedViewportCapture(
 // animations are read. They run once per load, so the wait falls through in
 // one poll afterwards. The social capture script waits on this same
 // contract, so its cards pin the same rest the suite's captures do.
+// Declared ambient effects never end, so they are excluded from this wait;
+// every shot below pins them at time zero right before it is taken. Every
+// unmarked effect keeps the original settle rule.
 export async function settledForCapture(page: Page): Promise<void> {
   await settledStage(page)
-  await expect
-    .poll(
-      () =>
-        page.evaluate(
-          () =>
-            document.getAnimations().filter((animation) => animation.playState === 'running')
-              .length,
-        ),
-      { timeout: testBodyBudgetMs },
-    )
-    .toBe(0)
+  await expect.poll(() => runningCaptureMotion(page), { timeout: testBodyBudgetMs }).toBe(0)
 }
 
 // Captures the stage at rest: the settled wait first, then the shot. Two
@@ -102,6 +97,7 @@ export async function expectSettledStageScreenshot(
   snapshotName: string,
 ): Promise<void> {
   await settledForCapture(page)
+  await pinAmbientMotion(page)
   await expect(page).toHaveScreenshot(snapshotName, { mask: [...devHudMask(page)] })
 }
 
@@ -111,6 +107,7 @@ export async function expectSettledStageScreenshot(
 // because the HUD and the stage chrome sit over the stage, never the panel.
 export async function elementCapture(page: Page, element: Locator): Promise<Uint8Array> {
   await page.evaluate(() => document.fonts.ready)
+  await pinAmbientMotion(page)
   return element.screenshot()
 }
 
@@ -122,5 +119,6 @@ export async function expectElementScreenshot(
   snapshotName: string,
 ): Promise<void> {
   await page.evaluate(() => document.fonts.ready)
+  await pinAmbientMotion(page)
   await expect(element).toHaveScreenshot(snapshotName, { maxDiffPixelRatio: 0.02 })
 }
