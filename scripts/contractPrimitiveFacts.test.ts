@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { primitiveFacts } from './contractPrimitiveFacts.ts'
+import { geometryFacts } from './contractPrimitiveFacts.ts'
 import { readContractModelFacts } from './contractFacts.ts'
 import { materialRules } from './contractRuleMaterials.ts'
 import { contractRuleInputOf } from './contractRuleFixtures.ts'
@@ -25,7 +25,7 @@ describe('geometric primitive facts', () => {
           index === 0 ? first : second,
         )
       })
-      const facts = primitiveFacts(doc)
+      const facts = geometryFacts(doc).primitives
       expect(facts.map((fact) => fact.openEdges)).toEqual(groups.map(() => false))
       expect(facts.map((fact) => fact.duplicateTriangles)).toEqual(groups.map(() => 0))
       const rule = materialRules.find((entry) => entry.key === 'single-sided-materials')
@@ -44,7 +44,7 @@ describe('geometric primitive facts', () => {
           const duplicate = reversed ? [2, 1, 0] : face
           const groups = split ? [face, duplicate] : [[...face, ...duplicate]]
           for (const faces of groups) addTriangles(doc, mesh, TETRA_POSITIONS, faces, encoding)
-          expect(primitiveFacts(doc).map((fact) => fact.duplicateTriangles)).toEqual(
+          expect(geometryFacts(doc).primitives.map((fact) => fact.duplicateTriangles)).toEqual(
             split ? [0, 1] : [1],
           )
         }
@@ -59,7 +59,7 @@ describe('geometric primitive facts', () => {
       const material = doc.createMaterial('shared').setDoubleSided(true)
       addTriangles(doc, mesh, TETRA_POSITIONS, [0, 1, 2], encoding).setMaterial(material)
       addTriangles(doc, mesh, TETRA_POSITIONS, [0, 3, 1], encoding).setMaterial(material)
-      expect(primitiveFacts(doc).map((fact) => fact.openEdges)).toEqual([true, true])
+      expect(geometryFacts(doc).primitives.map((fact) => fact.openEdges)).toEqual([true, true])
       const rule = materialRules.find((entry) => entry.key === 'single-sided-materials')
       if (rule === undefined) throw new Error('missing sidedness rule')
       expect(rule.check(contractRuleInputOf(doc)).violations).toEqual([])
@@ -75,7 +75,7 @@ describe('geometric primitive facts', () => {
       .listScenes()[0]
       ?.addChild(doc.createNode('PART_other').setMesh(other).setTranslation([2, 0, 0]))
     addTriangles(doc, other, TETRA_POSITIONS, TETRA_FACES.slice(6), 'indexed')
-    expect(primitiveFacts(doc).map((fact) => fact.openEdges)).toEqual([true, true])
+    expect(geometryFacts(doc).primitives.map((fact) => fact.openEdges)).toEqual([true, true])
   })
 
   it('uses decoded normalized positions rather than their stored integer values', () => {
@@ -89,4 +89,68 @@ describe('geometric primitive facts', () => {
       0, 1,
     ])
   })
+})
+
+describe('triangles that collapse when positions weld', () => {
+  it.each(ENCODINGS)(
+    'a %s triangle with two corners at one welded position opens no edge and counts once',
+    (encoding) => {
+      const { doc, mesh } = geometryDocument()
+      addTriangles(doc, mesh, TETRA_POSITIONS, [0, 1, 1], encoding)
+      const facts = geometryFacts(doc)
+      expect(facts.primitives.map((fact) => fact.openEdges)).toEqual([false])
+      expect(facts.meshes.map((fact) => fact.collapsedTriangles)).toEqual([1])
+    },
+  )
+
+  it.each(ENCODINGS)(
+    'a %s triangle with all three corners at one welded position counts once',
+    (encoding) => {
+      const { doc, mesh } = geometryDocument()
+      addTriangles(doc, mesh, TETRA_POSITIONS, [2, 2, 2], encoding)
+      const facts = geometryFacts(doc)
+      expect(facts.primitives.map((fact) => fact.openEdges)).toEqual([false])
+      expect(facts.meshes.map((fact) => fact.collapsedTriangles)).toEqual([1])
+    },
+  )
+
+  it.each(ENCODINGS)(
+    'a %s collapsed triangle beside a real open edge leaves that edge open and opens none of its own',
+    (encoding) => {
+      const { doc, mesh } = geometryDocument()
+      addTriangles(doc, mesh, TETRA_POSITIONS, [0, 1, 2], encoding)
+      addTriangles(doc, mesh, TETRA_POSITIONS, [0, 0, 1], encoding)
+      const facts = geometryFacts(doc)
+      expect(facts.primitives.map((fact) => fact.openEdges)).toEqual([true, false])
+      expect(facts.meshes.map((fact) => fact.collapsedTriangles)).toEqual([1])
+    },
+  )
+
+  it.each(ENCODINGS)(
+    'a %s collapsed triangle inside a closed mesh opens neither the shell nor itself',
+    (encoding) => {
+      const { doc, mesh } = geometryDocument()
+      addTriangles(doc, mesh, TETRA_POSITIONS, TETRA_FACES, encoding)
+      addTriangles(doc, mesh, TETRA_POSITIONS, [0, 0, 1], encoding)
+      const facts = geometryFacts(doc)
+      expect(facts.primitives.map((fact) => fact.openEdges)).toEqual([false, false])
+      expect(facts.meshes.map((fact) => fact.collapsedTriangles)).toEqual([1])
+    },
+  )
+
+  it.each(ENCODINGS)(
+    '%s collapsed triangles folding onto every edge of an open sheet neither close it nor open themselves',
+    (encoding) => {
+      const { doc, mesh } = geometryDocument()
+      const open = doc.createMaterial('open').setDoubleSided(true)
+      addTriangles(doc, mesh, TETRA_POSITIONS, [0, 1, 2], encoding).setMaterial(open)
+      addTriangles(doc, mesh, TETRA_POSITIONS, [0, 0, 1, 1, 1, 2, 2, 2, 0], encoding)
+      const facts = geometryFacts(doc)
+      expect(facts.primitives.map((fact) => fact.openEdges)).toEqual([true, false])
+      expect(facts.meshes.map((fact) => fact.collapsedTriangles)).toEqual([3])
+      const rule = materialRules.find((entry) => entry.key === 'single-sided-materials')
+      if (rule === undefined) throw new Error('missing sidedness rule')
+      expect(rule.check(contractRuleInputOf(doc)).violations).toEqual([])
+    },
+  )
 })
