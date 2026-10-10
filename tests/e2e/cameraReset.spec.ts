@@ -1,7 +1,8 @@
 import { expect, test } from './fixtures'
 import type { Locator, Page } from '@playwright/test'
 import { siteCopy } from '../../src/lib/copy/site'
-import { zoomReadoutText } from '../../src/lib/copy/stageReadouts'
+import { angleReadoutText, zoomReadoutText } from '../../src/lib/copy/stageReadouts'
+import { normalizedAzimuthDegrees } from '../../src/lib/camera/azimuth'
 import { loadCollection } from './productList'
 import { readProductCameraFacts } from './productCamera'
 import { waitForProductReady } from './productSpecs'
@@ -102,7 +103,11 @@ for (const side of ASPECT_SIDES) {
     // band the controls' rest threshold maps to at the home lens, which is
     // the plan's base lens.
     expectLensAtRest(home, facts.home.fovY, expected.fovY, 'Reset')
-    await expect(page.locator('[data-corner="top-right"]')).toHaveText('325 / 360')
+    // The readout is the home view's own azimuth, read from the facts and
+    // normalized and formatted the way the chrome formats it.
+    await expect(page.locator('[data-corner="top-right"]')).toHaveText(
+      angleReadoutText(normalizedAzimuthDegrees(homeAzimuth)),
+    )
     await expect(page.locator('[data-corner="bottom-right"]')).toContainText(
       zoomReadoutText(expected.zoomPercent),
     )

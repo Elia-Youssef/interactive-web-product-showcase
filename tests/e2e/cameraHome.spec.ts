@@ -13,7 +13,8 @@ import {
   readCamera,
   stageAspectOnSide,
 } from './stageCamera'
-import { zoomReadoutText } from '../../src/lib/copy/stageReadouts'
+import { angleReadoutText, zoomReadoutText } from '../../src/lib/copy/stageReadouts'
+import { normalizedAzimuthDegrees } from '../../src/lib/camera/azimuth'
 // The collection's first product, as the app builds it from the manifests.
 const first = (await loadCollection()).first
 
@@ -84,18 +85,15 @@ for (const side of ASPECT_SIDES) {
     const stageAspect = await homeStageAspect(page, backendPath, side)
     const expected = homeExpectation(facts, first, stageAspect)
 
-    // The angle readout normalizes the accumulated azimuth into [0, 360): the
-    // authored home azimuth is -35 degrees, which reads as 325.
-    const azimuthDegrees =
-      (Math.atan2(
-        expected.position.x - expected.target.x,
-        expected.position.z - expected.target.z,
-      ) *
-        180) /
-      Math.PI
-    const normalized = azimuthDegrees - 360 * Math.floor(azimuthDegrees / 360)
+    // The angle readout is the home azimuth the expectation's own position
+    // and target derive, normalized into [0, 360) and formatted the way the
+    // chrome formats it.
+    const azimuthRadians = Math.atan2(
+      expected.position.x - expected.target.x,
+      expected.position.z - expected.target.z,
+    )
     const angle = page.locator('[data-corner="top-right"]')
-    await expect(angle).toHaveText(`${Math.round(normalized) % 360} / 360`)
+    await expect(angle).toHaveText(angleReadoutText(normalizedAzimuthDegrees(azimuthRadians)))
 
     // The zoom readout is the exact linear map of the live distance between
     // the limits, formatted as the chrome formats it: at home, the resolved
