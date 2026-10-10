@@ -6,6 +6,7 @@ import { Mesh } from 'three/webgpu'
 import { MeshoptEncoder } from 'meshoptimizer'
 import { createGltfModelSources, type GltfModelSourceParts } from './gltfModelSources'
 import type { ProductMeshoptDecoder } from './decoders'
+import { unwatchedProgress } from './stageModelLoads.fixtures'
 
 // The wiring of the model sources over real three objects: the loader and
 // its manager are three's, the decoder is three's own Meshopt decoder, the
@@ -155,7 +156,11 @@ describe('the model bytes', () => {
       },
     })
 
-    const bytes = await fetchModel(modelUrl, { priority: 'low', signal })
+    const bytes = await fetchModel(modelUrl, {
+      priority: 'low',
+      signal,
+      progress: unwatchedProgress,
+    })
 
     expect(reads).toEqual([{ url: modelUrl, init: { priority: 'low', signal } }])
     expect(bytes).toBeInstanceOf(ArrayBuffer)
@@ -171,7 +176,7 @@ describe('the model bytes', () => {
       },
     })
 
-    await fetchModel(modelUrl, { priority: 'high' })
+    await fetchModel(modelUrl, { priority: 'high', progress: unwatchedProgress })
 
     expect(reads).toEqual([{ url: modelUrl, init: { priority: 'high' } }])
   })
@@ -181,9 +186,9 @@ describe('the model bytes', () => {
       fetch: () => Promise.resolve(new Response('gone', { status: 404, statusText: 'Not Found' })),
     })
 
-    await expect(fetchModel(modelUrl, { priority: 'high' })).rejects.toThrow(
-      `the server answered 404 Not Found for ${modelUrl}`,
-    )
+    await expect(
+      fetchModel(modelUrl, { priority: 'high', progress: unwatchedProgress }),
+    ).rejects.toThrow(`the server answered 404 Not Found for ${modelUrl}`)
   })
 })
 
@@ -251,7 +256,7 @@ describe('the parse', () => {
       })
 
       const [bytes, meshopt] = await Promise.all([
-        fetchModel(modelUrl, { priority: 'high' }),
+        fetchModel(modelUrl, { priority: 'high', progress: unwatchedProgress }),
         decoder(),
       ])
       const model = await parse(bytes, modelUrl, meshopt)

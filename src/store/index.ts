@@ -12,6 +12,7 @@ export {
 } from './slices/hotspot'
 export { selectProductFailed, selectProductStatus, type ProductStatus } from './slices/product'
 export {
+  loadProgressPercent,
   selectLoadRevealCount,
   selectLoadWaitPercent,
   type LoadProgress,

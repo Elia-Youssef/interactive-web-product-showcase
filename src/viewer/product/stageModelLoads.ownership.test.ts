@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
+import { LoadLedger } from '@lib/async/loadLedger'
 import { StageModelLoads, type LoadedModel, type ProductModelSources } from './productModelLoads'
 import { deferred, modelWithOneMesh, url, type Decoder } from './stageModelLoads.fixtures'
 
 function ownedModels() {
+  const ledger = new LoadLedger()
   const bytes = deferred<ArrayBuffer>()
   const decoder = deferred<Decoder>()
   const parsed = deferred<LoadedModel>()
@@ -18,8 +20,12 @@ function ownedModels() {
     decoder: () => decoder.promise,
     parse,
   }
-  const loads = new StageModelLoads(sources, disposeDecoder)
-  return { loads, bytes, decoder, parsed, started, parse, disposeDecoder }
+  const loads = new StageModelLoads(
+    sources,
+    (modelUrl, wanted) => ledger.transfer(modelUrl, wanted),
+    disposeDecoder,
+  )
+  return { loads, ledger, bytes, decoder, parsed, started, parse, disposeDecoder }
 }
 
 describe('model decoder ownership', () => {
@@ -45,12 +51,14 @@ describe('model decoder ownership', () => {
       if (request.signal !== undefined) requests.push(request.signal)
       return bytes.promise
     })
+    const ledger = new LoadLedger()
     const loads = new StageModelLoads(
       {
         fetchModel: fetch,
         decoder: () => decoder.promise,
         parse: () => Promise.resolve(result.model),
       },
+      (modelUrl, wanted) => ledger.transfer(modelUrl, wanted),
       disposeDecoder,
     )
     const taken = loads.readAhead(url)

@@ -1,4 +1,5 @@
 import { BufferGeometry, Group, Mesh, MeshStandardMaterial, Object3D } from 'three/webgpu'
+import { LoadLedger, type TransferReporter } from '@lib/async/loadLedger'
 import { plannedFinish } from '@lib/product/finishPlan.fixtures'
 import type { FinishResolution } from './finishMaterials'
 import {
@@ -80,13 +81,17 @@ export type StageParts = {
 
 export type RecordedStage = {
   readonly loads: StageModelLoads<Decoder>
+  // The ledger the stage's byte progress reports into, so a test can read
+  // the figure its requests produced.
+  readonly ledger: LoadLedger
   // Every fetch and decoder start, in the order they ran.
   readonly requests: readonly { readonly url: string; readonly request: ModelRequest }[]
   readonly starts: readonly string[]
 }
 
 // The stage's loads over hand-settled sources, recording every fetch with
-// its request and every start in order.
+// its request and every start in order, reporting its byte progress into a
+// ledger of its own.
 export function stage({
   parse = () => Promise.resolve(modelWithOneMesh().model),
   answers = [],
@@ -94,12 +99,21 @@ export function stage({
 }: StageParts = {}): RecordedStage {
   const requests: { url: string; request: ModelRequest }[] = []
   const starts: string[] = []
+  const ledger = new LoadLedger()
   const sources: ProductModelSources<Decoder> = {
     fetchModel: (requested, request) => {
       requests.push({ url: requested, request })
       starts.push(`${request.priority} bytes`)
       const answer = answers.shift()
-      return answer === undefined ? Promise.resolve(new ArrayBuffer(4)) : answer(request)
+      const read = answer === undefined ? Promise.resolve(new ArrayBuffer(4)) : answer(request)
+      // The stand-in reads like a real one: the whole buffer arrives of a
+      // total twice its size, so the ledger the stage reports into sees a
+      // figure that is only half through, and a wanted transfer is
+      // observable beside a not wanted one.
+      return read.then((bytes) => {
+        request.progress.bytes({ loaded: bytes.byteLength, total: bytes.byteLength * 2 })
+        return bytes
+      })
     },
     decoder: () => {
       starts.push('decoder')
@@ -110,7 +124,19 @@ export function stage({
       return parse()
     },
   }
-  return { loads: new StageModelLoads(sources), requests, starts }
+  return {
+    loads: new StageModelLoads(sources, (url, wanted) => ledger.transfer(url, wanted)),
+    ledger,
+    requests,
+    starts,
+  }
+}
+
+// A reporter nothing listens to, for the loads a test starts outside a
+// stage: the stand-in for the ledger a real stage would hand.
+export const unwatchedProgress: TransferReporter = {
+  bytes: () => undefined,
+  ended: () => undefined,
 }
 
 // Sources that record the decoder every parse used and parse anything into

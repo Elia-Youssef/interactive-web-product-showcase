@@ -1,12 +1,20 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
+import { LoadLedger } from '@lib/async/loadLedger'
 import { ResourceHolds } from '@lib/async/resourceHolds'
-import { useAppStore, selectProductStatus, selectRendererStatus } from '@store/index'
+import {
+  useAppStore,
+  selectProductStatus,
+  selectRendererStatus,
+  type ProductStatus,
+  type RendererStatus,
+} from '@store/index'
 import { StageProbes } from './automation/StageProbes'
 import { AutomationBridge } from './automation/AutomationBridge'
 import { StageProbesContext } from './automation/stageProbesContext'
 import { useStageClock } from './useStageClock'
 import { stageConfig } from './config'
+import { stageEnvironmentFile, canMountCanvas } from './canvasMount'
 import { StageHoldsContext } from './stageHoldsContext'
 import { StageEnvironmentProvider } from './stageEnvironmentProvider'
 import { StageModelOwnersProvider } from './product/StageModelOwnersProvider'
@@ -16,7 +24,8 @@ import { StageAlert } from './StageAlert'
 import { StageCanvas } from './StageCanvas'
 import { StageLife } from './StageLife'
 import { backendRequestFromLocation } from './backendRequest'
-import { canMountCanvas, stageEnvironmentFile } from './canvasMount'
+import { LoadLedgerProvider } from './loadLedgerContext'
+import { LoadProgressBridge } from './LoadProgressBridge'
 import { useRendererLifecycle } from './useRendererLifecycle'
 import { useStageCanvasLife } from './useStageCanvasLife'
 import styles from './Stage.module.css'
@@ -60,6 +69,9 @@ export function Stage({ content, overlay }: StageProps = {}) {
   // in-canvas components that own live objects register their readers here,
   // and the automation bridge reads them at access time.
   const [probes] = useState(() => new StageProbes())
+  // The stage's load ledger, one per mount: the byte progress of its
+  // downloads, mirrored into the store by the bridge beside it.
+  const [ledger] = useState(() => new LoadLedger())
   const [request] = useState(backendRequestFromLocation)
   const productStatus = useAppStore(selectProductStatus)
   const rendererStatus = useAppStore(selectRendererStatus)
@@ -87,24 +99,45 @@ export function Stage({ content, overlay }: StageProps = {}) {
     <div className={styles.stage}>
       <StageProbesContext.Provider value={probes}>
         <StageHoldsContext.Provider value={holds}>
-          <AutomationBridge clock={clock} probes={probes} getToneMapping={getToneMapping} />
-          <StageEnvironmentProvider
-            file={stageEnvironmentFile(request, stageConfig.environmentFile)}
-          >
-            <StageModelOwnersProvider>
-              <StageLife key={canvasLife.epoch} canvas={canvas} overlay={overlay} />
-            </StageModelOwnersProvider>
-          </StageEnvironmentProvider>
-          {stageFailed && <StageAlert reason={rendererStatus.reason} />}
-          {productStatus.kind === 'failed' && (
-            <StageAlert
-              testid="product-alert"
-              reason={`${productStatus.slug}: ${productFailureMessage(productStatus.failure)}`}
-            />
-          )}
+          <LoadLedgerProvider ledger={ledger}>
+            <AutomationBridge clock={clock} probes={probes} getToneMapping={getToneMapping} />
+            <LoadProgressBridge />
+            <StageEnvironmentProvider
+              file={stageEnvironmentFile(request, stageConfig.environmentFile)}
+            >
+              <StageModelOwnersProvider>
+                <StageLife key={canvasLife.epoch} canvas={canvas} overlay={overlay} />
+              </StageModelOwnersProvider>
+            </StageEnvironmentProvider>
+          </LoadLedgerProvider>
+          <StageAlerts rendererStatus={rendererStatus} productStatus={productStatus} />
           {import.meta.env.DEV && <DevHud clock={clock} />}
         </StageHoldsContext.Provider>
       </StageProbesContext.Provider>
     </div>
+  )
+}
+
+// The alerts of the stage's two failure channels, drawn over everything it
+// mounts: the renderer alert of a failed stage, and the product alert of a
+// failed product. Both can stand together: a stage that failed while its
+// product had already failed still names both.
+function StageAlerts({
+  rendererStatus,
+  productStatus,
+}: {
+  readonly rendererStatus: RendererStatus
+  readonly productStatus: ProductStatus
+}) {
+  return (
+    <>
+      {rendererStatus.kind === 'failed' && <StageAlert reason={rendererStatus.reason} />}
+      {productStatus.kind === 'failed' && (
+        <StageAlert
+          testid="product-alert"
+          reason={`${productStatus.slug}: ${productFailureMessage(productStatus.failure)}`}
+        />
+      )}
+    </>
   )
 }

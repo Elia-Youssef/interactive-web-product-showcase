@@ -6,6 +6,7 @@ import {
 } from './loadProgress.logic'
 
 export type { LoadProgress, LoadWait } from './loadProgress.logic'
+export { loadProgressPercent } from './loadProgress.logic'
 
 export type LoadProgressSliceState = {
   loadProgress: LoadProgress

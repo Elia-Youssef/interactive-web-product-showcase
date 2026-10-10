@@ -111,7 +111,7 @@ function observeTextures(owner: ModelOwner, materials: ReadonlySet<Material>) {
 }
 
 export function observeEnvironmentLoads(original: typeof createStageEnvironmentLoads) {
-  const loads = original()
+  const loads = original(() => ({ bytes: () => undefined, ended: () => undefined }))
   const read = loads.read.bind(loads)
   const recorded = new WeakSet<object>()
   loads.read = (url) => {

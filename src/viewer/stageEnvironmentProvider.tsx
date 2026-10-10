@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import type { Texture } from 'three/webgpu'
 import type { KeyedLoad } from '@lib/async/keyedLoads'
 import { createStageEnvironmentLoads, type StageEnvironmentLoads } from './stageEnvironmentLoads'
+import { useLoadLedger } from './loadLedgerContext'
 import { useStageHolds } from './stageHoldsContext'
 
 // The stage's environment entry, in context. The provider renders above the
@@ -59,7 +60,9 @@ function useStageEnvironmentHeldEntry(
   return held?.key === file ? held : null
 }
 
-// Provides the entry for the file, read from the stage's own loads.
+// Provides the entry for the file, read from the stage's own loads, whose
+// bytes report into the stage's load ledger: the environment is always part
+// of what the visitor waits for, so its transfer is wanted from the start.
 function LoadedStageEnvironment({
   file,
   children,
@@ -67,7 +70,8 @@ function LoadedStageEnvironment({
   readonly file: string
   readonly children: ReactNode
 }) {
-  const [loads] = useState(createStageEnvironmentLoads)
+  const ledger = useLoadLedger()
+  const [loads] = useState(() => createStageEnvironmentLoads((url) => ledger.transfer(url, true)))
   const entry = useStageEnvironmentHeldEntry(loads, file)
   return (
     <StageEnvironmentEntryContext.Provider value={entry}>

@@ -1,6 +1,7 @@
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
 import { LoaderUtils } from 'three/webgpu'
+import { readWithProgress } from '@lib/async/readWithProgress'
 import { RetriedLoad } from '@lib/async/retriedLoad'
 import {
   importProductMeshoptDecoder,
@@ -11,11 +12,15 @@ import {
 import type { ModelRequest, ProductModelSources } from './productModelLoads'
 
 // The response surface the byte fetch reads, kept structural: the browser's
-// own Response carries it, and a test builds one from plain values.
+// own Response carries it, and a test builds one from plain values. The
+// header read and the body stream are the two the progress reports need: the
+// size the transfer claims and the bytes as they arrive.
 export interface ModelResponse {
   readonly ok: boolean
   readonly status: number
   readonly statusText: string
+  readonly headers: { get(name: string): string | null }
+  readonly body: ReadableStream<Uint8Array> | null
   arrayBuffer(): Promise<ArrayBuffer>
 }
 
@@ -74,8 +79,13 @@ export function createGltfModelSources(
 }
 
 // The one network read of a model file, with the request's priority and
-// signal. A non-OK answer rejects with an error naming the status and the
-// URL: the underlying error a fetch failure carries names neither.
+// signal. The bytes stream through the progress report the request carries,
+// so the transfer they belong to learns what was read; a body without a
+// stream falls back to the response's own buffer read, with the transfer
+// never learning a total. Every end of the read, the bytes in, a non-OK
+// answer, a fetch that itself rejects, ends the transfer. A non-OK answer
+// rejects with an error naming the status and the URL: the underlying error
+// a fetch failure carries names neither.
 export async function fetchModelBytes(
   fetcher: ModelFetch,
   url: string,
@@ -85,9 +95,38 @@ export async function fetchModelBytes(
     request.signal === undefined
       ? { priority: request.priority }
       : { priority: request.priority, signal: request.signal }
-  const response = await fetcher(url, init)
-  if (!response.ok) {
-    throw new Error(`the server answered ${response.status} ${response.statusText} for ${url}`)
+  const progress = request.progress
+  try {
+    const response = await fetcher(url, init)
+    if (!response.ok) {
+      throw new Error(`the server answered ${response.status} ${response.statusText} for ${url}`)
+    }
+    if (response.body === null) {
+      return await response.arrayBuffer()
+    }
+    return await readWithProgress(
+      response.body,
+      contentLengthTotal(response.headers),
+      progress.bytes,
+      request.signal,
+    )
+  } finally {
+    progress.ended()
   }
-  return response.arrayBuffer()
+}
+
+// The whole size the response names, or null while it names none that can
+// be divided: a missing or unusable Content-Length, a size of zero, and a
+// Content-Encoding, whose length names the compressed bytes while the
+// stream counts the decoded ones.
+function contentLengthTotal(headers: { get(name: string): string | null }): number | null {
+  if (headers.get('content-encoding') !== null) {
+    return null
+  }
+  const raw = headers.get('content-length')
+  if (raw === null) {
+    return null
+  }
+  const total = Number(raw)
+  return Number.isSafeInteger(total) && total > 0 ? total : null
 }
