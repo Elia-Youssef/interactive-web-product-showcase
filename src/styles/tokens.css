@@ -457,3 +457,43 @@ chrome sits closer to the stage edge, so the narrow stage keeps its room. */
     --ra-sweep-end: 360deg;
   }
 }
+
+/*
+The loading readout, in one named block. The reveal delay is its own token
+and is never multiplied by the motion scale: under reduced motion the
+readout must still wait it out, or it would vanish there and flash on every
+fast load. Everything else that moves resolves through the scale: the
+reveal's fade and the fill's ease go instant. The marching segment has one
+reduced-motion mechanism of its own, the readout module's query, which
+rests it as a static partial-width segment at its reduced alpha, so its
+duration is a plain value the scale never touches. The placement is one
+token pair, the block-end
+offset and the block shift that centers a box on it: the wide stages sit
+the readout low, and the phone breakpoint flips the pair to center it.
+The track is fixed width; the fill reads the custom property the component
+writes, with the empty fill here as the fallback.
+*/
+:root {
+  --delay-load-readout: 800ms;
+  --duration-load-reveal: calc(200ms * var(--motion-scale));
+  --duration-load-fill: calc(200ms * var(--motion-scale));
+  --duration-load-march: 1400ms;
+  --ease-load-reveal: ease-out;
+  --ease-load-fill: linear;
+  --ease-load-march: linear;
+  --tracking-load-readout: 0.1em;
+  --size-load-track: 160px;
+  --size-load-march: 40px;
+  --load-readout-fill: 0%;
+  --load-march-rest-alpha: 0.4;
+  --offset-load-readout-block-end: 96px;
+  --offset-load-readout-block-shift: 0%;
+}
+
+/* Phones center the readout through the same pair. */
+@media (--vp-phone) {
+  :root {
+    --offset-load-readout-block-end: 50%;
+    --offset-load-readout-block-shift: 50%;
+  }
+}

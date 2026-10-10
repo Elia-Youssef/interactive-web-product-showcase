@@ -1,0 +1,90 @@
+@import '../../styles/tokens.css';
+
+/*
+The loading readout. The label is a mono readout in the label color,
+uppercased and tracked by CSS; the track is a fixed-width hairline under
+it, filled by the custom property the component writes, the way the
+slider's fill is. The reveal is CSS time: the readout mounts with opacity
+zero and the reveal animation holds it there through the delay token, so a
+fast load that unmounts it inside the delay never paints it. The marching
+segment of the indeterminate state rides inside the track's clip. Under
+reduced motion the fill steps (its duration resolves to instant) and the
+march rests as a static partial-width segment at reduced opacity. Values
+are tokens; the placement pair and its phone flip live in the tokens.
+*/
+
+.readout {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: var(--offset-load-readout-block-end);
+  translate: 0 var(--offset-load-readout-block-shift);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  pointer-events: none;
+  opacity: 0;
+  animation: load-reveal var(--duration-load-reveal) var(--ease-load-reveal)
+    var(--delay-load-readout) both;
+}
+
+.text {
+  color: var(--label);
+  font-family: var(--mono);
+  font-size: var(--fs-readout);
+  font-weight: var(--weight-readout);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-load-readout);
+}
+
+.track {
+  position: relative;
+  inline-size: var(--size-load-track);
+  block-size: var(--hairline-width);
+  background: var(--boundary);
+  overflow: hidden;
+}
+
+.fill {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  inline-size: var(--load-readout-fill);
+  background: var(--off);
+  transition: inline-size var(--duration-load-fill) var(--ease-load-fill);
+}
+
+.march {
+  position: absolute;
+  inset-block: 0;
+  inline-size: var(--size-load-march);
+  background: var(--off);
+  animation: load-march var(--duration-load-march) var(--ease-load-march) infinite;
+}
+
+@keyframes load-reveal {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes load-march {
+  from {
+    translate: calc(var(--size-load-march) * -1) 0;
+  }
+  to {
+    translate: var(--size-load-track) 0;
+  }
+}
+
+/* Reduced motion: the marching stops and the segment rests at the track's
+   start, a static partial-width segment at reduced opacity. */
+@media (prefers-reduced-motion: reduce) {
+  .march {
+    animation: none;
+    opacity: var(--load-march-rest-alpha);
+  }
+}
