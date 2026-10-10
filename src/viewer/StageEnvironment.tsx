@@ -29,8 +29,11 @@ import { reportStageSettleFailure } from './reportStageSettleFailure'
 // both frames are recorded.
 export function StageEnvironment({
   onInstalled,
+  onFailure,
 }: {
   readonly onInstalled: (installed: boolean) => void
+  // The owner of a live settle failure; without an outcome owner it logs.
+  readonly onFailure?: (error: Error) => void
 }) {
   const gl = useThree((state) => state.gl)
   const scene = useThree((state) => state.scene)
@@ -60,15 +63,13 @@ export function StageEnvironment({
       },
     })
     let cancelled = false
-    settleScene().then(undefined, (error: unknown) => {
+    void settleScene().catch((error: unknown) => {
       // An unmount during the settle drops the failure with the stage; a
-      // live failure stays loud on the console for the console gate.
+      // live failure reaches its owner through the shared failure reporter.
       if (cancelled) {
         return
       }
-      reportStageSettleFailure(error, (failure) => {
-        throw failure
-      })
+      reportStageSettleFailure(error, onFailure)
     })
     // Assignment and its queued settle precede admission of lit content;
     // presentation then settles behind the environment on the same chain.
@@ -78,7 +79,7 @@ export function StageEnvironment({
       onInstalled(false)
       uninstall()
     }
-  }, [gl, scene, settleScene, equirectangular, onInstalled])
+  }, [gl, scene, settleScene, equirectangular, onInstalled, onFailure])
 
   return null
 }

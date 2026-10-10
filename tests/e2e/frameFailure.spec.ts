@@ -2,6 +2,11 @@ import { expect, test } from './fixtures'
 import { testBudgetMs } from './budgets'
 import { StageRetiredError } from '../../src/viewer/StageRetiredError'
 import {
+  expectEnvironmentRetirement,
+  expectProductRetirementReports,
+  observeEnvironmentSettleFailures,
+} from './environmentSettleReports'
+import {
   expectProductAlert,
   frameFaultPath,
   paintedStagePixels,
@@ -35,14 +40,7 @@ for (const product of products) {
       // then the remount after the fault.
       test.setTimeout(testBudgetMs({ productLoads: 2 }))
       if (place === 'present') {
-        // The failed report and both StrictMode leave settles reject with
-        // the retired canvas, keeping every cause loud.
-        consoleGate.expectError(
-          new RegExp(`^console error: ${new StageRetiredError('retired')}$`),
-          {
-            times: 3,
-          },
-        )
+        await observeEnvironmentSettleFailures(page)
       }
 
       await page.goto(harnessPath(backendPath, product.slug))
@@ -65,6 +63,9 @@ for (const product of products) {
       await remountProduct(page)
       await waitForProductReady(page)
       expect(await paintedStagePixels(page)).toBe(clean)
+      if (place === 'present') {
+        await expectProductRetirementReports(page, consoleGate)
+      }
     })
 
     test(`a ${place} fault before ${product.slug} presents fails the stage, mounts no content and shows the renderer alert`, async ({
@@ -76,8 +77,9 @@ for (const product of products) {
       // throws in the stage's first frames, before the product presents: the
       // stage owns it, so the stage fails.
       if (place === 'present') {
+        await observeEnvironmentSettleFailures(page)
         // The environment's live settle receives the same terminal reason.
-        consoleGate.expectError(new RegExp(`^page error: ${new StageRetiredError('retired')}$`))
+        consoleGate.expectError(new RegExp(`^console error: ${new StageRetiredError('retired')}$`))
       }
       await page.goto(frameFaultPath(backendPath, product.slug, place, 'stage'))
 
@@ -90,6 +92,9 @@ for (const product of products) {
       await pollProductChannel(page).toEqual(failedStage)
       const alert = page.getByTestId('renderer-alert')
       await expect(alert).toBeVisible()
+      if (place === 'present') {
+        await expectEnvironmentRetirement(page)
+      }
       await expect(alert).toContainText(frameFaultMessage(place))
 
       // A failed stage mounts no content: a product mounted after the
