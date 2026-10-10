@@ -4,6 +4,8 @@
 
 export { Card } from './Card'
 export type { CardProps } from './Card'
+export { Disclosure } from './Disclosure'
+export type { DisclosureProps } from './Disclosure'
 export { Divider } from './Divider'
 export { Eyebrow } from './Eyebrow'
 export type { EyebrowProps } from './Eyebrow'

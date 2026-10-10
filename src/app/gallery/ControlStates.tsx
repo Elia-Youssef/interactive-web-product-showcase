@@ -1,5 +1,5 @@
 // The gallery sections of the interactive controls: text button, icon
-// button, icon link, swatch and slider, each in every state. The gallery
+// button, icon link, swatch, slider and disclosure, each in every state. The gallery
 // is a static look review: pressing and moving have nothing to do here,
 // so every control idles behind a no-op.
 
@@ -7,6 +7,7 @@ import type { ReactNode } from 'react'
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
+  Disclosure,
   IconLink,
   IconButton,
   MinusIcon,
@@ -157,10 +158,38 @@ const sliderStates = (
   </>
 )
 
+const disclosureContent = <p>Neutral sample content.</p>
+
+const disclosureStates = (
+  <>
+    <State caption="closed">
+      <Disclosure label="Highlights, 3" expanded={false} onToggle={noOp}>
+        {disclosureContent}
+      </Disclosure>
+    </State>
+    <State caption="hover">
+      <Disclosure label="Highlights, 3" expanded={false} onToggle={noOp} data-force-hover>
+        {disclosureContent}
+      </Disclosure>
+    </State>
+    <State caption="focus">
+      <Disclosure label="Highlights, 3" expanded={false} onToggle={noOp} data-force-focus>
+        {disclosureContent}
+      </Disclosure>
+    </State>
+    <State caption="open">
+      <Disclosure label="Highlights, 3" expanded onToggle={noOp}>
+        {disclosureContent}
+      </Disclosure>
+    </State>
+  </>
+)
+
 export const controlSections: Record<string, ReactNode> = {
   TextButton: textButtonStates,
   IconButton: iconButtonStates,
   IconLink: iconLinkStates,
   Swatch: swatchStates,
   Slider: sliderStates,
+  Disclosure: disclosureStates,
 }
