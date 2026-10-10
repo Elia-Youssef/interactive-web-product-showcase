@@ -7,6 +7,7 @@ import { Stage } from '@viewer/Stage'
 import { ProductSwitchLayer } from './ProductSwitchLayer'
 import type { ProductSwitch } from './useProductSwitch'
 import { useReducedMotion } from './useReducedMotion'
+import { useShownStageFailure } from './useShownStageFailure'
 
 export type ProductStageProps = {
   // The page's product switch: the life the stage shows, the model files to
@@ -28,6 +29,7 @@ export type ProductStageProps = {
 // ahead; over everything, the switch transition's layer.
 export function ProductStage({ productSwitch, dock, chrome }: ProductStageProps) {
   const { shown, preload, phase, onCovered, onRevealed } = productSwitch
+  useShownStageFailure(shown)
   const reducedMotion = useReducedMotion()
   return (
     <>

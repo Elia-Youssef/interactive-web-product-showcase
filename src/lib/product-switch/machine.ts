@@ -14,17 +14,18 @@ import type { ProductTransitionPhase } from '../transition'
 // leaves a product and comes straight back gets a fresh load, and only that
 // load's settle counts.
 
-// How the shown life ended its load: presented on a settled stage, or
-// failed with a typed failure the stage shows. Both end the swap: a failed
-// product is revealed so its alert is seen.
+// Product outcomes belong to Product; a failed stage ends a pending life
+// separately, even when its product cannot mount. Every terminal outcome
+// reveals the alert or the settled product.
 export type ProductSettleOutcome = 'ready' | 'failed'
+export type ShownLifeOutcome = ProductSettleOutcome | 'stage-failed'
 
 // The life on the stage now: the product it shows, its number, and whether
 // its load has settled yet.
 export type ShownProduct = {
   readonly slug: string
   readonly life: number
-  readonly outcome: ProductSettleOutcome | 'pending'
+  readonly outcome: ShownLifeOutcome | 'pending'
 }
 
 export type ProductSwitchState = {
@@ -53,6 +54,8 @@ export type ProductSwitchEvent =
       readonly life: number
       readonly outcome: ProductSettleOutcome
     }
+  // The composition ends a shown life whose stage cannot show content.
+  | { readonly kind: 'stage-failed'; readonly life: number }
   // The transition reports the stage fully visible again.
   | { readonly kind: 'revealed' }
 
@@ -84,6 +87,8 @@ function nextState(state: ProductSwitchState, event: ProductSwitchEvent): Produc
       return state.phase === 'covering' ? revealIfSettled(swapToTarget(covered(state))) : state
     case 'settled':
       return settled(state, event.life, event.outcome)
+    case 'stage-failed':
+      return settled(state, event.life, 'stage-failed')
     case 'revealed':
       return state.phase === 'revealing' ? { ...state, phase: 'idle' } : state
   }
@@ -141,7 +146,7 @@ function revealIfSettled(state: ProductSwitchState): ProductSwitchState {
 function settled(
   state: ProductSwitchState,
   life: number,
-  outcome: ProductSettleOutcome,
+  outcome: ShownLifeOutcome,
 ): ProductSwitchState {
   if (life !== state.shown.life || state.shown.outcome !== 'pending') {
     return state

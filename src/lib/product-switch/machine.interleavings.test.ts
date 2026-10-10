@@ -11,6 +11,7 @@ const covered: ProductSwitchEvent = { kind: 'covered' }
 const revealed: ProductSwitchEvent = { kind: 'revealed' }
 const ready = (life: number): ProductSwitchEvent => ({ kind: 'settled', life, outcome: 'ready' })
 const failed = (life: number): ProductSwitchEvent => ({ kind: 'settled', life, outcome: 'failed' })
+const stageFailed = (life: number): ProductSwitchEvent => ({ kind: 'stage-failed', life })
 
 // Every sequence of events up to a length, over three products, every
 // report and settles of the first lives, checked against the rules no
@@ -27,6 +28,9 @@ describe('every interleaving', () => {
     ready(2),
     failed(1),
     failed(2),
+    stageFailed(0),
+    stageFailed(1),
+    stageFailed(2),
   ]
   const allowedMoves = new Set([
     'idle>covering',
@@ -92,8 +96,27 @@ describe('every interleaving', () => {
     ) {
       return 'the rest moved without the shown product resting'
     }
-    if (event.kind === 'settled' && event.life !== before.shown.life && after !== before) {
+    if (
+      (event.kind === 'settled' || event.kind === 'stage-failed') &&
+      event.life !== before.shown.life &&
+      after !== before
+    ) {
       return 'a settle of a life the stage left changed the state'
+    }
+    if (
+      (event.kind === 'settled' || event.kind === 'stage-failed') &&
+      before.shown.outcome !== 'pending' &&
+      after !== before
+    ) {
+      return 'a life ended more than once'
+    }
+    if (
+      event.kind === 'stage-failed' &&
+      event.life === before.shown.life &&
+      before.shown.outcome === 'pending' &&
+      after.shown.outcome !== 'stage-failed'
+    ) {
+      return 'a stage failure did not end the pending shown life as a stage failure'
     }
     if (event.kind === 'navigated' && event.slug === before.target && after !== before) {
       return 'a navigation to the target the sequence already has made a new state'
