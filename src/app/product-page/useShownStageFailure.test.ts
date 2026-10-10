@@ -13,13 +13,11 @@ import { useShownStageFailure } from './useShownStageFailure'
 const hooks = vi.hoisted(() => ({
   effects: [] as { setup: () => void; deps: unknown[] }[],
   status: { kind: 'initializing' } as RendererStatus,
-  reported: { current: null as number | null },
 }))
 vi.mock('react', () => ({
   useEffect: (setup: () => void, deps: unknown[]) => {
     hooks.effects.push({ setup, deps })
   },
-  useRef: () => hooks.reported,
 }))
 vi.mock('@store/index', () => ({
   selectRendererStatus: vi.fn(),
@@ -28,7 +26,6 @@ vi.mock('@store/index', () => ({
 
 beforeEach(() => {
   hooks.effects = []
-  hooks.reported.current = null
 })
 
 const navigate = (slug: string): ProductSwitchEvent => ({ kind: 'navigated', slug })
