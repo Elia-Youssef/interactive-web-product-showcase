@@ -167,10 +167,7 @@ function addVariants(doc: Document, names: readonly string[]): void {
   primitive.setExtension('KHR_materials_variants', mappingList)
   // The assigned material is the first declared finish, the default the
   // panel names when nothing is selected.
-  const defaultMaterial = doc
-    .createMaterial(`body-${names[0] ?? 'default'}`)
-    .setOcclusionTexture(occlusion)
-  defaultMaterial.getOcclusionTextureInfo()?.setTexCoord(1)
+  const defaultMaterial = mappingList.listMappings()[0]?.getMaterial() ?? null
   primitive.setMaterial(defaultMaterial)
   mesh.addPrimitive(primitive)
   addSceneNode(doc, doc.createNode('PART_body').setMesh(mesh))

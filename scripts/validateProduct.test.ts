@@ -242,8 +242,17 @@ describe('the validate step on a temp root: one side missing, or a manifest that
     expect(manifest?.violations).toEqual([
       'manifest missing: expected src/products/orphan-speaker.manifest.ts',
     ])
-    for (const name of ['hotspots', 'cameras', 'geometry', 'finishes', 'materials', 'explode']) {
-      expect(validation.checks.find((check) => check.name === name)?.status, name).toBe('skipped')
+    expect(validation.checks.find((check) => check.name === 'hotspots')?.status).toBe('skipped')
+    for (const name of ['cameras', 'geometry', 'finishes', 'materials', 'explode']) {
+      expect(validation.checks.find((check) => check.name === name)?.status, name).toBe('pass')
+    }
+    for (const [group, rule] of [
+      ['finishes', 'default-is-first-finish'],
+      ['cameras', 'authored-minimum-needed'],
+    ]) {
+      expect(validation.checks.find((check) => check.name === group)?.detail).toContain(
+        `${rule}: skipped: missing manifest`,
+      )
     }
   })
 

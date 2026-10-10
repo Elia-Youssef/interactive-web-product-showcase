@@ -7,6 +7,7 @@ import { PART_PREFIX } from '../src/lib/product/contractNames.ts'
 import { translationKeyComponentBound } from './storageBounds.ts'
 import type { ChannelFact } from './animationFacts.ts'
 import type { ContractRule } from './contractRules.ts'
+import { defineContractRule } from './contractRule.ts'
 
 // A value in a report at four decimals: the keys and times come through
 // float32 storage, whose noise no reader needs to see.
@@ -15,9 +16,10 @@ function round4(value: number): number {
 }
 
 export const explodeRules: readonly ContractRule[] = [
-  {
+  defineContractRule({
     key: 'clip-channels-on-parts',
     group: 'explode',
+    needs: ['structure'],
     check: ({ structure }) => ({
       violations: structure.animationChannels.flatMap((channel) => {
         if (!channel.targetName.startsWith(PART_PREFIX)) {
@@ -35,10 +37,11 @@ export const explodeRules: readonly ContractRule[] = [
       }),
       warnings: [],
     }),
-  },
-  {
+  }),
+  defineContractRule({
     key: 'clip-first-key-at-rest',
     group: 'explode',
+    needs: ['facts', 'structure'],
     // A channel of another path is the channels rule's violation; this rule
     // compares the location keys it allows.
     check: ({ facts, structure }) => ({
@@ -53,10 +56,11 @@ export const explodeRules: readonly ContractRule[] = [
         }),
       warnings: [],
     }),
-  },
-  {
+  }),
+  defineContractRule({
     key: 'clip-no-dead-head-or-tail',
     group: 'explode',
+    needs: ['structure'],
     check: ({ structure }) => {
       const channels = structure.animationChannels
       if (channels.length === 0) {
@@ -86,7 +90,7 @@ export const explodeRules: readonly ContractRule[] = [
       }
       return { violations, warnings: [] }
     },
-  },
+  }),
 ]
 
 // The message for a translation channel whose first key sits off its

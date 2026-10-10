@@ -4,11 +4,13 @@
 // finish.
 
 import type { ContractRule } from './contractRules.ts'
+import { defineContractRule } from './contractRule.ts'
 
 export const finishRules: readonly ContractRule[] = [
-  {
+  defineContractRule({
     key: 'variant-map-well-formed',
     group: 'finishes',
+    needs: ['facts', 'structure'],
     check: ({ facts, structure }) => {
       const violations: string[] = []
       if (structure.variantNames.some((name) => name === '')) {
@@ -17,8 +19,8 @@ export const finishRules: readonly ContractRule[] = [
       for (const mapping of facts.mappings) {
         for (const entry of mapping.mappings) {
           if (
-            entry.materialName === null ||
-            !facts.materials.some((m) => m.name === entry.materialName)
+            entry.materialIndex === null ||
+            !facts.materials.some((m) => m.index === entry.materialIndex)
           ) {
             violations.push(
               `the variant mapping of ${mapping.nodeName} names no material of the file: '${entry.materialName ?? 'none'}'`,
@@ -31,10 +33,11 @@ export const finishRules: readonly ContractRule[] = [
       }
       return { violations, warnings: [] }
     },
-  },
-  {
+  }),
+  defineContractRule({
     key: 'mappings-cover-every-variant',
     group: 'finishes',
+    needs: ['facts', 'structure'],
     check: ({ facts, structure }) => ({
       violations: facts.mappings.flatMap((mapping) => {
         const mapped = mapping.mappings.flatMap((entry) => entry.variantNames)
@@ -52,10 +55,11 @@ export const finishRules: readonly ContractRule[] = [
       }),
       warnings: [],
     }),
-  },
-  {
+  }),
+  defineContractRule({
     key: 'default-is-first-finish',
     group: 'finishes',
+    needs: ['manifest', 'facts'],
     check: ({ manifest, facts }) => {
       const first = manifest.finishes[0]
       if (first === undefined) {
@@ -66,7 +70,7 @@ export const finishRules: readonly ContractRule[] = [
         const entry = mapping.mappings.find((candidate) =>
           candidate.variantNames.includes(first.variant),
         )
-        if (entry === undefined || entry.materialName === mapping.defaultMaterialName) {
+        if (entry === undefined || entry.materialIndex === mapping.defaultMaterialIndex) {
           continue
         }
         violations.push(
@@ -76,5 +80,5 @@ export const finishRules: readonly ContractRule[] = [
       }
       return { violations, warnings: [] }
     },
-  },
+  }),
 ]
