@@ -111,6 +111,10 @@ export const GEOMETRY_STORAGE: GeometryStorage = resolveGeometryStorage(
 export const POSITION_QUANTIZE_BITS = GEOMETRY_STORAGE.positionQuantizeBits
 export const KEY_FILTER_BITS = GEOMETRY_STORAGE.translationKeyFilterBits
 
+// The installed resample transform uses 1e-4 per component (resample.ts).
+// Pin that authored curve budget so encoding and preservation agree.
+export const ANIMATION_RESAMPLE_TOLERANCE = 0.0001
+
 // The full settings of one optimize run. Every field is required: the
 // defaults below are the base, and the file override is a partial pick.
 export const optimizeSettingsSchema = z.strictObject({
@@ -120,6 +124,7 @@ export const optimizeSettingsSchema = z.strictObject({
   palette: z.boolean(),
   prune: z.boolean(),
   compress: z.literal('meshopt'),
+  resampleTolerance: z.literal(ANIMATION_RESAMPLE_TOLERANCE),
   textureFormat: z.literal('ktx2'),
   uastcLevel,
   uastcRdo,
@@ -178,6 +183,7 @@ const FIXED_DEFAULTS = {
   palette: false,
   prune: false,
   compress: 'meshopt',
+  resampleTolerance: ANIMATION_RESAMPLE_TOLERANCE,
   textureFormat: 'ktx2',
   uastcLevel: 4,
   uastcRdo: true,

@@ -253,7 +253,7 @@ function findHotspotLosses(
 // Compares the structure of an optimized file against its source. Returns
 // every violation, so one pass reports the whole class of losses: a
 // vanished node name, a moved hotspot parent, a lost camera, variant or
-// mapping.
+// animation. Primitive assignments are compared by the semantic reader.
 export function findStructureLosses(before: ProductStructure, after: ProductStructure): string[] {
   const losses: string[] = []
   for (const name of before.nodeNames) {
@@ -276,9 +276,6 @@ export function findStructureLosses(before: ProductStructure, after: ProductStru
     losses.push(
       `variants changed: [${before.variantNames.join(', ')}] -> [${after.variantNames.join(', ')}]`,
     )
-  }
-  if (before.mappingCount !== after.mappingCount) {
-    losses.push(`variant mappings changed: ${before.mappingCount} -> ${after.mappingCount}`)
   }
   for (const name of before.animationNames) {
     if (!after.animationNames.includes(name)) {

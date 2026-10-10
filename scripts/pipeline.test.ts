@@ -1,6 +1,7 @@
 import { mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { PLAN_TABLE } from './encodePlan.fixtures.ts'
 import type { ModelDocumentIO } from './pipeline.ts'
@@ -23,7 +24,7 @@ const settingsWith = (overrides: Partial<OptimizeSettings>): OptimizeSettings =>
 describe('buildGeometryStageArgs', () => {
   it('carries the structure flags with texture work already done', () => {
     expect(buildGeometryStageArgs('in.glb', 'out.glb', DEFAULT_OPTIMIZE_SETTINGS)).toEqual([
-      'optimize',
+      'optimize-preserving',
       'in.glb',
       'out.glb',
       '--flatten=false',
@@ -33,6 +34,9 @@ describe('buildGeometryStageArgs', () => {
       '--prune=false',
       '--texture-compress=false',
       '--compress=meshopt',
+      `--resample-tolerance=${DEFAULT_OPTIMIZE_SETTINGS.resampleTolerance}`,
+      '--config',
+      fileURLToPath(new URL('./geometryCli.config.ts', import.meta.url)),
     ])
   })
 
@@ -123,7 +127,7 @@ describe('runOptimizePipeline: the encode plan of one texture per class', () => 
     expect(written[0]).toMatch(/stage-textures-ktx2\.glb$/)
     expect(cli.calls).toHaveLength(1)
     const geometry = cli.calls[0] ?? []
-    expect(geometry[0]).toBe('optimize')
+    expect(geometry[0]).toBe('optimize-preserving')
     expect(geometry[1]).toBe(written[0])
     expect(path.dirname(geometry[2] ?? '')).toBe(path.dirname(outputPath))
     expect(geometry).toContain('--texture-compress=false')

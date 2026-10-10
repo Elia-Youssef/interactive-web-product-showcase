@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { TEXTURE_MAX_SIZE_PX } from './budgets.ts'
 import {
   DEFAULT_OPTIMIZE_SETTINGS,
+  ANIMATION_RESAMPLE_TOLERANCE,
   optimizeSettingsSchema,
   SettingsError,
   loadOptimizeSettings,
@@ -21,6 +22,7 @@ describe('resolveOptimizeSettings', () => {
       palette: false,
       prune: false,
       compress: 'meshopt',
+      resampleTolerance: ANIMATION_RESAMPLE_TOLERANCE,
       textureFormat: 'ktx2',
       uastcLevel: 4,
       uastcRdo: true,

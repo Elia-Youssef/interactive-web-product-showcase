@@ -134,7 +134,7 @@ describe('the layers table', () => {
         entry: none
       composition root src/main.tsx may import app
       runtime packages: @react-three/fiber, camera-controls, react, react-dom, three, zod, zustand
-      dev packages: @csstools/css-parser-algorithms, @csstools/css-tokenizer, @eslint/js, @fontsource/montserrat, @gltf-transform/cli, @gltf-transform/core, @gltf-transform/extensions, @gltf-transform/functions, @playwright/test, @types/node, @types/react, @types/react-dom, @types/three, @vitejs/plugin-react, eslint, eslint-config-prettier, eslint-import-resolver-typescript, eslint-plugin-boundaries, eslint-plugin-import-x, eslint-plugin-react-hooks, globals, jiti, ktx-parse, meshoptimizer, postcss, prettier, typescript, typescript-eslint, vite, vitest"
+      dev packages: @csstools/css-parser-algorithms, @csstools/css-tokenizer, @eslint/js, @fontsource/montserrat, @gltf-transform/cli, @gltf-transform/core, @gltf-transform/extensions, @gltf-transform/functions, @playwright/test, @types/node, @types/react, @types/react-dom, @types/three, @vitejs/plugin-react, eslint, eslint-config-prettier, eslint-import-resolver-typescript, eslint-plugin-boundaries, eslint-plugin-import-x, eslint-plugin-react-hooks, globals, jiti, keyframe-resample, ktx-parse, meshoptimizer, postcss, prettier, typescript, typescript-eslint, vite, vitest"
     `)
   })
 

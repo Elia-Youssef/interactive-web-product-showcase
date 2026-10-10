@@ -36,11 +36,8 @@ import {
 import { productPaths, type ProductPaths } from './productPaths.ts'
 import { loadOptimizeSettings, type OptimizeSettings } from './settings.ts'
 import type { TangentReport } from './tangents.ts'
-import {
-  findSingleAnimationViolations,
-  findStructureLosses,
-  readProductStructure,
-} from './structure.ts'
+import { findPreservationLosses, readProductPreservation } from './preservationCompare.ts'
+import type { ProductStructure } from './structure.ts'
 
 // The repo root: the parent of the scripts folder this file lives in.
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
@@ -78,10 +75,10 @@ async function optimizeProduct(
   ktxResolution: KtxResolution,
 ): Promise<void> {
   const io = await createModelIO()
-  const beforeStructure = readProductStructure(await io.read(paths.exportGlb))
+  const before = readProductPreservation(await io.read(paths.exportGlb))
   const inputBytes = await fileSizeBytes(paths.exportGlb)
   let outputBytes: number | null = null
-  let afterStructure: ReturnType<typeof readProductStructure> | undefined
+  let afterStructure: ProductStructure | undefined
   const run = await runOptimizePipeline({
     inputPath: paths.exportGlb,
     outputPath: paths.modelGlb,
@@ -91,15 +88,13 @@ async function optimizeProduct(
       runKtxCommand(ktxExecutablePath(ktxResolution.folder, process.platform), args),
     run: (args) => runGltfCli(resolveGltfCliBin(), args, process.env),
     validateCandidate: async (candidatePath) => {
-      afterStructure = readProductStructure(await io.read(candidatePath))
+      const after = readProductPreservation(await io.read(candidatePath))
+      afterStructure = after.structure
       outputBytes = await fileSizeBytes(candidatePath)
       if (outputBytes === null || inputBytes === null) {
         throw new Error(`Missing file after optimizing '${paths.slug}'`)
       }
-      const losses = [
-        ...findStructureLosses(beforeStructure, afterStructure),
-        ...findSingleAnimationViolations(afterStructure),
-      ]
+      const losses = findPreservationLosses(before, after)
       if (losses.length > 0) {
         const lines = losses.map((loss) => `- ${loss}`).join('\n')
         throw new Error(`Optimized '${paths.slug}' lost required structure:\n${lines}`)
@@ -138,7 +133,7 @@ function printRunReport(
   }
 }
 
-function printStructure(structure: ReturnType<typeof readProductStructure>): void {
+function printStructure(structure: ProductStructure): void {
   writeLine(`  structure: ${structure.nodeNames.length} named nodes`)
   for (const anchor of structure.hotspotAnchors) {
     writeLine(`    hotspot ${anchor.name} under ${anchor.parentName ?? 'scene root'}`)

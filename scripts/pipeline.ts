@@ -18,6 +18,7 @@
 import { randomUUID } from 'node:crypto'
 import { mkdir, mkdtemp, open, rename, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
+import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import type { Document } from '@gltf-transform/core'
 import { executeEncodePlan, type Ktx2Runner } from './ktx2Encode.ts'
@@ -36,7 +37,7 @@ export function buildGeometryStageArgs(
   settings: OptimizeSettings,
 ): string[] {
   return [
-    'optimize',
+    'optimize-preserving',
     inputPath,
     outputPath,
     `--flatten=${settings.flatten}`,
@@ -46,6 +47,9 @@ export function buildGeometryStageArgs(
     `--prune=${settings.prune}`,
     '--texture-compress=false',
     `--compress=${settings.compress}`,
+    `--resample-tolerance=${settings.resampleTolerance}`,
+    '--config',
+    fileURLToPath(new URL('./geometryCli.config.ts', import.meta.url)),
   ]
 }
 
