@@ -1,3 +1,4 @@
+import { hotspotTestProducts } from './hotspotTestProducts'
 import { expect, test } from './fixtures'
 import { harnessPath, harnessProducts, waitForProductReady } from './productSpecs'
 import { settledFrames } from './stageSettle'
@@ -18,7 +19,7 @@ import { tokenPx } from './hotspotCardChecks'
 // same number as its copy. The copy rules give the title and every bullet
 // one line.
 
-const products = await harnessProducts()
+const products = hotspotTestProducts(await harnessProducts(), 'hotspotCardWidth')
 
 for (const product of products) {
   for (const hotspot of product.hotspots) {

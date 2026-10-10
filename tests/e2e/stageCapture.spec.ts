@@ -1,6 +1,8 @@
 import type { Locator, Page } from '@playwright/test'
 import { expect, test } from './fixtures'
 import { testBodyBudgetMs } from './budgets'
+import { productPathOf } from './collectionFacts'
+import { requireHotspotProducts } from './hotspotProducts'
 import { countDifferingPixels } from './lookPixels'
 import { loadCollection } from './productList'
 import { harnessPath, waitForProductReady } from './productSpecs'
@@ -18,7 +20,8 @@ import { settledStage } from './stageSettle'
 // captures taken across the drain must be pixel-identical. The harness
 // extension masks every control the harness lays over the stage.
 
-const product = (await loadCollection()).first
+const collection = await loadCollection()
+const product = collection.first
 
 test('a stage capture returns with the HUD at rest and repeats pixel-exact across a finish switch', async ({
   page,
@@ -82,7 +85,8 @@ test('a stage capture right after the load returns with every one-time animation
   page,
   backendPath,
 }) => {
-  await page.goto(backendPath)
+  const subject = requireHotspotProducts(collection.products, 'stage capture animation proof')[0]
+  await page.goto(productPathOf(backendPath, subject))
   await waitForProductReady(page)
 
   await settledStageCapture(page)

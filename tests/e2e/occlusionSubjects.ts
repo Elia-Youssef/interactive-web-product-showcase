@@ -1,3 +1,4 @@
+import { selectHotspotProducts } from './hotspotProducts'
 import type { Product } from '../../src/lib/product'
 import { factsBoundsOf, isInsideBox, pointOf, type Point3 } from './hotspotPlacement'
 import type { ProductHotspotFact, ProductHotspotFacts } from './productHotspots'
@@ -9,7 +10,7 @@ import type { ProductHotspotFact, ProductHotspotFacts } from './productHotspots'
 // only the first, so a product whose first anchor has no hiding height
 // still proves the occlusion through another. The selection is pure: the
 // products and their hotspot facts in, the subjects out. The set-level
-// guard fails at collection when the whole set offers no subject, naming
+// guard fails at run time when the whole set offers no subject, naming
 // what is missing, so the proof never disappears silently with the
 // products it was written to drive.
 
@@ -27,7 +28,7 @@ export type OcclusionSubject = {
 // Selects the occlusion proof's subjects over the whole product set, by
 // slug. A product without facts fails loudly; a product without a subject
 // is simply not a subject of the proof and answers no entry. Fails at
-// collection, naming what is missing, when no product of the set offers a
+// run time, naming what is missing, when no product of the set offers a
 // subject: the hiding tests each need at least one product that has what
 // they drive, wherever in the set it sits.
 export function selectOcclusionSubjects(
@@ -35,7 +36,7 @@ export function selectOcclusionSubjects(
   factsBySlug: ReadonlyMap<string, ProductHotspotFacts>,
 ): ReadonlyMap<string, OcclusionSubject> {
   const subjects = new Map<string, OcclusionSubject>()
-  for (const product of products) {
+  for (const product of selectHotspotProducts(products)) {
     const facts = factsBySlug.get(product.slug)
     if (facts === undefined) {
       throw new Error(`no hotspot facts for ${product.slug}`)
@@ -79,13 +80,13 @@ function isHidable(
   fact: ProductHotspotFact,
   bounds: { readonly min: Point3; readonly max: Point3 },
 ): fact is ProductHotspotFact & { readonly hidingHeightM: number } {
-  return fact.hidingHeightM !== null && isInsideBox(pointOf(fact.stagePosition), bounds)
+  return isInsideBox(pointOf(fact.stagePosition), bounds) && fact.hidingHeightM !== null
 }
 
 // The card follow proof needs one product that has both halves of it: a
 // plain hotspot whose open card follows its marker, and an occlusion
 // subject that hides behind the body. Answers the slugs that carry both and
-// fails at collection, naming what is missing, when none does, so the
+// fails at run time, naming what is missing, when none does, so the
 // follow proof never disappears silently when the product that carried it
 // leaves the set.
 export function requireFollowSubjects(
@@ -103,4 +104,22 @@ export function requireFollowSubjects(
     )
   }
   return slugs
+}
+
+// Registration uses only bounds and anchor positions. It never reads the
+// lazy hiding height; exact subjects are selected by a run-time hook.
+export function occlusionCandidates(
+  products: readonly Product[],
+  factsBySlug: ReadonlyMap<string, ProductHotspotFacts>,
+): ReadonlySet<string> {
+  return new Set(
+    selectHotspotProducts(products)
+      .filter((product) => {
+        const facts = factsBySlug.get(product.slug)
+        if (facts === undefined) throw new Error(`no hotspot facts for ${product.slug}`)
+        const bounds = factsBoundsOf(facts)
+        return facts.hotspots.some((fact) => isInsideBox(pointOf(fact.stagePosition), bounds))
+      })
+      .map((product) => product.slug),
+  )
 }

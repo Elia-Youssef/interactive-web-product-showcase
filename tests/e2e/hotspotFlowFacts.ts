@@ -1,3 +1,4 @@
+import { hotspotTestProducts } from './hotspotTestProducts'
 import type { Page } from '@playwright/test'
 import type { Product } from '../../src/lib/product'
 import { readProductCameraFacts, type AuthoredView, type ProductCameraFacts } from './productCamera'
@@ -44,7 +45,11 @@ export type FlowFacts = {
   readonly markerViewsAt: (box: MarkerStage['box']) => ReadonlyMap<string, MarkerViews>
 }
 
-export async function flowFacts(products: readonly Product[]): Promise<FlowFacts> {
+export async function flowFacts(
+  productSet: readonly Product[],
+  proof = 'hotspot flow',
+): Promise<FlowFacts> {
+  const products = hotspotTestProducts(productSet, proof)
   const viewFactsBySlug = new Map<string, ProductCameraFacts>()
   const factsBySlug = new Map<string, ProductHotspotFacts>()
   for (const product of products) {
@@ -65,7 +70,7 @@ export async function flowFacts(products: readonly Product[]): Promise<FlowFacts
     return markerViewsBySlug
   }
   const flowsAt = (box: MarkerStage['box']) =>
-    flowsOf(products, viewFactsBySlug, markerViewsAt(box))
+    products.length === 0 ? [] : flowsOf(products, viewFactsBySlug, markerViewsAt(box))
   return { flows: flowsAt(harnessStageBox), flowsAt, factsBySlug, markerViewsAt }
 }
 

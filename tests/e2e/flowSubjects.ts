@@ -1,3 +1,4 @@
+import { selectHotspotProducts } from './hotspotProducts'
 import type { Product } from '../../src/lib/product'
 import type { AuthoredView, ProductCameraFacts } from './productCamera'
 import type { MarkerViews } from './productMarkerViews'
@@ -67,7 +68,9 @@ export function selectFlowSubjects(
   viewFactsBySlug: ReadonlyMap<string, ProductCameraFacts>,
   markerViewsBySlug: ReadonlyMap<string, MarkerViews>,
 ): readonly FlowSubject[] {
-  const subjects = products.map((product) => subjectOf(product, viewFactsBySlug, markerViewsBySlug))
+  const subjects = selectHotspotProducts(products).map((product) =>
+    subjectOf(product, viewFactsBySlug, markerViewsBySlug),
+  )
   if (!subjects.some((subject) => subject.closeUps.length > 0)) {
     throw new Error('the product set carries no close-up hotspot for the flow proof')
   }

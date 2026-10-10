@@ -16,7 +16,8 @@ import {
 } from './hotspotViews'
 import { expectCardBesideMarker } from './hotspotCardChecks'
 import { driveToHidingView, oppositeAzimuthOf, zoomToDistanceBand } from './hotspotDrives'
-import { requireFollowSubjects, selectOcclusionSubjects } from './occlusionSubjects'
+import { occlusionCandidates, requireFollowSubjects } from './occlusionSubjects'
+import { runtimeOcclusionSubjects } from './runtimeOcclusionSubjects'
 import { flowFacts } from './hotspotFlowFacts'
 
 // The card of the open hotspot: it is placed beside its marker in every
@@ -32,20 +33,18 @@ import { flowFacts } from './hotspotFlowFacts'
 
 const { flows, factsBySlug } = await flowFacts(await harnessProducts())
 
-// The follow test's hiding half opens the occludable hotspot's card, so the
-// subjects are resolved at collection, where the test's title names the
-// hotspot: a product without one runs no follow test.
-const occlusionSubjects = selectOcclusionSubjects(
-  flows.map((flow) => flow.subject.product),
-  factsBySlug,
-)
-const followSlugs = requireFollowSubjects(
-  flows.map((flow) => ({
-    slug: flow.subject.product.slug,
-    hasPlainHotspot: flow.subject.plains.length > 0,
-  })),
-  occlusionSubjects,
-)
+const products = flows.map((flow) => flow.subject.product)
+const occlusionSubjects = runtimeOcclusionSubjects(products, factsBySlug)
+const candidates = occlusionCandidates(products, factsBySlug)
+test.beforeAll(() => {
+  requireFollowSubjects(
+    flows.map((flow) => ({
+      slug: flow.subject.product.slug,
+      hasPlainHotspot: flow.subject.plains.length > 0,
+    })),
+    occlusionSubjects(),
+  )
+})
 
 for (const flow of flows) {
   const { product, viewFacts } = flow.subject
@@ -53,16 +52,20 @@ for (const flow of flows) {
   const closeUp = flow.subject.closeUps[0]
   const plain = flow.subject.plains[0]
   const anyHotspot = product.hotspots[0]
-  const occludable = occlusionSubjects.get(slug)
 
-  if (plain !== undefined && occludable !== undefined && followSlugs.has(slug)) {
-    test(`hotspots ${slug}: the open card of ${plain.title} follows its marker and hides with the marker of ${occludable.hotspot.title} behind the body`, async ({
+  if (plain !== undefined && candidates.has(slug)) {
+    test(`hotspots ${slug}: the open card of ${plain.title} follows its marker and hides with the marker of an occludable hotspot behind the body`, async ({
       page,
       backendPath,
     }) => {
       // One load, one drag, the wheel zoom from the close-up distance to the
       // hiding band (a hundred small wheel steps at the measured dolly rate)
       // and one hiding drive.
+      const occludable = occlusionSubjects().get(slug)
+      if (occludable === undefined) {
+        test.skip(true, 'the product has no occludable hotspot with a hiding height')
+        return
+      }
       test.setTimeout(testBudgetMs({ productLoads: 1, cameraDrives: 3 }))
       await page.goto(harnessPath(backendPath, slug))
       await waitForProductReady(page)
