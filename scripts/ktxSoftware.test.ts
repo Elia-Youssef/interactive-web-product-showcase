@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
+import { SUBPROCESS_FIXTURE_TIMEOUT_MS } from '../tooling/subprocess.fixtures.ts'
 import {
   KTX_BIN_ENV_VAR,
   KTX_VERSION_MIN,
@@ -166,36 +167,32 @@ describe('resolveKtxSoftware', () => {
 describe('runKtxCommand', () => {
   // process.execPath stands in for the ktx executable: a real spawn of a
   // real executable, with Node scripts as the commands under test.
+  let success: ReturnType<typeof runKtxCommand>
+  let nonzero: ReturnType<typeof runKtxCommand>
+  let missing: ReturnType<typeof runKtxCommand>
+  beforeAll(async () => {
+    const options = { timeout: SUBPROCESS_FIXTURE_TIMEOUT_MS }
+    success = runKtxCommand(process.execPath, ['-e', 'process.stdout.write("ok")'], options)
+    nonzero = runKtxCommand(
+      process.execPath,
+      ['-e', 'process.stderr.write("encode failed"); process.exit(3)'],
+      options,
+    )
+    missing = runKtxCommand('definitely-not-an-executable-here', ['--version'], options)
+    await Promise.allSettled([success, nonzero, missing])
+  }, SUBPROCESS_FIXTURE_TIMEOUT_MS)
+
   it('resolves on a zero exit', async () => {
-    await expect(
-      runKtxCommand(process.execPath, ['-e', 'process.stdout.write("ok")']),
-    ).resolves.toMatchObject({ stdout: 'ok' })
+    await expect(success).resolves.toMatchObject({ stdout: 'ok' })
   })
 
   it('raises a KtxError carrying stderr and the exit code on a nonzero exit', async () => {
-    await expect(
-      runKtxCommand(process.execPath, [
-        '-e',
-        'process.stderr.write("encode failed"); process.exit(3)',
-      ]),
-    ).rejects.toThrow(KtxError)
-    await expect(
-      runKtxCommand(process.execPath, [
-        '-e',
-        'process.stderr.write("encode failed"); process.exit(3)',
-      ]),
-    ).rejects.toThrow(/encode failed/)
-    await expect(
-      runKtxCommand(process.execPath, [
-        '-e',
-        'process.stderr.write("encode failed"); process.exit(3)',
-      ]),
-    ).rejects.toThrow(/exit code 3/)
+    await expect(nonzero).rejects.toThrow(KtxError)
+    await expect(nonzero).rejects.toThrow(/encode failed/)
+    await expect(nonzero).rejects.toThrow(/exit code 3/)
   })
 
   it('raises a KtxError when the executable itself cannot be run', async () => {
-    await expect(runKtxCommand('definitely-not-an-executable-here', ['--version'])).rejects.toThrow(
-      KtxError,
-    )
+    await expect(missing).rejects.toThrow(KtxError)
   })
 })

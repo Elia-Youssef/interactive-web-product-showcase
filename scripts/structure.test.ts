@@ -13,7 +13,8 @@ import {
   type MappingList,
 } from '@gltf-transform/extensions'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { resolveGltfCliBin, runGltfCli } from './gltfCli.ts'
+import { SUBPROCESS_FIXTURE_TIMEOUT_MS } from '../tooling/subprocess.fixtures.ts'
+import { runFixtureGltfCli } from './gltfCli.fixtures.ts'
 import { createModelIO } from './modelIo.ts'
 import { buildGeometryStageArgs } from './pipeline.ts'
 import { DEFAULT_OPTIMIZE_SETTINGS, type OptimizeSettings } from './settings.ts'
@@ -155,12 +156,15 @@ async function runGeometryStage(
   settings: OptimizeSettings,
 ): Promise<void> {
   const args = buildGeometryStageArgs(sourcePath, outputPath, settings)
-  await runGltfCli(resolveGltfCliBin(), args, process.env)
+  await runFixtureGltfCli(args)
 }
 
 describe('the geometry stage keeps the Blender contract', () => {
   let tempDir = ''
   let sourcePath = ''
+  let before: ReturnType<typeof readProductStructure>
+  let optimized: ReturnType<typeof readProductStructure>
+  let pruned: ReturnType<typeof readProductStructure>
 
   beforeAll(async () => {
     tempDir = await mkdtemp(path.join(tmpdir(), 'structure-test-'))
@@ -168,15 +172,21 @@ describe('the geometry stage keeps the Blender contract', () => {
     const { doc } = buildContractDocument()
     const io = await createModelIO()
     await io.write(sourcePath, doc)
-  })
+    before = readProductStructure(await io.read(sourcePath))
+    const optimizedPath = path.join(tempDir, 'contract-optimized.glb')
+    await runGeometryStage(sourcePath, optimizedPath, DEFAULT_OPTIMIZE_SETTINGS)
+    optimized = readProductStructure(await io.read(optimizedPath))
+    const prunedPath = path.join(tempDir, 'contract-pruned.glb')
+    await runGeometryStage(sourcePath, prunedPath, { ...DEFAULT_OPTIMIZE_SETTINGS, prune: true })
+    pruned = readProductStructure(await io.read(prunedPath))
+  }, SUBPROCESS_FIXTURE_TIMEOUT_MS)
 
   afterAll(async () => {
     await rm(tempDir, { recursive: true, force: true })
   })
 
-  it('reads the fixture back with every contract fact intact', async () => {
-    const io = await createModelIO()
-    const structure = readProductStructure(await io.read(sourcePath))
+  it('reads the fixture back with every contract fact intact', () => {
+    const structure = before
     expect(structure.nodeNames).toEqual(
       expect.arrayContaining([
         'PART_base',
@@ -207,12 +217,8 @@ describe('the geometry stage keeps the Blender contract', () => {
     expect(nearestNamedAncestor(partNode)).toBeNull()
   })
 
-  it('keeps every name, hotspot, camera, variant and mapping', { timeout: 120000 }, async () => {
-    const outputPath = path.join(tempDir, 'contract-optimized.glb')
-    await runGeometryStage(sourcePath, outputPath, DEFAULT_OPTIMIZE_SETTINGS)
-    const io = await createModelIO()
-    const before = readProductStructure(await io.read(sourcePath))
-    const after = readProductStructure(await io.read(outputPath))
+  it('keeps every name, hotspot, camera, variant and mapping', () => {
+    const after = optimized
     expect(after.nodeNames).toEqual(expect.arrayContaining(before.nodeNames))
     expect(after.hotspotAnchors).toEqual(before.hotspotAnchors)
     expect(after.cameraNames).toEqual(before.cameraNames)
@@ -224,15 +230,8 @@ describe('the geometry stage keeps the Blender contract', () => {
     expect(findSingleAnimationViolations(after)).toEqual([])
   })
 
-  it('loses the hotspots when pruning is on', { timeout: 120000 }, async () => {
-    const outputPath = path.join(tempDir, 'contract-pruned.glb')
-    await runGeometryStage(sourcePath, outputPath, {
-      ...DEFAULT_OPTIMIZE_SETTINGS,
-      prune: true,
-    })
-    const io = await createModelIO()
-    const before = readProductStructure(await io.read(sourcePath))
-    const after = readProductStructure(await io.read(outputPath))
+  it('loses the hotspots when pruning is on', () => {
+    const after = pruned
     const losses = findStructureLosses(before, after)
     expect(losses).toEqual(expect.arrayContaining([expect.stringMatching(/hotspot lost: HS_dial/)]))
     expect(losses).toEqual(

@@ -3,25 +3,31 @@
 // over every owned stylesheet reports nothing.
 
 import { join } from 'node:path'
-import { describe, expect, test } from 'vitest'
+import { beforeAll, describe, expect, test } from 'vitest'
 import { hasExtension, styleExtensions } from './extensions.ts'
 import { listGatedFiles } from './gatedFiles.ts'
 import { formatRawValueFindings, scanGatedStyleSheets } from './styleGate.ts'
 import { findRawValues } from './styleRawValues.ts'
 import { gatedStyleSheets } from './styleSheets.ts'
 import { tokenSourcePath } from './tokenSource.ts'
+import { SUBPROCESS_FIXTURE_TIMEOUT_MS } from './subprocess.fixtures.ts'
 
 const repoRoot = join(import.meta.dirname, '..')
+let sheets: string[]
+let gated: string[]
+let findings: ReturnType<typeof scanGatedStyleSheets>
+beforeAll(() => {
+  sheets = gatedStyleSheets(repoRoot)
+  gated = listGatedFiles(repoRoot)
+  findings = scanGatedStyleSheets(repoRoot)
+}, SUBPROCESS_FIXTURE_TIMEOUT_MS)
 
 describe('the owned stylesheet list', () => {
   test('is the owned files filtered by the style extensions', () => {
-    expect(gatedStyleSheets(repoRoot)).toEqual(
-      listGatedFiles(repoRoot).filter((file) => hasExtension(file, styleExtensions)),
-    )
+    expect(sheets).toEqual(gated.filter((file) => hasExtension(file, styleExtensions)))
   })
 
   test('holds the token source and the global stylesheet', () => {
-    const sheets = gatedStyleSheets(repoRoot)
     expect(sheets).toContain(tokenSourcePath)
     expect(sheets).toContain('src/styles/global.css')
   })
@@ -29,7 +35,7 @@ describe('the owned stylesheet list', () => {
 
 describe('the raw design value gate', () => {
   test('every owned stylesheet passes', () => {
-    expect(scanGatedStyleSheets(repoRoot)).toEqual([])
+    expect(findings).toEqual([])
   })
 
   test('a finding names file, line, column, property, kind and literal', () => {

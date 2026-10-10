@@ -2,12 +2,19 @@
 // the project does not author, and the one rule every gate reads its files
 // through.
 import { join } from 'node:path'
-import { expect, test } from 'vitest'
+import { beforeAll, expect, test } from 'vitest'
 import { isAuthoredFile, isGatedTextFile, listGatedFiles } from './gatedFiles.ts'
 import { generatedFilePaths } from './generatedFiles.ts'
 import { listOwnedFiles } from './ownedFiles.ts'
+import { SUBPROCESS_FIXTURE_TIMEOUT_MS } from './subprocess.fixtures.ts'
 
 const repoRoot = join(import.meta.dirname, '..')
+let owned: string[]
+let gated: string[]
+beforeAll(() => {
+  owned = listOwnedFiles(repoRoot)
+  gated = listGatedFiles(repoRoot)
+}, SUBPROCESS_FIXTURE_TIMEOUT_MS)
 
 test('sources are authored, generated files are not', () => {
   expect(isAuthoredFile('src/viewer/Stage.tsx')).toBe(true)
@@ -18,9 +25,6 @@ test('sources are authored, generated files are not', () => {
 })
 
 test('the gated list is the owned list without the files the project does not author', () => {
-  const owned = listOwnedFiles(repoRoot)
-  const gated = listGatedFiles(repoRoot)
-
   expect(gated).toEqual(owned.filter(isAuthoredFile))
   for (const generated of generatedFilePaths) {
     expect(owned, generated).toContain(generated)

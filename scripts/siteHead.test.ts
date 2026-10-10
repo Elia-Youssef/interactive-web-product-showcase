@@ -1,7 +1,6 @@
 // The source carries empty slots, and the configured Vite transform fills
 // them from the real builder in build and serve modes. A copied checkout
 // changes siteUrl and omits the app bundle, while the real head pipeline runs.
-import { execFile } from 'node:child_process'
 import {
   cpSync,
   mkdirSync,
@@ -12,10 +11,10 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { dirname, join, sep } from 'node:path'
-import { promisify } from 'node:util'
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 import type { MetaHeadSet } from '../src/lib/copy/meta.ts'
 import { listOwnedFiles } from '../tooling/ownedFiles.ts'
+import { execFixtureFile, SUBPROCESS_FIXTURE_TIMEOUT_MS } from '../tooling/subprocess.fixtures.ts'
 import { routeFilePath } from './deployRules.ts'
 import type { MetaPages } from './metaPages.ts'
 
@@ -23,10 +22,6 @@ const ROOT = join(import.meta.dirname, '..')
 const HOST = 'head-change.example.test'
 const RELOAD_HOST = 'head-reload.example.test'
 const EMPTY_APP_ENTRY = 'export {}\n'
-const execFileAsync = promisify(execFile)
-// One real Vite build and two Node cold starts in a scratch checkout are
-// CPU bound. Use the subprocess fixture budget from tooling/ownedFiles.test.ts.
-const FIXTURE_TIMEOUT_MS = 30_000
 
 // These assertions read the tags independently of the writer's slot table,
 // so a slot omitted by both the writer and its drift check still fails.
@@ -159,21 +154,18 @@ describe('a changed siteUrl', () => {
     writeFileSync(appEntry, EMPTY_APP_ENTRY)
     expect(readFileSync(appEntry, 'utf8'), 'the minimal app entry must apply').toBe(EMPTY_APP_ENTRY)
     writeFileSync(join(copyRoot, 'scripts', 'siteHeadEvidence.ts'), EVIDENCE_SCRIPT)
-    const { stdout } = await execFileAsync(
+    const { stdout } = await execFixtureFile(
       process.execPath,
       ['scripts/siteHeadEvidence.ts', 'build'],
       {
         cwd: copyRoot,
-        encoding: 'utf8',
-        timeout: FIXTURE_TIMEOUT_MS,
       },
     )
     writeFileSync(join(ROOT, 'scratch', 'site-head-build.log'), stdout)
-    await execFileAsync(process.execPath, ['scripts/siteHeadEvidence.ts'], {
+    await execFixtureFile(process.execPath, ['scripts/siteHeadEvidence.ts'], {
       cwd: copyRoot,
-      timeout: FIXTURE_TIMEOUT_MS,
     })
-  }, FIXTURE_TIMEOUT_MS)
+  }, SUBPROCESS_FIXTURE_TIMEOUT_MS)
 
   afterAll(() => {
     expect(copyRoot.startsWith(join(ROOT, 'scratch') + sep)).toBe(true)

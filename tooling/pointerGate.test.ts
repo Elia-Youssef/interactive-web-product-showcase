@@ -5,7 +5,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
-import { runGit } from './gitCommand.ts'
+import { execFixtureFile, SUBPROCESS_FIXTURE_TIMEOUT_MS } from './subprocess.fixtures.ts'
 import { generatedFilePaths } from './generatedFiles.ts'
 import { formatPointerFindings, scanGatedFilesForPointers } from './pointerGate.ts'
 import { findPointerFindings } from './pointerRules.ts'
@@ -45,11 +45,12 @@ describe('the pointer gate report', () => {
 describe('the scan of the owned files', () => {
   const scratchRoot = join(import.meta.dirname, '..', 'scratch')
   let repoRoot: string
+  let findings: ReturnType<typeof scanGatedFilesForPointers>
 
-  beforeAll(() => {
+  beforeAll(async () => {
     mkdirSync(scratchRoot, { recursive: true })
     repoRoot = mkdtempSync(join(scratchRoot, 'pointer-scan-'))
-    runGit(repoRoot, ['init', '--quiet'])
+    await execFixtureFile('git', ['init', '--quiet'], { cwd: repoRoot })
     const needleText = ['shipped in ', taskIdNeedle, ' today\n'].join('')
     writeFileSync(join(repoRoot, 'planted.txt'), needleText)
     writeFileSync(
@@ -59,14 +60,14 @@ describe('the scan of the owned files', () => {
     for (const generated of generatedFilePaths) {
       writeFileSync(join(repoRoot, generated), needleText)
     }
-  }, 30_000)
+    findings = scanGatedFilesForPointers(repoRoot)
+  }, SUBPROCESS_FIXTURE_TIMEOUT_MS)
 
   afterAll(() => {
     rmSync(repoRoot, { recursive: true, force: true })
   })
 
   test('a pointer is found in an authored text file and skipped in binary and generated ones', () => {
-    const findings = scanGatedFilesForPointers(repoRoot)
     expect(findings).toHaveLength(1)
     expect(findings[0]?.path).toEqual('planted.txt')
     expect(findings[0]?.line).toEqual(1)

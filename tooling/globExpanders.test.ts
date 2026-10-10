@@ -7,6 +7,7 @@ import { createGlobImportSource, expandGatedGlob } from './globImportSource.ts'
 import { globImportKey } from './globImports.ts'
 import { globCall, globCalls, viteGlobTargets } from './globImportProof.fixtures.ts'
 import { viteGlobCallTargets } from './globExpanders.ts'
+import { SUBPROCESS_FIXTURE_TIMEOUT_MS } from './subprocess.fixtures.ts'
 
 const root = resolve(import.meta.dirname, '..')
 const realImporters = [
@@ -16,11 +17,12 @@ const realImporters = [
 ]
 
 describe('real glob expansions', () => {
-  const files = listGatedFiles(root)
+  let files: string[]
   let tree: ReturnType<typeof createGlobFileTree>
   beforeAll(() => {
+    files = listGatedFiles(root)
     tree = createGlobFileTree(root, files)
-  })
+  }, SUBPROCESS_FIXTURE_TIMEOUT_MS)
   afterAll(() => tree.remove())
   for (const importer of realImporters) {
     it(`${importer} agrees with both installed Vite expanders`, async () => {
