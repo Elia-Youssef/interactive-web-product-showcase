@@ -25,10 +25,16 @@ export function stepFrames() {
   }
 }
 
-export function defer(): { promise: Promise<void>; resolve: () => void } {
+export function defer(): {
+  promise: Promise<void>
+  resolve: () => void
+  reject: (reason?: unknown) => void
+} {
   let resolve: () => void = () => {}
-  const promise = new Promise<void>((settle) => {
+  let reject: (reason?: unknown) => void = () => {}
+  const promise = new Promise<void>((settle, fail) => {
     resolve = settle
+    reject = fail
   })
-  return { promise, resolve }
+  return { promise, resolve, reject }
 }
