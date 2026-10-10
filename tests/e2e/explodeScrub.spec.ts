@@ -37,8 +37,8 @@ test('before the product is presented the section waits unavailable and reads 0%
   const slider = sliderOf(page)
   await expectUnavailable(slider)
   await expect(slider).toHaveValue('0')
-  await expect(slider).toHaveAttribute('aria-valuetext', '0%')
-  await expect(readoutOf(page)).toHaveText('0%')
+  await expect(slider).toHaveAttribute('aria-valuetext', formatExplodePercent(0))
+  await expect(readoutOf(page)).toHaveText(formatExplodePercent(0))
 
   // The waiting toggle reads as a waiting control: the one disabled color
   // the waiting controls share, a different word of the palette than the
@@ -70,7 +70,7 @@ test('the waiting section keeps the keyboard focus and ignores activation until 
   await focusVisibly(page, slider)
   await page.keyboard.press('ArrowDown')
   await expect(slider).toHaveValue('0')
-  await expect(readoutOf(page)).toHaveText('0%')
+  await expect(readoutOf(page)).toHaveText(formatExplodePercent(0))
   await expectFocusOn(slider, 'the waiting scrub keeps the focus under its keys')
 
   // The product presents: both controls answer again, the focus never
@@ -122,8 +122,8 @@ test('a scrub to the middle opens the view to the target and reads 50%', async (
 
   // The readout is where the pose is, and the slider's value text says the
   // same thing.
-  await expect(readoutOf(page)).toHaveText('50%')
-  await expect(slider).toHaveAttribute('aria-valuetext', '50%')
+  await expect(readoutOf(page)).toHaveText(formatExplodePercent(0.5))
+  await expect(slider).toHaveAttribute('aria-valuetext', formatExplodePercent(0.5))
 
   // The pressed state after a partial scrub belongs to the slice alone:
   // a middle scrub is neither assembled nor open, so the toggle reads mixed.
@@ -161,7 +161,7 @@ test('the toggle after a partial scrub completes the open, and the next press cl
   await expectPoll(page, () => window.__viewer?.explode?.target, testBodyBudgetMs).toBe(1)
   await expectPoll(page, () => window.__viewer?.explode?.moving, testBodyBudgetMs).toBe(false)
   await expectPoll(page, () => window.__viewer?.explode?.t, testBodyBudgetMs).toBe(1)
-  await expect(readoutOf(page)).toHaveText('100%')
+  await expect(readoutOf(page)).toHaveText(formatExplodePercent(1))
   await expect(page.getByRole('button', { name: toggleLabel })).toHaveAttribute(
     'aria-pressed',
     'true',
@@ -171,7 +171,7 @@ test('the toggle after a partial scrub completes the open, and the next press cl
   await page.getByRole('button', { name: toggleLabel }).click()
   expect(await slider.inputValue()).toBe('0')
   await expectPoll(page, () => window.__viewer?.explode?.t, testBodyBudgetMs).toBe(0)
-  await expect(readoutOf(page)).toHaveText('0%')
+  await expect(readoutOf(page)).toHaveText(formatExplodePercent(0))
   await expect(page.getByRole('button', { name: toggleLabel })).toHaveAttribute(
     'aria-pressed',
     'false',
@@ -251,8 +251,8 @@ test('under reduced motion a scrub lands in its one frame, with the readout', as
   await expectPoll(page, () => window.__viewer?.explode?.target, testBodyBudgetMs).toBe(0.5)
   await expectPoll(page, () => window.__viewer?.explode?.moving, testBodyBudgetMs).toBe(false)
   await expectPoll(page, () => window.__viewer?.explode?.t, testBodyBudgetMs).toBe(0.5)
-  await expect(readoutOf(page)).toHaveText('50%')
-  await expect(sliderOf(page)).toHaveAttribute('aria-valuetext', '50%')
+  await expect(readoutOf(page)).toHaveText(formatExplodePercent(0.5))
+  await expect(sliderOf(page)).toHaveAttribute('aria-valuetext', formatExplodePercent(0.5))
 })
 
 test('remounting from open returns the slider and the readout to 0%', async ({
@@ -268,7 +268,7 @@ test('remounting from open returns the slider and the readout to 0%', async ({
   await slider.fill('0.5')
   await expectPoll(page, () => window.__viewer?.explode?.moving, testBodyBudgetMs).toBe(false)
   await expectPoll(page, () => window.__viewer?.explode?.t, testBodyBudgetMs).toBe(0.5)
-  await expect(readoutOf(page)).toHaveText('50%')
+  await expect(readoutOf(page)).toHaveText(formatExplodePercent(0.5))
 
   const remount = page.getByTestId('remount-product')
 
@@ -280,7 +280,7 @@ test('remounting from open returns the slider and the readout to 0%', async ({
   await expectPoll(page, () => window.__viewer?.explode ?? null, testBodyBudgetMs).toBeNull()
   await expectUnavailable(slider)
   await expect(slider).toHaveValue('0')
-  await expect(readoutOf(page)).toHaveText('0%')
+  await expect(readoutOf(page)).toHaveText(formatExplodePercent(0))
 
   // Remount: presented assembled again, the control live at the rest.
   await remount.click()
@@ -288,7 +288,7 @@ test('remounting from open returns the slider and the readout to 0%', async ({
   await expectPoll(page, () => window.__viewer?.explode?.t, testBodyBudgetMs).toBe(0)
   await expect(slider).toBeEnabled()
   await expect(slider).toHaveValue('0')
-  await expect(readoutOf(page)).toHaveText('0%')
+  await expect(readoutOf(page)).toHaveText(formatExplodePercent(0))
 })
 
 test('the section stays focused while the view detaches under it, and answers again', async ({
