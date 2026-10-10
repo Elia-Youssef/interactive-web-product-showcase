@@ -1,3 +1,4 @@
+import { useChromeGeometry } from './useChromeGeometry'
 import type { Product } from '@lib/product'
 import { useStageOverlay } from '@viewer/overlay/stageOverlayContext'
 import { useFocusReturn } from '@ui/index'
@@ -29,6 +30,7 @@ export type HotspotMarkersProps = {
 // channel.
 export function HotspotMarkers({ product, dock, chrome }: HotspotMarkersProps) {
   const overlay = useStageOverlay()
+  useChromeGeometry(overlay.geometry, chrome)
   const flow = useHotspotFlow(product)
   useHotspotSelectionEffects({
     presented: flow.presented,
@@ -41,7 +43,7 @@ export function HotspotMarkers({ product, dock, chrome }: HotspotMarkersProps) {
   // opened it.
   const captureTrigger = useFocusReturn(flow.selected !== null)
   useHotspotOutsideDismiss(flow.presented && flow.selected !== null, flow.close)
-  const card = useHotspotCard(overlay, product, flow.presented ? flow.selected : null, chrome)
+  const card = useHotspotCard(overlay, product, flow.presented ? flow.selected : null)
 
   if (!flow.presented) {
     return null

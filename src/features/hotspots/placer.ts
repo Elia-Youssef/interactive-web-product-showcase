@@ -1,6 +1,6 @@
 import { Box3, Vector3 } from 'three/webgpu'
 import type { Camera, Mesh } from 'three/webgpu'
-import type { MarkerExtent } from '@lib/hotspots/markerBox'
+import type { MarkerExtent, StageRect } from '@lib/hotspots/markerBox'
 import { projectBoxExtent, projectToStage, type StageBox } from '@lib/hotspots/projection'
 import { isMarkerPlaceable, isMarkerVisible } from '@lib/hotspots/visibility'
 import type { ProductHotspot } from '@viewer/rig/productRig'
@@ -47,6 +47,7 @@ export class HotspotPlacer {
     extent: MarkerExtent,
     write: (key: string, placement: OverlayPlacement) => void,
     writeBox: OverlayPlaceBox,
+    obstacles: readonly StageRect[] = [],
   ): void {
     camera.getWorldPosition(this.cameraPosition)
     const matrices = {
@@ -60,13 +61,19 @@ export class HotspotPlacer {
         matrices,
         stage,
       )
-      if (!isMarkerPlaceable(projection, stage, extent)) {
+      if (!isMarkerPlaceable(projection, stage, extent, obstacles)) {
         write(overlayKey(hotspot.id), HIDDEN)
         continue
       }
 
       const occluded = this.occlusion.isBlocked(this.cameraPosition, this.anchorWorld, occluders)
-      const placement: OverlayPlacement = isMarkerVisible(projection, stage, extent, occluded)
+      const placement: OverlayPlacement = isMarkerVisible(
+        projection,
+        stage,
+        extent,
+        occluded,
+        obstacles,
+      )
         ? { kind: 'placed', x: projection.x, y: projection.y }
         : HIDDEN
       write(overlayKey(hotspot.id), placement)

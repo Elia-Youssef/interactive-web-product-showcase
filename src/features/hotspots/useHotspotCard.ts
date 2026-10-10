@@ -2,7 +2,6 @@ import { useEffect, useLayoutEffect, useMemo, useSyncExternalStore } from 'react
 import type { Product } from '@lib/product'
 import type { StageOverlay } from '@viewer/overlay/StageOverlay'
 import { readCardLayout } from '@lib/hotspots/cardLayout'
-import { readChromeObstacles } from './chromeObstacles'
 import { HotspotCardPresenter, type CardSlot } from './HotspotCardPresenter'
 
 // The open card's presenter for one product's markers on one stage, wired
@@ -15,32 +14,20 @@ export function useHotspotCard(
   overlay: StageOverlay,
   product: Product,
   selected: string | null,
-  chrome: Element | null,
 ): { readonly presenter: HotspotCardPresenter; readonly slot: CardSlot | null } {
   const presenter = useMemo(
     () =>
       new HotspotCardPresenter(
         overlay,
         product.hotspots.map((hotspot) => hotspot.id),
-        { layout: readDocumentCardLayout, obstacles: () => readChromeObstacles(chrome) },
+        { layout: readDocumentCardLayout, obstacles: () => overlay.geometry.read() },
       ),
-    [overlay, product, chrome],
+    [overlay, product],
   )
 
   useEffect(() => overlay.onPass(() => presenter.present(), 'presenter'), [overlay, presenter])
 
-  // The chrome's corners change size with their content (a readout, the
-  // controls); each change is a change of the obstacles.
-  useEffect(() => {
-    if (chrome === null) {
-      return undefined
-    }
-    const observer = new ResizeObserver(() => presenter.chromeChanged())
-    for (const child of chrome.children) {
-      observer.observe(child)
-    }
-    return () => observer.disconnect()
-  }, [chrome, presenter])
+  useEffect(() => overlay.geometry.subscribe(() => presenter.chromeChanged()), [overlay, presenter])
 
   useLayoutEffect(() => {
     presenter.show(selected)

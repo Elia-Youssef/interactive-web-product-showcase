@@ -1,3 +1,5 @@
+import { StageGeometry } from './StageGeometry'
+
 // The stage's overlay channel: one instance per stage mount, created beside
 // the settle, the holds and the probes. It knows keys and placements, never
 // what the overlay shows: DOM content registers an element under a key, and
@@ -93,6 +95,7 @@ function emptyOverlayProductState(): OverlayProductState {
 }
 
 export class StageOverlay {
+  readonly geometry = new StageGeometry()
   private mounts = new Map<string, OverlayMount>()
   private product: OverlayProductState = emptyOverlayProductState()
   private readonly passListeners: Readonly<Record<OverlayPassPhase, Set<OverlayPassListener>>> = {
@@ -159,6 +162,7 @@ export class StageOverlay {
   // presenters.
   pass(box: OverlayBox, writeAll: (place: OverlayPlace, placeBox: OverlayPlaceBox) => void): void {
     this.passBox = box
+    this.geometry.read(box)
     writeAll(this.placeInPass, this.placeBoxInPass)
     for (const listener of this.passListeners.presenter) {
       listener()

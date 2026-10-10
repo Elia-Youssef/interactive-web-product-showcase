@@ -34,6 +34,9 @@ export function ProductHotspots() {
   const probes = useStageProbes()
   const camera = useThree((state) => state.camera)
   const size = useThree((state) => state.size)
+  const invalidate = useThree((state) => state.invalidate)
+
+  useEffect(() => overlay.geometry.subscribe(invalidate), [overlay, invalidate])
 
   const occluders = useMemo(() => collectOccluders(loaded), [loaded])
   const placer = useMemo(() => new HotspotPlacer(), [])
@@ -60,6 +63,7 @@ export function ProductHotspots() {
           extentSource.for(size),
           write,
           writeBox,
+          overlay.geometry.read(size),
         ),
       ),
     [placer, loaded, occluders, camera, size, extentSource, overlay],
