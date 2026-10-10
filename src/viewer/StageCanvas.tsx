@@ -48,7 +48,12 @@ export function StageCanvas({
 }: StageCanvasProps) {
   return (
     <RendererErrorBoundary onError={onInitError} fallback={() => null}>
-      <Canvas gl={stageRenderer.factory} frameloop={stageConfig.frameloop} dpr={stageConfig.dpr}>
+      <Canvas
+        gl={stageRenderer.factory}
+        frameloop={stageConfig.frameloop}
+        dpr={stageConfig.dpr}
+        resize={stageConfig.canvasResize}
+      >
         <RendererRig />
         <RendererMemoryProbe />
         <StageFrames
