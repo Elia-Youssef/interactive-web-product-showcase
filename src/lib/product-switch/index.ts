@@ -4,6 +4,7 @@
 export { applyProductSwitchEvent, initialProductSwitch } from './machine'
 export type {
   ProductSettleOutcome,
+  ShownLifeOutcome,
   ProductSwitchEvent,
   ProductSwitchState,
   ShownProduct,

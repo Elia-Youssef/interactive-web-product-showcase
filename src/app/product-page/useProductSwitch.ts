@@ -5,6 +5,7 @@ import {
   initialProductSwitch,
   preloadSlugs,
   type ProductSettleOutcome,
+  type ShownLifeOutcome,
 } from '@lib/product-switch'
 import type { ProductTransitionPhase } from '@lib/transition'
 
@@ -14,7 +15,9 @@ import type { ProductTransitionPhase } from '@lib/transition'
 export type ShownProductLife = {
   readonly manifest: Product
   readonly life: number
+  readonly outcome: ShownLifeOutcome | 'pending'
   readonly onSettled: (outcome: ProductSettleOutcome) => void
+  readonly onStageFailed: () => void
 }
 
 export type ProductSwitch = {
@@ -50,13 +53,20 @@ export function useProductSwitch(target: Product, collection: ProductCollection)
     (outcome: ProductSettleOutcome) => dispatch({ kind: 'settled', life, outcome }),
     [life],
   )
+  const onStageFailed = useCallback(() => dispatch({ kind: 'stage-failed', life }), [life])
   const preload = useMemo(() => preloadSlugs(state.rested, collection), [state.rested, collection])
 
   return {
     phase: state.phase,
     onCovered,
     onRevealed,
-    shown: { manifest: productOf(collection, state.shown.slug), life, onSettled },
+    shown: {
+      manifest: productOf(collection, state.shown.slug),
+      life,
+      outcome: state.shown.outcome,
+      onSettled,
+      onStageFailed,
+    },
     preload,
   }
 }
