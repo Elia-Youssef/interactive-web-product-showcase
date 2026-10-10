@@ -7,6 +7,7 @@ import { routePath } from './appPaths'
 import { productLoadBudgetMs } from './budgets'
 import type { BrowserName } from './matrix'
 import { waitForProductReady } from './productSpecs'
+import { markerOf } from './hotspotViews'
 
 // The reads and expectations of the collection spec: the collection's own
 // neighbors, the row's controls by accessible name, the wait for a
@@ -142,7 +143,7 @@ export function productWithHotspots(collection: ProductCollection): Product {
 // tree, so the role query finds a shown one only.
 export async function openShownCard(page: Page, product: Product): Promise<string> {
   for (const candidate of product.hotspots) {
-    const marker = page.getByRole('button', { name: candidate.title })
+    const marker = markerOf(page, candidate.title)
     if (await marker.isVisible()) {
       await marker.click()
       return candidate.title

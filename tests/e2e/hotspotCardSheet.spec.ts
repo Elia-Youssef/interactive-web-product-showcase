@@ -6,6 +6,7 @@ import { settledFrames } from './stageSettle'
 import { loadCollection } from './productList'
 import { restWindowBudgetMs } from './budgets'
 import { expectCloseAnswers } from './hotspotCardOracle'
+import { markerOf } from './hotspotViews'
 
 // The docked card fits the sheet's visible band on a phone held sideways:
 // at 844x390 the band under the stage is a hundred pixels, too short for
@@ -52,7 +53,7 @@ for (const product of collection.products) {
     })
 
     for (const title of shown) {
-      await page.getByRole('button', { name: title }).focus()
+      await markerOf(page, title).focus()
       await page.keyboard.press('Enter')
       const panel = page.getByRole('complementary', { name: siteCopy.panelLabel })
       const card = panel.getByTestId('hotspot-card')

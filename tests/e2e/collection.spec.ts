@@ -7,6 +7,7 @@ import { formatProductPath } from '../../src/lib/routing'
 import { loadCollection } from './productList'
 import { waitForProductReady } from './productSpecs'
 import { routePath } from './appPaths'
+import { markerOf } from './hotspotViews'
 import {
   dialogTabStops,
   expectProduct,
@@ -198,7 +199,7 @@ test('escape at every stop of the open index closes the index alone, and the nex
 
   const cardTitle = await openShownCard(page, subject)
   const card = page.getByRole('heading', { name: cardTitle })
-  const marker = page.getByRole('button', { name: cardTitle })
+  const marker = markerOf(page, cardTitle)
   const dialog = page.getByRole('dialog', { name: siteCopy.indexLabel })
 
   // The stops of the cycle, enumerated once with the card and the index
