@@ -11,10 +11,11 @@ import { viewPivotOf } from '../../src/lib/camera/pivot.ts'
 import { orbitAnglesOf, orbitViewOfAuthoredCamera } from '../../src/lib/camera/view.ts'
 import { CAMERA_HOME_ID, CAMERA_PREFIX } from '../../src/lib/product/contractNames.ts'
 import { modelPathOf } from '../../scripts/fixtureProducts.ts'
-import { createModelIO } from '../../scripts/modelIo.ts'
 import { readCameraFacts, readMeshBoxes } from '../../scripts/modelFacts.ts'
 import type { CameraFact } from '../../scripts/modelFacts.ts'
 import { anchorRestsOf, readHotspotAnchors } from '../../scripts/structure.ts'
+import { frozen, frozenShallow } from './frozenFacts'
+import { memoizedRead, readSharedModelDocument } from './sharedProductModels'
 
 // The authored ray of one camera: the world position, the world forward
 // unit vector and the vertical fov in radians, as the camera facts carry it.
@@ -69,11 +70,16 @@ export type AuthoredView = {
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url))
 
-export async function readProductCameraFacts(slug: string): Promise<ProductCameraFacts> {
-  const io = await createModelIO()
-  const modelPath = await modelPathOf(ROOT, slug)
-  const doc = await io.read(modelPath)
-  return productCameraFactsOf(doc, modelPath)
+// The camera facts per slug, read once per process: every spec file's top
+// level read of the same product shares the one derivation, and the frozen
+// result keeps one caller's write from changing what another caller sees.
+const factsBySlug = new Map<string, Promise<ProductCameraFacts>>()
+
+export function readProductCameraFacts(slug: string): Promise<ProductCameraFacts> {
+  return memoizedRead(factsBySlug, slug, async () => {
+    const modelPath = await modelPathOf(ROOT, slug)
+    return productCameraFactsOf(await readSharedModelDocument(modelPath), modelPath)
+  })
 }
 
 // The camera facts of one product document: the frame center, the home
@@ -82,9 +88,11 @@ export async function readProductCameraFacts(slug: string): Promise<ProductCamer
 // whose pivot the pivot rule cannot choose fails here by name: the aspect
 // and the pivot are contract facts the specs derive their expectations
 // from, and the build-time validate step rejects a camera without them.
+// The facts come back frozen: the reader caches them per process, so one
+// caller's write must never change what another caller sees.
 export function productCameraFactsOf(doc: Document, modelPath: string): ProductCameraFacts {
   const frame = frameSpanOfMeshBoxes(readMeshBoxes(doc))
-  const center: vec3 = [frame.center[0], frame.center[1], frame.center[2]]
+  const center: vec3 = frozen([frame.center[0], frame.center[1], frame.center[2]])
   const anchorRests = anchorRestsOf(readHotspotAnchors(doc))
   const views = new Map<string, AuthoredView>()
   for (const { node, fact } of cameraNodesWithFacts(doc)) {
@@ -111,12 +119,14 @@ export function productCameraFactsOf(doc: Document, modelPath: string): ProductC
     throw new Error(`no ${CAMERA_PREFIX}${CAMERA_HOME_ID} node in ${modelPath}`)
   }
   views.delete(CAMERA_HOME_ID)
-  return {
+  return frozen({
     center,
     stageBounds: boundsInStageSpace(frame, frame.center),
     home,
-    closeUps: views,
-  }
+    // A Map cannot be frozen; its views are frozen above, before they go
+    // in, and the facts type the map as a ReadonlyMap.
+    closeUps: frozenShallow(views),
+  })
 }
 
 // Every camera node of the document beside its camera fact. The facts are
@@ -153,7 +163,7 @@ function authoredViewOf(
     inStageSpace(pivot, center),
   )
   const angles = orbitAnglesOf(orbit.position, orbit.target)
-  return {
+  return frozen({
     position: [stagePosition[0], stagePosition[1], stagePosition[2]],
     target: [orbit.target[0], orbit.target[1], orbit.target[2]],
     fovY: ray.fovY,
@@ -163,5 +173,5 @@ function authoredViewOf(
     azimuthDegrees: (angles.azimuth * 180) / Math.PI,
     polarDegrees: (angles.polar * 180) / Math.PI,
     distance: angles.distance,
-  }
+  })
 }

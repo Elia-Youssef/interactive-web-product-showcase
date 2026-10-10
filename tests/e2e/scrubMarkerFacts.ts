@@ -1,12 +1,15 @@
+import { fileURLToPath } from 'node:url'
 import { Vector3, type Object3D } from 'three'
 import type { vec3 } from '@gltf-transform/core'
 import type { Product } from '../../src/lib/product'
 import { HOTSPOT_PREFIX } from '../../src/lib/product/contractNames.ts'
+import { modelPathOf } from '../../scripts/fixtureProducts.ts'
 import { createExplodePose } from '../../src/features/explode/index'
-import { parseShippedGltf } from './productGltf'
 import type { AuthoredView } from './productCamera'
 import { readOccluderMeshes } from './productMesh'
 import { markersShownIn, type MarkerStage } from './productMarkerViews'
+import { frozen, frozenShallow } from './frozenFacts'
+import { memoizedRead, readSharedParsedProduct } from './sharedProductModels'
 
 // Which markers the home view shows while the explode scrubs, computed in
 // Node from the shipped model: the model parsed by three's own loader,
@@ -28,14 +31,36 @@ export const SCRUB_TARGETS: readonly number[] = Array.from(
 // each scrub target, in target order.
 export type ScrubMarkerFacts = ReadonlyMap<string, readonly boolean[]>
 
-export async function readScrubMarkerFacts(
+// The scrub facts per read, cached per process. Which markers a scrub shows
+// depends on the product, the view the poses hang from and the stage the
+// keep-outs fit, so the cache key is the whole read: a repeat read of the
+// same stage costs nothing, and a read at another stage derives its own
+// facts.
+const ROOT = fileURLToPath(new URL('../..', import.meta.url))
+
+const factsByRead = new Map<string, Promise<ScrubMarkerFacts>>()
+
+export function readScrubMarkerFacts(
   product: Product,
   center: vec3,
   home: AuthoredView,
   stage: MarkerStage,
   targets: readonly number[] = SCRUB_TARGETS,
 ): Promise<ScrubMarkerFacts> {
-  const parsed = await parseShippedGltf(product.slug)
+  const key = JSON.stringify([product.slug, center, home, stage.box, stage.extent, targets])
+  return memoizedRead(factsByRead, key, () =>
+    scrubMarkerFactsOf(product, center, home, stage, targets),
+  )
+}
+
+async function scrubMarkerFactsOf(
+  product: Product,
+  center: vec3,
+  home: AuthoredView,
+  stage: MarkerStage,
+  targets: readonly number[],
+): Promise<ScrubMarkerFacts> {
+  const parsed = await readSharedParsedProduct(await modelPathOf(ROOT, product.slug))
   const clip = parsed.animations.find((animation) => animation.name === product.explode.clip)
   if (clip === undefined) {
     throw new Error(`the ${product.slug} model carries no ${product.explode.clip} clip`)
@@ -66,7 +91,7 @@ export async function readScrubMarkerFacts(
     }
   }
   pose.dispose()
-  return shown
+  return frozenShallow(new Map([...shown].map(([id, flags]) => [id, frozen(flags)])))
 }
 
 function nodeNamed(scene: Object3D, name: string, slug: string): Object3D {

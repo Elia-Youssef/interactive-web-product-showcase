@@ -17,7 +17,8 @@ import { describe, expect, it } from 'vitest'
 import { MathUtils, PerspectiveCamera, Vector3 } from 'three'
 import { fileURLToPath } from 'node:url'
 import { productCameraFactsOf } from './productCamera'
-import { parseDocumentWithLoader, parseShippedGltf } from './productGltf'
+import { parseDocumentWithLoader } from './productGltf'
+import { readSharedParsedProduct } from './sharedProductModels'
 import { bracketsOf, planProblems, plannedCamera, presentedProduct } from './productAgreementSides'
 import { modelPathOf } from '../../scripts/fixtureProducts.ts'
 import { createModelIO } from '../../scripts/modelIo.ts'
@@ -94,7 +95,7 @@ function orbitDistance(view: {
 describe('the document facts agree with the real loader on every shipped product', () => {
   it.each(SHIPPED_SLUGS)('measures the same frame for %s', async (slug) => {
     const { frame: documentFrame } = await shippedDocument(slug)
-    const parsed = await parseShippedGltf(slug)
+    const parsed = await readSharedParsedProduct(await modelPathOf(ROOT, slug))
     const runtimeFrame = measureModelFrame(parsed.scene)
     expect(runtimeFrame.centerX).toBe(documentFrame.center[0])
     expect(runtimeFrame.centerY).toBe(documentFrame.center[1])
@@ -107,7 +108,7 @@ describe('the document facts agree with the real loader on every shipped product
     const { doc, frame: documentFrame } = await shippedDocument(slug)
     const facts = productCameraFactsOf(doc, modelPath)
     const { manifest } = await shippedManifest(slug)
-    const parsed = await parseShippedGltf(slug)
+    const parsed = await readSharedParsedProduct(await modelPathOf(ROOT, slug))
 
     // The home ray the document facts read, against the loader's camera
     // world transform, in model space.
@@ -172,7 +173,10 @@ describe('the document facts agree with the real loader on every shipped product
     const { doc, frame: documentFrame } = await shippedDocument(slug)
     const facts = productCameraFactsOf(doc, `public/models/${slug}/model.glb`)
     const { manifest, input } = await shippedManifest(slug)
-    const { rig, frame } = presentedProduct(await parseShippedGltf(slug), manifest)
+    const { rig, frame } = presentedProduct(
+      await readSharedParsedProduct(await modelPathOf(ROOT, slug)),
+      manifest,
+    )
     const structure = readProductStructure(doc)
 
     // Camera blocks that bracket a view's distance: validate and the

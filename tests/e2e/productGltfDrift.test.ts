@@ -9,7 +9,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { buildThreeTree } from './productScene'
-import { parseGltfWithLoader } from './productGltf'
+import { readSharedParsedProduct } from './sharedProductModels'
 import { createModelIO } from '../../scripts/modelIo.ts'
 import { readCameraFacts, readMeshBoxes } from '../../scripts/modelFacts.ts'
 import { measureModelFrame } from '../../src/viewer/modelFrame'
@@ -80,7 +80,7 @@ describe('the real loader against the geometry classes the contract bans', () =>
     })
     const doc = await (await modelIOSoon()).read(modelPath)
     const documentFrame = frameSpanOfMeshBoxes(readMeshBoxes(doc))
-    const parsed = await parseGltfWithLoader(modelPath)
+    const parsed = await readSharedParsedProduct(modelPath)
     const loaderFrame = measureModelFrame(parsed.scene)
     // The loader widens the box by the morph displacement, and the
     // document facts widen by the same displacement: one frame, which is
@@ -108,7 +108,7 @@ describe('the real loader against the geometry classes the contract bans', () =>
     })
     const doc = await (await modelIOSoon()).read(modelPath)
     const documentFrame = frameSpanOfMeshBoxes(readMeshBoxes(doc))
-    const parsed = await parseGltfWithLoader(modelPath)
+    const parsed = await readSharedParsedProduct(modelPath)
     const loaderFrame = measureModelFrame(parsed.scene)
     // Points are objects with geometry, the set three's Box3 selects, and
     // the runtime frame selects the same set.

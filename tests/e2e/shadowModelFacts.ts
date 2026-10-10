@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import { modelPathOf } from '../../scripts/fixtureProducts.ts'
-import { createModelIO } from '../../scripts/modelIo.ts'
 import { SHADOW_NODE_NAME } from '../../src/lib/product/contractNames.ts'
+import { memoizedRead, readSharedModelDocument } from './sharedProductModels'
 
 // The repo root: the parent of the tests folder this file lives in.
 const ROOT = fileURLToPath(new URL('../..', import.meta.url))
@@ -15,39 +15,43 @@ const ROOT = fileURLToPath(new URL('../..', import.meta.url))
 // float in the file by glTF definition, never quantized, so the read is the
 // loader's own value.
 
-export async function readShadowAuthoredOpacity(slug: string): Promise<number> {
-  const io = await createModelIO()
-  const doc = await io.read(await modelPathOf(ROOT, slug))
+// The authored opacity per slug, read once per process.
+const opacityBySlug = new Map<string, Promise<number>>()
 
-  const shadowNode = doc
-    .getRoot()
-    .listNodes()
-    .find((node) => node.getName() === SHADOW_NODE_NAME)
-  if (shadowNode === undefined) {
-    throw new Error(`the ${slug} model has no ${SHADOW_NODE_NAME} node to read its opacity from`)
-  }
-  const mesh = shadowNode.getMesh()
-  if (mesh === null) {
-    throw new Error(`the ${SHADOW_NODE_NAME} node of the ${slug} model carries no mesh`)
-  }
+export function readShadowAuthoredOpacity(slug: string): Promise<number> {
+  return memoizedRead(opacityBySlug, slug, async () => {
+    const doc = await readSharedModelDocument(await modelPathOf(ROOT, slug))
 
-  const primitives = mesh.listPrimitives()
-  if (primitives.length !== 1) {
-    throw new Error(
-      `the ${SHADOW_NODE_NAME} mesh of the ${slug} model carries ${primitives.length} primitives, expected one`,
-    )
-  }
-  const material = primitives[0]?.getMaterial() ?? null
-  if (material === null) {
-    throw new Error(`the ${SHADOW_NODE_NAME} primitive of the ${slug} model has no material`)
-  }
-  if (material.getAlphaMode() !== 'BLEND') {
-    throw new Error(`the shadow material of the ${slug} model is not alpha blended`)
-  }
+    const shadowNode = doc
+      .getRoot()
+      .listNodes()
+      .find((node) => node.getName() === SHADOW_NODE_NAME)
+    if (shadowNode === undefined) {
+      throw new Error(`the ${slug} model has no ${SHADOW_NODE_NAME} node to read its opacity from`)
+    }
+    const mesh = shadowNode.getMesh()
+    if (mesh === null) {
+      throw new Error(`the ${SHADOW_NODE_NAME} node of the ${slug} model carries no mesh`)
+    }
 
-  const alpha = material.getBaseColorFactor()[3]
-  if (alpha === undefined) {
-    throw new Error(`the base color factor of ${material.getName()} carries no alpha`)
-  }
-  return Math.fround(alpha)
+    const primitives = mesh.listPrimitives()
+    if (primitives.length !== 1) {
+      throw new Error(
+        `the ${SHADOW_NODE_NAME} mesh of the ${slug} model carries ${primitives.length} primitives, expected one`,
+      )
+    }
+    const material = primitives[0]?.getMaterial() ?? null
+    if (material === null) {
+      throw new Error(`the ${SHADOW_NODE_NAME} primitive of the ${slug} model has no material`)
+    }
+    if (material.getAlphaMode() !== 'BLEND') {
+      throw new Error(`the shadow material of the ${slug} model is not alpha blended`)
+    }
+
+    const alpha = material.getBaseColorFactor()[3]
+    if (alpha === undefined) {
+      throw new Error(`the base color factor of ${material.getName()} carries no alpha`)
+    }
+    return Math.fround(alpha)
+  })
 }
