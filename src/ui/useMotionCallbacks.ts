@@ -15,7 +15,7 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import type { RefObject } from 'react'
 import { initialTransitionCallbacks, stepTransitionCallbacks } from '@lib/transition'
-import type { ProductTransitionProps } from '@lib/transition'
+import type { ProductTransitionProps, TransitionCallbacksStep } from '@lib/transition'
 
 type MotionCallbacks = Pick<
   ProductTransitionProps,
@@ -61,16 +61,7 @@ export function useMotionCallbacks({
         }
         const step = stepTransitionCallbacks(ledger.current, { kind: 'ended' })
         ledger.current = step.state
-        switch (step.fired) {
-          case 'covered':
-            onCoveredRef.current()
-            break
-          case 'revealed':
-            onRevealedRef.current()
-            break
-          case null:
-            break
-        }
+        fireCallback(step.fired, onCoveredRef.current, onRevealedRef.current)
       },
       () => {
         // The run was superseded or the surface unmounted: the animation
@@ -79,7 +70,29 @@ export function useMotionCallbacks({
         // which holds the debt unchanged until then.
       },
     )
+    // Even an empty or already finished animation can resolve after the
+    // effect ends. Cancellation alone cannot invalidate that continuation.
+    return () => {
+      runToken.current += 1
+    }
   }, [phase, reducedMotion])
 
   return moverRef
+}
+
+function fireCallback(
+  fired: TransitionCallbacksStep['fired'],
+  onCovered: () => void,
+  onRevealed: () => void,
+): void {
+  switch (fired) {
+    case 'covered':
+      onCovered()
+      break
+    case 'revealed':
+      onRevealed()
+      break
+    case null:
+      break
+  }
 }
