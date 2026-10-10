@@ -1,6 +1,7 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { devCacheDir } from './tooling/devCacheDir.ts'
 import { devClientStubPlugin } from './tooling/devClientStub.ts'
 import { devFixtureModelsPlugin } from './tooling/devFixtureModels.ts'
 import { devHost, isE2EServer } from './tooling/devHost.ts'
@@ -15,6 +16,12 @@ const port = resolveDevPort(process.env)
 const e2eServer = isE2EServer(process.env)
 
 export default defineConfig({
+  // Two dev servers of one checkout never share a port (strictPort), so the
+  // cache keyed by the port gives each server its own deps folder. Vite
+  // commits an optimization run by renaming cacheDir/deps, so two servers
+  // sharing one folder rename under each other and lose the folder with an
+  // EPERM on Windows; the pages it then serves never mount.
+  cacheDir: devCacheDir(port),
   plugins: [
     react(),
     siteHeadPlugin(),
