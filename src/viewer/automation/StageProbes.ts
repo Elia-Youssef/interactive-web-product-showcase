@@ -26,6 +26,7 @@ export class StageProbes {
   // record is replaced whole on each registration, never mutated in place,
   // so a release can compare its reader against the current slot.
   private readers: ProbeReaders = {
+    completion: null,
     look: null,
     camera: null,
     finish: null,

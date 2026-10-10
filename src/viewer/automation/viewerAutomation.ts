@@ -3,6 +3,7 @@ import type { RendererBackend } from '@lib/renderer/backend'
 import { selectRendererBackend, type ProductStatus, type RendererStatus } from '@store/index'
 import type { OverlayPlacement } from '../overlay/StageOverlay'
 import type { ViewerModel } from './viewerAutomation.logic'
+import type { CameraCompletionRead } from '@lib/camera/requestCompletion'
 import {
   productFailureOf,
   productModelOf,
@@ -83,6 +84,7 @@ export type ViewerCameraAutomation = {
 // its key here; the automation's probe fields below are this
 // table as a mapped type, so the table and the fields cannot drift apart.
 export type StageProbeReads = {
+  completion: CameraCompletionRead
   look: ViewerLook
   camera: ViewerCameraAutomation
   finish: ViewerFinish
@@ -307,6 +309,10 @@ class StageViewerAutomation implements ViewerAutomation {
 
   get camera(): ViewerCameraAutomation | null {
     return this.#sources.probes.read('camera')
+  }
+
+  get completion(): CameraCompletionRead | null {
+    return this.#sources.probes.read('completion')
   }
 
   get finish(): ViewerFinish | null {

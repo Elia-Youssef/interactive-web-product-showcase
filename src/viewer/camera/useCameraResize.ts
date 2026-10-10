@@ -1,10 +1,9 @@
 import { useEffect } from 'react'
 import type CameraControlsImpl from 'camera-controls'
 import type { RefObject } from 'react'
-import { distanceOfZoomPercent, zoomPercentOfDistance } from '@lib/camera/zoom'
 import type { DistanceRange } from '@lib/camera/limits'
 import type { CameraPlan } from './productPlan'
-import { readControlsEndOrbit, scaledRangeOf } from './controls'
+import { resizeCameraRange } from './resizeCameraRange'
 
 // The resize of the presented view: the distances rescale by the aspect
 // rule and the zoom percentage and both angles stay. The move is instant:
@@ -18,6 +17,7 @@ export function useCameraResize(
   appliedRangeRef: RefObject<DistanceRange | null>,
   invalidate: () => void,
 ): void {
+  const aspect = size.width / size.height
   useEffect(() => {
     if (controls === null) {
       return
@@ -27,12 +27,9 @@ export function useCameraResize(
     if (plan === null || appliedRange === null) {
       return
     }
-    const percent = zoomPercentOfDistance(readControlsEndOrbit(controls).distance, appliedRange)
-    const range = scaledRangeOf(plan, size.width / size.height)
-    controls.minDistance = range.min
-    controls.maxDistance = range.max
+    const range = resizeCameraRange(controls, plan, appliedRange, aspect)
+    if (range === appliedRange) return
     appliedRangeRef.current = range
-    void controls.dollyTo(distanceOfZoomPercent(percent, range), false)
     invalidate()
-  }, [controls, size, planRef, appliedRangeRef, invalidate])
+  }, [controls, aspect, planRef, appliedRangeRef, invalidate])
 }

@@ -20,6 +20,8 @@ import { useCameraReadoutPublish, useCameraRequests } from './useCameraStoreBrid
 import { useCameraResize } from './useCameraResize'
 import { useCameraStepFrame } from './useCameraStepFrame'
 import { useStageAspect } from './useStageAspect'
+import { CameraRequestCompletion } from '@lib/camera/requestCompletion'
+import { useCameraCompletion } from './useCameraCompletion'
 
 type StageCameraProps = {
   // The scene content the camera presents, which reaches the camera API
@@ -36,7 +38,9 @@ type StageCameraProps = {
 // beside this file; the component only mounts the controls and hands the
 // API out.
 export function StageCamera({ children }: StageCameraProps) {
-  const controls = useStageControls()
+  const completion = useMemo(() => new CameraRequestCompletion(), [])
+  const controls = useStageControls(completion)
+  useCameraCompletion(completion, controls)
   const camera = useThree((state) => state.camera)
   const size = useThree((state) => state.size)
   const invalidate = useThree((state) => state.invalidate)

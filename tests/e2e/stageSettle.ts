@@ -8,6 +8,12 @@ export function renderedFramesOf(page: Page): Promise<number> {
   return page.evaluate(() => window.__viewer?.renderedFrames ?? -1)
 }
 
+// Completion reads the actual controls update, presented request, outcome
+// and scene work. A lull between frames cannot complete this contract.
+export async function completedStage(page: Page): Promise<void> {
+  await page.waitForFunction(() => window.__viewer?.completion?.idle === true)
+}
+
 // Waits until the stage's frame count holds still across a settle window:
 // every load-frame debt (the model, the camera fit) is paid, and the stage
 // is at rest under demand mode, so nothing renders between two reads that
