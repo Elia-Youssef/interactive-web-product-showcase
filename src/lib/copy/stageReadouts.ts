@@ -13,3 +13,10 @@ export function angleReadoutText(degrees: number): string {
 export function zoomReadoutText(percent: number): string {
   return `${Math.round(percent)}%`
 }
+
+// The loading readout's text: the label and, while the figure is known, the
+// whole percent it reads. An unknown figure keeps the label alone, so the
+// indeterminate state never shows a number.
+export function loadReadoutText(label: string, percent: number | null): string {
+  return percent === null ? label : `${label} ${percent}%`
+}
