@@ -45,9 +45,11 @@ export function StageEnvironment() {
       stageTexture: equirectangular,
       prefilter: (source) => {
         const generator = new PMREMGenerator(gl)
-        const prefiltered = generator.fromEquirectangular(source)
-        generator.dispose()
-        return prefiltered
+        try {
+          return generator.fromEquirectangular(source)
+        } finally {
+          generator.dispose()
+        }
       },
     })
     let cancelled = false

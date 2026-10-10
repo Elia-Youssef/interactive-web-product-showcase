@@ -16,6 +16,17 @@ export type CanvasLifeEnvironment = {
   readonly prefilter: (source: Texture) => PrefilteredEnvironment
 }
 
+function releaseCanvasLifeEnvironment(
+  source: Texture,
+  prefiltered: PrefilteredEnvironment | undefined,
+): void {
+  try {
+    prefiltered?.dispose()
+  } finally {
+    source.dispose()
+  }
+}
+
 // Puts the stage's environment on one canvas life's scene and returns the
 // release that takes it off again.
 //
@@ -30,12 +41,27 @@ export type CanvasLifeEnvironment = {
 // the prefiltered result, which drops everything the renderer recorded.
 export function installCanvasLifeEnvironment(input: CanvasLifeEnvironment): () => void {
   const source = input.stageTexture.clone()
-  const prefiltered = input.prefilter(source)
-  const previous = input.scene.environment
-  input.scene.environment = prefiltered.texture
-  return () => {
-    input.scene.environment = previous
-    prefiltered.dispose()
-    source.dispose()
+  let prefiltered: PrefilteredEnvironment | undefined
+  // Until the scene assignment succeeds and its release is handed back,
+  // every acquired resource is still the installer's responsibility.
+  try {
+    prefiltered = input.prefilter(source)
+    const previous = input.scene.environment
+    input.scene.environment = prefiltered.texture
+    return () => {
+      try {
+        input.scene.environment = previous
+      } finally {
+        releaseCanvasLifeEnvironment(source, prefiltered)
+      }
+    }
+  } catch (error) {
+    try {
+      releaseCanvasLifeEnvironment(source, prefiltered)
+    } catch {
+      // Installation remains the reported cause if rollback also fails.
+      throw error
+    }
+    throw error
   }
 }

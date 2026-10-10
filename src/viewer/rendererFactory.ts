@@ -24,8 +24,8 @@ export type StartedStageRenderer = {
 // The renderer start of one stage mount: the async gl factory for R3F's
 // Canvas, and the verdict the factory leaves behind. R3F awaits the factory
 // before any render or configure, so every start-up check that can fail runs
-// inside it, after renderer.init(): the canvas check, the renderer type, the
-// backend detection. A failure rejects the factory promise, which R3F routes
+// inside it: the canvas check before init, then the renderer type and backend
+// detection after init. A failure rejects the factory promise, which R3F routes
 // through the error boundary into the store's failed status. The request
 // decides forceWebGL only; the real backend is read from the live renderer
 // after init, never from the URL.
@@ -54,14 +54,26 @@ export function createStageRenderer(request: BackendRequestResult): StageRendere
       powerPreference: stageConfig.powerPreference,
       forceWebGL: request.request.kind === 'forced-webgl2',
     })
-    await renderer.init()
-    assertStageRenderer(renderer)
-    const startedRenderer: StartedStageRenderer = {
-      renderer,
-      backend: detectRendererBackend(renderer),
+    // The factory owns the renderer until all startup checks pass and R3F
+    // takes it. Rollback must finish before reporting the original failure.
+    try {
+      await renderer.init()
+      assertStageRenderer(renderer)
+      const startedRenderer: StartedStageRenderer = {
+        renderer,
+        backend: detectRendererBackend(renderer),
+      }
+      started = startedRenderer
+      return renderer
+    } catch (error) {
+      try {
+        await renderer.dispose()
+      } catch {
+        // Startup remains the reported cause if rollback also fails.
+        throw error
+      }
+      throw error
     }
-    started = startedRenderer
-    return renderer
   }
 
   return { factory, started: () => started }
