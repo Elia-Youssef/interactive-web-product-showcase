@@ -53,4 +53,15 @@ describe('CameraRequestCompletion', () => {
     completion.presented(0, () => pose)
     expect(completion.read(0, 0, 0).idle).toBe(true)
   })
+
+  // The read compares sequences, never outcome kinds: the record a retired
+  // generation left settles the request it answers for, so a watcher that
+  // ended owing a request leaves the camera idle, never stuck waiting for
+  // an arrival no generation owes anymore.
+  it('settles a request its watcher retired, on the outcome sequence it left', () => {
+    const completion = new CameraRequestCompletion()
+    completion.updated(false)
+    completion.presented(4, () => pose)
+    expect(completion.read(4, 4, 0).idle).toBe(true)
+  })
 })

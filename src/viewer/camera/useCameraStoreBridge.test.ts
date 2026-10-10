@@ -50,6 +50,7 @@ describe('watchCameraRequests', () => {
     })
     expect(consoleError).toHaveBeenCalledWith(
       "the camera request #1 view 'home' was rejected: no-plan",
+      expect.any(CameraNoPlanError),
     )
     consoleError.mockRestore()
     stop()
@@ -73,6 +74,7 @@ describe('watchCameraRequests', () => {
 
     expect(consoleError).toHaveBeenCalledWith(
       'the camera request #1 an orbit turn was rejected: no-plan',
+      expect.any(CameraNoPlanError),
     )
     consoleError.mockRestore()
     stop()
@@ -100,6 +102,7 @@ describe('watchCameraRequests', () => {
     })
     expect(consoleError).toHaveBeenCalledWith(
       'the camera request #1 a zoom step was rejected: unknown-view',
+      expect.any(CameraUnknownViewError),
     )
     consoleError.mockRestore()
     stop()
@@ -198,6 +201,7 @@ describe('runCameraRequest', () => {
     })
     expect(report).toHaveBeenCalledTimes(1)
     expect(reportRejection).toHaveBeenCalledTimes(1)
+    expect(reportRejection.mock.calls[0]?.[1]).toBeInstanceOf(CameraUnknownViewError)
   })
 
   it('rethrows a failure that is not one of the typed move failures', () => {

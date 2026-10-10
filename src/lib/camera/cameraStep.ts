@@ -37,9 +37,10 @@ export type SequencedCameraStep = {
 // frame. A step added while a frame is pending merges into the pending step
 // of its kind; the first step after a flush schedules the next frame. The
 // pending steps keep the order their kinds first arrived in. Clearing drops
-// what is pending, for a move that supersedes it (a view), and disposing
+// what is pending, for a move that supersedes it (a view), disposing
 // cancels the scheduled frame, so nothing is emitted after the owner has
-// gone.
+// gone, and reading what is pending is the owner's, for the outcomes it
+// still owes when it ends before the frame.
 export class CameraStepCoalescer {
   private readonly pending = new Map<CameraStepKind, SequencedCameraStep>()
   private cancelFrame: (() => void) | null = null
@@ -71,6 +72,13 @@ export class CameraStepCoalescer {
     this.cancelFrame?.()
     this.cancelFrame = null
     this.pending.clear()
+  }
+
+  // The steps still waiting for their frame, each with the newest sequence
+  // it merged, as a snapshot: what the owner still owes an outcome for when
+  // it ends before the frame. The read changes nothing.
+  pendingSteps(): readonly SequencedCameraStep[] {
+    return [...this.pending.values()]
   }
 
   private flush(): void {

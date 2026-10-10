@@ -114,16 +114,21 @@ export function hasUnhandledCameraRequest(
   return channel.request !== null && channel.sequence > executedSequence
 }
 
-// The reason a camera request was rejected: one of the two synchronous
-// failures of the stage camera's move API. No presented plan to move with,
-// or a view id the presented plan does not hold.
-export type CameraRequestRejectionReason = 'no-plan' | 'unknown-view'
+// The reason a camera request was rejected: one of the typed failures of
+// the stage camera's move API. No presented plan to move with, a view id
+// the presented plan does not hold, or a move that failed after it
+// started.
+export type CameraRequestRejectionReason = 'no-plan' | 'unknown-view' | 'move-failed'
 
 // The outcome of one camera request: the move came to rest, the merged
-// steps required no move, or the request was rejected before a move began.
+// steps required no move, the request was rejected before a move began or
+// failed after it started, or the watcher generation that owed it ended
+// before it settled, which answers the request for good: no generation
+// re-executes it, and no later report can arrive for it.
 export type CameraRequestOutcome =
   | { readonly kind: 'arrived' }
   | { readonly kind: 'unchanged' }
+  | { readonly kind: 'retired' }
   | { readonly kind: 'rejected'; readonly reason: CameraRequestRejectionReason }
 
 // The outcome of the newest request the camera has settled: its sequence,
@@ -142,7 +147,7 @@ export type CameraOutcomeRecord = {
 
 export type CameraOutcomeEvent =
   | {
-      readonly kind: 'arrived' | 'unchanged'
+      readonly kind: 'arrived' | 'unchanged' | 'retired'
       readonly sequence: number
       readonly request: CameraRequest
     }

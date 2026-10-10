@@ -43,6 +43,7 @@ function coalescer() {
     },
     clear: () => coalescing.clear(),
     dispose: () => coalescing.dispose(),
+    pendingSteps: () => coalescing.pendingSteps(),
   }
   return { frames, emitted, sequences, steps }
 }
@@ -147,5 +148,32 @@ describe('CameraStepCoalescer', () => {
     expect(frames.cancelled()).toBe(1)
     frames.runFrame()
     expect(emitted).toEqual([])
+  })
+
+  it('reads the pending steps as a snapshot, each with its newest sequence', () => {
+    const { frames, emitted, steps } = coalescer()
+    steps.add(right)
+    steps.add(right)
+    steps.add(zoomIn)
+    const snapshot = steps.pendingSteps()
+    expect(snapshot).toEqual([
+      { sequence: 2, step: { kind: 'rotate', azimuthDegrees: -30, polarDegrees: 0 } },
+      { sequence: 3, step: zoomIn },
+    ])
+    expect(frames.scheduled(), 'the read schedules no frame of its own').toBe(1)
+
+    steps.add(up)
+    expect(steps.pendingSteps(), 'the fresh read carries the merge').toEqual([
+      { sequence: 4, step: { kind: 'rotate', azimuthDegrees: -30, polarDegrees: 15 } },
+      { sequence: 3, step: zoomIn },
+    ])
+    expect(snapshot, 'the snapshot already read is not a live view').toEqual([
+      { sequence: 2, step: { kind: 'rotate', azimuthDegrees: -30, polarDegrees: 0 } },
+      { sequence: 3, step: zoomIn },
+    ])
+
+    frames.runFrame()
+    expect(steps.pendingSteps()).toEqual([])
+    expect(emitted).toHaveLength(2)
   })
 })

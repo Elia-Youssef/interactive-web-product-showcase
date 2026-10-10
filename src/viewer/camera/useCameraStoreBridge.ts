@@ -11,6 +11,7 @@ import {
 } from '@store/index'
 import type { StoreApi } from 'zustand/vanilla'
 import { CameraStepCoalescer, isNoStep, type FrameSchedule } from '@lib/camera/cameraStep'
+import { CameraRequestGeneration } from './cameraRequestGeneration'
 import type { StageCameraState } from './stageCameraApi'
 import {
   CameraNoPlanError,
@@ -34,7 +35,9 @@ import { readControlsEnd } from './controls'
 // functions the in-canvas callers use, so there is one move path for each
 // kind; every move is awaited and its typed outcome reported with its
 // request's sequence, so nothing throws into the store, and the store keeps
-// the newest one.
+// the newest one. Each watcher owns the generation of requests it started:
+// its teardown retires what that generation still owes, and nothing it
+// started settles anywhere after it.
 
 export function useCameraReadoutPublish(
   controls: CameraControlsImpl | null,
@@ -109,31 +112,60 @@ function moveOf(state: StageCameraState, request: CameraRequest): Promise<void> 
 // schedule hands out, then run as one move each. Every move is awaited and
 // its outcome reported with its request's sequence (a merged step's is the
 // newest it merged); a rejection is reported loudly enough for the e2e
-// console gate to fail any test that hits one.
+// console gate to fail any test that hits one. The watcher owns one
+// generation of requests: its teardown settles everything the generation
+// still owes as one retired outcome, and nothing the generation started
+// writes or reports after it.
 export function watchCameraRequests(
   store: StoreApi<AppState>,
   move: (request: CameraRequest) => Promise<void>,
   stepFrame: FrameSchedule,
 ): () => void {
-  const run = (sequence: number, request: CameraRequest) =>
+  const generation = new CameraRequestGeneration(
+    (event) => store.getState().cameraRequestOutcome(event),
+    (message, cause) => console.error(message, cause),
+  )
+  const run = (sequence: number, request: CameraRequest) => {
+    generation.started(sequence, request)
     runCameraRequest(
       sequence,
       request,
       () => move(request),
-      (event) => store.getState().cameraRequestOutcome(event),
-      (message) => console.error(message),
+      (event) => generation.settled(sequence, event),
+      (message, cause) => generation.failure(message, cause),
     )
+  }
   const steps = new CameraStepCoalescer(stepFrame, ({ sequence, step }) => {
+    if (!generation.isLive()) {
+      return
+    }
     if (isNoStep(step)) {
-      store.getState().cameraRequestOutcome({ kind: 'unchanged', sequence, request: step })
+      generation.settled(sequence, { kind: 'unchanged', sequence, request: step })
     } else {
       run(sequence, step)
     }
   })
+  const unsubscribe = subscribeToCameraRequests(store, steps, run)
+  return () => {
+    unsubscribe()
+    generation.end(steps.pendingSteps())
+    steps.dispose()
+  }
+}
+
+// The channel side of the watcher. Each request above the last executed
+// one is the newest intent: a view runs at once and drops the steps still
+// pending, since it moves the camera somewhere of its own; a step joins
+// the frame's coalescing.
+function subscribeToCameraRequests(
+  store: StoreApi<AppState>,
+  steps: CameraStepCoalescer,
+  run: (sequence: number, request: CameraRequest) => void,
+): () => void {
   // The channel is the newest intent, not a backlog: requests made before
   // this mount are not waiting on it.
   let executedSequence = selectCameraRequestChannel(store.getState()).sequence
-  const unsubscribe = store.subscribe((next) => {
+  return store.subscribe((next) => {
     const channel = selectCameraRequestChannel(next)
     if (!hasUnhandledCameraRequest(channel, executedSequence)) {
       return
@@ -150,27 +182,27 @@ export function watchCameraRequests(
     }
     steps.add(request, channel.sequence)
   })
-  return () => {
-    unsubscribe()
-    steps.dispose()
-  }
 }
 
 // One channel request, one camera move. The two synchronous failures of the
 // move API are typed errors, so a rejection is classified by the error's
 // own type, never by its message; any other synchronous throw is not a move
 // failure the channel knows and stays loud. The move is awaited and its
-// outcome reported once. Superseded moves included: camera-controls
-// resolves every superseded promise at the same final rest, so two
-// overlapping requests both report arrived, and the store keeps the
-// newer one's.
+// outcome reported once: resolved as arrived, failed after it started as
+// the third typed rejection, move-failed, reported as loudly as the
+// synchronous two, so no failure of the move is ever an unhandled
+// rejection. Every loud report carries the error that caused it. Superseded moves included: camera-controls resolves every
+// superseded promise at the same final rest, so two overlapping requests
+// both report arrived, and the store keeps the newer one's.
 export function runCameraRequest(
   sequence: number,
   request: CameraRequest,
   move: () => Promise<void>,
   report: (event: CameraOutcomeEvent) => void,
-  reportRejection: (message: string) => void,
+  reportRejection: (message: string, cause: unknown) => void,
 ): void {
+  const rejectionMessage = (reason: CameraRequestRejectionReason) =>
+    `the camera request #${sequence} ${describeCameraRequest(request)} was rejected: ${reason}`
   let pending: Promise<void>
   try {
     pending = move()
@@ -180,16 +212,23 @@ export function runCameraRequest(
       throw error
     }
     report({ kind: 'rejected', sequence, request, reason })
-    reportRejection(
-      `the camera request #${sequence} ${describeCameraRequest(request)} was rejected: ${reason}`,
-    )
+    reportRejection(rejectionMessage(reason), error)
     return
   }
-  void pending.then(() => report({ kind: 'arrived', sequence, request }))
+  void pending.then(
+    () => report({ kind: 'arrived', sequence, request }),
+    (error: unknown) => {
+      report({ kind: 'rejected', sequence, request, reason: 'move-failed' })
+      reportRejection(rejectionMessage('move-failed'), error)
+    },
+  )
 }
 
-// The rejection reason of a move failure, or null when the error is not one
-// of the two typed move failures.
+// The rejection reason of a synchronous move failure, or null when the
+// error is not one of the two typed failures the move API throws before a
+// move starts. A failure of the started move itself is move-failed, and
+// needs no classification: nothing about the error changes what the
+// channel owes for it.
 export function rejectionReasonOf(error: unknown): CameraRequestRejectionReason | null {
   if (error instanceof CameraNoPlanError) {
     return 'no-plan'
