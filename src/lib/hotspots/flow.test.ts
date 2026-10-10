@@ -6,27 +6,13 @@ import {
   type HotspotFlowTransition,
   type HotspotStatus,
 } from './flow'
+import { OTHER, PRODUCT, press, selected } from './flowFixtures'
 
 // The flow table: every event from every kind of status, with and without
 // a close-up, assembled and exploded. 'driver' and 'logo' stand for any
 // hotspots with a close-up, 'knob' and 'switch' for any without one; both
-// products carry a 'driver' hotspot.
-
-const PRODUCT = 'sample-one'
-const OTHER = 'sample-two'
-
-function selected(hotspot: string, closeUp: boolean, product = PRODUCT): HotspotStatus {
-  return { kind: 'selected', product, hotspot, closeUp }
-}
-
-function press(
-  hotspot: string,
-  hasCloseUp: boolean,
-  assembled: boolean,
-  product = PRODUCT,
-): HotspotFlowEvent {
-  return { kind: 'pressed', product, hotspot, hasCloseUp, assembled }
-}
+// products carry a 'driver' hotspot. Every press here comes from a marker;
+// the Highlights list's presses are flowOrigin.test.ts.
 
 const IDLE = initialHotspotStatus
 

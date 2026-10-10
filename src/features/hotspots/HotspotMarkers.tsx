@@ -61,7 +61,7 @@ export function HotspotMarkers({ product, dock, chrome }: HotspotMarkersProps) {
           selected={flow.selected === hotspot.id}
           onToggle={(marker) => {
             captureTrigger(marker)
-            flow.press(hotspot.id)
+            flow.press(hotspot.id, 'marker')
           }}
         />
       ))}
