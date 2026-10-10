@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test'
 import { expect, test } from './fixtures'
 import { productLoadBudgetMs, testBodyBudgetMs } from './budgets'
 import { requireCamera } from './hotspotViews'
+import { hudRestText } from '../../src/viewer/hud/restText'
 
 function renderedFrames(page: Page): Promise<number> {
   return page.evaluate(() => window.__viewer?.renderedFrames ?? -1)
@@ -56,8 +57,8 @@ test('the stage stands still at rest and renders again on a resize', async ({
   await page.waitForTimeout(2000)
   expect(await renderedFrames(page)).toBe(framesAtRest)
 
-  // The HUD's rolling window has passed, so its FPS reads exactly zero.
-  await expect(page.getByTestId('hud-fps')).toHaveText('0.0')
+  // The HUD's rolling window has passed, so its FPS reads its rest text.
+  await expect(page.getByTestId('hud-fps')).toHaveText(hudRestText.fps)
 
   // A viewport resize owes a frame, and the renderer renders it.
   await page.setViewportSize({ width: 900, height: 600 })
