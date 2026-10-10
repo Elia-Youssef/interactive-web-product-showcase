@@ -1,35 +1,53 @@
 @import '../styles/tokens.css';
 
+/*
+The turning ink lives on pseudo elements: a turned square's axis aligned
+box passes every box it sits in, so a turning ring must not be a layout
+participant at all. Each ring paints from a mark sized pseudo anchored to
+the top bar, whose width keeps the turned box and whose height is the
+mark's own, so the decoration holds no box of its own and no element of
+the layout grows or moves for it.
+*/
+
 .mark {
-  position: relative;
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   inline-size: var(--size-ra-mark);
   block-size: var(--size-ra-mark);
   pointer-events: none;
+  /* The white ring paints behind the sweep below; the mark groups its own
+  paint so the negative order cannot reach the bar's background. */
+  isolation: isolate;
   animation: var(--animation-ra-spin) var(--duration-ra-spin) var(--ease-ra-spin) infinite;
 }
 
-.ring,
-.glow,
-.sweep,
-.glyph {
+.mark::before,
+.sweep::before {
+  content: '';
   position: absolute;
-  inset: 0;
-  inline-size: var(--size-fill);
-  block-size: var(--size-fill);
-}
-
-.ring {
+  inline-size: var(--size-ra-mark);
+  block-size: var(--size-ra-mark);
   mask: url('/brand/ra-ring.png') center / contain no-repeat;
-  background-color: var(--white);
   transform: rotate(var(--ra-spin-angle));
 }
 
-.sweep .ring {
+.mark::before {
+  background-color: var(--white);
+  z-index: -1;
+}
+
+.sweep::before {
   background-color: var(--red);
 }
 
 .glow {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--ra-turn-box);
+  block-size: var(--size-ra-mark);
   filter: drop-shadow(
       0 0 calc(var(--size-ra-mark) * var(--ra-sweep-glow-near-ratio))
         rgb(var(--red-rgb) / var(--ra-sweep-alpha-near))
@@ -40,24 +58,48 @@
     );
 }
 
+/*
+The sweep hosts the red ring's pseudo and masks the band it paints: the
+wedge stands still in page space at the mark's own box while the ring
+turns under it. It fills the glow that filters it, inline the turn box,
+the smallest whole pixel box at or above the turned mark's diagonal, so
+the turned box never passes it sideways; the overhang above and below is
+ring corner space where nothing paints, and counts along the top bar's
+chain only. Its own box is the mark's height, so it sits inside the bar
+wherever the mark does, at any width.
+*/
 .sweep {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--size-fill);
+  block-size: var(--size-fill);
+  padding-inline: calc((var(--ra-turn-box) - var(--size-ra-mark)) / 2);
   mask-image: conic-gradient(
     var(--ra-mask-clear) var(--ra-angle-start) calc(var(--ra-angle-full) - var(--ra-sweep-end)),
     var(--black) calc(var(--ra-angle-full) - var(--ra-sweep-end))
       calc(var(--ra-angle-full) - var(--ra-sweep-start)),
     var(--ra-mask-clear) calc(var(--ra-angle-full) - var(--ra-sweep-start)) var(--ra-angle-full)
   );
+  mask-origin: content-box;
+  mask-clip: content-box;
+  mask-size: var(--size-ra-mark) var(--size-ra-mark);
+  mask-position: center;
+  mask-repeat: no-repeat;
   animation: var(--animation-ra-sweep) var(--duration-ra-sweep) var(--ease-ra-sweep) infinite;
+}
+
+.glyph {
+  position: absolute;
+  inline-size: var(--size-ra-mark);
+  block-size: var(--size-ra-mark);
+  overflow: visible;
+  transition: filter var(--duration-ra-hover) var(--ease-ra-hover);
 }
 
 .polygon {
   fill: var(--white);
   pointer-events: auto;
-}
-
-.glyph {
-  overflow: visible;
-  transition: filter var(--duration-ra-hover) var(--ease-ra-hover);
 }
 
 @media (hover: hover) {

@@ -225,6 +225,16 @@ their minimum below it, switched by the breakpoints at the end of this file.
   /* The height of the viewport, for the app shell that must span it. */
   --height-viewport: 100vh;
   --size-ra-mark: var(--space-8);
+  /*
+  The turn box: a turned square's axis aligned box grows to the mark's
+  diagonal, size times the square root of two, so the layer that holds a
+  turning ring is inline the smallest whole pixel box at or above it (46 px
+  at the 32 px mark) and block the mark's own size. The whole pixel width
+  keeps the turned ring on the layout's pixel grid; the inline overhang
+  around the mark stays under the top bar's inline padding, and the ring
+  corners above and below paint nothing.
+  */
+  --ra-turn-box: round(up, calc(var(--size-ra-mark) * sqrt(2)), 1px);
   /* The mark's glows read at its small size and scale with its box. */
   --ra-angle-start: 0deg;
   --ra-angle-full: 360deg;
