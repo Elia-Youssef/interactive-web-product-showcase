@@ -1,0 +1,81 @@
+@import '../styles/tokens.css';
+
+.mark {
+  position: relative;
+  display: block;
+  inline-size: var(--size-ra-mark);
+  block-size: var(--size-ra-mark);
+  pointer-events: none;
+  animation: var(--animation-ra-spin) var(--duration-ra-spin) var(--ease-ra-spin) infinite;
+}
+
+.ring,
+.glow,
+.sweep,
+.glyph {
+  position: absolute;
+  inset: 0;
+  inline-size: var(--size-fill);
+  block-size: var(--size-fill);
+}
+
+.ring {
+  mask: url('/brand/ra-ring.png') center / contain no-repeat;
+  background-color: var(--white);
+  transform: rotate(var(--ra-spin-angle));
+}
+
+.sweep .ring {
+  background-color: var(--red);
+}
+
+.glow {
+  filter: drop-shadow(
+      0 0 calc(var(--size-ra-mark) * var(--ra-sweep-glow-near-ratio))
+        rgb(var(--red-rgb) / var(--ra-sweep-alpha-near))
+    )
+    drop-shadow(
+      0 0 calc(var(--size-ra-mark) * var(--ra-sweep-glow-far-ratio))
+        rgb(var(--red-rgb) / var(--ra-sweep-alpha-far))
+    );
+}
+
+.sweep {
+  mask-image: conic-gradient(
+    var(--ra-mask-clear) var(--ra-angle-start) calc(var(--ra-angle-full) - var(--ra-sweep-end)),
+    var(--black) calc(var(--ra-angle-full) - var(--ra-sweep-end))
+      calc(var(--ra-angle-full) - var(--ra-sweep-start)),
+    var(--ra-mask-clear) calc(var(--ra-angle-full) - var(--ra-sweep-start)) var(--ra-angle-full)
+  );
+  animation: var(--animation-ra-sweep) var(--duration-ra-sweep) var(--ease-ra-sweep) infinite;
+}
+
+.polygon {
+  fill: var(--white);
+  pointer-events: auto;
+}
+
+.glyph {
+  overflow: visible;
+  transition: filter var(--duration-ra-hover) var(--ease-ra-hover);
+}
+
+@media (hover: hover) {
+  .glyph:has(.polygon:hover) {
+    filter: drop-shadow(
+        0 0 calc(var(--size-ra-mark) * var(--ra-hover-glow-near-ratio))
+          rgb(var(--red-rgb) / var(--ra-hover-alpha-near))
+      )
+      drop-shadow(
+        0 0 calc(var(--size-ra-mark) * var(--ra-hover-glow-far-ratio))
+          rgb(var(--red-rgb) / var(--ra-hover-alpha-far))
+      );
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mark,
+  .sweep {
+    animation: none;
+  }
+}

@@ -4,6 +4,7 @@
 // composition through dockRef and chromeRef.
 
 import type { ReactNode, Ref } from 'react'
+import { RaMark } from '@ui/index'
 import { TopBar } from './TopBar'
 import { Panel } from './Panel'
 import { Stage } from './Stage'
@@ -25,7 +26,7 @@ export type AppLayoutProps = {
 }
 
 export function AppLayout({
-  mark,
+  mark = <RaMark />,
   productIndex,
   panel,
   stage,

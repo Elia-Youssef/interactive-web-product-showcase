@@ -1,15 +1,104 @@
 import type { Locator, Page } from '@playwright/test'
 import { expect, test } from './fixtures'
-import { testBodyBudgetMs } from './budgets'
+import { restWindowBudgetMs, testBodyBudgetMs } from './budgets'
 import { productPathOf } from './collectionFacts'
 import { requireHotspotProducts } from './hotspotProducts'
 import { countDifferingPixels } from './lookPixels'
 import { loadCollection } from './productList'
 import { harnessPath, waitForProductReady } from './productSpecs'
+import { runningCaptureMotion } from './captureMotion'
 import { settledStageCapture } from './stageCapture'
 import type { RegionBox } from './stagePixels'
 import { countRegionPixelsBrighterThan, decodeScreenshotRGBA } from './stagePixels'
 import { settledStage } from './stageSettle'
+import { ambientMotion } from '../../src/lib/motion/ambientMotion'
+
+test('a capture pins declared ambient motion at rest and leaves other paused motion alone', async ({
+  page,
+  backendPath,
+}) => {
+  await page.goto(backendPath)
+  await waitForProductReady(page)
+  await page.evaluate((marker) => {
+    const ambient = document.createElement('div')
+    ambient.setAttribute(marker.attribute, marker.value)
+    document.body.append(ambient)
+    const child = document.createElement('span')
+    ambient.append(child)
+    child.animate([{ opacity: 0 }, { opacity: 1 }], {
+      id: 'planted-ambient',
+      duration: 1000,
+      iterations: Infinity,
+    })
+    const owned = document.body.animate([{ opacity: 1 }, { opacity: 1 }], {
+      id: 'planted-unmarked',
+      duration: 1000,
+    })
+    owned.pause()
+    owned.currentTime = 321
+  }, ambientMotion)
+  await settledStageCapture(page)
+  const state = await page.evaluate(
+    (selector) =>
+      document.getAnimations().map((animation) => ({
+        id: animation.id,
+        ambient:
+          animation.effect instanceof KeyframeEffect &&
+          animation.effect.target instanceof Element &&
+          animation.effect.target.closest(selector) !== null,
+        state: animation.playState,
+        time: animation.currentTime,
+      })),
+    ambientMotion.selector,
+  )
+  expect(state).toContainEqual({ id: 'planted-ambient', ambient: true, state: 'paused', time: 0 })
+  for (const entry of state.filter((candidate) => candidate.ambient)) {
+    expect(entry).toMatchObject({ state: 'paused', time: 0 })
+  }
+  expect(state).toContainEqual({
+    id: 'planted-unmarked',
+    ambient: false,
+    state: 'paused',
+    time: 321,
+  })
+})
+
+test('the capture settle waits on an unmarked infinite animation and never on a declared one', async ({
+  page,
+  backendPath,
+}) => {
+  await page.goto(backendPath)
+  await waitForProductReady(page)
+  await page.evaluate((marker) => {
+    const ambient = document.createElement('div')
+    ambient.setAttribute(marker.attribute, marker.value)
+    document.body.append(ambient)
+    ambient.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 1000, iterations: Infinity })
+    document.body.animate([{ opacity: 1 }, { opacity: 1 }], {
+      duration: 1000,
+      iterations: Infinity,
+    })
+  }, ambientMotion)
+  // The one-time effects end on their own. The unmarked infinite effect never
+  // does, so the count the settle waits to see at zero holds at exactly one:
+  // it blocks the settle, and the declared effect beside it does not count.
+  await expect.poll(() => runningCaptureMotion(page), { timeout: testBodyBudgetMs }).toBe(1)
+})
+
+test('ambient captures are pixel identical seconds apart', async ({ page, backendPath }) => {
+  await page.goto(backendPath)
+  await waitForProductReady(page)
+  const first = await settledStageCapture(page)
+  await page.waitForTimeout(restWindowBudgetMs)
+  const second = await settledStageCapture(page)
+  const decodedFirst = await decodeScreenshotRGBA(page, first)
+  const decodedSecond = await decodeScreenshotRGBA(page, second)
+  expect([decodedSecond.width, decodedSecond.height]).toEqual([
+    decodedFirst.width,
+    decodedFirst.height,
+  ])
+  expect(Buffer.compare(Buffer.from(decodedFirst.bytes), Buffer.from(decodedSecond.bytes))).toBe(0)
+})
 
 // The contract of the suite's settled capture helper, proven at the moments
 // the caller-ordered waits used to race: right after a finish switch, when

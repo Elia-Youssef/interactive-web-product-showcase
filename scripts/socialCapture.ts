@@ -35,6 +35,11 @@ const CAPTURE_CHANNEL = 'chrome'
 // element is cut by the card's edge, and fails loudly when one still is.
 type SettledSocialCard = (page: Page, slug: string) => Promise<void>
 type CardViewport = { readonly width: number; readonly height: number }
+type PinAmbientMotion = (page: Page) => Promise<void>
+
+function isPinAmbientMotion(value: unknown): value is PinAmbientMotion {
+  return typeof value === 'function'
+}
 
 function isSettledSocialCard(value: unknown): value is SettledSocialCard {
   return typeof value === 'function'
@@ -50,6 +55,12 @@ function isCardViewport(value: unknown): value is CardViewport {
 }
 
 const jiti = createJiti(import.meta.url)
+const motionModule: unknown = await jiti.import('../tests/e2e/captureMotion.ts')
+const motionExport = namedExport(motionModule, 'pinAmbientMotion', isPinAmbientMotion)
+if (motionExport.kind === 'absent') {
+  throw new Error("expected a 'pinAmbientMotion' export in tests/e2e/captureMotion.ts")
+}
+const pinAmbientMotion = motionExport.value
 const cardsModule: unknown = await jiti.import('../tests/e2e/socialCards.ts')
 const cardsExport = namedExport(cardsModule, 'settledSocialCard', isSettledSocialCard)
 if (cardsExport.kind === 'absent') {
@@ -89,6 +100,7 @@ async function main(): Promise<void> {
         await page.goto(`${baseURL}/p/${socialPage.slug}`)
         await settledSocialCard(page, socialPage.slug)
         const file = path.join(socialDir, `${socialPage.slug}.png`)
+        await pinAmbientMotion(page)
         await writeFile(file, await page.screenshot())
         process.stdout.write(
           `captured /p/${socialPage.slug} -> public/social/${socialPage.slug}.png ` +
