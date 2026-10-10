@@ -24,9 +24,13 @@ import { modelPathOf } from '../../scripts/fixtureProducts.ts'
 import { createModelIO } from '../../scripts/modelIo.ts'
 import { readCameraFacts, readMeshBoxes } from '../../scripts/modelFacts.ts'
 import { listShippedSlugs } from '../../scripts/shippedProducts.ts'
-import { parseProduct } from '../../src/lib/product/index.ts'
+import { parseProduct, type Product } from '../../src/lib/product/index.ts'
+import {
+  CAMERA_HOME_ID,
+  CAMERA_HOME_NAME,
+  CAMERA_PREFIX,
+} from '../../src/lib/product/contractNames.ts'
 import { measureModelFrame } from '../../src/viewer/modelFrame'
-import type { Product } from '../../src/lib/product/index.ts'
 import { readManifestFile } from '../../scripts/manifestIo.ts'
 import { productPaths } from '../../scripts/productPaths.ts'
 import { frameSpanOfMeshBoxes } from '../../src/lib/camera/frame.ts'
@@ -112,13 +116,13 @@ describe('the document facts agree with the real loader on every shipped product
 
     // The home ray the document facts read, against the loader's camera
     // world transform, in model space.
-    const homeFact = readCameraFacts(doc).find((fact) => fact.name === 'CAM_home')
+    const homeFact = readCameraFacts(doc).find((fact) => fact.name === CAMERA_HOME_NAME)
     if (homeFact === undefined || homeFact.ray === null) {
       throw new Error(`the shipped product ${slug} carries no home camera ray`)
     }
-    const homeCamera = parsed.scene.getObjectByName('CAM_home')
+    const homeCamera = parsed.scene.getObjectByName(CAMERA_HOME_NAME)
     if (!(homeCamera instanceof PerspectiveCamera)) {
-      throw new Error(`the loader tree of ${slug} holds no perspective CAM_home`)
+      throw new Error(`the loader tree of ${slug} holds no perspective ${CAMERA_HOME_NAME}`)
     }
     const position = homeCamera.getWorldPosition(new Vector3())
     const forward = homeCamera.getWorldDirection(new Vector3())
@@ -142,7 +146,7 @@ describe('the document facts agree with the real loader on every shipped product
       ),
     )
     for (const [id, view] of plan.views) {
-      const expected = id === 'home' ? facts.home : facts.closeUps.get(id)
+      const expected = id === CAMERA_HOME_ID ? facts.home : facts.closeUps.get(id)
       if (expected === undefined) {
         throw new Error(`the plan of ${slug} presents a view ${id} the facts do not carry`)
       }
@@ -221,9 +225,9 @@ describe('the document facts agree with the real loader on every shipped product
       // and the rules every other view answers to still agree beside it.
       for (const id of ids) {
         const { doc } = await shippedDocument(slug)
-        const camera = firstNodeNamed(doc, `CAM_${id}`).getCamera()
+        const camera = firstNodeNamed(doc, `${CAMERA_PREFIX}${id}`).getCamera()
         if (camera === null) {
-          throw new Error(`the CAM_${id} node of ${slug} carries no camera`)
+          throw new Error(`the ${CAMERA_PREFIX}${id} node of ${slug} carries no camera`)
         }
         camera.setYFov(0)
         const validateViolations = checkCameras(
@@ -234,7 +238,7 @@ describe('the document facts agree with the real loader on every shipped product
         const { rig, frame } = presentedProduct(await parseDocumentWithLoader(doc), manifest)
         const problems = planProblems(rig, manifest, frame)
         if (problems === null) {
-          throw new Error(`the plan of ${slug} built with a degenerate CAM_${id}`)
+          throw new Error(`the plan of ${slug} built with a degenerate ${CAMERA_PREFIX}${id}`)
         }
         const messages = problems.map((problem) => problem.message)
         expect(validateViolations).toEqual(messages)

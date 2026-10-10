@@ -6,6 +6,7 @@ import { normalizedAzimuthDegrees } from '../../src/lib/camera/azimuth'
 import { loadCollection } from './productList'
 import { readProductCameraFacts } from './productCamera'
 import { waitForProductReady } from './productSpecs'
+import { phoneReference } from './layoutContracts'
 import { settledFrames, settledStage } from './stageSettle'
 import {
   ASPECT_SIDES,
@@ -156,7 +157,7 @@ test('under 640px the pill keeps every control, so a single pointer zooms', asyn
   page,
   backendPath,
 }) => {
-  await page.setViewportSize({ width: 390, height: 844 })
+  await page.setViewportSize(phoneReference)
   await readyStage(page, backendPath)
 
   // Pinch is a two-finger gesture, so the phone keeps the zoom buttons and

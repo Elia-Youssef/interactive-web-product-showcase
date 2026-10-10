@@ -5,6 +5,7 @@ import { siteCopy } from '../../src/lib/copy/site'
 import { formatProductCounter, formatProductIndex, productName } from '../../src/lib/product'
 import { formatProductPath } from '../../src/lib/routing'
 import { loadCollection } from './productList'
+import { resolvedTokenColor } from './tokenColor'
 import { waitForProductReady } from './productSpecs'
 import { routePath } from './appPaths'
 import { markerOf } from './hotspotViews'
@@ -32,9 +33,8 @@ import {
 // from the first product proves the moves, the history and the query.
 
 const collection = await loadCollection()
-const products = collection.products
-const first = collection.first
-const NOT_FOUND_PATH = '/p/does-not-exist'
+const { products, first } = collection
+const NOT_FOUND_PATH = formatProductPath('does-not-exist')
 
 for (const product of products) {
   test(`the navigation row of ${product.slug} reads the counter and the collection's neighbors`, async ({
@@ -62,16 +62,15 @@ test('clicking next, then previous, moves between products, and back and forward
   backendPath,
 }) => {
   test.setTimeout(testBudgetMs({ productLoads: 5 }))
-  const start = first
-  const viaNext = neighborsOf(collection, start).next
+  const viaNext = neighborsOf(collection, first).next
   const backAgain = neighborsOf(collection, viaNext).previous
 
-  await page.goto(productPathOf(backendPath, start))
+  await page.goto(productPathOf(backendPath, first))
   await waitForProductReady(page)
 
   // Next moves to the collection's next product, and the URL the click
   // lands on is the address the link shows.
-  const { next } = rowControls(page, collection, start)
+  const { next } = rowControls(page, collection, first)
   const nextHref = await next.getAttribute('href')
   await next.click()
   await expectProduct(page, viaNext)
@@ -310,13 +309,15 @@ test('the counter lifts its whole readout on hover', async ({ page, backendPath 
 
   await counter.hover()
   // The lift is one hover transition of the control; the allowance is the
-  // suite's named small-wait budget.
+  // suite's named small-wait budget. The lifted color is the token the
+  // stylesheet lifts to, read as the browser resolves it.
+  const lifted = await resolvedTokenColor(page, '--white')
   await expect
     .poll(() => readout.evaluate((element) => getComputedStyle(element).color), {
       timeout: hudDrainBudgetMs,
     })
-    .toBe('rgb(255, 255, 255)')
-  expect(before).not.toBe('rgb(255, 255, 255)')
+    .toBe(lifted)
+  expect(before).not.toBe(lifted)
 })
 
 test('the not-found page renders no navigation row', async ({ page, backendPath }) => {

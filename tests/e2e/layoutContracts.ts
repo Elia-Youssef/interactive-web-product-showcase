@@ -54,6 +54,10 @@ function phone(width: number, height: number, snapshotName?: string): ViewportCo
   }
 }
 
+// The phone reference layout, named so the specs that need the phone's
+// viewport alone share the reference the card and layout specs run.
+export const phoneReference = phone(390, 844, 'layout-390x844.png')
+
 // The reference layout of each layout mode: the wide and the narrow
 // desktop, the tablet and the phone. Every layout spec runs at these, the
 // hotspot card flows included, since a card's placement, docking and
@@ -89,7 +93,7 @@ export const referenceLayouts: readonly ViewportContract[] = [
     hotspotCard: 'floats',
     snapshotName: 'layout-768x1024.png',
   },
-  phone(390, 844, 'layout-390x844.png'),
+  phoneReference,
 ]
 
 // The reflow sizes: the short phones, where the resting sheet must still
