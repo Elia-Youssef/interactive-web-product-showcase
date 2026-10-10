@@ -1,6 +1,8 @@
 import type { RendererBackend } from '@lib/renderer/backend'
 import { detectRendererBackend } from '@lib/renderer/detect'
+import { StageRendererStartError } from '@lib/renderer/initFailure'
 import type { BackendRequestResult } from '@lib/renderer/request'
+import { asError } from '@lib/errors'
 import { WebGPURenderer } from 'three/webgpu'
 import { stageConfig } from './config'
 import { assertStageRenderer } from './stageIdentity'
@@ -55,7 +57,9 @@ export function createStageRenderer(request: BackendRequestResult): StageRendere
       forceWebGL: request.request.kind === 'forced-webgl2',
     })
     // The factory owns the renderer until all startup checks pass and R3F
-    // takes it. Rollback must finish before reporting the original failure.
+    // takes it. Rollback must finish before the failure is reported, and a
+    // rollback that fails with its own error travels with the start failure
+    // instead of being dropped.
     try {
       await renderer.init()
       assertStageRenderer(renderer)
@@ -66,13 +70,21 @@ export function createStageRenderer(request: BackendRequestResult): StageRendere
       started = startedRenderer
       return renderer
     } catch (error) {
+      const startup = asError(error)
       try {
         await renderer.dispose()
-      } catch {
-        // Startup remains the reported cause if rollback also fails.
-        throw error
+      } catch (rollbackFailure) {
+        // A disposal after a failed init can reject with the init error
+        // itself: the same failure is not a second one. Identity is read on
+        // the values raised, before normalization, so a non-Error value
+        // raised by both counts once too. Any other rollback rejection is a
+        // failure of its own and is reported with the start failure, the
+        // start failure first.
+        if (rollbackFailure !== error) {
+          throw new StageRendererStartError(startup, asError(rollbackFailure))
+        }
       }
-      throw error
+      throw startup
     }
   }
 
