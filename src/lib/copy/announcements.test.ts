@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'vitest'
-import { announcementCopy, nextAnnouncement, type AnnouncedState } from './announcements'
+import {
+  announcementCopy,
+  cardWords,
+  nextAnnouncement,
+  type AnnouncedCard,
+  type AnnouncedState,
+} from './announcements'
 
 // Neutral fixture words, never a real product's: the derivation reads
 // whatever the page presents, and the real words belong to src/products/.
@@ -10,6 +16,7 @@ function state(overrides: Partial<AnnouncedState> = {}): AnnouncedState {
     finishLabel: 'Graphite',
     cameraLimits: { zoom: null, tilt: null },
     homeArrival: null,
+    card: null,
     ...overrides,
   }
 }
@@ -107,5 +114,36 @@ describe('nextAnnouncement', () => {
     })
 
     expect(nextAnnouncement(state(), next)).toBe('Sample Three')
+  })
+
+  const driverWords = cardWords('Full-range driver', ['Set behind the grille', 'Ported below'])
+  const fromMarker: AnnouncedCard = { hotspot: 'driver', origin: 'marker', words: driverWords }
+  const fromList: AnnouncedCard = { hotspot: 'driver', origin: 'list', words: driverWords }
+
+  test('a card opened from a marker reads its title and bullets once', () => {
+    expect(driverWords).toBe('Full-range driver. Set behind the grille. Ported below')
+    expect(nextAnnouncement(state(), state({ card: fromMarker }))).toBe(driverWords)
+    expect(nextAnnouncement(state({ card: fromMarker }), state({ card: fromMarker }))).toBeNull()
+  })
+
+  test('another marker card reads its own words', () => {
+    const shell: AnnouncedCard = { hotspot: 'shell', origin: 'marker', words: 'Shell. Cast' }
+    expect(nextAnnouncement(state({ card: fromMarker }), state({ card: shell }))).toBe(
+      'Shell. Cast',
+    )
+  })
+
+  test('a card opened from the list announces nothing: it sits under the focused item', () => {
+    expect(nextAnnouncement(state(), state({ card: fromList }))).toBeNull()
+  })
+
+  test('a list card a marker press moves to the stage reads its words', () => {
+    expect(nextAnnouncement(state({ card: fromList }), state({ card: fromMarker }))).toBe(
+      driverWords,
+    )
+  })
+
+  test('a card that closes announces nothing', () => {
+    expect(nextAnnouncement(state({ card: fromMarker }), state())).toBeNull()
   })
 })
