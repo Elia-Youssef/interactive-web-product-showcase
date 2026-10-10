@@ -16,19 +16,22 @@ import {
 import { renderedFramesOf, settledStage } from './stageSettle'
 import { frameFaultMessage } from '../../src/app/product-harness/frameFaultQuery'
 import { stageConfig } from '../../src/viewer/config'
-import { StageRetiredError } from '../../src/viewer/StageRetiredError'
+import {
+  expectProductRetirementReports,
+  observeEnvironmentSettleFailures,
+} from './environmentSettleReports'
 
 const collection = await loadCollection()
 const start = collection.first
 const next = neighborsOf(collection, start).next
 const recovery = neighborsOf(collection, next).next
 
-test.beforeEach(({ consoleGate }) => {
-  // The failed report and both StrictMode leave settles keep their rejected
-  // frame supply loud. An unrelated error, or a missing cause, still fails.
-  consoleGate.expectError(new RegExp(`^console error: ${new StageRetiredError('retired')}$`), {
-    times: 3,
-  })
+test.beforeEach(async ({ page }) => {
+  await observeEnvironmentSettleFailures(page)
+})
+
+test.afterEach(async ({ page, consoleGate }) => {
+  await expectProductRetirementReports(page, consoleGate)
 })
 
 test('a retired harness present still reports failed once', async ({ page, backendPath }) => {
