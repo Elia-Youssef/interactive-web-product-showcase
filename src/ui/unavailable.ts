@@ -30,9 +30,33 @@ export function ignoresActivation(props: { disabled?: boolean; unavailable?: boo
   return props.disabled === true || props.unavailable === true
 }
 
-// The key hold a waiting range input takes: a native input moves to its
-// keys by their default action, so the hold is the key half of the
-// activation the primitive ignores.
-export function stopKeyAction(event: { preventDefault(): void }): void {
-  event.preventDefault()
+// The value keys of a range input: the keys whose default action moves its
+// value, the set the HTML range state and the slider pattern's keyboard
+// interactions agree on. The set is the hold's whole extent: a waiting
+// range input holds exactly these keys, and every other key, Tab and
+// Shift+Tab among them, keeps its default and reaches the page.
+export const rangeValueKeys: ReadonlySet<string> = new Set([
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  'ArrowUp',
+  'End',
+  'Home',
+  'PageDown',
+  'PageUp',
+])
+
+// The key hold a waiting range input takes, the key half of the activation
+// the primitive ignores: a range input moves to its value keys by their
+// default action, so the hold prevents exactly those.
+export function holdValueKey(event: { key: string; preventDefault(): void }): void {
+  if (rangeValueKeys.has(event.key)) {
+    event.preventDefault()
+  }
 }
+
+// The change hold a waiting field takes, the change half of the activation
+// it ignores: the change event arrives answered by nothing, which is the
+// word a controlled field takes in place of the readonly attribute, and
+// the value the caller holds is never moved by it.
+export function ignoreChange(): void {}
