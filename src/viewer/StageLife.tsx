@@ -7,6 +7,7 @@ import { StageOverlay } from './overlay/StageOverlay'
 import { StageOverlayContext } from './overlay/stageOverlayContext'
 import { StageKeyTarget } from './camera/StageKeyTarget'
 import styles from './StageLife.module.css'
+import { flushSync } from 'react-dom'
 
 type StageLifeProps = {
   // The canvas of this life, or null for a stage that mounts none.
@@ -33,12 +34,18 @@ type StageLifeProps = {
 // laid over the canvas, apart from whatever a page lays over the stage
 // beside it.
 export function StageLife({ canvas, overlay }: StageLifeProps) {
-  const [channel] = useState(() => new StageOverlay())
+  const [channel] = useState(() => new StageOverlay(flushSync))
   const [gestures] = useState(() => new StagePointerGestures())
   const probes = useStageProbes()
 
   useEffect(
-    () => probes.register('overlay', () => ({ placements: channel.placementRecord() })),
+    () =>
+      probes.register('overlay', () => ({
+        placements: channel.placementRecord(),
+        card: channel.card.read(),
+        frame: channel.presentedFrame,
+        committed: channel.card.idle,
+      })),
     [probes, channel],
   )
 

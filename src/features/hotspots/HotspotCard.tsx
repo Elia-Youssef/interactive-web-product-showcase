@@ -1,13 +1,12 @@
 import { useCallback, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { Product } from '@lib/product'
-import { siteCopy } from '@lib/copy/site'
-import { Card } from '@ui/index'
 import type { StageOverlay } from '@viewer/overlay/StageOverlay'
 import type { CardSlot, HotspotCardPresenter } from './HotspotCardPresenter'
 import { CARD_OVERLAY_KEY } from '@lib/hotspots/hotspotKeys'
-import { bringCardIntoView } from './bringCardIntoView'
 import styles from './HotspotCard.module.css'
+import { useCommittedCard } from './useCommittedCard'
+import { HotspotCardContent } from './HotspotCardContent'
 
 // The element a Highlights list item holds for its own card, while that
 // item's hotspot is the one open from the list: the hotspot it belongs to
@@ -45,15 +44,9 @@ export function HotspotCard({
   listHost,
   onClose,
 }: HotspotCardProps) {
+  const committed = useCommittedCard(overlay, hotspot.id, slot.where)
   const card = (
-    <Card
-      eyebrow={hotspot.eyebrow}
-      title={hotspot.title}
-      bullets={hotspot.bullets}
-      onClose={onClose}
-      closeLabel={siteCopy.closeLabel}
-      headingLevel={slot.where === 'listed' ? 3 : 2}
-    />
+    <HotspotCardContent hotspot={hotspot} listed={slot.where === 'listed'} onClose={onClose} />
   )
   switch (slot.where) {
     case 'listed':
@@ -63,10 +56,17 @@ export function HotspotCard({
       if (listHost === null || listHost.hotspotId !== hotspot.id) {
         return null
       }
-      return <PanelCard host={listHost.element} className={styles.listed} card={card} />
+      return (
+        <PanelCard
+          host={listHost.element}
+          className={styles.listed}
+          card={card}
+          committed={committed}
+        />
+      )
     case 'floating':
       return (
-        <FloatingCard overlay={overlay} presenter={presenter}>
+        <FloatingCard overlay={overlay} presenter={presenter} committed={committed}>
           {card}
         </FloatingCard>
       )
@@ -79,6 +79,7 @@ export function HotspotCard({
           host={dock}
           className={slot.shown ? styles.docked : `${styles.docked} ${styles.dockedHidden}`}
           card={card}
+          committed={committed}
         />
       )
   }
@@ -90,13 +91,22 @@ function PanelCard({
   host,
   className,
   card,
+  committed,
 }: {
   readonly host: HTMLElement
   readonly className: string | undefined
   readonly card: ReactNode
+  readonly committed: (element: HTMLDivElement | null) => (() => void) | undefined
 }) {
+  const attach = useCallback(
+    (element: HTMLDivElement | null) => {
+      const release = committed(element)
+      return release
+    },
+    [committed],
+  )
   return createPortal(
-    <div ref={bringCardIntoView} className={className} data-testid="hotspot-card">
+    <div ref={attach} className={className} data-testid="hotspot-card">
       {card}
     </div>,
     host,
@@ -111,10 +121,12 @@ function FloatingCard({
   overlay,
   presenter,
   children,
+  committed,
 }: {
   readonly overlay: StageOverlay
   readonly presenter: HotspotCardPresenter
   readonly children: ReactNode
+  readonly committed: (element: HTMLDivElement | null) => (() => void) | undefined
 }) {
   const attach = useCallback(
     (element: HTMLDivElement | null) => {
@@ -123,6 +135,7 @@ function FloatingCard({
         return undefined
       }
       const release = overlay.mount(CARD_OVERLAY_KEY, element, 'top-left')
+      const releaseCommit = committed(element)
       const observer = new ResizeObserver((entries) => {
         for (const entry of entries) {
           const size = entry.borderBoxSize[0]
@@ -130,15 +143,17 @@ function FloatingCard({
             throw new Error('the floating card was observed with no border box size')
           }
           presenter.measure({ width: size.inlineSize, height: size.blockSize })
+          overlay.card.present()
         }
       })
       observer.observe(element)
       return () => {
         observer.disconnect()
         release()
+        releaseCommit?.()
       }
     },
-    [overlay, presenter],
+    [overlay, presenter, committed],
   )
   return (
     <div ref={attach} className={styles.floating} data-testid="hotspot-card">

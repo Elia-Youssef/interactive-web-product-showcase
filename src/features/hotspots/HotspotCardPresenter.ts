@@ -1,3 +1,4 @@
+import type { CardIntent } from '@viewer/overlay/CommittedCard'
 import type { BoxSize } from '@lib/hotspots/cardPlacement'
 import type { StagePoint, StageRect } from '@lib/hotspots/markerBox'
 import { presentHotspotCard, type CardPresentation } from '@lib/hotspots/cardPresentation'
@@ -59,6 +60,12 @@ type PageState = {
 }
 
 export class HotspotCardPresenter {
+  private readonly desired: {
+    selected: string
+    slot: CardIntent['slot']
+    ready: boolean
+    shown: boolean
+  } = { selected: '', slot: 'floating', ready: false, shown: false }
   private selected: CardSelection | null = null
   private cardSize: BoxSize | null = null
   private slot: CardSlot | null = null
@@ -108,6 +115,7 @@ export class HotspotCardPresenter {
       return
     }
     this.cardSize = size
+    this.overlay.card.geometryChanged()
     this.readPage()
     this.present()
   }
@@ -176,6 +184,20 @@ export class HotspotCardPresenter {
   // The floating element is placed before the slot is published, so a
   // card element that mounts on the new slot enters at its placement.
   private apply(hotspotId: string, presentation: CardPresentation): void {
+    const waiting =
+      presentation.slot === 'floating' &&
+      this.cardSize === null &&
+      this.overlay.placementOf(overlayKey(hotspotId))?.kind === 'placed'
+    this.desired.selected = hotspotId
+    this.desired.slot = presentation.slot
+    this.desired.ready = !waiting
+    this.desired.shown =
+      presentation.slot === 'listed'
+        ? true
+        : presentation.slot === 'docked'
+          ? presentation.shown
+          : presentation.at !== null
+    this.overlay.card.intend(this.desired)
     switch (presentation.slot) {
       case 'listed':
         this.overlay.place(CARD_OVERLAY_KEY, HIDDEN)
@@ -206,6 +228,7 @@ export class HotspotCardPresenter {
 
   private publish(slot: CardSlot | null): void {
     this.slot = slot
+    if (slot === null) this.overlay.card.intend(null)
     for (const listener of this.listeners) {
       listener()
     }

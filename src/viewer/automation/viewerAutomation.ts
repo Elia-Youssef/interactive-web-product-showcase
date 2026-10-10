@@ -4,6 +4,7 @@ import { selectRendererBackend, type ProductStatus, type RendererStatus } from '
 import type { OverlayPlacement } from '../overlay/StageOverlay'
 import type { ViewerModel } from './viewerAutomation.logic'
 import type { CameraCompletionRead } from '@lib/camera/requestCompletion'
+import type { CommittedCardRead } from '../overlay/CommittedCard'
 import {
   productFailureOf,
   productModelOf,
@@ -128,7 +129,10 @@ export type ViewerHotspotsAutomation = {
 // markers are the visible truth; this probe shows what the channel holds
 // while no marker is mounted to show it.
 export type ViewerOverlay = {
+  readonly committed: boolean
   readonly placements: Readonly<Record<string, OverlayPlacement>>
+  readonly card: CommittedCardRead | null
+  readonly frame: number
 }
 
 // The finish a product on the stage carries: the applied variant name and,

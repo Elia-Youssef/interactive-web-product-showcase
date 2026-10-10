@@ -1,5 +1,6 @@
-import { CARD_OVERLAY_KEY, overlayKey } from '@features/hotspots'
+import { overlayKey } from '@features/hotspots'
 import type { OverlayPassRelease, StageOverlay } from '@viewer/overlay/StageOverlay'
+import type { CommittedCardRead } from '@viewer/overlay/CommittedCard'
 
 // One overlay pass as the open card and its marker left it.
 export type HarnessCardVisibilitySample = {
@@ -9,6 +10,8 @@ export type HarnessCardVisibilitySample = {
   readonly selected: string
   readonly markerVisible: boolean
   readonly cardVisible: boolean
+  readonly card: CommittedCardRead | null
+  readonly frame: number
 }
 
 // What the observer reads from the store at a pass: the open hotspot and
@@ -32,11 +35,14 @@ export function observeCardVisibility(
     if (selection === null) {
       return
     }
+    const card = overlay.card.read()
     add({
       t: selection.t,
       selected: selection.selected,
       markerVisible: overlay.placementOf(overlayKey(selection.selected))?.kind === 'placed',
-      cardVisible: overlay.placementOf(CARD_OVERLAY_KEY)?.kind === 'placed',
+      cardVisible: card?.selected === selection.selected && card.mounted && card.shown,
+      card,
+      frame: overlay.presentedFrame,
     })
   }, 'observer')
 }

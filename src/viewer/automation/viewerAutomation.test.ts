@@ -70,6 +70,9 @@ const hotspots: ViewerHotspotsAutomation = {
 }
 
 const overlay: ViewerOverlay = {
+  committed: true,
+  card: null,
+  frame: 0,
   placements: { 'hotspot:driver': { kind: 'placed', x: 120, y: 80 } },
 }
 

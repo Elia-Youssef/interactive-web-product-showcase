@@ -51,6 +51,26 @@ function pass(
 }
 
 describe('HotspotCardPresenter', () => {
+  it('keeps completion pending through first measurement and later geometry until presentation', () => {
+    const { overlay, presenter, element } = setup()
+    pass(overlay, { width: 800, height: 600 }, { driver: { x: 400, y: 300 }, knob: null })
+    overlay.card.mount('driver', 'floating', () => ({
+      mounted: true,
+      shown: element.style.visibility === 'visible',
+      bounds: { left: 0, top: 0, right: 200, bottom: 100 },
+    }))
+    presenter.show(fromMarker('driver'))
+    overlay.card.present()
+    expect(overlay.card.idle, 'a mounted host still owes its first size').toBe(false)
+    presenter.measure(card)
+    expect(overlay.card.idle, 'measured geometry still owes a presentation').toBe(false)
+    overlay.card.present()
+    expect(overlay.card.idle).toBe(true)
+    presenter.measure({ ...card, width: 210 })
+    expect(overlay.card.idle, 'later layout must also be presented').toBe(false)
+    overlay.card.present()
+    expect(overlay.card.idle).toBe(true)
+  })
   it('floats a new card hidden until its first measure, then places it beside its marker', () => {
     const { overlay, presenter, element } = setup()
     pass(overlay, { width: 800, height: 600 }, { driver: { x: 400, y: 300 }, knob: null })

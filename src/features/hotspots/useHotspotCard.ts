@@ -33,8 +33,12 @@ export function useHotspotCard(
 
   useLayoutEffect(() => {
     presenter.show(selected === null || origin === null ? null : { hotspotId: selected, origin })
-    return () => presenter.show(null)
-  }, [presenter, selected, origin])
+    overlay.card.present()
+    return () => {
+      presenter.show(null)
+      overlay.card.present()
+    }
+  }, [overlay, presenter, selected, origin])
 
   const slot = useSyncExternalStore(presenter.subscribe, presenter.snapshot)
   // A slot published for an earlier selection never renders: the layout
