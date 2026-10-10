@@ -1,10 +1,11 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { useThree } from '@react-three/fiber'
 import { assertStageRenderer } from '../stageIdentity'
-import { useStageProbes } from '../automation/stageProbesContext'
+import { useStageHolds } from '../stageHoldsContext'
 import { createProductKtx2Loader, type ProductMeshoptDecoder } from './decoders'
 import { createGltfModelSources } from './gltfModelSources'
 import { StageModelLoads } from './productModelLoads'
+import { useStageModelOwners } from './StageModelOwnersProvider'
 
 // The product model loads of the stage's renderer, in context. There is no
 // module-level cache: the loads are created inside the Canvas from the
@@ -24,28 +25,34 @@ export function useProductModelLoads(): StageModelLoads<ProductMeshoptDecoder> {
   return loads
 }
 
-// Renders its children once the renderer's decoders exist. The KTX2 loader
-// owns worker threads, so its lifetime is the effect's: every run creates a
-// fresh loader and the loads wired with it, serves them through context,
-// reports them on the stage's loads probe, and disposes exactly the loader
-// its own cleanup took ownership of.
+// Renders its children once the renderer's decoders exist. Each committed
+// run creates and holds one loading owner. Cleanup ends admission, and its
+// leases keep KTX2's workers alive until parsing and result disposal drain.
+// The stage observes obsolete owners until that release completes.
 export function ProductModelsProvider({ children }: { readonly children: ReactNode }) {
   const gl = useThree((state) => state.gl)
-  const probes = useStageProbes()
+  const owners = useStageModelOwners()
+  const holds = useStageHolds()
   const [loads, setLoads] = useState<StageModelLoads<ProductMeshoptDecoder> | null>(null)
 
   useEffect(() => {
     assertStageRenderer(gl)
     const ktx2 = createProductKtx2Loader(gl)
-    const created = new StageModelLoads(createGltfModelSources(ktx2))
-    const releaseProbe = probes.register('loads', () => created.report())
+    const created = new StageModelLoads(createGltfModelSources(ktx2), () => {
+      try {
+        ktx2.dispose()
+      } finally {
+        releaseOwner()
+      }
+    })
+    const releaseOwner = owners.register(created)
+    holds.hold(created)
     setLoads(created)
     return () => {
       setLoads(null)
-      releaseProbe()
-      ktx2.dispose()
+      holds.drop(created, () => created.retire())
     }
-  }, [gl, probes])
+  }, [gl, owners, holds])
 
   if (loads === null) {
     return null

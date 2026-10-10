@@ -1,4 +1,12 @@
-import { Line, Mesh, Points, Texture, type Material, type Object3D } from 'three/webgpu'
+import {
+  Line,
+  Mesh,
+  Points,
+  Texture,
+  type BufferGeometry,
+  type Material,
+  type Object3D,
+} from 'three/webgpu'
 import type { ProductFinishMaterials } from './finishMaterials'
 
 // Disposes everything a loaded product holds: every geometry the scene
@@ -15,17 +23,28 @@ export function disposeProductScene(
   finishes: ProductFinishMaterials | null,
 ): void {
   const materials = new Set<Material>()
+  const geometries = new Set<BufferGeometry>()
+  const textures = new Set<Texture>()
   scene.traverse((node) => {
     if (node instanceof Mesh || node instanceof Line || node instanceof Points) {
-      node.geometry.dispose()
+      geometries.add(node.geometry)
       collectMaterial(materials, node.material)
     }
   })
   if (finishes !== null) {
     collectFinishMaterials(materials, finishes)
   }
+  for (const geometry of geometries) {
+    geometry.dispose()
+  }
   for (const material of materials) {
-    disposeSingleMaterial(material)
+    collectTextures(textures, material)
+  }
+  for (const texture of textures) {
+    texture.dispose()
+  }
+  for (const material of materials) {
+    material.dispose()
   }
 }
 
@@ -51,22 +70,21 @@ function collectMaterial(materials: Set<Material>, material: Material | Material
   materials.add(material)
 }
 
-function disposeSingleMaterial(material: Material): void {
+function collectTextures(textures: Set<Texture>, material: Material): void {
   // The texture slots are walked, not named: every own property of the
   // material that is a texture, plain or in an array, goes, so a slot three
   // adds later is covered without a second list here.
   for (const value of Object.values(material)) {
     if (value instanceof Texture) {
-      value.dispose()
+      textures.add(value)
       continue
     }
     if (Array.isArray(value)) {
       for (const item of value) {
         if (item instanceof Texture) {
-          item.dispose()
+          textures.add(item)
         }
       }
     }
   }
-  material.dispose()
 }

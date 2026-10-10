@@ -15,6 +15,7 @@ import {
 } from './productSwitchFacts'
 import { renderedFramesOf, settledStage } from './stageSettle'
 import { frameFaultMessage } from '../../src/app/product-harness/frameFaultQuery'
+import { stageConfig } from '../../src/viewer/config'
 
 const collection = await loadCollection()
 const start = collection.first
@@ -52,9 +53,14 @@ test('a present fault reveals the failed swap and new content uses a fresh canva
   backendPath,
 }) => {
   test.setTimeout(testBudgetMs({ productLoads: 3 }))
+  let environmentRequests = 0
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname === stageConfig.environmentFile) environmentRequests += 1
+  })
   const substitutions = await faultProductPresent(page, next)
   await page.goto(productPathOf(backendPath, start))
   await waitForRest(page, start)
+  const originalCanvas = await page.locator('canvas').elementHandle()
   await recordPhases(page)
   await rowControls(page, collection, start).next.click()
   await pollProductChannel(page).toMatchObject({
@@ -80,5 +86,7 @@ test('a present fault reveals the failed swap and new content uses a fresh canva
   await expectSwapsUnderCover(page, [recovery])
   expect(await page.evaluate(() => window.__viewer?.model?.slug)).toBe(recovery.slug)
   expect(await renderedFramesOf(page)).toBeGreaterThan(retiredFrames)
+  expect(await originalCanvas?.evaluate((canvas) => canvas.isConnected)).toBe(false)
+  expect(environmentRequests).toBe(1)
   await expect(page.getByTestId('product-alert')).toHaveCount(0)
 })

@@ -1,8 +1,8 @@
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { Texture } from 'three/webgpu'
 import type { KeyedLoad } from '@lib/async/keyedLoads'
 import { createStageEnvironmentLoads, type StageEnvironmentLoads } from './stageEnvironmentLoads'
-import { useStageHold } from './stageHoldsContext'
+import { useStageHolds } from './stageHoldsContext'
 
 // The stage's environment entry, in context. The provider renders above the
 // stage's canvas lives, so the loads live as long as the stage does: one
@@ -20,14 +20,14 @@ import { useStageHold } from './stageHoldsContext'
 // renderer: each canvas life draws through a texture of its own over the
 // same source (canvasLifeEnvironment.ts), so a retired renderer keeps no
 // reference to anything the stage outlives it with.
-const StageEnvironmentEntryContext = createContext<KeyedLoad<Texture> | null>(null)
+const StageEnvironmentEntryContext = createContext<KeyedLoad<Texture> | null | undefined>(undefined)
 
 // The environment entry a stage's environment component reads its texture
 // from. Only the stage's provider can supply it; an environment rendered
 // anywhere else fails with a named error instead of a load no stage owns.
-export function useStageEnvironmentEntry(): KeyedLoad<Texture> {
+export function useStageEnvironmentEntry(): KeyedLoad<Texture> | null {
   const entry = useContext(StageEnvironmentEntryContext)
-  if (entry === null) {
+  if (entry === undefined) {
     throw new Error(
       'the stage environment needs the stage environment provider: render it inside the stage',
     )
@@ -35,8 +35,10 @@ export function useStageEnvironmentEntry(): KeyedLoad<Texture> {
   return entry
 }
 
-// Reads the stage's environment entry for the file and holds it for the
-// stage's whole life: the hold's release, at stage teardown, disposes the
+// Starts the stage's environment entry for the file and holds it in the
+// same committed effect. An abandoned render starts no work. Holds keep
+// StrictMode replay on the same entry, and release late results on unmount.
+// The hold lasts for the stage's whole life: its release disposes the
 // loaded texture and forgets the entry, so a later stage loads a fresh
 // texture instead of reusing a disposed one. A load that failed created no
 // texture, so its release has nothing to dispose, and its failure is not
@@ -45,19 +47,16 @@ export function useStageEnvironmentEntry(): KeyedLoad<Texture> {
 function useStageEnvironmentHeldEntry(
   loads: StageEnvironmentLoads,
   file: string,
-): KeyedLoad<Texture> {
-  const entry = loads.read(file)
-  const release = useCallback(() => {
-    void entry.value.then(
-      (texture) => {
-        texture.dispose()
-      },
-      () => undefined,
-    )
-    loads.forget(entry)
-  }, [entry, loads])
-  useStageHold(entry, release)
-  return entry
+): KeyedLoad<Texture> | null {
+  const holds = useStageHolds()
+  const [held, setHeld] = useState<KeyedLoad<Texture> | null>(null)
+  useEffect(() => {
+    const entry = loads.read(file)
+    holds.hold(entry)
+    setHeld(entry)
+    return () => holds.drop(entry, () => loads.release(entry))
+  }, [loads, file, holds])
+  return held?.key === file ? held : null
 }
 
 // Provides the entry for the file, read from the stage's own loads.

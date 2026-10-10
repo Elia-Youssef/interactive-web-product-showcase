@@ -1,4 +1,3 @@
-import { Suspense } from 'react'
 import { Canvas } from '@react-three/fiber'
 import type { ReactNode } from 'react'
 import type { FrameClock } from './FrameClock'
@@ -8,7 +7,7 @@ import { RendererRig } from './RendererRig'
 import { RendererMemoryProbe } from './automation/RendererMemoryProbe'
 import { StageCamera } from './camera/StageCamera'
 import { ProductModelsProvider } from './product/ProductModelsProvider'
-import { StageEnvironment } from './StageEnvironment'
+import { StageLighting } from './StageLighting'
 import type { StageRendererStart } from './rendererFactory'
 import { stageConfig } from './config'
 
@@ -25,9 +24,9 @@ type StageCanvasProps = {
   // Reports that this canvas's renderer is retired: a present threw.
   readonly onRendererRetired: () => void
   // The scene content the stage shows: mounted after the rig, inside the
-  // stage's frames, under one null-fallback Suspense boundary and the model
-  // provider, so an async load never crosses the canvas and every model
-  // decodes through the renderer's own decoders.
+  // stage's frames and model provider. The environment suspends separately,
+  // so downloads start independently, and lighting gates scene presentation.
+  // Every model decodes through the renderer's own leased decoders.
   readonly content?: ReactNode
 }
 
@@ -59,10 +58,9 @@ export function StageCanvas({
           onRendererRetired={onRendererRetired}
         >
           <StageCamera>
-            <Suspense fallback={null}>
-              <StageEnvironment />
-              <ProductModelsProvider>{content}</ProductModelsProvider>
-            </Suspense>
+            <ProductModelsProvider>
+              <StageLighting>{content}</StageLighting>
+            </ProductModelsProvider>
           </StageCamera>
         </StageFrames>
       </Canvas>

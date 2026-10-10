@@ -4,6 +4,7 @@ import { ProductFailureReport } from './ProductFailureReport'
 import { PresentedProduct } from './PresentedProduct'
 import { openProduct } from './productOutcomes'
 import type { ProductModelEntry } from './productModelLoads'
+import { useStageLighting } from '../stageLightingContext'
 
 type ProductContentProps = {
   readonly manifest: Product
@@ -29,10 +30,14 @@ export function ProductContent({ manifest, model, fail, ready, children }: Produ
   // The held entry is the same object on every render while it is live, so
   // the suspension resumes on the very promise it suspended on.
   const load = use(model.value)
+  const lit = useStageLighting()
 
   const opened = useMemo(() => openProduct(load, manifest), [load, manifest])
   if (opened.kind === 'failed') {
     return <ProductFailureReport failure={opened.failure} fail={fail} />
+  }
+  if (!lit) {
+    return null
   }
   return (
     <PresentedProduct
