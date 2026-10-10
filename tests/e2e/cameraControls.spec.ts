@@ -15,6 +15,7 @@ import {
   resolvedDistanceRange,
   REST_THRESHOLD,
 } from './stageCamera'
+import { expectUnavailable } from './stageKeys'
 // The collection's first product, and its authored camera facts read from
 // the shipped `.glb`.
 const first = (await loadCollection()).first
@@ -219,7 +220,7 @@ test('neither a right drag nor a shift drag pans the camera', async ({ page, bac
   expect(afterShift.target.z).toBeCloseTo(before.target.z, 9)
 })
 
-test('the zoom buttons move the percentage by one step and wait disabled at their limits', async ({
+test('the zoom buttons move the percentage by one step and wait unavailable at their limits', async ({
   page,
   backendPath,
 }) => {
@@ -275,10 +276,10 @@ test('the zoom buttons move the percentage by one step and wait disabled at thei
   await expectShownPercent(100, 'the third press clamps at the minimum distance')
 
   // At the limit the camera's own state says so: zoom in has reached the
-  // minimum distance, and its button waits disabled, in the one disabled
-  // color the waiting controls share.
+  // minimum distance, and its button waits unavailable, in the one disabled
+  // color the waiting controls share, still in the tab order.
   const disabledColor = await resolvedTokenColor(page, '--disabled')
-  await expect(zoomIn(page)).toBeDisabled()
+  await expectUnavailable(zoomIn(page))
   await expect(zoomOut(page)).toBeEnabled()
   await expect(zoomIn(page)).toHaveCSS('color', disabledColor)
   // The button state reads the move's end, which is exact at the limit
@@ -302,7 +303,7 @@ test('the zoom buttons move the percentage by one step and wait disabled at thei
   await expectShownPercent(0, 'the presses out clamp at the maximum distance')
 
   // At the outer limit zoom out waits, and its inward twin works again.
-  await expect(zoomOut(page)).toBeDisabled()
+  await expectUnavailable(zoomOut(page))
   await expect(zoomIn(page)).toBeEnabled()
   await expect(zoomOut(page)).toHaveCSS('color', disabledColor)
   await settledFrames(page)

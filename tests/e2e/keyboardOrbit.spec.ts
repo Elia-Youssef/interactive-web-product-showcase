@@ -12,6 +12,7 @@ import {
   cameraAtRest,
   controlOf,
   expectFocusOn,
+  expectUnavailable,
   fineStep,
   keyTargetOf,
   liveRegionOf,
@@ -90,12 +91,12 @@ test('the tilt keys stop exactly at both polar limits and name them', async ({
 
   await pressOnTarget(page, Array<string>(steps).fill('ArrowUp'))
   expect((await cameraAtRest(page)).polar).toBeCloseTo(maxPolar, 9)
-  await expect(controlOf(page, siteCopy.tiltUpLabel)).toBeDisabled()
+  await expectUnavailable(controlOf(page, siteCopy.tiltUpLabel))
   await expect(liveRegionOf(page)).toHaveText(announcementCopy.tiltLimit.bottom)
 
   await pressOnTarget(page, Array<string>(steps).fill('ArrowDown'))
   expect((await cameraAtRest(page)).polar).toBeCloseTo(minPolar, 9)
-  await expect(controlOf(page, siteCopy.tiltDownLabel)).toBeDisabled()
+  await expectUnavailable(controlOf(page, siteCopy.tiltDownLabel))
   await expect(liveRegionOf(page)).toHaveText(announcementCopy.tiltLimit.top)
 })
 
@@ -122,12 +123,12 @@ test('plus and minus step the zoom and stop at 100 and 0', async ({ page, backen
 
   await pressOnTarget(page, Array<string>(steps).fill('='))
   await expectShown(100)
-  await expect(controlOf(page, siteCopy.zoomInLabel)).toBeDisabled()
+  await expectUnavailable(controlOf(page, siteCopy.zoomInLabel))
   await expect(liveRegionOf(page)).toHaveText(announcementCopy.zoomLimit.closest)
 
   await pressOnTarget(page, Array<string>(steps).fill('-'))
   await expectShown(0)
-  await expect(controlOf(page, siteCopy.zoomOutLabel)).toBeDisabled()
+  await expectUnavailable(controlOf(page, siteCopy.zoomOutLabel))
   await expect(liveRegionOf(page)).toHaveText(announcementCopy.zoomLimit.farthest)
 })
 

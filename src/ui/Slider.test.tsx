@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest'
 import { renderToString } from 'react-dom/server'
 import { Slider } from './Slider'
+import { stopKeyAction } from './unavailable'
 
 // The rendered contract of the primitive: a native range input, named,
 // announcing the caller's value text, and disabled as told. The onChange
@@ -59,4 +60,39 @@ test('without disabled the input stays enabled', () => {
   const html = renderToString(<Slider {...sliderProps} />)
 
   expect(html).not.toContain('disabled')
+})
+
+test('an unavailable Slider announces the wait and stays focusable', () => {
+  const html = renderToString(<Slider {...sliderProps} unavailable />)
+
+  expect(html).toContain('aria-disabled="true"')
+  expect(html).not.toMatch(/\sdisabled[=\s/>]/)
+})
+
+test('an available Slider carries no announced wait', () => {
+  const html = renderToString(<Slider {...sliderProps} />)
+
+  expect(html).not.toContain('aria-disabled')
+})
+
+// The primitive is a plain function of its props to its element, so the
+// wiring a renderer would attach is read off the element it returns: a
+// waiting slider hands back no value and takes the key hold, because a
+// range input moves to its keys by their default action. An available
+// slider hands the value back and adds no key hold of its own.
+
+test('an unavailable Slider ignores activation, an available one answers it', () => {
+  const change = () => {}
+
+  const waiting = Slider({ ...sliderProps, unavailable: true, onChange: change })
+  expect(waiting.props.onChange).toBeUndefined()
+  expect(waiting.props.onKeyDown).toBe(stopKeyAction)
+  // A controlled field that answers no change handler declares itself read
+  // only, so the renderer holds its warning back.
+  expect(waiting.props.readOnly).toBe(true)
+
+  const available = Slider({ ...sliderProps, onChange: change })
+  expect(available.props.onChange).not.toBeUndefined()
+  expect(available.props.onKeyDown).toBeUndefined()
+  expect(available.props.readOnly).toBeUndefined()
 })

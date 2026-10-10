@@ -15,15 +15,20 @@ const pressedOf = {
 type ExplodeToggleButtonProps = {
   label: string
   view: ExplodeViewState
-  disabled: boolean
+  unavailable: boolean
   onPress: () => void
 }
 
 // The button alone, from plain values: the store-bound toggle feeds it, and
 // a static render can reach every view state through it.
-export function ExplodeToggleButton({ label, view, disabled, onPress }: ExplodeToggleButtonProps) {
+export function ExplodeToggleButton({
+  label,
+  view,
+  unavailable,
+  onPress,
+}: ExplodeToggleButtonProps) {
   return (
-    <TextButton selected={pressedOf[view]} disabled={disabled} onClick={onPress}>
+    <TextButton selected={pressedOf[view]} unavailable={unavailable} onClick={onPress}>
       {label}
     </TextButton>
   )
@@ -31,8 +36,10 @@ export function ExplodeToggleButton({ label, view, disabled, onPress }: ExplodeT
 
 // The exploded view toggle, the panel section after the swatches: a text
 // button whose pressed state is the product's exploded view, named by the
-// manifest's own word. It is disabled while the product has no attached
-// view, so a click before the model is presented cannot arm anything.
+// manifest's own word. It waits unavailable while the product has no
+// attached view, announced rather than disabled, so a press before the
+// model is presented cannot arm anything and a focus that sits on the
+// button through the wait stays where it is.
 export function ProductExplodeToggle({ product }: { product: Product }) {
   const explodeToggle = useAppStore((state) => state.explodeToggle)
   const attached = useAppStore((state) => selectExplodeAttached(state, product.slug))
@@ -42,7 +49,7 @@ export function ProductExplodeToggle({ product }: { product: Product }) {
     <ExplodeToggleButton
       label={explodeToggleLabel(product)}
       view={view}
-      disabled={!attached}
+      unavailable={!attached}
       onPress={() => explodeToggle(product.slug)}
     />
   )

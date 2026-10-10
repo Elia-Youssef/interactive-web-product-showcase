@@ -110,6 +110,16 @@ export async function expectFocusOn(locator: Locator, why: string): Promise<void
   expect(await locator.evaluate((element) => element === document.activeElement), why).toBe(true)
 }
 
+// A control of the waiting class at its limit: it announces the wait through
+// aria-disabled and carries no native disabled attribute, so the browser
+// never drops the focus on the body at the moment it waits, and the tab
+// order keeps it. The enabled read of a waiting control is its own
+// assertion at the calls that need it back.
+export async function expectUnavailable(control: Locator): Promise<void> {
+  await expect(control).toHaveAttribute('aria-disabled', 'true')
+  await expect(control).not.toHaveAttribute('disabled')
+}
+
 // The marker of the first hotspot the home view shows: a marker the view
 // hides leaves the role tree, so the visible one is a shown one.
 export async function shownMarkerOf(page: Page, product: Product): Promise<Locator> {
