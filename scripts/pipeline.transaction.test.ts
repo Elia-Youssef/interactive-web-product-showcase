@@ -68,7 +68,7 @@ describe('optimized artifact publication', () => {
           await writeFile(args[2] ?? '', bytes)
         },
         validateCandidate: async (candidate) => {
-          expect(path.dirname(path.dirname(candidate))).toBe(dir)
+          expect(path.dirname(candidate)).toBe(dir)
           expect(candidate).not.toBe(outputPath)
           expect(await readFile(outputPath)).toEqual(Buffer.from('previous artifact'))
           checked = await readFile(candidate)

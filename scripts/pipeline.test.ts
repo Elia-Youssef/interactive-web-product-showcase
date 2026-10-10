@@ -125,7 +125,7 @@ describe('runOptimizePipeline: the encode plan of one texture per class', () => 
     const geometry = cli.calls[0] ?? []
     expect(geometry[0]).toBe('optimize')
     expect(geometry[1]).toBe(written[0])
-    expect(path.dirname(path.dirname(geometry[2] ?? ''))).toBe(path.dirname(outputPath))
+    expect(path.dirname(geometry[2] ?? '')).toBe(path.dirname(outputPath))
     expect(geometry).toContain('--texture-compress=false')
     expect(geometry).toContain('--compress=meshopt')
   })
