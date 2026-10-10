@@ -172,7 +172,7 @@ export function fakeSettle(world: { readonly loaded: LoadedProduct }): {
   // Whether the scene carried the precompile proxies when each settle was
   // called: the load-time precompile rides the first settle only.
   precompiledAtSettle: () => readonly boolean[]
-  releaseAll: () => void
+  release: (index: number) => void
 } {
   const pending: (() => void)[] = []
   const precompiled: boolean[] = []
@@ -187,10 +187,12 @@ export function fakeSettle(world: { readonly loaded: LoadedProduct }): {
     },
     settleCalls: () => precompiled.length,
     precompiledAtSettle: () => precompiled,
-    releaseAll: () => {
-      for (const release of pending.splice(0)) {
-        release()
+    release: (index) => {
+      const release = pending[index]
+      if (release === undefined) {
+        throw new Error(`no settle was called at index ${index}`)
       }
+      release()
     },
   }
 }
@@ -207,26 +209,4 @@ export function ownerOf(
       failures.push(error)
     },
   }
-}
-
-// The next macrotask turn: the applier's chain hands work over across
-// macrotasks, never inside one.
-export function nextTurn(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 10))
-}
-
-// Drains the chain: releases each settle by hand as it appears. It waits
-// through a bounded number of turns per application, so a chain that stops
-// making settles fails the test's assertions instead of hanging them.
-export async function drain(fake: ReturnType<typeof fakeSettle>, applies: number): Promise<void> {
-  let released = 0
-  for (let turn = 0; turn < applies * 4 && released < applies; turn += 1) {
-    await nextTurn()
-    const parked = fake.settleCalls()
-    if (parked > released) {
-      fake.releaseAll()
-      released = parked
-    }
-  }
-  await nextTurn()
 }

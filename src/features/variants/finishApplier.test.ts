@@ -1,32 +1,31 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { deferredSignal } from '@lib/async/deferredSignal.fixtures'
+import { observeTaskStarts } from '@lib/async/taskStarts.fixtures'
+import { drainApplications } from './finishScheduling.fixtures'
 import { createFinishApplier } from './finishApplier'
-import {
-  drain,
-  fakeLoad,
-  fakeSettle,
-  GRAPHITE,
-  nextTurn,
-  ownerOf,
-  SAGE,
-} from './finishApplier.fixtures'
+import { fakeLoad, fakeSettle, GRAPHITE, ownerOf, SAGE } from './finishApplier.fixtures'
 
 // The applier's ordering claims, each made by the test's own hand: the fake
 // settle's promises are resolved by the test, never by a wait.
 
+afterEach(() => vi.restoreAllMocks())
+
 describe('FinishApplier', () => {
   it('ends on the last of three selections queued during the first application', async () => {
+    const task = observeTaskStarts(() => fake.settleCalls())
     const world = fakeLoad()
     const failures: Error[] = []
     const fake = fakeSettle(world)
     const applier = createFinishApplier(ownerOf(world.loaded, fake.settle, failures))
 
     applier.apply(SAGE)
-    await nextTurn()
+    await task(0).started
+    expect(task(0).atStart).toBe(1)
     // The first application is in flight: it holds one settle.
     expect(fake.settleCalls()).toBe(1)
     applier.apply(GRAPHITE)
     applier.apply(SAGE)
-    await drain(fake, 3)
+    await drainApplications(task, fake, 3)
 
     expect(world.shell.material).toBe(world.materials[0])
     expect(world.grille.material).toBe(world.materials[2])
@@ -40,6 +39,7 @@ describe('FinishApplier', () => {
       [GRAPHITE, SAGE, GRAPHITE, SAGE, GRAPHITE],
     ]
     for (const sequence of sequences) {
+      const task = observeTaskStarts(() => fake.settleCalls())
       const world = fakeLoad()
       const failures: Error[] = []
       const fake = fakeSettle(world)
@@ -52,7 +52,7 @@ describe('FinishApplier', () => {
       for (const variant of sequence) {
         applier.apply(variant)
       }
-      await drain(fake, sequence.length)
+      await drainApplications(task, fake, sequence.length)
 
       const expected = last === SAGE ? world.materials[0] : world.materials[1]
       expect(
@@ -64,45 +64,48 @@ describe('FinishApplier', () => {
   })
 
   it('a new applier for a new load precompiles again', async () => {
+    const task = observeTaskStarts()
     const first = fakeLoad()
     const firstFake = fakeSettle(first)
     const firstApplier = createFinishApplier(ownerOf(first.loaded, firstFake.settle, []))
     firstApplier.apply(SAGE)
-    await nextTurn()
+    await task(0).started
     expect(firstFake.precompiledAtSettle()).toEqual([true])
-    firstFake.releaseAll()
-    await nextTurn()
+    firstFake.release(0)
+    await task(0).finished
 
     // A plain application after the first does not precompile again.
     firstApplier.apply(GRAPHITE)
-    await nextTurn()
+    await task(1).started
     expect(firstFake.precompiledAtSettle()).toEqual([true, false])
-    firstFake.releaseAll()
-    await nextTurn()
+    firstFake.release(1)
+    await task(1).finished
 
     const second = fakeLoad()
     const secondFake = fakeSettle(second)
     const secondApplier = createFinishApplier(ownerOf(second.loaded, secondFake.settle, []))
     secondApplier.apply(SAGE)
-    await nextTurn()
+    await task(2).started
     expect(secondFake.precompiledAtSettle()).toEqual([true])
-    secondFake.releaseAll()
-    await nextTurn()
+    secondFake.release(0)
+    await task(2).finished
   })
 
   it('a disposed applier applies nothing more', async () => {
+    const task = observeTaskStarts(() => fake.settleCalls())
     const world = fakeLoad()
     const failures: Error[] = []
     const fake = fakeSettle(world)
     const applier = createFinishApplier(ownerOf(world.loaded, fake.settle, failures))
 
     applier.apply(SAGE)
-    await nextTurn()
+    await task(0).started
+    expect(task(0).atStart).toBe(1)
+    applier.apply(GRAPHITE)
     applier.dispose()
     applier.apply(GRAPHITE)
-    fake.releaseAll()
-    await nextTurn()
-    await nextTurn()
+    fake.release(0)
+    await task(1).finished
 
     expect(fake.settleCalls()).toBe(1)
     expect(world.shell.material).toBe(world.materials[0])
@@ -113,18 +116,20 @@ describe('FinishApplier', () => {
     const disposed = createFinishApplier(ownerOf(untouched.loaded, untouchedFake.settle, []))
     disposed.dispose()
     disposed.apply(GRAPHITE)
-    await nextTurn()
+    await disposed.firstApplied
     expect(untouchedFake.settleCalls()).toBe(0)
     expect(untouched.shell.material).toBe(untouched.materials[0])
   })
 
   it('after a new selection and before its step, applied is still the meshes and requested has moved', async () => {
+    const task = observeTaskStarts(() => fake.settleCalls())
     const world = fakeLoad()
     const fake = fakeSettle(world)
     const applier = createFinishApplier(ownerOf(world.loaded, fake.settle, []))
 
     applier.apply(SAGE)
-    await nextTurn()
+    await task(0).started
+    expect(task(0).atStart).toBe(1)
     // The meshes carry sage; the selection moves to graphite while the
     // graphite step is still queued.
     applier.apply(GRAPHITE)
@@ -137,15 +142,17 @@ describe('FinishApplier', () => {
   })
 
   it('after the step has run, applied and requested are the new selection', async () => {
+    const task = observeTaskStarts(() => fake.settleCalls())
     const world = fakeLoad()
     const fake = fakeSettle(world)
     const applier = createFinishApplier(ownerOf(world.loaded, fake.settle, []))
 
     applier.apply(SAGE)
-    await nextTurn()
+    await task(0).started
+    expect(task(0).atStart).toBe(1)
     applier.apply(GRAPHITE)
-    fake.releaseAll()
-    await drain(fake, 2)
+    fake.release(0)
+    await drainApplications(task, fake, 2)
     expect(applier.readFinish()).toEqual({
       product: 'sample-one',
       applied: GRAPHITE,
@@ -155,12 +162,14 @@ describe('FinishApplier', () => {
   })
 
   it('meshes that carry materials from two variants read applied as null', async () => {
+    const task = observeTaskStarts(() => fake.settleCalls())
     const world = fakeLoad()
     const fake = fakeSettle(world)
     const applier = createFinishApplier(ownerOf(world.loaded, fake.settle, []))
 
     applier.apply(SAGE)
-    await nextTurn()
+    await task(0).started
+    expect(task(0).atStart).toBe(1)
     // A mix no variant prescribes: the trim carries the graphite material
     // while everything else stands on sage.
     world.trim.material = world.materials[4]
@@ -176,20 +185,25 @@ describe('FinishApplier', () => {
   })
 
   it('a failed application reaches the owner', async () => {
+    const task = observeTaskStarts()
     const world = fakeLoad()
     const failures: Error[] = []
     const failure = new Error('the compile failed')
+    const { promise: failureReported, resolve: report } = deferredSignal()
     const applier = createFinishApplier({
       loaded: world.loaded,
       settle: () => Promise.reject(failure),
       onFailure: (error) => {
         failures.push(error)
+        report()
       },
     })
 
     applier.apply(SAGE)
-    await nextTurn()
-    await nextTurn()
+    await task(0).finished
+    // The failure handler is attached to the caller promise returned by
+    // the chain, so observe that channel directly.
+    await failureReported
 
     expect(failures).toEqual([failure])
   })
