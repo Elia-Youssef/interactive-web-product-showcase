@@ -9,7 +9,7 @@
 
 import { expect, test } from './fixtures'
 import type { Page } from '@playwright/test'
-import { transitionMoveBudgetMs } from './budgets'
+import { restWindowBudgetMs, transitionMoveBudgetMs } from './budgets'
 import { switchBandRed } from './switchBandRed'
 
 const GALLERY_PATH = '/gallery.html'
@@ -28,8 +28,6 @@ of the stage height, and leaves the whole second half of the move for the
 poll that waits for the real end.
 */
 const MID_FLIGHT_SAMPLE_MS = 1_000
-// The window a settled log waits through to prove nothing further fires.
-const SETTLED_WINDOW_MS = 500
 
 function phaseButton(page: Page, label: string) {
   return page.getByRole('button', { name: label, exact: true })
@@ -169,8 +167,8 @@ test('the callbacks arrive once each, in order, over a whole switch', async ({ p
     .toEqual(['covered', 'revealed'])
 
   // Nothing further fires once both debts are paid: the log stays exactly
-  // these two entries.
-  await page.waitForTimeout(SETTLED_WINDOW_MS)
+  // these two entries, waited through the suite's own rest window.
+  await page.waitForTimeout(restWindowBudgetMs)
   expect(await firedCallbacks(page)).toEqual(['covered', 'revealed'])
 })
 
