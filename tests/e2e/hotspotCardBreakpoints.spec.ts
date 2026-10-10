@@ -2,7 +2,7 @@ import { expect, test } from './fixtures'
 import type { Page } from '@playwright/test'
 import { expectProduct, productPathOf } from './collectionFacts'
 import { shippedProducts } from './productSpecs'
-import { settledFrames } from './stageSettle'
+import { completedPresentation } from './presentationCompletion'
 import { cardHeadingOf, markerOf } from './hotspotViews'
 import { flowFacts } from './hotspotFlowFacts'
 import { phoneLandscape, viewportContracts } from './layoutContracts'
@@ -38,7 +38,7 @@ for (const flow of flows) {
       await page.setViewportSize({ width: first.width, height: first.height })
       await page.goto(productPathOf(backendPath, product))
       await expectProduct(page, product)
-      await settledFrames(page)
+      await completedPresentation(page)
       await markerOf(page, plain.title).click()
       await expect(cardHeadingOf(page, plain.title)).toBeVisible()
 
@@ -62,5 +62,5 @@ async function resizeTo(
   size: { readonly width: number; readonly height: number },
 ): Promise<void> {
   await page.setViewportSize({ width: size.width, height: size.height })
-  await settledFrames(page)
+  await completedPresentation(page)
 }

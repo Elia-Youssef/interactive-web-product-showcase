@@ -8,6 +8,12 @@
 // scroll follows its own scroll behavior, which the stylesheets make smooth
 // only when reduced motion is off. A card that must keep what sits above it
 // in view (a listed card's own list button) says so with a scroll margin.
-export function bringCardIntoView(element: HTMLElement | null): void {
-  element?.scrollIntoView({ block: 'start' })
+import type { ScrollCompletion } from '@lib/scroll/ScrollCompletion'
+import { scrollIntoView } from '@viewer/scrollIntoView'
+
+export function bringCardIntoView(
+  element: HTMLElement | null,
+  completion: ScrollCompletion,
+): (() => void) | undefined {
+  return element === null ? undefined : scrollIntoView(element, completion)
 }

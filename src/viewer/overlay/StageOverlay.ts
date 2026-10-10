@@ -21,6 +21,7 @@
 // stand-in, because the channel touches nothing else.
 import { StageGeometry } from './StageGeometry'
 import { CommittedCard } from './CommittedCard'
+import { ScrollCompletion } from '@lib/scroll/ScrollCompletion'
 
 export type OverlayElement = {
   readonly style: {
@@ -97,6 +98,7 @@ function emptyOverlayProductState(): OverlayProductState {
 
 export class StageOverlay {
   readonly card = new CommittedCard()
+  readonly scroll = new ScrollCompletion()
   presentedFrame = 0
   readonly geometry = new StageGeometry()
   private mounts = new Map<string, OverlayMount>()

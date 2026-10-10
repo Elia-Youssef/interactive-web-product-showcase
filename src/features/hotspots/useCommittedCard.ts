@@ -10,11 +10,13 @@ export function useCommittedCard(overlay: StageOverlay, selected: string, slot: 
   return useCallback(
     (element: HTMLDivElement | null) => {
       if (element === null) return undefined
-      if (slot !== 'floating') bringCardIntoView(element)
+      const releaseScroll =
+        slot === 'floating' ? undefined : bringCardIntoView(element, overlay.scroll)
       const releaseCard = overlay.card.mount(selected, slot, () => readCardGeometry(element))
       overlay.card.present()
       return () => {
         releaseCard()
+        releaseScroll?.()
         overlay.card.present()
       }
     },

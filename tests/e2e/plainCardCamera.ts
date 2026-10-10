@@ -1,7 +1,7 @@
 import { expect, type Page } from '@playwright/test'
 import { harnessCanvasDrivePoint, requireCamera } from './hotspotViews'
 import type { CameraRead } from './stageCamera'
-import { settledFrames } from './stageSettle'
+import { completedPresentation } from './presentationCompletion'
 
 // A plain card owes no camera move. Both layouts compare the camera itself
 // after its input frame debt settles, since a stationary canvas press can
@@ -9,7 +9,7 @@ import { settledFrames } from './stageSettle'
 const wheelDeltaYPx = 120
 
 export async function readPlainCloseCamera(page: Page): Promise<CameraRead> {
-  await settledFrames(page)
+  await completedPresentation(page)
   return requireCamera(page)
 }
 

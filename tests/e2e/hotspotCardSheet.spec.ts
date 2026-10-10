@@ -2,7 +2,7 @@ import type { Locator } from '@playwright/test'
 import { expect, test } from './fixtures'
 import { siteCopy } from '../../src/lib/copy/site'
 import { expectProduct, productPathOf } from './collectionFacts'
-import { settledFrames } from './stageSettle'
+import { completedPresentation } from './presentationCompletion'
 import { loadCollection } from './productList'
 import { restWindowBudgetMs } from './budgets'
 import { expectCloseAnswers } from './hotspotCardOracle'
@@ -31,7 +31,7 @@ for (const product of collection.products) {
     await page.setViewportSize({ width: WIDTH, height: HEIGHT })
     await page.goto(productPathOf(backendPath, product))
     await expectProduct(page, product)
-    await settledFrames(page)
+    await completedPresentation(page)
 
     // Keyboard activation reaches every shown marker even when two pointer
     // hit areas overlap, so crowding cannot omit a card from the band proof.
@@ -58,7 +58,7 @@ for (const product of collection.products) {
       const panel = page.getByRole('complementary', { name: siteCopy.panelLabel })
       const card = panel.getByTestId('hotspot-card')
       await expect(card.getByRole('heading', { name: title })).toBeVisible()
-      await settledFrames(page)
+      await completedPresentation(page)
 
       // The whole card sits inside the panel band once the dock's scroll
       // lands: the header (eyebrow and close button), the title and every
@@ -85,7 +85,7 @@ for (const product of collection.products) {
       // case's marker; home is where the shown set was collected, so each
       // case starts there, the way a visitor reaches the next marker.
       await page.getByRole('button', { name: siteCopy.resetLabel }).click()
-      await settledFrames(page)
+      await completedPresentation(page)
     }
   })
 }

@@ -5,6 +5,7 @@ import { createErrorLedger } from './errorLedger'
 import type { RendererBackend } from '../../src/lib/renderer/backend'
 import { e2eBaseURL } from '../../tooling/devHost.ts'
 import { resolveDevPort } from '../../tooling/devPort.ts'
+import { recordFailureEvidence } from './failureEvidence'
 
 export type { ChannelSpec } from './matrix'
 export type { ErrorTimes } from './errorLedger'
@@ -33,6 +34,7 @@ type E2EWorkerFixtures = E2EOptions & {
 }
 
 type E2ETestFixtures = {
+  failureEvidence: void
   matrixContract: void
   consoleGate: ConsoleGate
 }
@@ -50,6 +52,16 @@ declare global {
 }
 
 export const test = base.extend<E2ETestFixtures, E2EWorkerFixtures>({
+  failureEvidence: [
+    async ({ page, baseURL }, use, testInfo) => {
+      if (baseURL === undefined)
+        throw new Error('failure evidence requires the assigned server URL')
+      const finish = recordFailureEvidence(page, baseURL)
+      await use()
+      await finish(testInfo)
+    },
+    { auto: true },
+  ],
   // The matrix row values are per-project constants, so they are worker
   // fixtures: the channel contract below reads them at worker scope.
   backendPath: [

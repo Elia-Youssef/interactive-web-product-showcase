@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test'
 import { siteCopy } from '../../src/lib/copy/site'
 import { expectProduct, productPathOf } from './collectionFacts'
 import { shippedProducts } from './productSpecs'
-import { settledFrames } from './stageSettle'
+import { completedPresentation } from './presentationCompletion'
 import { expectOrbitAtRest, readCamera, stageAspectOfCanvas } from './stageCamera'
 import { cardHeadingOf, markerOf } from './hotspotViews'
 import { closeWays, flowFacts, type HotspotFlow } from './hotspotFlowFacts'
@@ -50,7 +50,7 @@ for (const contract of dockingLayouts) {
       await page.setViewportSize({ width: contract.width, height: contract.height })
       await page.goto(productPathOf(backendPath, product))
       await expectProduct(page, product)
-      await settledFrames(page)
+      await completedPresentation(page)
       await beforeOpen?.(page)
       await markerOf(page, title).click()
       await expectDockedCardOf(page, title)
@@ -63,10 +63,10 @@ for (const contract of dockingLayouts) {
           backendPath,
         }) => {
           await openDocked(page, backendPath, closeUp.title)
-          await settledFrames(page)
+          await completedPresentation(page)
           await closeBy(page, closeUp.title)
           await expectClosed(page, closeUp.title)
-          await settledFrames(page)
+          await completedPresentation(page)
           expectOrbitAtRest(
             await liveCamera(page),
             flow.homeAt(await stageAspectOfCanvas(page)),
@@ -99,7 +99,7 @@ for (const contract of dockingLayouts) {
         await page.setViewportSize({ width: contract.width, height: contract.height })
         await page.goto(productPathOf(backendPath, product))
         await expectProduct(page, product)
-        await settledFrames(page)
+        await completedPresentation(page)
         await scrollSheetToEnd(page)
         await markerOf(page, hotspot.title).click()
         await expectDockedCardOf(page, hotspot.title)
@@ -112,7 +112,7 @@ for (const contract of dockingLayouts) {
         backendPath,
       }) => {
         await openDocked(page, backendPath, pair.from.title)
-        await settledFrames(page)
+        await completedPresentation(page)
         await scrollSheetToEnd(page)
         await markerOf(page, pair.to.title).click()
         await expectDockedCardOf(page, pair.to.title)
@@ -125,7 +125,7 @@ for (const contract of dockingLayouts) {
         backendPath,
       }) => {
         await openDocked(page, backendPath, pair.from.title)
-        await settledFrames(page)
+        await completedPresentation(page)
         await markerOf(page, pair.to.title).click()
         await expectDockedCardOf(page, pair.to.title)
         await expect(cardHeadingOf(page, pair.from.title)).toHaveCount(0)
@@ -142,13 +142,13 @@ for (const contract of dockingLayouts) {
         await page.setViewportSize({ width: contract.width, height: contract.height })
         await page.goto(productPathOf(backendPath, product))
         await expectProduct(page, product)
-        const before = await settledFrames(page)
+        const before = await completedPresentation(page)
         await markerOf(page, closeUp.title).click()
         await nextRenderedFrame(page, before)
         await expectDockedCardOf(page, closeUp.title)
         await expectInstantlyAt(page, flow.viewAt(closeUp.view, await stageAspectOfCanvas(page)))
 
-        const atCloseUp = await settledFrames(page)
+        const atCloseUp = await completedPresentation(page)
         await page.getByRole('button', { name: siteCopy.closeLabel }).click()
         await nextRenderedFrame(page, atCloseUp)
         await expectClosed(page, closeUp.title)

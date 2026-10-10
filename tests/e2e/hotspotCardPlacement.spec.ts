@@ -6,7 +6,7 @@ import { readMarkerExtentTokens } from './markerExtentTokens'
 import { readScrubMarkerFacts, SCRUB_TARGETS } from './scrubMarkerFacts'
 import { expectProduct, productPathOf } from './collectionFacts'
 import { shippedProducts } from './productSpecs'
-import { settledFrames } from './stageSettle'
+import { completedPresentation, fillCompleted, revealCompleted } from './presentationCompletion'
 import { expectOrbitAtRest, readCamera, stageAspectOfCanvas } from './stageCamera'
 import { cardHeadingOf, markerOf } from './hotspotViews'
 import { flowFacts, type HotspotFlow } from './hotspotFlowFacts'
@@ -139,28 +139,28 @@ for (const contract of referenceLayouts) {
       await page.setViewportSize({ width: contract.width, height: contract.height })
       await page.goto(productPathOf(backendPath, product))
       await expectProduct(page, product)
-      await settledFrames(page)
+      await completedPresentation(page)
 
       // The scrub sets the explode by its value, so no click on panel
       // content can land on a layout the docking card is still shifting.
       const explodeScrub = page.getByRole('slider', { name: explodeLabel })
       if (open.openedExploded) {
-        await explodeScrub.fill('1')
+        await fillCompleted(page, explodeScrub, '1')
         await waitForExplodeRestingAt(page, 1)
       }
       await markerOf(page, hotspot.title).click()
       await expect(cardHeadingOf(page, hotspot.title)).toBeVisible()
       if (open.openedExploded) {
-        await explodeScrub.fill('0')
+        await fillCompleted(page, explodeScrub, '0')
         await waitForExplodeRestingAt(page, 0)
       }
-      await settledFrames(page)
+      await completedPresentation(page)
       if (open.openedExploded) {
         // The scrub is panel content, so using it scrolls the panel to it,
         // as it would for a visitor, who scrolls back to the open card once
         // the stage rests, wherever the card's slot settled. Bring the
         // whole card back: a visible title can leave its header clipped.
-        await openCardOf(page).scrollIntoViewIfNeeded()
+        await revealCompleted(page, openCardOf(page))
       }
       await expectAtView(page, flow, open)
 

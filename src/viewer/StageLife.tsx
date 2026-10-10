@@ -8,6 +8,7 @@ import { StageOverlayContext } from './overlay/stageOverlayContext'
 import { StageKeyTarget } from './camera/StageKeyTarget'
 import styles from './StageLife.module.css'
 import { flushSync } from 'react-dom'
+import { scrollIntoView } from './scrollIntoView'
 
 type StageLifeProps = {
   // The canvas of this life, or null for a stage that mounts none.
@@ -43,11 +44,14 @@ export function StageLife({ canvas, overlay }: StageLifeProps) {
       probes.register('overlay', () => ({
         placements: channel.placementRecord(),
         card: channel.card.read(),
+        scroll: channel.scroll.read(),
         frame: channel.presentedFrame,
         committed: channel.card.idle,
+        reveal: (element) => scrollIntoView(element, channel.scroll, 'nearest'),
       })),
     [probes, channel],
   )
+  useEffect(() => () => channel.scroll.release(), [channel])
 
   return (
     <StagePointerGesturesContext.Provider value={gestures}>
