@@ -40,6 +40,11 @@ export type ContractRuleInput = {
   readonly contract: CameraContract
 }
 
+export type ContractFact = keyof ContractRuleInput
+export type AvailableContractRuleInput = {
+  readonly [Fact in ContractFact]: ContractRuleInput[Fact] | null
+}
+
 // One rule's messages: violations fail the gate, warnings never do.
 export type ContractRuleMessages = {
   readonly violations: readonly string[]
@@ -49,7 +54,18 @@ export type ContractRuleMessages = {
 export type ContractRule = {
   readonly key: string
   readonly group: ContractRuleGroup
+  readonly needs: readonly ContractFact[]
   readonly check: (input: ContractRuleInput) => ContractRuleMessages
+  readonly evaluate: (
+    input: AvailableContractRuleInput,
+  ) =>
+    | { readonly kind: 'checked'; readonly messages: ContractRuleMessages }
+    | { readonly kind: 'skipped'; readonly missing: readonly ContractFact[] }
+}
+
+export type ContractRuleFindings = ContractRuleMessages & {
+  readonly checkedRules?: readonly string[]
+  readonly skipped?: readonly string[]
 }
 
 // The table, one entry per rule, in report-group order.
@@ -66,13 +82,26 @@ export const contractRules: readonly ContractRule[] = [
 // Every group's messages, by group, each message prefixed with its rule's
 // key.
 export function runContractRules(
-  input: ContractRuleInput,
-): ReadonlyMap<ContractRuleGroup, ContractRuleMessages> {
-  const byGroup = new Map<ContractRuleGroup, ContractRuleMessages>()
+  input: AvailableContractRuleInput,
+): ReadonlyMap<ContractRuleGroup, ContractRuleFindings> {
+  const byGroup = new Map<ContractRuleGroup, ContractRuleFindings>()
   for (const rule of contractRules) {
-    const messages = rule.check(input)
+    const outcome = rule.evaluate(input)
     const held = byGroup.get(rule.group) ?? { violations: [], warnings: [] }
+    if (outcome.kind === 'skipped') {
+      byGroup.set(rule.group, {
+        ...held,
+        skipped: [
+          ...(held.skipped ?? []),
+          `${rule.key}: skipped: missing ${outcome.missing.join(', ')}`,
+        ],
+      })
+      continue
+    }
+    const messages = outcome.messages
     byGroup.set(rule.group, {
+      ...held,
+      checkedRules: [...(held.checkedRules ?? []), rule.key],
       violations: [
         ...held.violations,
         ...messages.violations.map((message) => `${rule.key}: ${message}`),
@@ -91,16 +120,27 @@ export function runContractRules(
 // and warnings, and the status follows the merged violations.
 export function withRuleMessages(
   check: CheckResult,
-  findings: ReadonlyMap<ContractRuleGroup, ContractRuleMessages>,
+  findings: ReadonlyMap<ContractRuleGroup, ContractRuleFindings>,
   group: ContractRuleGroup,
 ): CheckResult {
   const messages = findings.get(group)
   if (messages === undefined) {
     return check
   }
+  const detail = [check.detail, ...(messages.skipped ?? [])].join('; ')
+  if (check.status === 'skipped') {
+    const checked = messages.checkedRules ?? []
+    if (checked.length === 0) return { ...check, detail }
+    return checkResult(
+      check.name,
+      `${checked.length} contract rules checked; ${detail}`,
+      messages.violations,
+      messages.warnings,
+    )
+  }
   return checkResult(
     check.name,
-    check.detail,
+    detail,
     [...check.violations, ...messages.violations],
     [...check.warnings, ...messages.warnings],
   )

@@ -4,11 +4,13 @@
 
 import { PART_PREFIX } from '../src/lib/product/contractNames.ts'
 import type { ContractRule } from './contractRules.ts'
+import { defineContractRule } from './contractRule.ts'
 
 export const geometryRules: readonly ContractRule[] = [
-  {
+  defineContractRule({
     key: 'parts-root-location-only',
     group: 'geometry',
+    needs: ['facts'],
     check: ({ facts }) => {
       const violations: string[] = []
       for (const node of facts.nodes) {
@@ -24,10 +26,11 @@ export const geometryRules: readonly ContractRule[] = [
       }
       return { violations, warnings: [] }
     },
-  },
-  {
+  }),
+  defineContractRule({
     key: 'no-duplicate-triangles',
     group: 'geometry',
+    needs: ['facts'],
     check: ({ facts }) => ({
       violations: facts.primitives
         .filter((primitive) => primitive.duplicateTriangles > 0)
@@ -37,10 +40,11 @@ export const geometryRules: readonly ContractRule[] = [
         ),
       warnings: [],
     }),
-  },
-  {
+  }),
+  defineContractRule({
     key: 'tangents-with-normal-maps',
     group: 'geometry',
+    needs: ['facts'],
     check: ({ facts }) => ({
       violations: facts.primitives
         .filter(
@@ -56,7 +60,7 @@ export const geometryRules: readonly ContractRule[] = [
         ),
       warnings: [],
     }),
-  },
+  }),
 ]
 
 // Whether a stored quaternion is the identity rotation.

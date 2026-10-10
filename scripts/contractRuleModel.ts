@@ -17,6 +17,7 @@ import { KEY_FILTER_BITS } from './settings.ts'
 import type { PositionGrid } from './storageGrid.ts'
 import type { PositionStorageFact, TranslationOutputFact } from './storageFacts.ts'
 import type { ContractRule } from './contractRules.ts'
+import { defineContractRule } from './contractRule.ts'
 
 // A name the contract knows: one of its three prefixes, or the shadow.
 export function isContractName(name: string): boolean {
@@ -29,9 +30,10 @@ export function isContractName(name: string): boolean {
 }
 
 export const modelRules: readonly ContractRule[] = [
-  {
+  defineContractRule({
     key: 'nodes-carry-contract-names',
     group: 'model',
+    needs: ['facts'],
     check: ({ facts }) => ({
       violations: facts.nodes
         .filter((node) => !isContractName(node.name))
@@ -40,10 +42,11 @@ export const modelRules: readonly ContractRule[] = [
         ),
       warnings: [],
     }),
-  },
-  {
+  }),
+  defineContractRule({
     key: 'one-node-per-contract-name',
     group: 'model',
+    needs: ['facts'],
     check: ({ facts }) => {
       const counts = new Map<string, number>()
       for (const node of facts.nodes) {
@@ -61,10 +64,11 @@ export const modelRules: readonly ContractRule[] = [
         warnings: [],
       }
     },
-  },
-  {
+  }),
+  defineContractRule({
     key: 'one-shadow-mesh',
     group: 'model',
+    needs: ['facts'],
     check: ({ facts }) => {
       const shadows = facts.nodes.filter((node) => node.name === SHADOW_NODE_NAME)
       if (shadows.length !== 1) {
@@ -84,30 +88,33 @@ export const modelRules: readonly ContractRule[] = [
       }
       return { violations: [], warnings: [] }
     },
-  },
-  {
+  }),
+  defineContractRule({
     key: 'no-extras',
     group: 'model',
+    needs: ['facts'],
     check: ({ facts }) => ({
       violations: facts.extrasBearers.map(
         (bearer) => `${bearer} carries extras, no custom property may reach the file`,
       ),
       warnings: [],
     }),
-  },
-  {
+  }),
+  defineContractRule({
     key: 'no-lights',
     group: 'model',
+    needs: ['facts'],
     check: ({ facts }) => ({
       violations: facts.lightsPresent
         ? ['the model carries lights, the site lights the product with its environment only']
         : [],
       warnings: [],
     }),
-  },
-  {
+  }),
+  defineContractRule({
     key: 'shadow-root-one-material',
     group: 'model',
+    needs: ['facts'],
     check: ({ facts }) => {
       const shadow = facts.nodes.find((node) => node.name === SHADOW_NODE_NAME)
       if (shadow === undefined || !shadow.carriesMesh) {
@@ -123,10 +130,11 @@ export const modelRules: readonly ContractRule[] = [
       }
       return { violations: shadowPrimitiveViolations(facts), warnings: [] }
     },
-  },
-  {
+  }),
+  defineContractRule({
     key: 'shadow-material-unlit-blend',
     group: 'model',
+    needs: ['facts'],
     check: ({ facts }) => {
       const shadowMaterial = shadowMaterialOf(facts)
       if (shadowMaterial === undefined) {
@@ -148,10 +156,11 @@ export const modelRules: readonly ContractRule[] = [
       }
       return { violations, warnings: [] }
     },
-  },
-  {
+  }),
+  defineContractRule({
     key: 'storage-matches-pipeline',
     group: 'model',
+    needs: ['storage'],
     check: ({ storage }) => ({
       violations: [
         ...storage.positions.flatMap((position) =>
@@ -161,7 +170,7 @@ export const modelRules: readonly ContractRule[] = [
       ],
       warnings: [],
     }),
-  },
+  }),
 ]
 
 // What one mesh's position storage breaks: a storage other than the

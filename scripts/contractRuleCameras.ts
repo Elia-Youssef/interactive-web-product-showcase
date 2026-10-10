@@ -10,6 +10,7 @@ import { homeFitReportOf, homeFitViolationsOf } from './homeFitRule.ts'
 import { cameraAssemblyOf } from './validateCameras.ts'
 import { cross, dot, rollFreeBasisOf, scale, sub } from './viewBasis.ts'
 import type { ContractRule } from './contractRules.ts'
+import { defineContractRule } from './contractRule.ts'
 
 // The roll a stored camera can carry and still read as the roll-free view
 // the controls rebuild: the exporter's quaternion re-derivation rounds to
@@ -17,9 +18,10 @@ import type { ContractRule } from './contractRules.ts'
 const ROLL_TOLERANCE_DEG = 0.01
 
 export const cameraRules: readonly ContractRule[] = [
-  {
+  defineContractRule({
     key: 'camera-static-roll-free',
     group: 'cameras',
+    needs: ['facts', 'structure'],
     check: ({ facts, structure }) => {
       const violations: string[] = []
       const animated = new Set(structure.animationChannels.map((channel) => channel.targetName))
@@ -49,10 +51,11 @@ export const cameraRules: readonly ContractRule[] = [
       }
       return { violations, warnings: [] }
     },
-  },
-  {
+  }),
+  defineContractRule({
     key: 'authored-minimum-needed',
     group: 'cameras',
+    needs: ['manifest', 'structure', 'contract'],
     check: ({ manifest, structure, contract }) => {
       const authored = manifest.camera?.minDistance
       if (authored === undefined) {
@@ -81,12 +84,13 @@ export const cameraRules: readonly ContractRule[] = [
       }
       return { violations: [], warnings: [] }
     },
-  },
-  {
+  }),
+  defineContractRule({
     key: 'home-holds-both-poses',
     group: 'cameras',
+    needs: ['structure', 'homeFit'],
     check: (input) => ({ violations: homeFitViolationsOf(homeFitReportOf(input)), warnings: [] }),
-  },
+  }),
 ]
 
 // A value in the report at four decimals: enough to read a roll against

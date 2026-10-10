@@ -5,6 +5,7 @@
 // every lit material samples one shared occlusion image through texCoord 1.
 
 import type { ContractRule } from './contractRules.ts'
+import { defineContractRule } from './contractRule.ts'
 
 // The authoring extensions the render path and the contract use, and the
 // marks the optimize step writes: anything else in extensionsUsed renders
@@ -22,19 +23,21 @@ const ALLOWED_EXTENSIONS: readonly string[] = [
 ]
 
 export const materialRules: readonly ContractRule[] = [
-  {
+  defineContractRule({
     key: 'only-allowed-extensions',
     group: 'materials',
+    needs: ['facts'],
     check: ({ facts }) => ({
       violations: facts.extensionsUsed
         .filter((extension) => !ALLOWED_EXTENSIONS.includes(extension))
         .map((extension) => `the file uses extension '${extension}', outside the allowed set`),
       warnings: [],
     }),
-  },
-  {
+  }),
+  defineContractRule({
     key: 'single-sided-materials',
     group: 'materials',
+    needs: ['facts'],
     check: ({ facts }) => ({
       violations: facts.materials
         .filter((material) => material.doubleSided)
@@ -52,10 +55,11 @@ export const materialRules: readonly ContractRule[] = [
         ),
       warnings: [],
     }),
-  },
-  {
+  }),
+  defineContractRule({
     key: 'lit-materials-opaque',
     group: 'materials',
+    needs: ['facts'],
     check: ({ facts }) => ({
       violations: facts.materials
         .filter((material) => !material.unlit && material.alphaMode !== 'OPAQUE')
@@ -65,10 +69,11 @@ export const materialRules: readonly ContractRule[] = [
         ),
       warnings: [],
     }),
-  },
-  {
+  }),
+  defineContractRule({
     key: 'lit-materials-occluded',
     group: 'materials',
+    needs: ['facts'],
     check: ({ facts }) => ({
       violations: facts.materials
         .filter((material) => !material.unlit && material.occlusionImage === null)
@@ -79,10 +84,11 @@ export const materialRules: readonly ContractRule[] = [
         ),
       warnings: [],
     }),
-  },
-  {
+  }),
+  defineContractRule({
     key: 'one-occlusion-image',
     group: 'materials',
+    needs: ['facts'],
     check: ({ facts }) => {
       const images = new Set<number>(
         facts.materials.flatMap((material) =>
@@ -106,10 +112,11 @@ export const materialRules: readonly ContractRule[] = [
         warnings: [],
       }
     },
-  },
-  {
+  }),
+  defineContractRule({
     key: 'occlusion-texcoord-second-set',
     group: 'materials',
+    needs: ['facts'],
     check: ({ facts }) => ({
       violations: facts.materials
         .filter(
@@ -122,5 +129,5 @@ export const materialRules: readonly ContractRule[] = [
         ),
       warnings: [],
     }),
-  },
+  }),
 ]

@@ -88,8 +88,8 @@ describe('the contract rule table', () => {
 
   it('runs every rule clean over the valid document', async () => {
     const input = contractRuleInputOf(buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'] }))
-    for (const messages of runContractRules(input).values()) {
-      expect(messages).toEqual({ violations: [], warnings: [] })
+    for (const { violations, warnings } of runContractRules(input).values()) {
+      expect({ violations, warnings }).toEqual({ violations: [], warnings: [] })
     }
   })
 

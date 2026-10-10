@@ -4,11 +4,13 @@
 // finish.
 
 import type { ContractRule } from './contractRules.ts'
+import { defineContractRule } from './contractRule.ts'
 
 export const finishRules: readonly ContractRule[] = [
-  {
+  defineContractRule({
     key: 'variant-map-well-formed',
     group: 'finishes',
+    needs: ['facts', 'structure'],
     check: ({ facts, structure }) => {
       const violations: string[] = []
       if (structure.variantNames.some((name) => name === '')) {
@@ -31,10 +33,11 @@ export const finishRules: readonly ContractRule[] = [
       }
       return { violations, warnings: [] }
     },
-  },
-  {
+  }),
+  defineContractRule({
     key: 'mappings-cover-every-variant',
     group: 'finishes',
+    needs: ['facts', 'structure'],
     check: ({ facts, structure }) => ({
       violations: facts.mappings.flatMap((mapping) => {
         const mapped = mapping.mappings.flatMap((entry) => entry.variantNames)
@@ -52,10 +55,11 @@ export const finishRules: readonly ContractRule[] = [
       }),
       warnings: [],
     }),
-  },
-  {
+  }),
+  defineContractRule({
     key: 'default-is-first-finish',
     group: 'finishes',
+    needs: ['manifest', 'facts'],
     check: ({ manifest, facts }) => {
       const first = manifest.finishes[0]
       if (first === undefined) {
@@ -76,5 +80,5 @@ export const finishRules: readonly ContractRule[] = [
       }
       return { violations, warnings: [] }
     },
-  },
+  }),
 ]

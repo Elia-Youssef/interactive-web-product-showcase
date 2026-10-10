@@ -1,4 +1,5 @@
 import type { ContractRule } from './contractRules.ts'
+import { defineContractRule } from './contractRule.ts'
 import { measureShadowFootprint, type ShadowMeasure } from './shadowFootprint.ts'
 import type { ShadowFacts } from './shadowFacts.ts'
 import { SHADOW_SETTINGS, SHIPPED_FIT_TOLERANCE_TEXELS } from './shadowSettings.ts'
@@ -13,9 +14,10 @@ function measured(facts: ShadowFacts): ShadowMeasure | null {
 }
 
 export const shadowRules: readonly ContractRule[] = [
-  {
+  defineContractRule({
     key: 'shadow-alpha-clear-at-border',
     group: 'model',
+    needs: ['shadow'],
     check: ({ shadow }) => {
       const measure = measured(shadow)
       return {
@@ -28,10 +30,11 @@ export const shadowRules: readonly ContractRule[] = [
         warnings: [],
       }
     },
-  },
-  {
+  }),
+  defineContractRule({
     key: 'shadow-footprint-fits-plane',
     group: 'model',
+    needs: ['shadow'],
     check: ({ shadow }) => {
       const measure = measured(shadow)
       const warnings =
@@ -42,7 +45,7 @@ export const shadowRules: readonly ContractRule[] = [
             : sideWarnings(measure)
       return { violations: [], warnings }
     },
-  },
+  }),
 ]
 
 function sideWarnings(measure: ShadowMeasure): string[] {

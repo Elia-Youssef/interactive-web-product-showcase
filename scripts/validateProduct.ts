@@ -5,7 +5,7 @@
 import type { Document, NodeIO } from '@gltf-transform/core'
 import { readContractModelFacts } from './contractFacts.ts'
 import type { ContractModelFacts } from './contractFacts.ts'
-import { runContractRules, withRuleMessages } from './contractRules.ts'
+import { validateContractChecks } from './validateContractChecks.ts'
 import { countDrawCalls } from './drawCalls.ts'
 import { readHomeFitFacts } from './homeFitFacts.ts'
 import { readShadowFacts, type ShadowFacts } from './shadowFacts.ts'
@@ -13,7 +13,6 @@ import type { HomeFitFacts } from './homeFitFacts.ts'
 import { createModelIO } from './modelIo.ts'
 import type { ParseProduct } from './manifestIo.ts'
 import { loadCameraContract, readManifestFile } from './manifestIo.ts'
-import type { CameraContract } from './manifestIo.ts'
 import { readPositionStorage, readTranslationOutputs } from './storageFacts.ts'
 import type { StorageFacts } from './storageFacts.ts'
 import type { PositionGrid } from './storageGrid.ts'
@@ -23,12 +22,7 @@ import { readProductStructure, type ProductStructure } from './structure.ts'
 import {
   checkBudgets,
   checkEncoding,
-  checkExplode,
-  checkFinishes,
-  checkGeometry,
-  checkHotspots,
   checkManifest,
-  checkMaterials,
   checkResult,
   skippedCheck,
   type BudgetFacts,
@@ -37,7 +31,6 @@ import {
   type ProductValidation,
   type TextureFact,
 } from './validateChecks.ts'
-import { checkCameras } from './validateCameras.ts'
 
 function reasonOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
@@ -170,56 +163,6 @@ async function readStorageFacts(
   }
 }
 
-// The contract groups of one product: the rule table's findings folded
-// into each group's own check, or the groups skipped for want of their
-// input. The model group's entry is replaced in place, ahead of the
-// groups that follow it in the report.
-function contractChecks(
-  manifestSide: Awaited<ReturnType<typeof loadManifest>>,
-  modelSide: Awaited<ReturnType<typeof loadModel>>,
-  contract: CameraContract,
-): CheckResult[] {
-  const manifest = manifestSide.manifest
-  const structure = modelSide.structure
-  if (
-    manifest !== null &&
-    structure !== null &&
-    modelSide.facts !== null &&
-    modelSide.homeFit !== null &&
-    modelSide.storage !== null &&
-    modelSide.shadow !== null
-  ) {
-    const findings = runContractRules({
-      manifest,
-      structure,
-      facts: modelSide.facts,
-      homeFit: modelSide.homeFit,
-      storage: modelSide.storage,
-      shadow: modelSide.shadow,
-      contract,
-    })
-    return [
-      withRuleMessages(modelSide.check, findings, 'model'),
-      checkHotspots(manifest, structure),
-      withRuleMessages(checkCameras(manifest, structure, contract), findings, 'cameras'),
-      withRuleMessages(checkGeometry(structure), findings, 'geometry'),
-      withRuleMessages(checkFinishes(manifest, structure), findings, 'finishes'),
-      withRuleMessages(checkMaterials(structure), findings, 'materials'),
-      withRuleMessages(checkExplode(manifest, structure), findings, 'explode'),
-    ]
-  }
-  const reason = manifest === null ? 'the manifest did not load' : 'the model did not read'
-  return [
-    modelSide.check,
-    skippedCheck('hotspots', reason),
-    skippedCheck('cameras', reason),
-    skippedCheck('geometry', reason),
-    skippedCheck('finishes', reason),
-    skippedCheck('materials', reason),
-    skippedCheck('explode', reason),
-  ]
-}
-
 // The position grid is the run's: derived once from the pipeline's bits and
 // passed down, so a file's stored positions are held against the grid the
 // caller names.
@@ -236,7 +179,18 @@ export async function validateShippedProduct(
   const modelSide = await loadModel(io, root, paths, positionGrid)
   const checks: CheckResult[] = [
     manifestSide.check,
-    ...contractChecks(manifestSide, modelSide, contract),
+    ...validateContractChecks(
+      {
+        manifest: manifestSide.manifest,
+        structure: modelSide.structure,
+        facts: modelSide.facts,
+        homeFit: modelSide.homeFit,
+        storage: modelSide.storage,
+        shadow: modelSide.shadow,
+        contract,
+      },
+      modelSide.check,
+    ),
   ]
 
   const structure = modelSide.structure
