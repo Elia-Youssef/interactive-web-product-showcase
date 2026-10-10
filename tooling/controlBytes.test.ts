@@ -13,7 +13,7 @@ import {
   isForbiddenControl,
 } from './controlBytes.ts'
 import { generatedFilePaths } from './generatedFiles.ts'
-import { runGit } from './gitCommand.ts'
+import { execFixtureFile, SUBPROCESS_FIXTURE_TIMEOUT_MS } from './subprocess.fixtures.ts'
 
 const plantedPath = 'src/lib/planted.ts'
 const allowedControls = [0x09, 0x0a, 0x0d]
@@ -81,11 +81,12 @@ describe('the control byte report', () => {
 describe('the scan of the gated text files', () => {
   const scratchRoot = join(import.meta.dirname, '..', 'scratch')
   let repoRoot: string
+  let lines: string[]
 
-  beforeAll(() => {
+  beforeAll(async () => {
     mkdirSync(scratchRoot, { recursive: true })
     repoRoot = mkdtempSync(join(scratchRoot, 'control-scan-'))
-    runGit(repoRoot, ['init', '--quiet'])
+    await execFixtureFile('git', ['init', '--quiet'], { cwd: repoRoot })
     writeFileSync(join(repoRoot, 'nul.ts'), `const a = 1\nconst b = \`x${char(0)}\`\n`)
     // A NUL as the very first byte is a text file's defect too, not a reason
     // to skip it as binary.
@@ -96,14 +97,14 @@ describe('the scan of the gated text files', () => {
     for (const generated of generatedFilePaths) {
       writeFileSync(join(repoRoot, generated), `x${char(0)}\n`)
     }
-  }, 30_000)
+    lines = formatControlByteFindings(scanGatedFilesForControlBytes(repoRoot)).split('\n')
+  }, SUBPROCESS_FIXTURE_TIMEOUT_MS)
 
   afterAll(() => {
     rmSync(repoRoot, { recursive: true, force: true })
   })
 
   test('forbidden bytes are found in text files, by name, and skipped in binary and generated ones', () => {
-    const lines = formatControlByteFindings(scanGatedFilesForControlBytes(repoRoot)).split('\n')
     expect(lines.sort()).toEqual([
       'escape.css:2:14 control-byte: 0x1B',
       'first.txt:1:1 control-byte: 0x00',

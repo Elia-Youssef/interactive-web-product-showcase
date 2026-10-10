@@ -1,7 +1,8 @@
 import { copyFile, readFile, readdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { describe, expect, it } from 'vitest'
-import { resolveGltfCliBin, runGltfCli } from './gltfCli.ts'
+import { beforeAll, describe, expect, it } from 'vitest'
+import { SUBPROCESS_FIXTURE_TIMEOUT_MS } from '../tooling/subprocess.fixtures.ts'
+import { runFixtureGltfCli } from './gltfCli.fixtures.ts'
 import { createModelIO } from './modelIo.ts'
 import { withTempDir, writeOptimizedModel } from './optimizedModel.fixtures.ts'
 import { runOptimizePipeline } from './pipeline.ts'
@@ -34,51 +35,75 @@ describe('authored storage round trips', () => {
     },
   )
 
-  it.each(slugs)('publishes the validated candidate at the %s pipeline settings', async (slug) => {
-    await withTempDir(async (dir) => {
-      const inputPath = path.join(dir, 'raw.glb')
-      const outputPath = path.join(dir, 'model.glb')
-      const io = await createModelIO()
-      await io.write(inputPath, preservationFixture())
-      const before = readProductPreservation(await io.read(inputPath))
-      const { settings } = await loadOptimizeSettings(productPaths(root, slug).settingsFile)
-      let checked: Buffer | undefined
-      await runOptimizePipeline({
-        inputPath,
-        outputPath,
-        settings,
-        io,
-        runKtx: async () => {
-          throw new Error('a geometry fixture has no texture encodes')
-        },
-        run: (args) => runGltfCli(resolveGltfCliBin(), args, process.env),
-        validateCandidate: async (candidatePath) => {
-          const candidate = await io.read(candidatePath)
-          const after = readProductPreservation(candidate)
-          expect(findPreservationLosses(before, after)).toEqual([])
-          expect(
-            candidate
-              .getRoot()
-              .listNodes()
-              .some((node) => node.getName() === '' && node.getMesh() !== null),
-          ).toBe(true)
-          expect(
-            candidate
-              .getRoot()
-              .listMeshes()[0]
-              ?.listPrimitives()[0]
-              ?.getAttribute('POSITION')
-              ?.getNormalized(),
-          ).toBe(true)
-          expect(after.semantics.tracks[0]?.values).not.toEqual(before.semantics.tracks[0]?.values)
-          expect(after.semantics.tracks[0]?.times.length ?? 0).toBeLessThan(
-            before.semantics.tracks[0]?.times.length ?? 0,
-          )
-          checked = await readFile(candidatePath)
-        },
+  describe.each(slugs)('the %s pipeline settings', (slug) => {
+    async function publishedFixture() {
+      return withTempDir(async (dir) => {
+        const inputPath = path.join(dir, 'raw.glb')
+        const outputPath = path.join(dir, 'model.glb')
+        const io = await createModelIO()
+        await io.write(inputPath, preservationFixture())
+        const before = readProductPreservation(await io.read(inputPath))
+        const { settings } = await loadOptimizeSettings(productPaths(root, slug).settingsFile)
+        let checked: Buffer | undefined
+        let validated: Awaited<ReturnType<typeof io.read>> | undefined
+        await runOptimizePipeline({
+          inputPath,
+          outputPath,
+          settings,
+          io,
+          runKtx: async () => {
+            throw new Error('a geometry fixture has no texture encodes')
+          },
+          run: runFixtureGltfCli,
+          validateCandidate: async (candidatePath) => {
+            const candidate = await io.read(candidatePath)
+            const after = readProductPreservation(candidate)
+            const losses = findPreservationLosses(before, after)
+            if (losses.length > 0) throw new Error(losses.join(', '))
+            validated = candidate
+            checked = await readFile(candidatePath)
+          },
+        })
+        if (validated === undefined) throw new Error('the candidate was not validated')
+        return {
+          before,
+          candidate: validated,
+          checked,
+          published: await readFile(outputPath),
+          files: (await readdir(dir)).sort(),
+        }
       })
-      expect(await readFile(outputPath)).toEqual(checked)
-      expect((await readdir(dir)).sort()).toEqual(['model.glb', 'raw.glb'])
+    }
+
+    let fixture: Awaited<ReturnType<typeof publishedFixture>>
+    beforeAll(async () => {
+      fixture = await publishedFixture()
+    }, SUBPROCESS_FIXTURE_TIMEOUT_MS)
+
+    it(`publishes the validated candidate at the ${slug} pipeline settings`, () => {
+      const { before, candidate, checked, published, files } = fixture
+      const after = readProductPreservation(candidate)
+      expect(findPreservationLosses(before, after)).toEqual([])
+      expect(
+        candidate
+          .getRoot()
+          .listNodes()
+          .some((node) => node.getName() === '' && node.getMesh() !== null),
+      ).toBe(true)
+      expect(
+        candidate
+          .getRoot()
+          .listMeshes()[0]
+          ?.listPrimitives()[0]
+          ?.getAttribute('POSITION')
+          ?.getNormalized(),
+      ).toBe(true)
+      expect(after.semantics.tracks[0]?.values).not.toEqual(before.semantics.tracks[0]?.values)
+      expect(after.semantics.tracks[0]?.times.length ?? 0).toBeLessThan(
+        before.semantics.tracks[0]?.times.length ?? 0,
+      )
+      expect(published).toEqual(checked)
+      expect(files).toEqual(['model.glb', 'raw.glb'])
     })
   })
 

@@ -7,14 +7,15 @@ import { buildPlantedCases, plantAndLintCases } from './lintSuite.ts'
 import type { PlantedSuite } from './lintSuite.ts'
 import type { PlantedCase } from './lintSuite.ts'
 import type { LintReport } from './lintTree.ts'
+import { SUBPROCESS_FIXTURE_TIMEOUT_MS } from './subprocess.fixtures.ts'
 
 const cases = buildPlantedCases()
 
 let suite: PlantedSuite
 
-beforeAll(() => {
-  suite = plantAndLintCases(cases)
-}, 300_000)
+beforeAll(async () => {
+  suite = await plantAndLintCases(cases)
+}, SUBPROCESS_FIXTURE_TIMEOUT_MS)
 
 function reportFor(plantedCase: PlantedCase): LintReport {
   if (plantedCase.lintFrom === 'subdirectory') {

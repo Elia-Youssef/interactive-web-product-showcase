@@ -11,10 +11,11 @@
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { expect, test } from 'vitest'
+import { beforeAll, expect, test } from 'vitest'
 import { declarationValueSource, lineColumnOf, parseStylesheet } from './styleParse.ts'
 import { gatedStyleSheets } from './styleSheets.ts'
 import { tokenSourcePath } from './tokenSource.ts'
+import { SUBPROCESS_FIXTURE_TIMEOUT_MS } from './subprocess.fixtures.ts'
 
 const ROOT = join(import.meta.dirname, '..')
 
@@ -22,17 +23,18 @@ const RING_VALUE = 'var(--focus-ring)'
 const RING_OFFSET_VALUE = 'var(--focus-ring-offset, var(--focus-offset))'
 const RING_OWNER = 'src/styles/global.css'
 
-function ownedStylesheets(): { file: string; css: string }[] {
-  return gatedStyleSheets(ROOT).map((file) => ({
+let stylesheets: { file: string; css: string }[]
+beforeAll(() => {
+  stylesheets = gatedStyleSheets(ROOT).map((file) => ({
     file,
     css: readFileSync(join(ROOT, file), 'utf8'),
   }))
-}
+}, SUBPROCESS_FIXTURE_TIMEOUT_MS)
 
 test('the tokens define the ring and global.css keeps the only :focus-visible rule', () => {
   const focusVisibleRules: { file: string; declarations: Map<string, string> }[] = []
   let ringToken: string | undefined
-  for (const { file, css } of ownedStylesheets()) {
+  for (const { file, css } of stylesheets) {
     const root = parseStylesheet(css, file)
     if (file === tokenSourcePath) {
       root.walkDecls((decl) => {
@@ -63,7 +65,7 @@ test('the tokens define the ring and global.css keeps the only :focus-visible ru
 
 test('no stylesheet draws a focus ring outside the recipe', () => {
   const offenders: string[] = []
-  for (const { file, css } of ownedStylesheets()) {
+  for (const { file, css } of stylesheets) {
     parseStylesheet(css, file).walkDecls((decl) => {
       if (!decl.prop.startsWith('outline')) {
         return

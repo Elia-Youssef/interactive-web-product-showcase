@@ -5,6 +5,7 @@ import { createConfig } from './eslintConfig.ts'
 import { plantAndLintCases } from './lintSuite.ts'
 import type { PlantedSuite } from './lintSuite.ts'
 import { globCases, globCompositionCases } from './plantedGlobRules.ts'
+import { SUBPROCESS_FIXTURE_TIMEOUT_MS } from './subprocess.fixtures.ts'
 
 const root = resolve(import.meta.dirname, '..')
 let suite: PlantedSuite
@@ -20,13 +21,13 @@ const cases = [
 ]
 
 beforeAll(async () => {
-  suite = plantAndLintCases(cases)
+  suite = await plantAndLintCases(cases)
   eslint = new ESLint({
     cwd: root,
     overrideConfigFile: true,
     overrideConfig: await createConfig({ root }),
   })
-}, 300_000)
+}, SUBPROCESS_FIXTURE_TIMEOUT_MS)
 
 for (const importer of [
   'src/products/index.ts',

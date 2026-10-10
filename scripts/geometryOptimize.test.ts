@@ -1,8 +1,9 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { expect, it } from 'vitest'
-import { resolveGltfCliBin, runGltfCli } from './gltfCli.ts'
+import { beforeAll, describe, expect, it } from 'vitest'
+import { SUBPROCESS_FIXTURE_TIMEOUT_MS } from '../tooling/subprocess.fixtures.ts'
+import { runFixtureGltfCli } from './gltfCli.fixtures.ts'
 import { createModelIO } from './modelIo.ts'
 import { withTempDir } from './optimizedModel.fixtures.ts'
 import { buildGeometryStageArgs } from './pipeline.ts'
@@ -45,17 +46,18 @@ it('passes the shared resampling tolerance explicitly to the geometry command', 
   expect(args).toContain(config)
 })
 
-it('writes identical bytes to the stock optimize command with its existing defaults', async () => {
-  await withTempDir(async (dir) => {
-    const io = await createModelIO()
-    const source = path.join(dir, 'raw.glb')
-    const stock = path.join(dir, 'stock.glb')
-    const explicit = path.join(dir, 'explicit.glb')
-    await io.write(source, curvedFixture())
-    const bin = resolveGltfCliBin()
-    await runGltfCli(
-      bin,
-      [
+describe('the stock optimize defaults', () => {
+  let stockBytes: Buffer
+  let explicitBytes: Buffer
+
+  beforeAll(async () => {
+    await withTempDir(async (dir) => {
+      const io = await createModelIO()
+      const source = path.join(dir, 'raw.glb')
+      const stock = path.join(dir, 'stock.glb')
+      const explicit = path.join(dir, 'explicit.glb')
+      await io.write(source, curvedFixture())
+      await runFixtureGltfCli([
         'optimize',
         source,
         stock,
@@ -66,21 +68,21 @@ it('writes identical bytes to the stock optimize command with its existing defau
         '--prune=false',
         '--texture-compress=false',
         '--compress=meshopt',
-      ],
-      process.env,
-    )
-    await runGltfCli(
-      bin,
-      [
+      ])
+      await runFixtureGltfCli([
         'optimize-preserving',
         source,
         explicit,
         '--config',
         config,
         `--resample-tolerance=${ANIMATION_RESAMPLE_TOLERANCE}`,
-      ],
-      process.env,
-    )
-    expect(await readFile(explicit)).toEqual(await readFile(stock))
+      ])
+      explicitBytes = await readFile(explicit)
+      stockBytes = await readFile(stock)
+    })
+  }, SUBPROCESS_FIXTURE_TIMEOUT_MS)
+
+  it('writes identical bytes to the stock optimize command with its existing defaults', () => {
+    expect(explicitBytes).toEqual(stockBytes)
   })
 })

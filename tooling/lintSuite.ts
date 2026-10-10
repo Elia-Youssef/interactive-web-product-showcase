@@ -112,7 +112,7 @@ export type PlantedSuite = {
   violationsFromSubdirectory?: LintReport
 }
 
-export function plantAndLintCases(cases: readonly PlantedCase[]): PlantedSuite {
+export async function plantAndLintCases(cases: readonly PlantedCase[]): Promise<PlantedSuite> {
   const violations = plantProject('violations')
   const clean = plantProject('clean')
   try {
@@ -123,18 +123,35 @@ export function plantAndLintCases(cases: readonly PlantedCase[]): PlantedSuite {
       const project = plantedCase.tree === 'violations' ? violations : clean
       project.add(plantedCase.file, plantedCase.code)
     }
+    violations.configure()
+    clean.configure()
     // The subdirectory run reuses the violations tree, and only happens when
     // a case needs it: eslint discovers the same config up from there, while
     // its working directory differs from the tree root.
     const needsSubdirectoryRun = cases.some(
       (plantedCase) => plantedCase.lintFrom === 'subdirectory',
     )
+    // Each invocation has its own output and reads the planted config only.
+    // Settle all children before cleanup, even when one invocation fails.
+    const runs = await Promise.allSettled([
+      violations.lint(),
+      clean.lint(),
+      needsSubdirectoryRun
+        ? violations.lint({ cwd: join(violations.root, 'tooling') })
+        : Promise.resolve(undefined),
+    ])
+    const reports = runs.map((run) => {
+      if (run.status === 'rejected') throw run.reason
+      return run.value
+    })
+    const [violationReport, cleanReport, subdirectoryReport] = reports
+    if (violationReport === undefined || cleanReport === undefined) {
+      throw new Error('the planted lint reports are missing')
+    }
     return {
-      violations: violations.lint(),
-      ...(needsSubdirectoryRun
-        ? { violationsFromSubdirectory: violations.lint({ cwd: join(violations.root, 'tooling') }) }
-        : {}),
-      clean: clean.lint(),
+      violations: violationReport,
+      ...(needsSubdirectoryRun ? { violationsFromSubdirectory: subdirectoryReport } : {}),
+      clean: cleanReport,
     }
   } finally {
     violations.remove()

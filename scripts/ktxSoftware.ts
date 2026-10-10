@@ -222,21 +222,29 @@ export function defaultKtxDeps(env: ProcessEnvLike = process.env): KtxDeps {
 export async function runKtxCommand(
   ktxPath: string,
   args: readonly string[],
+  options: { timeout?: number } = {},
 ): Promise<{ stdout: string; stderr: string }> {
   const command = args[0] ?? ''
   const [exitCode, stdout, stderr] = await new Promise<[number | null, string, string]>(
     (resolve, reject) => {
-      execFile(ktxPath, [...args], { encoding: 'utf8' }, (error, stdoutText, stderrText) => {
-        if (error === null) {
-          resolve([0, stdoutText, stderrText])
-          return
-        }
-        if (typeof error.code === 'string') {
-          reject(new KtxError(`Failed to run 'ktx ${command}' from '${ktxPath}': ${error.message}`))
-          return
-        }
-        resolve([typeof error.code === 'number' ? error.code : null, stdoutText, stderrText])
-      })
+      execFile(
+        ktxPath,
+        [...args],
+        { ...options, encoding: 'utf8' },
+        (error, stdoutText, stderrText) => {
+          if (error === null) {
+            resolve([0, stdoutText, stderrText])
+            return
+          }
+          if (typeof error.code === 'string') {
+            reject(
+              new KtxError(`Failed to run 'ktx ${command}' from '${ktxPath}': ${error.message}`),
+            )
+            return
+          }
+          resolve([typeof error.code === 'number' ? error.code : null, stdoutText, stderrText])
+        },
+      )
     },
   )
   if (exitCode !== 0) {
