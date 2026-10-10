@@ -13,8 +13,9 @@ import type { ComponentProps, ReactElement } from 'react'
 import styles from './Slider.module.css'
 import { joinClassNames } from './joinClassNames'
 import {
+  holdValueKey,
+  ignoreChange,
   ignoresActivation,
-  stopKeyAction,
   unavailableAttributes,
   type UnavailableProps,
 } from './unavailable'
@@ -58,8 +59,8 @@ export type SliderProps = SliderBase &
     // Hands back the value the input moved to.
     onChange: (value: number) => void
     // The keys of the slider while it is available: while it waits, the
-    // primitive takes the keys on itself, because a range input moves to its
-    // keys by their default action.
+    // primitive holds its value keys itself, because a range input moves to
+    // its keys by their default action.
     onKeyDown?: ComponentProps<'input'>['onKeyDown']
   }
 
@@ -77,11 +78,13 @@ export function Slider({
   onKeyDown,
   ...rest
 }: SliderProps): ReactElement<SliderProps> {
-  // While the control waits, its keys are held: the pointer half is the
-  // stylesheet's pointer-events rule on the same state, and the field
-  // declares itself read only, the word React takes for a controlled field
-  // that answers no change handler.
-  const holdKeys = ignoresActivation({ disabled, unavailable })
+  // While the control waits, its activation is ignored in the two ways a
+  // range input is activated: its value keys are held, and its change
+  // event is answered by nothing, which is the word a controlled field
+  // takes instead of the readonly attribute the standard forbids on a
+  // range input. The pointer half is the stylesheet's pointer-events rule
+  // on the same state.
+  const waiting = ignoresActivation({ disabled, unavailable })
   return (
     <input
       {...rest}
@@ -93,11 +96,10 @@ export function Slider({
       value={value}
       aria-valuetext={valueText}
       disabled={disabled}
-      readOnly={holdKeys || undefined}
       className={joinClassNames(styles.slider, className)}
       style={{ '--slider-fill': `${value * 100}%` }}
-      onKeyDown={holdKeys ? stopKeyAction : onKeyDown}
-      onChange={holdKeys ? undefined : (event) => onChange(event.currentTarget.valueAsNumber)}
+      onKeyDown={waiting ? holdValueKey : onKeyDown}
+      onChange={waiting ? ignoreChange : (event) => onChange(event.currentTarget.valueAsNumber)}
     />
   )
 }

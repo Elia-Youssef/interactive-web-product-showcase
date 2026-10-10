@@ -1,88 +1,152 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from './fixtures'
 import { testBodyBudgetMs } from './budgets'
-import { loadCollection } from './productList'
-import { expectPoll, harnessPath, productLoadBudgetMs, waitForProductReady } from './productSpecs'
+import { holdAsset } from './heldAssetRoute'
+import { expectPoll, productLoadBudgetMs, waitForProductReady } from './productSpecs'
 import { renderedFramesOf, settledFrames } from './stageSettle'
 import { expectFocusOn, expectUnavailable } from './stageKeys'
 import { focusVisibly } from './measurementFocus'
 import { resolvedTokenColor } from './tokenColor'
-import { siteCopy } from '../../src/lib/copy/site'
-import { explodeScrubName, formatExplodePercent } from '../../src/lib/copy/productPanel'
+import { productModelUrl } from '../../src/lib/product'
+import { formatExplodePercent, highlightsLabel } from '../../src/lib/copy/productPanel'
+import { product, readoutOf, scrubName, sliderOf, toggleLabel } from './explodeScrubSection'
 
-// The exploded view's scrub control: the slider under the toggle and its
-// mono readout, on the app's panel, with the remount proof on the dev
-// harness. The slider is driven through the real input, so the native
-// contract (fill, value, value text) is the one under test, and every text
-// the readout shows is held to the panel's own format function, imported
-// here, so the display rule has no second copy in the spec.
-
-const product = (await loadCollection()).first
-
-const toggleLabel = product.explode.label ?? siteCopy.defaultExplodeLabel
-const scrubName = explodeScrubName(product)
-
-const readoutOf = (page: Page) => page.locator('[data-explode-readout]')
-const sliderOf = (page: Page) => page.getByRole('slider', { name: scrubName })
+// The exploded view's scrub control on the app's panel: the slider under
+// the toggle and its mono readout, while the section waits and once the
+// product answers. The mount lifecycle proofs live on the dev harness, in
+// explodeScrubMount.spec.ts beside this spec. The slider is driven through
+// the real input, so the native contract (fill, value, value text) is the
+// one under test, and every text the readout shows is held to the panel's
+// own format function, imported here, so the display rule has no second
+// copy in the spec.
 
 test('before the product is presented the section waits unavailable and reads 0%', async ({
   page,
   backendPath,
 }) => {
-  await page.goto(backendPath)
+  // The model request is held, so the waiting state the test reads is the
+  // one on the page for as long as the test reads it.
+  const model = await holdAsset(page, productModelUrl(product.slug))
+  try {
+    await page.goto(backendPath)
+    await expect.poll(model.isHeld, { timeout: productLoadBudgetMs }).toBe(true)
 
-  // The panel renders with the route, before any model presents. Nothing is
-  // attached, so the control waits like the toggle does, at the assembled
-  // rest: the thumb at 0 and the readout at 0%.
-  const slider = sliderOf(page)
-  await expectUnavailable(slider)
-  await expect(slider).toHaveValue('0')
-  await expect(slider).toHaveAttribute('aria-valuetext', '0%')
-  await expect(readoutOf(page)).toHaveText('0%')
+    // The panel renders with the route, before any model presents. Nothing
+    // is attached, so the control waits like the toggle does, at the
+    // assembled rest: the thumb at 0 and the readout at 0%.
+    const slider = sliderOf(page)
+    await expectUnavailable(slider)
+    await expect(slider).toHaveValue('0')
+    await expect(slider).toHaveAttribute('aria-valuetext', '0%')
+    await expect(readoutOf(page)).toHaveText('0%')
 
-  // The waiting toggle reads as a waiting control: the one disabled color
-  // the waiting controls share, a different word of the palette than the
-  // label color a rest button carries, so the disabled state is visible and
-  // not color-alone (the cursor with it).
-  const toggle = page.getByRole('button', { name: toggleLabel })
-  await expectUnavailable(toggle)
-  await expect(toggle).toHaveCSS('color', await resolvedTokenColor(page, '--disabled'))
+    // The waiting toggle reads as a waiting control: the one disabled color
+    // the waiting controls share, a different word of the palette than the
+    // label color a rest button carries, so the disabled state is visible
+    // and not color-alone (the cursor with it).
+    const toggle = page.getByRole('button', { name: toggleLabel })
+    await expectUnavailable(toggle)
+    await expect(toggle).toHaveCSS('color', await resolvedTokenColor(page, '--disabled'))
+  } finally {
+    model.release()
+  }
 })
 
 test('the waiting section keeps the keyboard focus and ignores activation until the product presents', async ({
   page,
   backendPath,
 }) => {
-  await page.goto(backendPath)
-  const toggle = page.getByRole('button', { name: toggleLabel })
-  const slider = sliderOf(page)
+  // The model request is held for the waiting half, so the keys land on a
+  // section that waits no matter how fast the load would otherwise be.
+  const model = await holdAsset(page, productModelUrl(product.slug))
+  try {
+    await page.goto(backendPath)
+    await expect.poll(model.isHeld, { timeout: productLoadBudgetMs }).toBe(true)
+    const toggle = page.getByRole('button', { name: toggleLabel })
+    const slider = sliderOf(page)
 
-  // The toggle is reached by keyboard while it waits: it keeps the focus,
-  // and its activation arms nothing.
-  await focusVisibly(page, toggle)
-  await expectFocusOn(toggle, 'the waiting toggle takes the keyboard focus')
-  await page.keyboard.press('Enter')
-  expect(await page.evaluate(() => window.__viewer?.explode ?? null)).toBeNull()
-  await expectFocusOn(toggle, 'the dropped press leaves the focus on the waiting toggle')
-  await expect(toggle).toHaveAttribute('aria-pressed', 'false')
+    // The toggle is reached by keyboard while it waits: it keeps the focus,
+    // and its activation arms nothing.
+    await focusVisibly(page, toggle)
+    await expectFocusOn(toggle, 'the waiting toggle takes the keyboard focus')
+    await page.keyboard.press('Enter')
+    expect(await page.evaluate(() => window.__viewer?.explode ?? null)).toBeNull()
+    await expectFocusOn(toggle, 'the dropped press leaves the focus on the waiting toggle')
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false')
 
-  // The scrub's keys move nothing while it waits.
-  await focusVisibly(page, slider)
-  await page.keyboard.press('ArrowDown')
-  await expect(slider).toHaveValue('0')
-  await expect(readoutOf(page)).toHaveText('0%')
-  await expectFocusOn(slider, 'the waiting scrub keeps the focus under its keys')
+    // The scrub's keys move nothing while it waits.
+    await focusVisibly(page, slider)
+    await page.keyboard.press('ArrowDown')
+    await expect(slider).toHaveValue('0')
+    await expect(readoutOf(page)).toHaveText('0%')
+    await expectFocusOn(slider, 'the waiting scrub keeps the focus under its keys')
 
-  // The product presents: both controls answer again, the focus never
-  // having left the section, and the toggle opens the view from the keys.
-  await waitForProductReady(page)
-  await expectPoll(page, () => window.__viewer?.explode !== null, testBodyBudgetMs).toBe(true)
-  await expect(toggle).not.toHaveAttribute('aria-disabled')
-  await expect(slider).not.toHaveAttribute('aria-disabled')
-  await focusVisibly(page, toggle)
-  await page.keyboard.press('Enter')
-  await expectFocusOn(toggle, 'the toggle keeps the focus it opens the view from')
-  await expectPoll(page, () => window.__viewer?.explode?.target, testBodyBudgetMs).toBe(1)
+    // The load continues: the product presents, both controls answer again,
+    // the focus never having left the section, and the toggle opens the
+    // view from the keys.
+    model.release()
+    await waitForProductReady(page)
+    await expectPoll(page, () => window.__viewer?.explode !== null, testBodyBudgetMs).toBe(true)
+    await expect(toggle).not.toHaveAttribute('aria-disabled')
+    await expect(slider).not.toHaveAttribute('aria-disabled')
+    await focusVisibly(page, toggle)
+    await page.keyboard.press('Enter')
+    await expectFocusOn(toggle, 'the toggle keeps the focus it opens the view from')
+    await expectPoll(page, () => window.__viewer?.explode?.target, testBodyBudgetMs).toBe(1)
+  } finally {
+    model.release()
+  }
+})
+
+test('the waiting scrub is no keyboard trap: its tab keys leave it, its value keys move nothing', async ({
+  page,
+  backendPath,
+}) => {
+  // The model request is held for the whole test, so the section waits no
+  // matter how fast the machine is: the hold is the suite's clock-free way
+  // to keep a product from presenting, and the trap cannot hide behind a
+  // load that wins the race against the keys.
+  const model = await holdAsset(page, productModelUrl(product.slug))
+  try {
+    await page.goto(backendPath)
+    await expect.poll(model.isHeld, { timeout: productLoadBudgetMs }).toBe(true)
+
+    const toggle = page.getByRole('button', { name: toggleLabel })
+    const slider = sliderOf(page)
+    // The panel's next focusable element after the scrub is the Highlights
+    // disclosure that opens the next section; the previous one is the
+    // toggle.
+    const highlights = page.getByRole('button', {
+      name: highlightsLabel(product.hotspots.length),
+    })
+
+    await expectUnavailable(slider)
+
+    // Tab leaves the waiting scrub for the next focusable element, and
+    // Shift+Tab comes back to it and leaves it the other way: the focus is
+    // never trapped on a waiting control.
+    await focusVisibly(page, slider)
+    await expectFocusOn(slider, 'the waiting scrub takes the keyboard focus')
+    await page.keyboard.press('Tab')
+    await expectFocusOn(highlights, 'Tab leaves the waiting scrub for the next control')
+    await page.keyboard.press('Shift+Tab')
+    await expectFocusOn(slider, 'Shift+Tab returns to the waiting scrub')
+    await page.keyboard.press('Shift+Tab')
+    await expectFocusOn(toggle, 'Shift+Tab leaves the waiting scrub for the previous control')
+
+    // The value keys still move nothing while it waits.
+    await focusVisibly(page, slider)
+    await page.keyboard.press('ArrowDown')
+    await expect(slider).toHaveValue('0')
+    await expect(readoutOf(page)).toHaveText('0%')
+    await expectFocusOn(slider, 'the waiting scrub keeps the focus under its value keys')
+
+    // The waiting input carries no readonly: the standard forbids the
+    // attribute on a range input.
+    await expect(slider).not.toHaveAttribute('readonly')
+  } finally {
+    model.release()
+  }
 })
 
 test('the two controls of the section are named apart', async ({
@@ -254,89 +318,6 @@ test('under reduced motion a scrub lands in its one frame, with the readout', as
   await expect(readoutOf(page)).toHaveText('50%')
   await expect(sliderOf(page)).toHaveAttribute('aria-valuetext', '50%')
 })
-
-test('remounting from open returns the slider and the readout to 0%', async ({
-  page,
-  backendPath,
-}) => {
-  await page.goto(harnessPath(backendPath, product.slug))
-  await waitForProductReady(page)
-  await expectPoll(page, () => window.__viewer?.explode !== null, testBodyBudgetMs).toBe(true)
-
-  const slider = sliderOf(page)
-  await expect(slider).toBeEnabled()
-  await slider.fill('0.5')
-  await expectPoll(page, () => window.__viewer?.explode?.moving, testBodyBudgetMs).toBe(false)
-  await expectPoll(page, () => window.__viewer?.explode?.t, testBodyBudgetMs).toBe(0.5)
-  await expect(readoutOf(page)).toHaveText('50%')
-
-  const remount = page.getByTestId('remount-product')
-
-  // Unmount from the open state: the readout reaction's release publishes
-  // idle, so nothing stale survives the view, and the control waits like
-  // the toggle while no view is attached.
-  await remount.click()
-  await expectPoll(page, () => window.__viewer?.product, productLoadBudgetMs).toBe('idle')
-  await expectPoll(page, () => window.__viewer?.explode ?? null, testBodyBudgetMs).toBeNull()
-  await expectUnavailable(slider)
-  await expect(slider).toHaveValue('0')
-  await expect(readoutOf(page)).toHaveText('0%')
-
-  // Remount: presented assembled again, the control live at the rest.
-  await remount.click()
-  await waitForProductReady(page)
-  await expectPoll(page, () => window.__viewer?.explode?.t, testBodyBudgetMs).toBe(0)
-  await expect(slider).toBeEnabled()
-  await expect(slider).toHaveValue('0')
-  await expect(readoutOf(page)).toHaveText('0%')
-})
-
-test('the section stays focused while the view detaches under it, and answers again', async ({
-  page,
-  backendPath,
-}) => {
-  await page.goto(harnessPath(backendPath, product.slug))
-  await waitForProductReady(page)
-  await expectPoll(page, () => window.__viewer?.explode !== null, testBodyBudgetMs).toBe(true)
-
-  const toggle = page.getByRole('button', { name: toggleLabel })
-  await focusVisibly(page, toggle)
-  await expectFocusOn(toggle, 'the toggle holds the keyboard focus before the detach')
-
-  // The view detaches while the toggle holds the focus. The harness mount
-  // control is driven programmatically, the one click that moves no focus,
-  // so the detach lands on a focused control the way an engine that keeps
-  // the focus on press lands it.
-  await toggleProductMount(page)
-
-  await expectPoll(page, () => window.__viewer?.explode ?? null, testBodyBudgetMs).toBeNull()
-  await expectUnavailable(toggle)
-  await expectFocusOn(toggle, 'the detach leaves the focus on the waiting toggle')
-
-  // The view attaches again: the toggle answers from the focus the detach
-  // left on it.
-  await toggleProductMount(page)
-  await waitForProductReady(page)
-  await expectPoll(page, () => window.__viewer?.explode !== null, testBodyBudgetMs).toBe(true)
-  await expect(toggle).not.toHaveAttribute('aria-disabled')
-  await expectFocusOn(toggle, 'the attach leaves the focus where the detach found it')
-  await page.keyboard.press('Enter')
-  await expectFocusOn(toggle, 'the toggle keeps the focus it opens the view from')
-  await expectPoll(page, () => window.__viewer?.explode?.target, testBodyBudgetMs).toBe(1)
-})
-
-// The harness mount control, clicked programmatically: a trusted click
-// would move the focus in the engines that focus a button on press, and the
-// point of the drive is the state change under a focus that stays.
-async function toggleProductMount(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    const remount = document.querySelector<HTMLElement>('[data-testid="remount-product"]')
-    if (remount === null) {
-      throw new Error('the harness mount control is missing')
-    }
-    remount.click()
-  })
-}
 
 // The feature is mounted once the product is presented, so the automation
 // reading exists and the stage is at rest on the assembled pose.
