@@ -3,10 +3,11 @@ import type { RefObject } from 'react'
 import { PerspectiveCamera, type Camera } from 'three/webgpu'
 import type { DistanceRange } from '@lib/camera/limits'
 import type { CameraPlan, CameraView } from './productPlan'
-import { applyLens, applyView, scaledRangeOf, stepZoom } from './controls'
+import type { OrbitTurn } from '@lib/camera/orbitStep'
+import { applyLens, applyView, scaledRangeOf, stepOrbit, stepZoom } from './controls'
 import { prefersReducedMotion } from '@lib/motion/reducedMotion'
 
-// The four camera operations the context API hands out, as plain functions
+// The camera operations the context API hands out, as plain functions
 // over the stage camera's live state. Each one requires the controls and
 // the perspective camera it needs and fails loudly when they are not there;
 // the state is read at call time, so the functions never see a stale plan
@@ -110,16 +111,25 @@ export function transitionToView(state: StageCameraState, viewId: string): Promi
   )
 }
 
-// Steps the zoom one configured step toward the product or away from it,
-// eased like a transition, and resolves at rest.
-export function stepZoomBy(state: StageCameraState, direction: 1 | -1): Promise<void> {
+// Steps the zoom by configured steps toward the product (positive) or away
+// from it (negative), eased like a transition, or at once under reduced
+// motion, and resolves at rest.
+export function stepZoomBy(state: StageCameraState, steps: number): Promise<void> {
   const plan = requirePlan(state)
   return stepZoom(
     requireControls(state),
     scaledRangeOf(plan, state.stageAspect()),
-    direction,
+    steps,
     !prefersReducedMotion(),
   )
+}
+
+// Turns the orbit from where the current move ends, the tilt clamped to the
+// plan's polar limits, eased like a transition, or at once under reduced
+// motion, and resolves at rest.
+export function rotateStep(state: StageCameraState, turn: OrbitTurn): Promise<void> {
+  const plan = requirePlan(state)
+  return stepOrbit(requireControls(state), plan.polarRange, turn, !prefersReducedMotion())
 }
 
 // Ends the presentation: the plan is dropped, the controls stop listening,

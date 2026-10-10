@@ -20,6 +20,9 @@ const live = (
   endDistance: 2,
   minDistance: 1,
   maxDistance: 4,
+  endPolar: 1,
+  minPolar: 0.25,
+  maxPolar: 2.75,
   ...overrides,
 })
 
@@ -41,6 +44,9 @@ describe('applyCameraReadoutEvent', () => {
         endDistance: 2,
         minDistance: 1,
         maxDistance: 4,
+        endPolar: 1,
+        minPolar: 0.25,
+        maxPolar: 2.75,
       },
       expected: live(),
     },
@@ -54,8 +60,27 @@ describe('applyCameraReadoutEvent', () => {
         endDistance: 3,
         minDistance: 1,
         maxDistance: 4,
+        endPolar: 1,
+        minPolar: 0.25,
+        maxPolar: 2.75,
       },
       expected: live({ azimuth: 1.5, distance: 3, endDistance: 3 }),
+    },
+    {
+      name: 'live + live with a new end polar angle carries it, so the tilt reads where it ends',
+      from: live(),
+      event: {
+        kind: 'live',
+        azimuth: 0.5,
+        distance: 2,
+        endDistance: 2,
+        minDistance: 1,
+        maxDistance: 4,
+        endPolar: 0.25,
+        minPolar: 0.25,
+        maxPolar: 2.75,
+      },
+      expected: live({ endPolar: 0.25 }),
     },
     {
       name: 'live + idle becomes idle',
@@ -80,6 +105,9 @@ describe('applyCameraReadoutEvent', () => {
         endDistance: 2,
         minDistance: 1,
         maxDistance: 4,
+        endPolar: 1,
+        minPolar: 0.25,
+        maxPolar: 2.75,
       },
       expected: live(),
       identical: true,
@@ -100,18 +128,18 @@ describe('applyCameraReadoutEvent', () => {
 describe('nextCameraRequest', () => {
   it('sequences each request above the one before it', () => {
     const first = nextCameraRequest(initialCameraRequestChannel, { kind: 'view', viewId: 'home' })
-    const second = nextCameraRequest(first, { kind: 'zoom', direction: 1 })
-    const third = nextCameraRequest(second, { kind: 'zoom', direction: 1 })
+    const second = nextCameraRequest(first, { kind: 'zoom', steps: 1 })
+    const third = nextCameraRequest(second, { kind: 'zoom', steps: 1 })
 
     expect(first).toEqual({ sequence: 1, request: { kind: 'view', viewId: 'home' } })
     expect(second.sequence).toBe(2)
     expect(third.sequence).toBe(3)
-    expect(third.request).toEqual({ kind: 'zoom', direction: 1 })
+    expect(third.request).toEqual({ kind: 'zoom', steps: 1 })
   })
 
   it('gives a repeated request its own sequence, so it runs twice', () => {
-    const first = nextCameraRequest(initialCameraRequestChannel, { kind: 'zoom', direction: -1 })
-    const second = nextCameraRequest(first, { kind: 'zoom', direction: -1 })
+    const first = nextCameraRequest(initialCameraRequestChannel, { kind: 'zoom', steps: -1 })
+    const second = nextCameraRequest(first, { kind: 'zoom', steps: -1 })
 
     expect(first.request).toEqual(second.request)
     expect(second.sequence).toBe(first.sequence + 1)
@@ -137,7 +165,7 @@ describe('hasUnhandledCameraRequest', () => {
 
 describe('applyCameraOutcomeEvent', () => {
   const home = { kind: 'view', viewId: 'home' } as const
-  const zoomIn = { kind: 'zoom', direction: 1 } as const
+  const zoomIn = { kind: 'zoom', steps: 1 } as const
 
   it('records an arrived request with its sequence and its request', () => {
     const next = applyCameraOutcomeEvent(initialCameraOutcome, {

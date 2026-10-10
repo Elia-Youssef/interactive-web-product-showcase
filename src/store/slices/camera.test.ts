@@ -40,6 +40,9 @@ test('publishing a live readout carries the exact camera values', () => {
     endDistance: 1.75,
     minDistance: 0.875,
     maxDistance: 4.125,
+    endPolar: 1,
+    minPolar: 0.25,
+    maxPolar: 2.75,
   })
 
   const readout = selectCameraReadout(read())
@@ -50,6 +53,9 @@ test('publishing a live readout carries the exact camera values', () => {
     endDistance: 1.75,
     minDistance: 0.875,
     maxDistance: 4.125,
+    endPolar: 1,
+    minPolar: 0.25,
+    maxPolar: 2.75,
   })
 })
 
@@ -62,6 +68,9 @@ test('publishing the same live values twice keeps one live readout', () => {
     endDistance: 2,
     minDistance: 1,
     maxDistance: 4,
+    endPolar: 1,
+    minPolar: 0.25,
+    maxPolar: 2.75,
   } as const
 
   slice.cameraPublishReadout(event)
@@ -81,6 +90,9 @@ test('publishing idle clears a live readout', () => {
     endDistance: 2,
     minDistance: 1,
     maxDistance: 4,
+    endPolar: 1,
+    minPolar: 0.25,
+    maxPolar: 2.75,
   })
   slice.cameraPublishReadout({ kind: 'idle' })
 
@@ -90,16 +102,16 @@ test('publishing idle clears a live readout', () => {
 test('requests reach the channel sequenced, the same one twice included', () => {
   const { slice, read } = makeSlice()
 
-  slice.cameraRequest({ kind: 'zoom', direction: 1 })
+  slice.cameraRequest({ kind: 'zoom', steps: 1 })
   expect(selectCameraRequestChannel(read())).toEqual({
     sequence: 1,
-    request: { kind: 'zoom', direction: 1 },
+    request: { kind: 'zoom', steps: 1 },
   })
 
-  slice.cameraRequest({ kind: 'zoom', direction: 1 })
+  slice.cameraRequest({ kind: 'zoom', steps: 1 })
   expect(selectCameraRequestChannel(read())).toEqual({
     sequence: 2,
-    request: { kind: 'zoom', direction: 1 },
+    request: { kind: 'zoom', steps: 1 },
   })
 
   slice.cameraRequest({ kind: 'view', viewId: 'home' })

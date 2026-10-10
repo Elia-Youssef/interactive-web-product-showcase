@@ -94,7 +94,7 @@ describe('the composed flow actions', () => {
   it('advances the camera sequence exactly as a direct request does', () => {
     const { store, actions } = presented(FORMA, ['driver'])
 
-    actions.cameraRequest({ kind: 'zoom', direction: 1 })
+    actions.cameraRequest({ kind: 'zoom', steps: 1 })
     actions.hotspotPressed(FORMA, 'driver')
     actions.hotspotClosed(FORMA)
 

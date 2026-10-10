@@ -6,21 +6,25 @@
 
 import type { CameraLimitConfig } from '@lib/camera/config'
 import { cameraLimitConfig } from '@lib/camera/config'
+import type { OrbitStepConfig } from '@lib/camera/orbitStep'
 
-export type StageCameraConfig = CameraLimitConfig & {
-  // The eased time constant of a camera transition, in seconds. The design
-  // window for camera moves is 600 to 900 ms, with no bounce: the controls
-  // move critically damped, so the value is the smooth time, not a hard
-  // duration.
-  readonly transitionSmoothTimeSeconds: number
-  // The time constant while the visitor is dragging or pinching, in
-  // seconds: shorter, so the camera follows the hand.
-  readonly draggingSmoothTimeSeconds: number
-  // The wheel dolly speed multiplier of the controls.
-  readonly wheelDollySpeed: number
-  // One zoom button step, in percentage points.
-  readonly zoomStepPercent: number
-}
+// The orbit steps are degrees: a rotate step turns the azimuth, a tilt step
+// the polar angle, and the fine step (Shift on the keys) is either one.
+export type StageCameraConfig = CameraLimitConfig &
+  OrbitStepConfig & {
+    // The eased time constant of a camera transition, in seconds. The design
+    // window for camera moves is 600 to 900 ms, with no bounce: the controls
+    // move critically damped, so the value is the smooth time, not a hard
+    // duration.
+    readonly transitionSmoothTimeSeconds: number
+    // The time constant while the visitor is dragging or pinching, in
+    // seconds: shorter, so the camera follows the hand.
+    readonly draggingSmoothTimeSeconds: number
+    // The wheel dolly speed multiplier of the controls.
+    readonly wheelDollySpeed: number
+    // One zoom button step, in percentage points.
+    readonly zoomStepPercent: number
+  }
 
 export const stageCameraConfig: StageCameraConfig = {
   ...cameraLimitConfig,
@@ -28,4 +32,7 @@ export const stageCameraConfig: StageCameraConfig = {
   draggingSmoothTimeSeconds: 0.08,
   wheelDollySpeed: 1,
   zoomStepPercent: 10,
+  rotateStepDegrees: 15,
+  tiltStepDegrees: 15,
+  fineStepDegrees: 5,
 }

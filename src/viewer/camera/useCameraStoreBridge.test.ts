@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createAppStore, selectCameraOutcome } from '@store/index'
+import { defer, settled, stepFrames } from './cameraRequestFixtures'
 import { CameraNoPlanError, CameraUnknownViewError } from './stageCameraApi'
 import { runCameraRequest, watchCameraRequests } from './useCameraStoreBridge'
 
@@ -7,26 +8,14 @@ import { runCameraRequest, watchCameraRequests } from './useCameraStoreBridge'
 // and a stand-in move, so the recording path the canvas bridge runs is the
 // one under test: arrived at rest, the two typed rejections, and two
 // overlapping requests that both resolve at the final rest, the newer one's
-// outcome kept.
-
-// Flushes the microtasks a recorded move resolves through.
-async function settled(): Promise<void> {
-  await new Promise<void>((resolve) => setImmediate(resolve))
-}
-
-function defer(): { promise: Promise<void>; resolve: () => void } {
-  let resolve: () => void = () => {}
-  const promise = new Promise<void>((settle) => {
-    resolve = settle
-  })
-  return { promise, resolve }
-}
+// outcome kept. The step frame the steps run on is the test's to drive.
 
 describe('watchCameraRequests', () => {
   it('records arrived once the move comes to rest', async () => {
     const store = createAppStore()
     const move = vi.fn(() => Promise.resolve())
-    const stop = watchCameraRequests(store, move)
+    const frames = stepFrames()
+    const stop = watchCameraRequests(store, move, frames.schedule)
 
     store.getState().cameraRequest({ kind: 'view', viewId: 'driver' })
     await settled()
@@ -43,9 +32,14 @@ describe('watchCameraRequests', () => {
   it('records a no-plan rejection and reports it loudly', async () => {
     const store = createAppStore()
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const stop = watchCameraRequests(store, () => {
-      throw new CameraNoPlanError()
-    })
+    const frames = stepFrames()
+    const stop = watchCameraRequests(
+      store,
+      () => {
+        throw new CameraNoPlanError()
+      },
+      frames.schedule,
+    )
 
     store.getState().cameraRequest({ kind: 'view', viewId: 'home' })
     await settled()
@@ -61,14 +55,43 @@ describe('watchCameraRequests', () => {
     stop()
   })
 
+  it('names an orbit turn in a rejection it reports', async () => {
+    const store = createAppStore()
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const frames = stepFrames()
+    const stop = watchCameraRequests(
+      store,
+      () => {
+        throw new CameraNoPlanError()
+      },
+      frames.schedule,
+    )
+
+    store.getState().cameraRequest({ kind: 'rotate', azimuthDegrees: -15, polarDegrees: 0 })
+    frames.run()
+    await settled()
+
+    expect(consoleError).toHaveBeenCalledWith(
+      'the camera request #1 an orbit turn was rejected: no-plan',
+    )
+    consoleError.mockRestore()
+    stop()
+  })
+
   it('records an unknown-view rejection and reports it loudly', async () => {
     const store = createAppStore()
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const stop = watchCameraRequests(store, () => {
-      throw new CameraUnknownViewError('driver')
-    })
+    const frames = stepFrames()
+    const stop = watchCameraRequests(
+      store,
+      () => {
+        throw new CameraUnknownViewError('driver')
+      },
+      frames.schedule,
+    )
 
-    store.getState().cameraRequest({ kind: 'zoom', direction: 1 })
+    store.getState().cameraRequest({ kind: 'zoom', steps: 1 })
+    frames.run()
     await settled()
 
     expect(selectCameraOutcome(store.getState())?.outcome).toEqual({
@@ -87,13 +110,18 @@ describe('watchCameraRequests', () => {
     const first = defer()
     const second = defer()
     const moves = [first.promise, second.promise]
-    const stop = watchCameraRequests(store, () => {
-      const promise = moves.shift()
-      if (promise === undefined) {
-        throw new Error('the test ran out of stand-in moves')
-      }
-      return promise
-    })
+    const frames = stepFrames()
+    const stop = watchCameraRequests(
+      store,
+      () => {
+        const promise = moves.shift()
+        if (promise === undefined) {
+          throw new Error('the test ran out of stand-in moves')
+        }
+        return promise
+      },
+      frames.schedule,
+    )
 
     store.getState().cameraRequest({ kind: 'view', viewId: 'driver' })
     store.getState().cameraRequest({ kind: 'view', viewId: 'home' })
@@ -116,7 +144,8 @@ describe('watchCameraRequests', () => {
   it('runs the same request again when it is dispatched twice', async () => {
     const store = createAppStore()
     const move = vi.fn(() => Promise.resolve())
-    const stop = watchCameraRequests(store, move)
+    const frames = stepFrames()
+    const stop = watchCameraRequests(store, move, frames.schedule)
 
     store.getState().cameraRequest({ kind: 'view', viewId: 'home' })
     store.getState().cameraRequest({ kind: 'view', viewId: 'home' })
@@ -178,7 +207,7 @@ describe('runCameraRequest', () => {
     expect(() =>
       runCameraRequest(
         1,
-        { kind: 'zoom', direction: 1 },
+        { kind: 'zoom', steps: 1 },
         () => {
           throw boom
         },

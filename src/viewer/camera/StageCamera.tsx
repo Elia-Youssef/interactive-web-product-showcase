@@ -8,6 +8,7 @@ import { StageCameraContext, type StageCameraApi } from './StageCameraContext'
 import {
   presentPlan,
   releasePresentation,
+  rotateStep,
   stepZoomBy,
   transitionToView,
   type StageCameraState,
@@ -17,6 +18,7 @@ import { useCameraControlsConfig } from './useCameraControlsConfig'
 import { useCameraAutomationSource } from './useCameraAutomationSource'
 import { useCameraReadoutPublish, useCameraRequests } from './useCameraStoreBridge'
 import { useCameraResize } from './useCameraResize'
+import { useCameraStepFrame } from './useCameraStepFrame'
 import { useStageAspect } from './useStageAspect'
 
 type StageCameraProps = {
@@ -58,14 +60,16 @@ export function StageCamera({ children }: StageCameraProps) {
 
   useCameraControlsConfig(controls)
   useCameraReadoutPublish(controls, store)
-  useCameraRequests(controls, store, state)
+  const stepFrame = useCameraStepFrame(invalidate)
+  useCameraRequests(controls, store, state, stepFrame)
   useCameraResize(controls, size, planRef, appliedRangeRef, invalidate)
   useCameraAutomationSource(controls, camera instanceof PerspectiveCamera ? camera : null)
   const api = useMemo<StageCameraApi>(
     () => ({
       present: (plan, viewId) => presentPlan(state, plan, viewId),
       transitionTo: (viewId) => transitionToView(state, viewId),
-      zoomStep: (direction) => stepZoomBy(state, direction),
+      zoomStep: (steps) => stepZoomBy(state, steps),
+      rotateStep: (turn) => rotateStep(state, turn),
       release: () =>
         releasePresentation(state, () => store.getState().cameraPublishReadout({ kind: 'idle' })),
     }),

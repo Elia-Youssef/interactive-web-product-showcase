@@ -4,6 +4,8 @@
 // normalization and formatting of the azimuth and the zoom percentage
 // belong to the layers that display them.
 
+import type { CameraStep } from '@lib/camera/cameraStep'
+
 // The live camera readout of the stage: idle while no product view is
 // presented, live with the controls' own values once one is. The azimuth is
 // the controls' accumulated angle in radians, so full turns survive in the
@@ -13,7 +15,9 @@
 // distance at rest: the state a zoom step reads and clamps. The controls
 // rest within their own threshold of that end, so the live distance sits a
 // hair short of it while the move dies out; a limit the controls reached is
-// exact in the end distance and only near in the live one.
+// exact in the end distance and only near in the live one. The end polar
+// angle is the same for the tilt: where the current move ends, in radians
+// from straight up, held exactly at the polar limits it is clamped to.
 export type CameraReadout =
   | { readonly kind: 'idle' }
   | {
@@ -23,15 +27,17 @@ export type CameraReadout =
       readonly endDistance: number
       readonly minDistance: number
       readonly maxDistance: number
+      readonly endPolar: number
+      readonly minPolar: number
+      readonly maxPolar: number
     }
 
 export type LiveCameraReadout = Extract<CameraReadout, { kind: 'live' }>
 
-// One request from the UI to the camera: show a view by id, or step the
-// zoom toward the product (1) or away from it (-1).
-export type CameraRequest =
-  | { readonly kind: 'view'; readonly viewId: string }
-  | { readonly kind: 'zoom'; readonly direction: 1 | -1 }
+// One request from the UI to the camera: show a view by id, or a step
+// relative to where the current move ends: a turn of the orbit, or zoom
+// steps toward the product (positive) or away from it (negative).
+export type CameraRequest = { readonly kind: 'view'; readonly viewId: string } | CameraStep
 
 // The request channel: the newest request and its sequence number. The
 // sequence makes the same request twice run twice, because the second one
@@ -67,6 +73,9 @@ export function applyCameraReadoutEvent(
         endDistance: event.endDistance,
         minDistance: event.minDistance,
         maxDistance: event.maxDistance,
+        endPolar: event.endPolar,
+        minPolar: event.minPolar,
+        maxPolar: event.maxPolar,
       }
       return sameLiveReadout(readout, live) ? readout : live
     }
@@ -80,7 +89,10 @@ function sameLiveReadout(a: CameraReadout, b: LiveCameraReadout): boolean {
     a.distance === b.distance &&
     a.endDistance === b.endDistance &&
     a.minDistance === b.minDistance &&
-    a.maxDistance === b.maxDistance
+    a.maxDistance === b.maxDistance &&
+    a.endPolar === b.endPolar &&
+    a.minPolar === b.minPolar &&
+    a.maxPolar === b.maxPolar
   )
 }
 
@@ -107,10 +119,11 @@ export function hasUnhandledCameraRequest(
 // or a view id the presented plan does not hold.
 export type CameraRequestRejectionReason = 'no-plan' | 'unknown-view'
 
-// The outcome of one camera request: the move came to rest, or the request
-// was rejected before any move began.
+// The outcome of one camera request: the move came to rest, the merged
+// steps required no move, or the request was rejected before a move began.
 export type CameraRequestOutcome =
   | { readonly kind: 'arrived' }
+  | { readonly kind: 'unchanged' }
   | { readonly kind: 'rejected'; readonly reason: CameraRequestRejectionReason }
 
 // The outcome of the newest request the camera has settled: its sequence,
@@ -128,7 +141,11 @@ export type CameraOutcomeRecord = {
 }
 
 export type CameraOutcomeEvent =
-  | { readonly kind: 'arrived'; readonly sequence: number; readonly request: CameraRequest }
+  | {
+      readonly kind: 'arrived' | 'unchanged'
+      readonly sequence: number
+      readonly request: CameraRequest
+    }
   | {
       readonly kind: 'rejected'
       readonly sequence: number
@@ -154,6 +171,6 @@ export function applyCameraOutcomeEvent(
     sequence: event.sequence,
     request: event.request,
     outcome:
-      event.kind === 'arrived' ? { kind: 'arrived' } : { kind: 'rejected', reason: event.reason },
+      event.kind === 'rejected' ? { kind: 'rejected', reason: event.reason } : { kind: event.kind },
   }
 }

@@ -34,7 +34,7 @@ export function StageZoomControls() {
         <IconButton
           aria-label={siteCopy.zoomOutLabel}
           disabled={!zoomStepMoves(readout.endDistance, range, -1)}
-          onClick={() => cameraRequest({ kind: 'zoom', direction: -1 })}
+          onClick={() => cameraRequest({ kind: 'zoom', steps: -1 })}
         >
           <MinusIcon />
         </IconButton>
@@ -42,7 +42,7 @@ export function StageZoomControls() {
         <IconButton
           aria-label={siteCopy.zoomInLabel}
           disabled={!zoomStepMoves(readout.endDistance, range, 1)}
-          onClick={() => cameraRequest({ kind: 'zoom', direction: 1 })}
+          onClick={() => cameraRequest({ kind: 'zoom', steps: 1 })}
         >
           <PlusIcon />
         </IconButton>
