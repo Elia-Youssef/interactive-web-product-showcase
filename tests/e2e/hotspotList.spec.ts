@@ -14,6 +14,9 @@ import {
 } from './stageCamera'
 import { cameraAtRest, readyStage, shownMarkerOf } from './stageKeys'
 import { scrollToReveal } from './scrollToReveal'
+import { completedPresentation } from './presentationCompletion'
+import { closeWays } from './hotspotFlowFacts'
+import { scrollsAsDocument, viewportContracts } from './layoutContracts'
 import {
   expectCameraStayed,
   expectFocused,
@@ -205,5 +208,56 @@ for (const viewport of [
         panel.x + panel.width,
       )
     })
+  }
+}
+
+// The page scroll sizes: the layout is one scrolling document, so a card
+// opened from the list scrolls the document itself and the stage above it
+// leaves the viewport. The card's own scroll must bring its heading and
+// close button into the visible band, and the card must close by every way
+// that needs no marker: the marker press way is absent at these sizes
+// because the phone chrome's keep-out hides every marker (the chrome marker
+// spec proves that class), so the list is the route to a card there. The
+// outside press closes through the shared close way, which reveals the
+// stage back into view before it chooses its canvas point.
+const listedCloseWays = closeWays.filter(([way]) => way !== 'pressing the active marker')
+const pageScrollLayouts = viewportContracts.filter(
+  (contract) => contract.hotspotCard === 'docks' && scrollsAsDocument(contract),
+)
+
+for (const viewport of pageScrollLayouts) {
+  for (const product of products) {
+    for (const [way, closeBy] of listedCloseWays) {
+      test(`${product.slug}: at ${viewport.width}x${viewport.height} the listed card reaches view whole and closes by ${way} after the page scrolled`, async ({
+        page,
+        backendPath,
+      }) => {
+        await page.setViewportSize({ width: viewport.width, height: viewport.height })
+        await readyStage(page, productPathOf(backendPath, product))
+        const section = highlightsButtonOf(page, product)
+        await section.scrollIntoViewIfNeeded()
+        await section.click()
+
+        const first = product.hotspots[0]
+        if (first === undefined) {
+          throw new Error(`${product.slug} lists no hotspot`)
+        }
+        const { button, card } = itemOf(page, first.title)
+        await button.scrollIntoViewIfNeeded()
+        await button.click()
+        // The card's own scroll settles before the band is read: no part is
+        // scrolled into view by hand here.
+        await completedPresentation(page)
+        await expect(card.getByRole('heading', { name: first.title })).toBeInViewport()
+        await expect(
+          card.getByRole('button', { name: siteCopy.closeLabel }),
+          'the close button sits in the band the card scrolled to',
+        ).toBeInViewport()
+
+        await closeBy(page, first.title)
+        await expect(card).toHaveCount(0)
+        await expect(button).toHaveAttribute('aria-expanded', 'false')
+      })
+    }
   }
 }

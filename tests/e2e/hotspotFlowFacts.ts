@@ -9,6 +9,7 @@ import { readMarkerExtentTokens } from './markerExtentTokens'
 import { resolvedDistanceRange, viewExpectation } from './stageCamera'
 import { selectFlowSubjects, type FlowSubject } from './flowSubjects'
 import { cardCloseButtonOf, harnessCanvasDrivePoint, markerOf } from './hotspotViews'
+import { revealCompleted } from './presentationCompletion'
 
 // The per-product facts the flow specs read: every product's authored
 // camera views and hotspot facts, once per file, and the flow shape each
@@ -96,6 +97,11 @@ function flowsOf(
 
 // The ways to close, all through the same slice: each entry is the
 // way's name and the shared close action, told which marker is open.
+// The outside press reveals the stage before it chooses its point: a card
+// that renders in the panel can scroll the page and take the stage out of
+// the viewport (the page scroll layout), and the point is chosen from the
+// page as it stands when the way runs. Revealing an already exposed stage
+// scrolls nothing, so one way serves every layout and both scrollers.
 export type CloseWay = readonly [string, (page: Page, openTitle: string) => Promise<void>]
 
 export const closeWays: readonly CloseWay[] = [
@@ -105,6 +111,7 @@ export const closeWays: readonly CloseWay[] = [
   [
     'outside dismissal',
     async (page) => {
+      await revealCompleted(page, page.locator('canvas'))
       const point = await harnessCanvasDrivePoint(page)
       await page.mouse.click(point.x, point.y)
     },
