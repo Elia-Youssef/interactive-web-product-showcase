@@ -1,3 +1,4 @@
+import { hotspotTestProducts } from './hotspotTestProducts'
 import type { Locator } from '@playwright/test'
 import { expect, test } from './fixtures'
 import { siteCopy } from '../../src/lib/copy/site'
@@ -21,7 +22,7 @@ const HEIGHT = 390
 
 const collection = await loadCollection()
 
-for (const product of collection.products) {
+for (const product of hotspotTestProducts(collection.products, 'docked card sheet')) {
   const explodeLabel = product.explode.label ?? siteCopy.defaultExplodeLabel
   test(`docked card sheet band: every open card of ${product.slug} fits the visible band at ${WIDTH}x${HEIGHT}, and the explode control stays reachable`, async ({
     page,

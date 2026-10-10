@@ -33,6 +33,7 @@ export async function readScrubMarkerFacts(
   center: vec3,
   home: AuthoredView,
   stage: MarkerStage,
+  targets: readonly number[] = SCRUB_TARGETS,
 ): Promise<ScrubMarkerFacts> {
   const parsed = await parseShippedGltf(product.slug)
   const clip = parsed.animations.find((animation) => animation.name === product.explode.clip)
@@ -46,7 +47,7 @@ export async function readScrubMarkerFacts(
   const meshes = readOccluderMeshes(parsed.scene, center).meshes
   const pose = createExplodePose(parsed.scene, clip)
   const shown = new Map<string, boolean[]>(anchors.map((anchor) => [anchor.id, []]))
-  for (const target of SCRUB_TARGETS) {
+  for (const target of targets) {
     pose.apply(target)
     parsed.scene.updateMatrixWorld(true)
     const visible = markersShownIn(

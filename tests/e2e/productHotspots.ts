@@ -8,6 +8,10 @@ import { isBlocked, readOccluderMeshes } from './productMesh'
 import type { Mesh } from 'three'
 import { parseDocumentWithLoader } from './productGltf'
 
+// Anchor positions and meshes are read without searching. Hiding heights
+// are evaluated only when a run-time occlusion proof reads them, once per
+// anchor, so listing tests never runs a hiding-height search.
+//
 // The authored hotspot facts of a shipped product, computed in Node straight
 // from the `.glb` the site ships. The spec derives its geometry expectations
 // from these facts, never from the viewer's own scene graph, so a viewer
@@ -95,14 +99,20 @@ export async function readProductHotspotFacts(
 
   const hotspots = anchors.map((anchor, index) => {
     const others = anchors.filter((_, candidateIndex) => candidateIndex !== index)
+    let height: { readonly value: number | null } | undefined
     return {
       id: anchor.id,
       stagePosition: anchor.stagePosition,
-      hidingHeightM: hidingHeightFor(anchor.stagePosition, others, {
-        meshes: meshes.meshes,
-        homeTarget,
-        homeDistance,
-      }),
+      get hidingHeightM() {
+        height ??= {
+          value: hidingHeightFor(anchor.stagePosition, others, {
+            meshes: meshes.meshes,
+            homeTarget,
+            homeDistance,
+          }),
+        }
+        return height.value
+      },
     }
   })
 

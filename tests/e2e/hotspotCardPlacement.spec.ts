@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test'
 import { siteCopy } from '../../src/lib/copy/site'
 import { waitForExplodeRestingAt } from './explodeRest'
 import { readMarkerExtentTokens } from './markerExtentTokens'
-import { readScrubMarkerFacts, SCRUB_TARGETS } from './scrubMarkerFacts'
+import { readScrubMarkerFacts } from './scrubMarkerFacts'
 import { expectProduct, productPathOf } from './collectionFacts'
 import { shippedProducts } from './productSpecs'
 import { settledFrames } from './stageSettle'
@@ -79,7 +79,7 @@ function openViewsOf(
 }
 
 // The hotspots whose markers home shows at the fully exploded pose on the
-// stage, by the scrub facts' last target.
+// stage, by one bounded pose of the scrub facts.
 async function shownExplodedAt(
   flow: HotspotFlow,
   box: Parameters<typeof readScrubMarkerFacts>[3]['box'],
@@ -89,9 +89,9 @@ async function shownExplodedAt(
     flow.subject.viewFacts.center,
     flow.subject.viewFacts.home,
     { box, extent },
+    [1],
   )
-  const last = SCRUB_TARGETS.length - 1
-  return new Set([...facts].filter(([, shown]) => shown[last] === true).map(([id]) => id))
+  return new Set([...facts].filter(([, shown]) => shown[0] === true).map(([id]) => id))
 }
 
 for (const contract of referenceLayouts) {

@@ -10,7 +10,8 @@ import {
   oppositeAzimuthOf,
 } from './hotspotDrives'
 import { markerOf, mountedMarkerOf, requireCamera } from './hotspotViews'
-import { selectOcclusionSubjects } from './occlusionSubjects'
+import { occlusionCandidates } from './occlusionSubjects'
+import { runtimeOcclusionSubjects } from './runtimeOcclusionSubjects'
 import { flowFacts } from './hotspotFlowFacts'
 import { resolvedTokenColor } from './tokenColor'
 import { applicationPlainSubjects } from './applicationPlainSubjects'
@@ -40,12 +41,15 @@ function pulseStartTimes(page: Parameters<typeof markerOf>[0], title: string): P
 // close-up live in hotspotFlow.spec.ts.
 
 const { flows, factsBySlug } = await flowFacts(await harnessProducts())
-const applicationPlains = applicationPlainSubjects(await flowFacts(await shippedProducts()))
+const applicationPlains = applicationPlainSubjects(
+  await flowFacts(await shippedProducts(), 'application hotspot flow'),
+)
 
-// The pulse proof's round trip passes the hiding view of the subject the
-// selection resolved at collection, where the title names the hotspot: a
-// product without one runs no round trip.
-const occlusionSubjects = selectOcclusionSubjects(
+const occlusionSubjects = runtimeOcclusionSubjects(
+  flows.map((flow) => flow.subject.product),
+  factsBySlug,
+)
+const candidates = occlusionCandidates(
   flows.map((flow) => flow.subject.product),
   factsBySlug,
 )
@@ -60,7 +64,6 @@ for (const flow of flows) {
   const slug = product.slug
   const plain = applicationPlains.plainOf(slug)
   const closeUp = flow.subject.closeUps[0]
-  const occluded = occlusionSubjects.get(slug)
 
   if (plain !== undefined) {
     test(`hotspots ${slug}: pressing the marker without a close-up presses it alone in the red token, and the camera stays put`, async ({
@@ -160,13 +163,18 @@ for (const flow of flows) {
     })
   }
 
-  if (occluded !== undefined) {
-    test(`hotspots ${slug}: each marker pulses exactly once after load, and an occlusion round trip past the hiding view of ${occluded.hotspot.title} replays nothing`, async ({
+  if (candidates.has(slug)) {
+    test(`hotspots ${slug}: each marker pulses exactly once after load, and an occlusion round trip past the hiding view of an occludable hotspot replays nothing`, async ({
       page,
       backendPath,
     }) => {
       // One load and four camera drives: the occlusion round trip to the
       // hiding view and back home, each an azimuth drive and a polar drive.
+      const occluded = occlusionSubjects().get(slug)
+      if (occluded === undefined) {
+        test.skip(true, 'the product has no occludable hotspot with a hiding height')
+        return
+      }
       test.setTimeout(testBudgetMs({ productLoads: 1, cameraDrives: 4 }))
       await page.goto(harnessPath(backendPath, slug))
       await waitForProductReady(page)

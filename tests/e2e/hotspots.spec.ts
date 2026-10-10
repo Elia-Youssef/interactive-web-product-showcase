@@ -1,9 +1,11 @@
+import { hotspotTestProducts } from './hotspotTestProducts'
 import { expect, test } from './fixtures'
 import { productLoadBudgetMs, testBudgetMs } from './budgets'
 import { expectPoll, harnessPath, harnessProducts, waitForProductReady } from './productSpecs'
 import { readProductHotspotFacts } from './productHotspots'
 import type { ProductHotspotFacts } from './productHotspots'
-import { selectOcclusionSubjects } from './occlusionSubjects'
+import { occlusionCandidates } from './occlusionSubjects'
+import { runtimeOcclusionSubjects } from './runtimeOcclusionSubjects'
 import { factsBoundsOf, isInsideBox, segmentEntersBox } from './hotspotPlacement'
 import { settledFrames } from './stageSettle'
 import {
@@ -28,15 +30,13 @@ import {
 // input of their projection live in hotspotRepositioning.spec.ts, the
 // interaction halves in hotspotInteraction.spec.ts.
 
-const products = await harnessProducts()
+const products = hotspotTestProducts(await harnessProducts(), 'hotspots')
 const factsBySlug = new Map<string, ProductHotspotFacts>()
 for (const product of products) {
   factsBySlug.set(product.slug, await readProductHotspotFacts(product.slug, product))
 }
-// The occlusion proof's subjects, selected once at collection: a product
-// without one runs no hiding test, and the guard fails when the whole set
-// offers none.
-const occlusionSubjects = selectOcclusionSubjects(products, factsBySlug)
+const occlusionSubjects = runtimeOcclusionSubjects(products, factsBySlug)
+const candidates = occlusionCandidates(products, factsBySlug)
 
 for (const product of products) {
   const facts = factsBySlug.get(product.slug)
@@ -44,7 +44,6 @@ for (const product of products) {
     throw new Error(`no hotspot facts for ${product.slug}`)
   }
   const slug = product.slug
-  const occluded = occlusionSubjects.get(slug)
 
   test(`hotspots ${slug}: each manifest hotspot shows one marker at its anchor's projection`, async ({
     page,
@@ -67,13 +66,18 @@ for (const product of products) {
     await expectMarkersAtProjection(page, product.hotspots, 'at rest')
   })
 
-  if (occluded !== undefined) {
-    test(`hotspots ${slug}: the body hides the marker of ${occluded.hotspot.title} it stands in front of, and home shows it again`, async ({
+  if (candidates.has(slug)) {
+    test(`hotspots ${slug}: the body hides the marker of an occludable hotspot it stands in front of, and home shows it again`, async ({
       page,
       backendPath,
     }) => {
       // One load and four camera drives: to the hiding view (azimuth, then
       // polar) and back home (azimuth, then polar).
+      const occluded = occlusionSubjects().get(slug)
+      if (occluded === undefined) {
+        test.skip(true, 'the product has no occludable hotspot with a hiding height')
+        return
+      }
       test.setTimeout(testBudgetMs({ productLoads: 1, cameraDrives: 4 }))
       await page.goto(harnessPath(backendPath, slug))
       await waitForProductReady(page)

@@ -1,3 +1,4 @@
+import { hotspotTestProducts } from './hotspotTestProducts'
 import { expect, test } from './fixtures'
 import { testBudgetMs } from './budgets'
 import { harnessStageBox } from './e2eViewport'
@@ -9,7 +10,6 @@ import { harnessPath, harnessProducts, waitForProductReady } from './productSpec
 import { readScrubMarkerFacts, SCRUB_TARGETS } from './scrubMarkerFacts'
 import { settledFrames } from './stageSettle'
 import { siteCopy } from '../../src/lib/copy/site'
-import type { Product } from '../../src/lib/product'
 
 // An open card while the explode moves its marker's anchor: the card shows
 // exactly when its marker shows, on every presented frame of a scrub from
@@ -19,29 +19,35 @@ import type { Product } from '../../src/lib/product'
 // subjects are the hotspots whose marker the scrub hides and shows from
 // the home view, by the shipped model's own facts, so the proof can fail:
 // a hotspot whose marker never hides could not tell a card that ignores
-// it. The set is guarded at collection, so no subject means a failure,
+// it. The set is guarded at run time, so no subject means a failure,
 // never a silent pass.
 
 const extent = await readMarkerExtentTokens()
-const subjects: { readonly product: Product; readonly hotspot: Product['hotspots'][number] }[] = []
-for (const product of await harnessProducts()) {
-  const views = await readProductCameraFacts(product.slug)
-  const facts = await readScrubMarkerFacts(product, views.center, views.home, {
-    box: harnessStageBox,
-    extent,
-  })
-  for (const hotspot of product.hotspots) {
-    const shown = facts.get(hotspot.id) ?? []
-    if (shown.includes(true) && shown.includes(false)) {
-      subjects.push({ product, hotspot })
+const products = hotspotTestProducts(await harnessProducts(), 'card scrub proof')
+const subjects = products.flatMap((product) =>
+  product.hotspots.map((hotspot) => ({ product, hotspot })),
+)
+const selected = new Set<string>()
+test.beforeAll(async () => {
+  for (const product of products) {
+    const views = await readProductCameraFacts(product.slug)
+    const facts = await readScrubMarkerFacts(product, views.center, views.home, {
+      box: harnessStageBox,
+      extent,
+    })
+    for (const hotspot of product.hotspots) {
+      const shown = facts.get(hotspot.id) ?? []
+      if (shown.includes(true) && shown.includes(false)) {
+        selected.add(`${product.slug}/${hotspot.id}`)
+      }
     }
   }
-}
-if (subjects.length === 0) {
-  throw new Error(
-    'no hotspot of the product set hides and shows its marker while the explode scrubs',
-  )
-}
+  if (selected.size === 0) {
+    throw new Error(
+      'no hotspot of the product set hides and shows its marker while the explode scrubs',
+    )
+  }
+})
 
 for (const { product, hotspot } of subjects) {
   const explodeLabel = product.explode.label ?? siteCopy.defaultExplodeLabel
@@ -51,6 +57,10 @@ for (const { product, hotspot } of subjects) {
     backendPath,
   }) => {
     test.setTimeout(testBudgetMs({ productLoads: 1 }))
+    test.skip(
+      !selected.has(`${product.slug}/${hotspot.id}`),
+      'the marker does not both hide and show during the scrub',
+    )
     await page.goto(harnessPath(backendPath, product.slug))
     await waitForProductReady(page)
     await settledFrames(page)

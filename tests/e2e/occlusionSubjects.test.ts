@@ -3,6 +3,7 @@ import type { vec3 } from '@gltf-transform/core'
 import { parseProduct, type Product } from '../../src/lib/product'
 import type { ProductHotspotFact, ProductHotspotFacts } from './productHotspots'
 import {
+  occlusionCandidates,
   requireFollowSubjects,
   selectOcclusionSubjects,
   type OcclusionSubject,
@@ -191,5 +192,28 @@ describe('requireFollowSubjects', () => {
         subjects,
       ),
     ).toThrow('no product with both a plain hotspot and an occlusion subject')
+  })
+})
+
+describe('occlusion registration', () => {
+  it('registers candidates from bounds without evaluating hiding heights', () => {
+    const product = fakeProduct('candidate-piece', ['inside'])
+    const facts = fakeFacts([
+      {
+        id: 'inside',
+        stagePosition: [0, 0, 0],
+        get hidingHeightM(): number | null {
+          throw new Error('collection must not search hiding heights')
+        },
+      },
+    ])
+    expect([...occlusionCandidates([product], new Map([[product.slug, facts]]))]).toEqual([
+      product.slug,
+    ])
+  })
+
+  it('skips a hotspotless product before requiring any model facts', () => {
+    const product = fakeProduct('empty-piece', [])
+    expect([...occlusionCandidates([product], new Map())]).toEqual([])
   })
 })

@@ -38,7 +38,9 @@ import {
 // over the same facts module.
 
 const { flows } = await flowFacts(await harnessProducts())
-const applicationPlains = applicationPlainSubjects(await flowFacts(await shippedProducts()))
+const applicationPlains = applicationPlainSubjects(
+  await flowFacts(await shippedProducts(), 'application hotspot flow'),
+)
 
 for (const flow of flows) {
   const { product } = flow.subject

@@ -1,3 +1,4 @@
+import { requireHotspotProducts } from './hotspotProducts'
 import { expect, type Locator, type Page } from '@playwright/test'
 import { siteCopy } from '../../src/lib/copy/site'
 import type { Product, ProductCollection } from '../../src/lib/product'
@@ -130,11 +131,7 @@ export async function walkToDialogStop(page: Page, stop: DialogStop): Promise<vo
 // The first product of the collection that carries hotspots, the subject
 // of the specs that drive a card, or the loud error it is when none does.
 export function productWithHotspots(collection: ProductCollection): Product {
-  const subject = collection.products.find((product) => product.hotspots.length > 0)
-  if (subject === undefined) {
-    throw new Error('the collection holds no product with hotspots')
-  }
-  return subject
+  return requireHotspotProducts(collection.products, 'collection card proof')[0]
 }
 
 // Opens the card of the first hotspot whose marker is shown at the home

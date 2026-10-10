@@ -1,3 +1,4 @@
+import { hotspotTestProducts } from './hotspotTestProducts'
 import type { Page } from '@playwright/test'
 import type { Product } from '../../src/lib/product'
 import { siteCopy } from '../../src/lib/copy/site'
@@ -25,7 +26,7 @@ import { waitForExplodeRestingAt } from './explodeRest'
 // which markers that is belongs to the occlusion proof, so this proof
 // holds every shown marker and requires at least one.
 
-const products = await harnessProducts()
+const products = hotspotTestProducts(await harnessProducts(), 'hotspotExplode')
 
 for (const product of products) {
   const slug = product.slug

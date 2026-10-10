@@ -1,3 +1,4 @@
+import { hotspotTestProducts, registerRuntimeRequirement } from './hotspotTestProducts'
 import type { Page } from '@playwright/test'
 import type { Product } from '../../src/lib/product'
 import { expect, test } from './fixtures'
@@ -64,11 +65,11 @@ for (const { product, hotspot, homeFovY, view } of subjects) {
 }
 
 // Every hotspot of the product set whose close-up lens differs from its
-// product's home lens. Fails at collection when the set carries none, so
+// product's home lens. Fails at run time when the set carries none, so
 // the proof never disappears silently with the product it was written for.
 async function lensSubjects(): Promise<readonly LensSubject[]> {
   const found: LensSubject[] = []
-  for (const product of await harnessProducts()) {
+  for (const product of hotspotTestProducts(await harnessProducts(), 'camera lens proof')) {
     const facts = await readProductCameraFacts(product.slug)
     for (const hotspot of product.hotspots) {
       const view = facts.closeUps.get(hotspot.id)
@@ -77,9 +78,13 @@ async function lensSubjects(): Promise<readonly LensSubject[]> {
       }
     }
   }
-  if (found.length === 0) {
-    throw new Error('the product set carries no close-up with a lens of its own for the lens proof')
-  }
+  registerRuntimeRequirement('camera lens proof: requires a changing lens', found.length, () => {
+    if (found.length === 0) {
+      throw new Error(
+        'the product set carries no close-up with a lens of its own for the lens proof',
+      )
+    }
+  })
   return found
 }
 

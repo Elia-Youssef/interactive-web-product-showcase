@@ -1,3 +1,4 @@
+import { hotspotTestProducts } from './hotspotTestProducts'
 import { expect, test } from './fixtures'
 import { harnessPath, harnessProducts, waitForProductReady } from './productSpecs'
 import { settledFrames } from './stageSettle'
@@ -25,21 +26,10 @@ import {
 // or a resize can hide a marker behind the body or past the stage edge, so
 // those proofs hold every marker still shown, and at least one.
 
-const products = await harnessProducts()
+const products = hotspotTestProducts(await harnessProducts(), 'hotspotRepositioning')
 const harnessStage = { box: harnessStageBox, extent: await readMarkerExtentTokens() }
-const swingBySlug = new Map<string, number>()
-for (const product of products) {
-  const views = await readProductCameraFacts(product.slug)
-  const facts = await readProductHotspotFacts(product.slug, product)
-  swingBySlug.set(product.slug, shownSwingOf(facts, views.home, harnessStage))
-}
-
 for (const product of products) {
   const slug = product.slug
-  const swing = swingBySlug.get(slug)
-  if (swing === undefined || swing === 0) {
-    throw new Error(`no azimuth swing from home keeps a marker of ${slug} shown`)
-  }
 
   test(`hotspots ${slug}: after a drag and a zoom step the markers sit on the new projection, with no frame rendered after rest`, async ({
     page,
@@ -47,6 +37,12 @@ for (const product of products) {
   }) => {
     // One load and one calibrated drag drive.
     test.setTimeout(testBudgetMs({ productLoads: 1, cameraDrives: 1 }))
+    const views = await readProductCameraFacts(slug)
+    const facts = await readProductHotspotFacts(slug, product)
+    const swing = shownSwingOf(facts, views.home, harnessStage)
+    if (swing === 0) {
+      throw new Error(`no azimuth swing from home keeps a marker of ${slug} shown`)
+    }
     await page.goto(harnessPath(backendPath, slug))
     await waitForProductReady(page)
     await settledFrames(page)
