@@ -1,16 +1,16 @@
 // The contract facts the byte-level rule table reads from a product
 // document: nodes and their transforms, cameras' world up, materials,
-// primitives with their topology, the variant mappings, and the document's
-// extensions, lights and extras. Plain data, like the structure facts
-// beside it, so every rule stays a pure function and the document never
-// leaves the model step.
+// primitives with their topology, the meshes' collapsed triangle counts,
+// the variant mappings, and the document's extensions, lights and extras.
+// Plain data, like the structure facts beside it, so every rule stays a
+// pure function and the document never leaves the model step.
 
 import type { Document, Node, Property } from '@gltf-transform/core'
 import { type MappingList } from '@gltf-transform/extensions'
 import { isMat4 } from '../src/lib/camera/frame.ts'
 import type { Vec3 } from '../src/lib/camera/frame.ts'
-import { nearestNamedAncestorOf, primitiveFacts } from './contractPrimitiveFacts.ts'
-import type { ContractPrimitiveFact } from './contractPrimitiveFacts.ts'
+import { nearestNamedAncestorOf, geometryFacts } from './contractPrimitiveFacts.ts'
+import type { ContractPrimitiveFact, ContractMeshFact } from './contractPrimitiveFacts.ts'
 
 // One named node: whether it is a root object (no parent node), the
 // translation and rotation the document authors (null when absent), and
@@ -50,8 +50,10 @@ export type ContractMaterialFact = {
 // One primitive, named by the node whose mesh holds it: the materials it
 // can wear (its default plus every variant mapping), whether it carries a
 // TANGENT attribute, whether its triangles leave an open edge, and how
-// many coincident duplicate triangles it holds.
-export type { ContractPrimitiveFact } from './contractPrimitiveFacts.ts'
+// many coincident duplicate triangles it holds. One mesh node, named the
+// same way: how many of its triangles collapsed when their corners welded
+// together.
+export type { ContractPrimitiveFact, ContractMeshFact } from './contractPrimitiveFacts.ts'
 
 // One mapped primitive's variant table: its default material and every
 // mapping's material with the variants it names.
@@ -71,6 +73,7 @@ export type ContractModelFacts = {
   readonly cameras: readonly ContractCameraFact[]
   readonly materials: readonly ContractMaterialFact[]
   readonly primitives: readonly ContractPrimitiveFact[]
+  readonly meshes: readonly ContractMeshFact[]
   readonly mappings: readonly ContractMappingFact[]
   readonly extensionsUsed: readonly string[]
   readonly lightsPresent: boolean
@@ -83,6 +86,7 @@ export function readContractModelFacts(doc: Document): ContractModelFacts {
   const root = doc.getRoot()
   const nodes = root.listNodes().filter((node) => node.getName() !== '')
   const textures = root.listTextures()
+  const geometry = geometryFacts(doc)
   return {
     nodes: nodes.map((node) => ({
       name: node.getName(),
@@ -109,7 +113,8 @@ export function readContractModelFacts(doc: Document): ContractModelFacts {
           occlusion === null ? null : (material.getOcclusionTextureInfo()?.getTexCoord() ?? 0),
       }
     }),
-    primitives: primitiveFacts(doc),
+    primitives: geometry.primitives,
+    meshes: geometry.meshes,
     mappings: mappingFacts(doc),
     extensionsUsed: root.listExtensionsUsed().map((extension) => extension.extensionName),
     lightsPresent:

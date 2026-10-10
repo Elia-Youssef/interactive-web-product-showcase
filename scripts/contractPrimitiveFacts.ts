@@ -1,7 +1,8 @@
-// The primitive-level facts of the contract: every mesh node's primitives
-// with the materials they can wear, and the topology facts the geometry
-// rules read. Plain data, like the rest of the contract facts, so every
-// rule stays a pure function and the document never leaves the model step.
+// The geometric facts of the contract: every mesh node's primitives with
+// the materials they can wear and the topology facts the geometry rules
+// read, beside each mesh's collapsed triangle count. Plain data, like the
+// rest of the contract facts, so every rule stays a pure function and the
+// document never leaves the model step.
 
 import type { Document, Material, Node, Primitive } from '@gltf-transform/core'
 import { KHRMaterialsVariants, type MappingList } from '@gltf-transform/extensions'
@@ -19,23 +20,38 @@ export type ContractPrimitiveFact = {
   readonly duplicateTriangles: number
 }
 
-// Every mesh node's primitives, with the topology facts the geometry rules
-// read. Nodes without names stand behind their nearest named ancestor, the
-// way the hotspot and bounds readers resolve them.
-export function primitiveFacts(doc: Document): ContractPrimitiveFact[] {
-  const facts: ContractPrimitiveFact[] = []
+// One mesh node, named the way the primitive facts name it: how many of
+// its triangles collapsed when their corners welded together.
+export type ContractMeshFact = {
+  readonly nodeName: string
+  readonly collapsedTriangles: number
+}
+
+export type ContractGeometryFacts = {
+  readonly primitives: readonly ContractPrimitiveFact[]
+  readonly meshes: readonly ContractMeshFact[]
+}
+
+// Every mesh node's primitives with the topology facts the geometry rules
+// read, beside one collapsed triangle count per mesh, in one walk. Nodes
+// without names stand behind their nearest named ancestor, the way the
+// hotspot and bounds readers resolve them.
+export function geometryFacts(doc: Document): ContractGeometryFacts {
+  const primitives: ContractPrimitiveFact[] = []
+  const meshes: ContractMeshFact[] = []
   for (const node of doc.getRoot().listNodes()) {
     const mesh = node.getMesh()
     if (mesh === null) {
       continue
     }
     const nodeName = node.getName() !== '' ? node.getName() : nearestNamedAncestorOf(node)
-    const primitives = mesh.listPrimitives()
-    const topology = meshTopology(primitives)
-    for (const [index, primitive] of primitives.entries()) {
-      const geometry = topology[index]
+    const meshPrimitives = mesh.listPrimitives()
+    const topology = meshTopology(meshPrimitives)
+    meshes.push({ nodeName, collapsedTriangles: topology.collapsedTriangles })
+    for (const [index, primitive] of meshPrimitives.entries()) {
+      const geometry = topology.primitives[index]
       if (geometry === undefined) throw new Error('every primitive needs its geometric facts')
-      facts.push({
+      primitives.push({
         nodeName,
         materialIndices: materialIndicesOf(primitive, doc.getRoot().listMaterials()),
         tangent: primitive.getAttribute('TANGENT') !== null,
@@ -43,7 +59,7 @@ export function primitiveFacts(doc: Document): ContractPrimitiveFact[] {
       })
     }
   }
-  return facts
+  return { primitives, meshes }
 }
 
 export function nearestNamedAncestorOf(node: Node): string {

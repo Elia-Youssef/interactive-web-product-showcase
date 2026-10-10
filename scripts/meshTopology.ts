@@ -6,33 +6,52 @@ export type PrimitiveTopology = {
   readonly duplicateTriangles: number
 }
 
+// One mesh's welded surface: each primitive's place in it, and the count of
+// triangles that collapsed when their corners welded together.
+export type MeshTopology = {
+  readonly primitives: readonly PrimitiveTopology[]
+  readonly collapsedTriangles: number
+}
+
 // Primitives in one mesh share a coordinate system. Weld their decoded
 // positions exactly so material boundaries and attribute seams do not
 // become geometric boundaries. Different mesh nodes remain independent.
-export function meshTopology(primitives: readonly Primitive[]): readonly PrimitiveTopology[] {
+// A triangle whose corners weld to fewer than three distinct vertices has
+// no area: it bounds no surface, so its edges join no incidence count and
+// it is reported as a collapsed triangle of the mesh instead.
+export function meshTopology(primitives: readonly Primitive[]): MeshTopology {
   const vertices = new Map<string, number>()
   const triangles = primitives.map((primitive) => weldedTriangles(primitive, vertices))
   const uses = new Map<string, number>()
+  let collapsedTriangles = 0
   for (const primitiveTriangles of triangles) {
     for (const triangle of primitiveTriangles) {
+      if (isCollapsed(triangle)) {
+        collapsedTriangles += 1
+        continue
+      }
       for (const edge of edgesOf(triangle)) uses.set(edge, (uses.get(edge) ?? 0) + 1)
     }
   }
   const seen = new Set<string>()
-  return triangles.map((primitiveTriangles) => {
-    let duplicateTriangles = 0
-    for (const triangle of primitiveTriangles) {
-      const key = [...triangle].sort((a, b) => a - b).join(',')
-      if (seen.has(key)) duplicateTriangles += 1
-      seen.add(key)
-    }
-    return {
-      openEdges: primitiveTriangles.some((triangle) =>
-        edgesOf(triangle).some((edge) => uses.get(edge) === 1),
-      ),
-      duplicateTriangles,
-    }
-  })
+  return {
+    primitives: triangles.map((primitiveTriangles) => {
+      let duplicateTriangles = 0
+      for (const triangle of primitiveTriangles) {
+        const key = [...triangle].sort((a, b) => a - b).join(',')
+        if (seen.has(key)) duplicateTriangles += 1
+        seen.add(key)
+      }
+      return {
+        openEdges: primitiveTriangles.some(
+          (triangle) =>
+            !isCollapsed(triangle) && edgesOf(triangle).some((edge) => uses.get(edge) === 1),
+        ),
+        duplicateTriangles,
+      }
+    }),
+    collapsedTriangles,
+  }
 }
 
 function edgesOf([a, b, c]: Triangle): readonly string[] {
@@ -41,6 +60,11 @@ function edgesOf([a, b, c]: Triangle): readonly string[] {
 
 function edgeKey(a: number, b: number): string {
   return a < b ? `${a},${b}` : `${b},${a}`
+}
+
+// Fewer than three distinct welded corners: the triangle has no area.
+function isCollapsed([a, b, c]: Triangle): boolean {
+  return a === b || b === c || a === c
 }
 
 function weldedTriangles(primitive: Primitive, vertices: Map<string, number>): readonly Triangle[] {
