@@ -1,6 +1,6 @@
 @import '../../styles/tokens.css';
 
-/* The open hotspot card in its two slots. Values are tokens. */
+/* The open hotspot card in its three slots. Values are tokens. */
 
 /* The floating card: the element the stage overlay places by its top-left
    corner at the card box the placement chose, stacked above the markers. It lays out
@@ -19,6 +19,14 @@
   /* The overlay box passes pointer events through; the card takes them
      where it covers, like the markers do. */
   pointer-events: auto;
+}
+
+/* The listed card fills the width of its list item, under the item's own
+   button, and brings its top into view a row below where it starts, so the
+   button that opened it stays in view above it. */
+.listed {
+  inline-size: var(--size-fill);
+  scroll-margin-block-start: var(--scroll-margin-highlight-card);
 }
 
 /* The docked card fills the width of the dock the layout gives it. */

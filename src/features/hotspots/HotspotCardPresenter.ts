@@ -1,13 +1,14 @@
 import type { BoxSize } from '@lib/hotspots/cardPlacement'
 import type { StagePoint, StageRect } from '@lib/hotspots/markerBox'
 import { presentHotspotCard, type CardPresentation } from '@lib/hotspots/cardPresentation'
+import type { HotspotOrigin } from '@lib/hotspots/flow'
 import type { OverlayBox, OverlayPlacement, StageOverlay } from '@viewer/overlay/StageOverlay'
 import type { CardLayout } from '@lib/hotspots/cardLayout'
 import { CARD_OVERLAY_KEY, overlayKey } from '@lib/hotspots/hotspotKeys'
 
 // The one owner of where the open hotspot card goes, for one product's
 // markers on one stage. It decides through the pure presentation rule, from
-// the stage overlay's last pass (the stage box, every marker's placement,
+// where the selection was opened, the stage overlay's last pass (the stage box, every marker's placement,
 // and the projected extent of the selected hotspot's subject), the layout
 // the stylesheets declare, the stage chrome boxes, and the floating card's
 // measured size. It decides at the end of every overlay pass, after the
@@ -23,15 +24,23 @@ import { CARD_OVERLAY_KEY, overlayKey } from '@lib/hotspots/hotspotKeys'
 //
 // A floating card is the overlay element under the card key, placed by the
 // top-left corner of the box the rule chose, so it rides the overlay's own
-// writer, hidden included, with no React render. The card's slot (floating
-// in the overlay or docked in the layout's dock) and a docked card's shown
-// state are React state, published through subscribe and snapshot for
+// writer, hidden included, with no React render. The card's slot (listed
+// under its Highlights item, floating in the overlay or docked in the
+// layout's dock) and a docked card's shown state are React state, published through subscribe and snapshot for
 // useSyncExternalStore: moving the card between slots moves it in the DOM,
 // and a docked card hides in place, keeping its element and its space.
 
 export type CardSlot =
+  | { readonly hotspotId: string; readonly where: 'listed' }
   | { readonly hotspotId: string; readonly where: 'floating' }
   | { readonly hotspotId: string; readonly where: 'docked'; readonly shown: boolean }
+
+// The open selection the presenter shows: its hotspot and where it was
+// opened from.
+export type CardSelection = {
+  readonly hotspotId: string
+  readonly origin: HotspotOrigin
+}
 
 // What the presenter reads from the page.
 export type CardPageReads = {
@@ -50,7 +59,7 @@ type PageState = {
 }
 
 export class HotspotCardPresenter {
-  private selected: string | null = null
+  private selected: CardSelection | null = null
   private cardSize: BoxSize | null = null
   private slot: CardSlot | null = null
   private page: PageState | null = null
@@ -74,16 +83,17 @@ export class HotspotCardPresenter {
 
   readonly snapshot = (): CardSlot | null => this.slot
 
-  // The selection changed: the new card's size is unknown until it is
-  // measured, and its element stays hidden until it is placed.
-  show(hotspotId: string | null): void {
-    if (hotspotId === this.selected) {
+  // The selection changed, its hotspot or its origin: the new card's size
+  // is unknown until it is measured, and its element stays hidden until it
+  // is placed.
+  show(selection: CardSelection | null): void {
+    if (sameSelection(selection, this.selected)) {
       return
     }
-    this.selected = hotspotId
+    this.selected = selection
     this.cardSize = null
     this.overlay.place(CARD_OVERLAY_KEY, HIDDEN)
-    if (hotspotId === null) {
+    if (selection === null) {
       this.publish(null)
       return
     }
@@ -125,15 +135,16 @@ export class HotspotCardPresenter {
         this.placedMarkers.push(placement)
       }
     }
-    const marker = this.overlay.placementOf(overlayKey(selected))
+    const marker = this.overlay.placementOf(overlayKey(selected.hotspotId))
     this.apply(
-      selected,
+      selected.hotspotId,
       presentHotspotCard({
+        origin: selected.origin,
         policy: page.layout.policy,
         stage: this.overlay.lastPassBox(),
         marker: marker !== null && marker.kind === 'placed' ? marker : null,
         placedMarkers: this.placedMarkers,
-        subject: this.overlay.boxOf(overlayKey(selected)),
+        subject: this.overlay.boxOf(overlayKey(selected.hotspotId)),
         obstacles: page.obstacles,
         card: this.cardSize,
         metrics: page.layout.metrics,
@@ -166,6 +177,10 @@ export class HotspotCardPresenter {
   // card element that mounts on the new slot enters at its placement.
   private apply(hotspotId: string, presentation: CardPresentation): void {
     switch (presentation.slot) {
+      case 'listed':
+        this.overlay.place(CARD_OVERLAY_KEY, HIDDEN)
+        this.publishIfChanged({ hotspotId, where: 'listed' })
+        return
       case 'floating': {
         const { at } = presentation
         this.overlay.place(
@@ -201,10 +216,14 @@ function sameSlot(a: CardSlot, b: CardSlot): boolean {
   if (a.hotspotId !== b.hotspotId) {
     return false
   }
-  if (a.where === 'floating' || b.where === 'floating') {
-    return a.where === b.where
+  if (a.where === 'docked' && b.where === 'docked') {
+    return a.shown === b.shown
   }
-  return a.shown === b.shown
+  return a.where === b.where
+}
+
+function sameSelection(a: CardSelection | null, b: CardSelection | null): boolean {
+  return a === null || b === null ? a === b : a.hotspotId === b.hotspotId && a.origin === b.origin
 }
 
 function sameSize(a: OverlayBox | null, b: OverlayBox | null): boolean {

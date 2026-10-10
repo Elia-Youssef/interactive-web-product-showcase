@@ -143,7 +143,7 @@ function HarnessProduct({
         // store's product status is not ready for it.
         overlay={
           pageManifest !== undefined ? (
-            <HotspotMarkers product={pageManifest} dock={dock} chrome={null} />
+            <HotspotMarkers product={pageManifest} dock={dock} chrome={null} listHost={null} />
           ) : null
         }
       />

@@ -42,7 +42,9 @@ export function ProductStage({ productSwitch, dock, chrome }: ProductStageProps)
             <ProductPreload slugs={preload} />
           </>
         }
-        overlay={<HotspotMarkers product={shown.manifest} dock={dock} chrome={chrome} />}
+        overlay={
+          <HotspotMarkers product={shown.manifest} dock={dock} chrome={chrome} listHost={null} />
+        }
       />
       <ProductSwitchLayer
         shown={shown.manifest.slug}

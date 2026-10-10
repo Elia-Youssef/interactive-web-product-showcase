@@ -202,6 +202,12 @@ their minimum below it, switched by the breakpoints at the end of this file.
   at every breakpoint, so no control covers the ring.
   */
   --inset-stage-target-focus-ring: var(--space-2);
+  /*
+  How far below its scroller's top a card opened from the Highlights list
+  lands when it scrolls into view: one list row and its gap, so the list
+  button that opened it stays in view above it.
+  */
+  --scroll-margin-highlight-card: calc(var(--size-hit-min) + var(--space-2));
 
   /*
   Layout structural sizes.

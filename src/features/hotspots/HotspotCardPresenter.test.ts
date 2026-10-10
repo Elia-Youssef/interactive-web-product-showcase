@@ -11,6 +11,8 @@ import { CARD_OVERLAY_KEY, overlayKey } from '@lib/hotspots/hotspotKeys'
 // way the canvas side writes them, and a count of the page reads.
 
 const metrics = { markerHitPx: 44, cardOffsetPx: 8, focusOutsetPx: 5 }
+const fromMarker = (hotspotId: string) => ({ hotspotId, origin: 'marker' }) as const
+const fromList = (hotspotId: string) => ({ hotspotId, origin: 'list' }) as const
 const card = { width: 200, height: 100 }
 
 function setup(
@@ -53,7 +55,7 @@ describe('HotspotCardPresenter', () => {
     const { overlay, presenter, element } = setup()
     pass(overlay, { width: 800, height: 600 }, { driver: { x: 400, y: 300 }, knob: null })
 
-    presenter.show('driver')
+    presenter.show(fromMarker('driver'))
     expect(presenter.snapshot()).toEqual({ hotspotId: 'driver', where: 'floating' })
     expect(element.style.visibility).toBe('hidden')
 
@@ -66,7 +68,7 @@ describe('HotspotCardPresenter', () => {
   it('moves the card when a pass moves the markers, with the whole pass written first', () => {
     const { overlay, presenter, element } = setup()
     pass(overlay, { width: 800, height: 600 }, { driver: { x: 400, y: 300 }, knob: null })
-    presenter.show('driver')
+    presenter.show(fromMarker('driver'))
     presenter.measure(card)
     overlay.onPass(() => presenter.present(), 'presenter')
 
@@ -85,7 +87,7 @@ describe('HotspotCardPresenter', () => {
     const { overlay, presenter, element } = setup({ current: 'always' })
     pass(overlay, { width: 800, height: 600 }, { driver: { x: 400, y: 300 }, knob: null })
 
-    presenter.show('driver')
+    presenter.show(fromMarker('driver'))
 
     expect(presenter.snapshot()).toEqual({ hotspotId: 'driver', where: 'docked', shown: true })
     expect(element.style.visibility).toBe('hidden')
@@ -94,7 +96,7 @@ describe('HotspotCardPresenter', () => {
   it('docks a card with no room and floats it again from its measured size once there is room', () => {
     const { overlay, presenter } = setup()
     pass(overlay, { width: 800, height: 600 }, { driver: { x: 400, y: 300 }, knob: null })
-    presenter.show('driver')
+    presenter.show(fromMarker('driver'))
     presenter.measure(card)
 
     pass(overlay, { width: 250, height: 200 }, { driver: { x: 125, y: 100 }, knob: null })
@@ -109,7 +111,7 @@ describe('HotspotCardPresenter', () => {
   it('hides a floating card while its marker is hidden', () => {
     const { overlay, presenter, element } = setup()
     pass(overlay, { width: 800, height: 600 }, { driver: { x: 400, y: 300 }, knob: null })
-    presenter.show('driver')
+    presenter.show(fromMarker('driver'))
     presenter.measure(card)
 
     pass(overlay, { width: 800, height: 600 }, { driver: null, knob: null })
@@ -126,10 +128,10 @@ describe('HotspotCardPresenter', () => {
       { width: 800, height: 600 },
       { driver: { x: 400, y: 300 }, knob: { x: 100, y: 100 } },
     )
-    presenter.show('driver')
+    presenter.show(fromMarker('driver'))
     presenter.measure(card)
 
-    presenter.show('knob')
+    presenter.show(fromMarker('knob'))
 
     expect(presenter.snapshot()).toEqual({ hotspotId: 'knob', where: 'floating' })
     expect(element.style.visibility).toBe('hidden')
@@ -138,7 +140,7 @@ describe('HotspotCardPresenter', () => {
   it('publishes only when the slot changes, and clears it with the selection', () => {
     const { overlay, presenter, publishes } = setup()
     pass(overlay, { width: 800, height: 600 }, { driver: { x: 400, y: 300 }, knob: null })
-    presenter.show('driver')
+    presenter.show(fromMarker('driver'))
     presenter.measure(card)
     presenter.present()
     presenter.present()
@@ -160,7 +162,7 @@ describe('HotspotCardPresenter', () => {
     for (const { policy, stage, at } of cases) {
       const { overlay, presenter } = setup({ current: policy })
       pass(overlay, stage, { driver: at, knob: null })
-      presenter.show('driver')
+      presenter.show(fromMarker('driver'))
       presenter.measure(card)
       const slots = [presenter.snapshot()]
 
@@ -183,7 +185,7 @@ describe('HotspotCardPresenter', () => {
     const chrome: { current: readonly StageRect[] } = { current: [] }
     const { overlay, presenter, element } = setup({ current: 'when-crowded' }, chrome)
     pass(overlay, { width: 800, height: 600 }, { driver: { x: 400, y: 300 }, knob: null })
-    presenter.show('driver')
+    presenter.show(fromMarker('driver'))
     presenter.measure(card)
     expect(element.style.transform).toBe('translate(430px, 250px)')
 
@@ -201,7 +203,7 @@ describe('HotspotCardPresenter', () => {
       place(overlayKey('knob'), { kind: 'hidden' })
       placeBox(overlayKey('driver'), { left: 500, top: 280, right: 780, bottom: 340 })
     })
-    presenter.show('driver')
+    presenter.show(fromMarker('driver'))
     presenter.measure(card)
 
     // The subject covers the right side, so the card takes the left.
@@ -222,7 +224,7 @@ describe('HotspotCardPresenter', () => {
     const { overlay, presenter, reads } = setup()
     overlay.onPass(() => presenter.present(), 'presenter')
     pass(overlay, { width: 800, height: 600 }, { driver: { x: 400, y: 300 }, knob: null })
-    presenter.show('driver')
+    presenter.show(fromMarker('driver'))
     presenter.measure(card)
     const afterOpen = reads()
 
@@ -240,7 +242,7 @@ describe('HotspotCardPresenter', () => {
     const { overlay, presenter } = setup(policy)
     overlay.onPass(() => presenter.present(), 'presenter')
     pass(overlay, { width: 800, height: 600 }, { driver: { x: 400, y: 300 }, knob: null })
-    presenter.show('driver')
+    presenter.show(fromMarker('driver'))
     presenter.measure(card)
     expect(presenter.snapshot()).toEqual({ hotspotId: 'driver', where: 'floating' })
 
@@ -248,5 +250,20 @@ describe('HotspotCardPresenter', () => {
     pass(overlay, { width: 390, height: 523 }, { driver: { x: 195, y: 215 }, knob: null })
 
     expect(presenter.snapshot()).toEqual({ hotspotId: 'driver', where: 'docked', shown: true })
+  })
+
+  it('lists a card opened from the list, shown whether its marker is placed or hidden', () => {
+    const { overlay, presenter, element } = setup({ current: 'always' })
+    pass(overlay, { width: 800, height: 600 }, { driver: null, knob: { x: 400, y: 300 } })
+
+    presenter.show(fromList('driver'))
+    expect(presenter.snapshot()).toEqual({ hotspotId: 'driver', where: 'listed' })
+    expect(element.style.visibility).toBe('hidden')
+
+    // The same hotspot moved to its marker leaves the list for the stage.
+    presenter.show(fromMarker('driver'))
+    expect(presenter.snapshot()).toEqual({ hotspotId: 'driver', where: 'docked', shown: false })
+    presenter.show(fromList('driver'))
+    expect(presenter.snapshot()).toEqual({ hotspotId: 'driver', where: 'listed' })
   })
 })

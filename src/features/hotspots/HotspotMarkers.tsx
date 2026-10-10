@@ -1,13 +1,13 @@
-import { useChromeGeometry } from './useChromeGeometry'
 import type { Product } from '@lib/product'
 import { useStageOverlay } from '@viewer/overlay/stageOverlayContext'
 import { useFocusReturn } from '@ui/index'
 import { HotspotAnchor } from './HotspotAnchor'
-import { HotspotCard } from './HotspotCard'
+import { HotspotCard, type ListedCardHost } from './HotspotCard'
 import { useHotspotCard } from './useHotspotCard'
 import { useHotspotFlow } from './useHotspotFlow'
 import { useHotspotSelectionEffects } from './useHotspotSelectionEffects'
 import { useHotspotOutsideDismiss } from './useHotspotOutsideDismiss'
+import { useChromeGeometry } from './useChromeGeometry'
 
 export type HotspotMarkersProps = {
   readonly product: Product
@@ -18,6 +18,9 @@ export type HotspotMarkersProps = {
   // exactly: the floating card keeps clear of its children's boxes. Null
   // where the stage has no chrome, or until it has mounted.
   readonly chrome: Element | null
+  // The host the open Highlights list item holds for a card opened from
+  // the list, or null: a page with no list, or no card open from it.
+  readonly listHost: ListedCardHost | null
 }
 
 // The DOM side of the hotspots: one anchor per manifest hotspot, in manifest
@@ -28,7 +31,7 @@ export type HotspotMarkersProps = {
 // selection's Escape and clear-on-leave effects live in their own hook, so
 // no side of the feature moves the camera except the store's camera request
 // channel.
-export function HotspotMarkers({ product, dock, chrome }: HotspotMarkersProps) {
+export function HotspotMarkers({ product, dock, chrome, listHost }: HotspotMarkersProps) {
   const overlay = useStageOverlay()
   useChromeGeometry(overlay.geometry, chrome)
   const flow = useHotspotFlow(product)
@@ -38,12 +41,13 @@ export function HotspotMarkers({ product, dock, chrome }: HotspotMarkersProps) {
     selected: flow.selected,
     close: flow.close,
   })
-  // The open card's focus return: each press hands the hook its marker, so
-  // the card's close, by whichever way, puts focus back on the marker that
-  // opened it.
-  const captureTrigger = useFocusReturn(flow.selected !== null)
+  // A marker press hands the focus return its marker, so a card opened
+  // from a marker returns focus there however it closes; a list card's
+  // focus returns to its list item through the list's own hook.
+  const captureTrigger = useFocusReturn(flow.selected !== null && flow.origin === 'marker')
   useHotspotOutsideDismiss(flow.presented && flow.selected !== null, flow.close)
-  const card = useHotspotCard(overlay, product, flow.presented ? flow.selected : null)
+  const shown = flow.presented ? flow.selected : null
+  const card = useHotspotCard(overlay, product, shown, flow.origin)
 
   if (!flow.presented) {
     return null
@@ -73,6 +77,7 @@ export function HotspotMarkers({ product, dock, chrome }: HotspotMarkersProps) {
           overlay={overlay}
           presenter={card.presenter}
           dock={dock}
+          listHost={listHost}
           onClose={flow.close}
         />
       )}

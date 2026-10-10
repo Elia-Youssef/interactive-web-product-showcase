@@ -33,6 +33,7 @@ function input(
 ): CardPresentationInput {
   const at = room ? marker : crampedMarker
   return {
+    origin: 'marker',
     policy,
     stage: room ? roomy : cramped,
     marker: markerPlaced ? at : null,
@@ -101,6 +102,25 @@ describe('presentHotspotCard', () => {
       obstacles: [{ left: 0, top: 0, right: roomy.width, bottom: roomy.height }],
     }
     expect(presentHotspotCard(covered)).toEqual(dockedShown)
+  })
+})
+
+describe('presentHotspotCard for a card opened from the list', () => {
+  // A list card is listed and shown in every case a marker card would hide
+  // or dock: the marker hidden or placed, room or none, any policy, any
+  // slot it was in.
+  it.each(rows)(
+    'policy %s, marker placed %s, room %s, now %s: listed',
+    (policy, markerPlaced, room, current) => {
+      expect(
+        presentHotspotCard({ ...input(policy, markerPlaced, room, current), origin: 'list' }),
+      ).toEqual({ slot: 'listed' })
+    },
+  )
+
+  it('is listed before the first pass and before any measure', () => {
+    const before = { ...input('when-crowded', false, true, null), stage: null, card: null }
+    expect(presentHotspotCard({ ...before, origin: 'list' })).toEqual({ slot: 'listed' })
   })
 })
 
