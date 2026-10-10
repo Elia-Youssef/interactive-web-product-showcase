@@ -1,6 +1,6 @@
 import type { Browser, Page } from '@playwright/test'
 import { expect, test } from './fixtures'
-import { createErrorLedger } from './errorLedger'
+import { observePageErrors } from './pageErrors'
 import { testBodyBudgetMs } from './budgets'
 import { productLoadBudgetMs } from './productSpecs'
 
@@ -30,15 +30,7 @@ for (const dprCase of dprClampCases) {
     backendPath,
   }) => {
     const scaled = await rawScaledPage(page.context().browser(), baseURL, dprCase.deviceScaleFactor)
-    const ledger = createErrorLedger()
-    scaled.on('console', (message) => {
-      if (message.type() === 'error') {
-        ledger.record(`console error: ${message.text()}`)
-      }
-    })
-    scaled.on('pageerror', (error) => {
-      ledger.record(`page error: ${error.message}`)
-    })
+    const { ledger, stop } = observePageErrors(scaled)
 
     try {
       await scaled.setViewportSize({ width: 1000, height: 700 })
@@ -73,13 +65,16 @@ for (const dprCase of dprClampCases) {
       expect(
         Math.abs(buffer.height - canvasBox.height * dprCase.expectedBufferScale),
       ).toBeLessThanOrEqual(1)
-
-      const verdict = ledger.verdict()
-      expect(verdict.unexpected, 'the page stayed clean during the test').toEqual([])
-      expect(verdict.unmet, 'every expected page error appeared').toEqual([])
     } finally {
-      await scaled.close()
+      try {
+        await stop()
+      } finally {
+        await scaled.close()
+      }
     }
+    const verdict = ledger.verdict()
+    expect(verdict.unexpected, 'the page stayed clean during the test').toEqual([])
+    expect(verdict.unmet, 'every expected page error appeared').toEqual([])
   })
 }
 

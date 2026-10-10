@@ -94,7 +94,9 @@ test('an environment failure drains the model that is still in flight', async ({
   const model = await holdAsset(page, modelUrl)
   consoleGate.expectError(/The above error occurred in the <CanvasImpl> component/, { times: 1 })
   consoleGate.expectError(
-    /page error: (Failed to fetch|Load failed|NetworkError when attempting to fetch resource\.)/,
+    new RegExp(
+      `^page error: ${TypeError.name}: (Failed to fetch|Load failed|NetworkError when attempting to fetch resource\\.)$`,
+    ),
     { times: 1 },
   )
   if (expectedBrowserName === 'chromium') {

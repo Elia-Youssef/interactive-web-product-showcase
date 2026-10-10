@@ -1,7 +1,7 @@
 import { expect, test as base } from '@playwright/test'
 import type { BrowserName, ChannelSpec } from './matrix'
 import type { ErrorTimes } from './errorLedger'
-import { createErrorLedger } from './errorLedger'
+import { observePageErrors } from './pageErrors'
 import type { RendererBackend } from '../../src/lib/renderer/backend'
 import { e2eBaseURL } from '../../tooling/devHost.ts'
 import { resolveDevPort } from '../../tooling/devPort.ts'
@@ -126,22 +126,17 @@ export const test = base.extend<E2ETestFixtures, E2EWorkerFixtures>({
   // matches fail the test, and so do too many when the count is a number.
   consoleGate: [
     async ({ page }, use) => {
-      const ledger = createErrorLedger()
+      const { ledger, stop } = observePageErrors(page)
 
-      page.on('console', (message) => {
-        if (message.type() === 'error') {
-          ledger.record(`console error: ${message.text()}`)
-        }
-      })
-      page.on('pageerror', (error) => {
-        ledger.record(`page error: ${error.message}`)
-      })
-
-      await use({
-        expectError(pattern, options): void {
-          ledger.expect(pattern, options)
-        },
-      })
+      try {
+        await use({
+          expectError(pattern, options): void {
+            ledger.expect(pattern, options)
+          },
+        })
+      } finally {
+        await stop()
+      }
 
       const verdict = ledger.verdict()
       expect(verdict.unexpected, 'the page stayed clean during the test').toEqual([])
