@@ -1,8 +1,9 @@
 import { fileURLToPath } from 'node:url'
 import type { Accessor, Animation } from '@gltf-transform/core'
 import { modelPathOf } from '../../scripts/fixtureProducts.ts'
-import { createModelIO } from '../../scripts/modelIo.ts'
 import { PART_PREFIX } from '../../src/lib/product/contractNames.ts'
+import { frozen } from './frozenFacts'
+import { memoizedRead, readSharedModelDocument } from './sharedProductModels'
 
 // The committed model's explode facts, read in Node from the .glb the site
 // ships, without the viewer in the loop: the first and last keyframe output
@@ -36,55 +37,60 @@ const NORMALIZED_SCALE: Readonly<Record<number, number>> = {
 
 const FLOAT_COMPONENT_TYPE = 5126
 
-export async function readExplodeModelFacts(slug: string): Promise<ExplodeModelFacts> {
-  const io = await createModelIO()
-  const doc = await io.read(await modelPathOf(ROOT, slug))
-  const animations = doc.getRoot().listAnimations()
-  if (animations.length !== 1) {
-    throw new Error(
-      `expected exactly one animation in the ${slug} model, found ${animations.length}`,
-    )
-  }
-  const animation = animations[0]
-  if (animation === undefined) {
-    throw new Error(`the animation of the ${slug} model is missing`)
-  }
+// The explode facts per slug, read once per process: every spec file's top
+// level read of the same product shares the one derivation.
+const factsBySlug = new Map<string, Promise<ExplodeModelFacts>>()
 
-  const translations = new Map<string, Record<EndPose, Vec3>>()
-  for (const channel of animation.listChannels()) {
-    const name = channel.getTargetNode()?.getName()
-    const path = channel.getTargetPath()
-    const sampler = channel.getSampler()
-    if (name === undefined || name === null || !name.startsWith(PART_PREFIX)) {
-      continue
+export function readExplodeModelFacts(slug: string): Promise<ExplodeModelFacts> {
+  return memoizedRead(factsBySlug, slug, async () => {
+    const doc = await readSharedModelDocument(await modelPathOf(ROOT, slug))
+    const animations = doc.getRoot().listAnimations()
+    if (animations.length !== 1) {
+      throw new Error(
+        `expected exactly one animation in the ${slug} model, found ${animations.length}`,
+      )
     }
-    if (sampler === null || path === null) {
-      throw new Error(`the ${name} channel of the Explode clip has no sampler or path`)
+    const animation = animations[0]
+    if (animation === undefined) {
+      throw new Error(`the animation of the ${slug} model is missing`)
     }
-    if (path === 'translation') {
-      translations.set(name, {
-        first: translationKey(sampler, 0),
-        last: translationKey(sampler, -1),
-      })
-    }
-  }
-  if (translations.size === 0) {
-    throw new Error(`the Explode clip of the ${slug} model animates no PART_ translation`)
-  }
 
-  const firstPose: Record<string, Vec3> = {}
-  const lastPose: Record<string, Vec3> = {}
-  for (const [name, pose] of translations) {
-    firstPose[name] = pose.first
-    lastPose[name] = pose.last
-  }
+    const translations = new Map<string, Record<EndPose, Vec3>>()
+    for (const channel of animation.listChannels()) {
+      const name = channel.getTargetNode()?.getName()
+      const path = channel.getTargetPath()
+      const sampler = channel.getSampler()
+      if (name === undefined || name === null || !name.startsWith(PART_PREFIX)) {
+        continue
+      }
+      if (sampler === null || path === null) {
+        throw new Error(`the ${name} channel of the Explode clip has no sampler or path`)
+      }
+      if (path === 'translation') {
+        translations.set(name, {
+          first: translationKey(sampler, 0),
+          last: translationKey(sampler, -1),
+        })
+      }
+    }
+    if (translations.size === 0) {
+      throw new Error(`the Explode clip of the ${slug} model animates no PART_ translation`)
+    }
 
-  return {
-    clipName: animation.getName(),
-    clipDurationSeconds: clipDuration(animation),
-    firstPose,
-    lastPose,
-  }
+    const firstPose: Record<string, Vec3> = {}
+    const lastPose: Record<string, Vec3> = {}
+    for (const [name, pose] of translations) {
+      firstPose[name] = frozen(pose.first)
+      lastPose[name] = frozen(pose.last)
+    }
+
+    return frozen({
+      clipName: animation.getName(),
+      clipDurationSeconds: clipDuration(animation),
+      firstPose,
+      lastPose,
+    })
+  })
 }
 
 type EndPose = 'first' | 'last'

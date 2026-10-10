@@ -3,10 +3,14 @@ import { getBounds, type mat4, type Node as GltfNode, type vec3 } from '@gltf-tr
 import type { Product } from '../../src/lib/product'
 import { HOTSPOT_PREFIX } from '../../src/lib/product/contractNames.ts'
 import { modelPathOf } from '../../scripts/fixtureProducts.ts'
-import { createModelIO } from '../../scripts/modelIo.ts'
-import { isBlocked, readOccluderMeshes } from './productMesh'
+import { isBlocked, readOccluderMeshes, type OccluderMeshes } from './productMesh'
+import { frozen, frozenShallow } from './frozenFacts'
 import type { Mesh } from 'three'
-import { parseDocumentWithLoader } from './productGltf'
+import {
+  memoizedRead,
+  readSharedModelDocument,
+  readSharedParsedProduct,
+} from './sharedProductModels'
 
 // Anchor positions and meshes are read without searching. Hiding heights
 // are evaluated only when a run-time occlusion proof reads them, once per
@@ -65,13 +69,23 @@ const SEARCH_STEP_M = 0.005
 const DISTANCE_FACTORS = [0.95, 1.0, 1.05, 1.1, 1.2]
 const AZIMUTH_OFFSETS_RAD = [-Math.PI / 18, -Math.PI / 36, 0, Math.PI / 36, Math.PI / 18]
 
-export async function readProductHotspotFacts(
+// The hotspot facts per slug, read once per process: every spec file's top
+// level read of the same product shares the one derivation, hiding heights
+// included, so a listing spec never pays for a proof spec's search twice.
+// The manifest argument shapes the derivation; a slug has one manifest, so
+// the slug is the whole cache key.
+const factsBySlug = new Map<string, Promise<ProductHotspotFacts>>()
+
+export function readProductHotspotFacts(
   slug: string,
   manifest: Product,
 ): Promise<ProductHotspotFacts> {
-  const io = await createModelIO()
+  return memoizedRead(factsBySlug, slug, () => hotspotFactsOf(slug, manifest))
+}
+
+async function hotspotFactsOf(slug: string, manifest: Product): Promise<ProductHotspotFacts> {
   const modelPath = await modelPathOf(ROOT, slug)
-  const doc = await io.read(modelPath)
+  const doc = await readSharedModelDocument(modelPath)
   const root = doc.getRoot()
 
   const scene = root.listScenes()[0]
@@ -84,43 +98,64 @@ export async function readProductHotspotFacts(
     (sceneBounds.min[1] + sceneBounds.max[1]) / 2,
     (sceneBounds.min[2] + sceneBounds.max[2]) / 2,
   ]
-  const meshes = readOccluderMeshes((await parseDocumentWithLoader(doc)).scene, center)
+  const meshes = readOccluderMeshes((await readSharedParsedProduct(modelPath)).scene, center)
+  const homeOrbit = homeOrbitOf(root.listNodes(), center, modelPath)
+  const anchors = readAnchors(root.listNodes(), manifest, center, modelPath)
+  const hotspots = anchors.map((anchor, index) =>
+    hotspotEntryOf(anchor, index, anchors, meshes, homeOrbit),
+  )
 
-  // The authored home view: its orbit target and distance, which the hiding
-  // height's orbit poses hang from.
-  const homeNode = findNode(root.listNodes(), 'CAM_home', modelPath)
+  // The meshes are live three objects shared with the raycasters, so the
+  // facts freeze around them: the array and the bounds freeze, the meshes
+  // stay as the parse built them.
+  return frozenShallow({
+    hotspots: frozen(hotspots),
+    occluderBounds: frozen({ min: meshes.min, max: meshes.max }),
+    occluders: frozenShallow(meshes.meshes),
+  })
+}
+
+// The authored home view's orbit target and distance, which the hiding
+// height's orbit poses hang from.
+function homeOrbitOf(
+  nodes: readonly GltfNode[],
+  center: vec3,
+  modelPath: string,
+): { readonly homeTarget: vec3; readonly homeDistance: number } {
+  const homeNode = findNode(nodes, 'CAM_home', modelPath)
   const homeWorld = homeNode.getWorldMatrix()
   const homePosition = subtract(transformPoint(homeWorld, [0, 0, 0]), center)
   const homeForward = normalize(transformDirection(homeWorld, [0, 0, -1]))
   const homeTarget = closestPointOnRay(homePosition, homeForward, [0, 0, 0])
-  const homeDistance = length(subtract(homePosition, homeTarget))
+  return { homeTarget, homeDistance: length(subtract(homePosition, homeTarget)) }
+}
 
-  const anchors = readAnchors(root.listNodes(), manifest, center, modelPath)
-
-  const hotspots = anchors.map((anchor, index) => {
-    const others = anchors.filter((_, candidateIndex) => candidateIndex !== index)
-    let height: { readonly value: number | null } | undefined
-    return {
-      id: anchor.id,
-      stagePosition: anchor.stagePosition,
-      get hidingHeightM() {
-        height ??= {
-          value: hidingHeightFor(anchor.stagePosition, others, {
-            meshes: meshes.meshes,
-            homeTarget,
-            homeDistance,
-          }),
-        }
-        return height.value
-      },
-    }
+// One manifest hotspot's fact: its stage position and its hiding height,
+// evaluated only when a caller reads it, so the listing specs never run
+// the hiding-height search.
+function hotspotEntryOf(
+  anchor: { readonly id: string; readonly stagePosition: vec3 },
+  index: number,
+  anchors: readonly { readonly id: string; readonly stagePosition: vec3 }[],
+  meshes: OccluderMeshes,
+  homeOrbit: { readonly homeTarget: vec3; readonly homeDistance: number },
+): ProductHotspotFact {
+  const others = anchors.filter((_, candidateIndex) => candidateIndex !== index)
+  let height: { readonly value: number | null } | undefined
+  return frozen({
+    id: anchor.id,
+    stagePosition: frozen(anchor.stagePosition),
+    get hidingHeightM() {
+      height ??= {
+        value: hidingHeightFor(anchor.stagePosition, others, {
+          meshes: meshes.meshes,
+          homeTarget: homeOrbit.homeTarget,
+          homeDistance: homeOrbit.homeDistance,
+        }),
+      }
+      return height.value
+    },
   })
-
-  return {
-    hotspots,
-    occluderBounds: { min: meshes.min, max: meshes.max },
-    occluders: meshes.meshes,
-  }
 }
 
 // Every manifest hotspot's HS_ anchor in stage space, in manifest order.

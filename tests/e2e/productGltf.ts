@@ -1,9 +1,7 @@
-import { fileURLToPath } from 'node:url'
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import type { AnimationClip, Group } from 'three'
 import type { Document } from '@gltf-transform/core'
-import { modelPathOf } from '../../scripts/fixtureProducts.ts'
 import { createModelIO } from '../../scripts/modelIo.ts'
 
 // The runtime side of the agreement proof: each shipped `.glb` parsed by
@@ -16,6 +14,10 @@ import { createModelIO } from '../../scripts/modelIo.ts'
 // stripped before the write, so no encoder is needed; the accessor data
 // and its normalized flags are untouched, and the loader still reads the
 // quantized values through KHR_mesh_quantization).
+//
+// The one read and parse per process lives in sharedProductModels.ts,
+// which stages the documents through this module's loader parse; the
+// functions here are the pure machinery, with no cache of their own.
 
 // The parsed product, as the product path reads it: the scene tree, the
 // animation clips the rig resolves its explode clip from, and the raw glTF
@@ -24,19 +26,6 @@ export type ParsedProduct = {
   readonly scene: Group
   readonly animations: AnimationClip[]
   readonly json: unknown
-}
-
-const ROOT = fileURLToPath(new URL('../..', import.meta.url))
-
-export async function parseShippedGltf(slug: string): Promise<ParsedProduct> {
-  return parseGltfWithLoader(await modelPathOf(ROOT, slug))
-}
-
-// Parses one .glb file with the real loader, for the fixture files the
-// drift tests build beside the shipped products.
-export async function parseGltfWithLoader(modelPath: string): Promise<ParsedProduct> {
-  const io = await createModelIO()
-  return parseDocumentWithLoader(await io.read(modelPath))
 }
 
 // Parses a model document with the real loader, for the cases that bend a
