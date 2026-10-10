@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import { currentSearch, subscribeToPath } from './browserRouter'
+import { useRouter } from './routerContext'
 
 // The address bar exists only in the browser, so a server render carries
 // the empty query: the link shows its path alone until the client render
@@ -13,5 +13,6 @@ function currentSearchOnServer(): string {
 // address, so a reader that renders part of the address re-renders when
 // either half moves.
 export function useRouteSearch(): string {
-  return useSyncExternalStore(subscribeToPath, currentSearch, currentSearchOnServer)
+  const router = useRouter()
+  return useSyncExternalStore(router.subscribeToPath, router.currentSearch, currentSearchOnServer)
 }

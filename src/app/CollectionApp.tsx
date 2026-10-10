@@ -14,7 +14,7 @@ import { NotFoundScreen } from './collection/NotFoundScreen'
 import { AppLayout } from './layout/index'
 import { LiveAnnouncements } from './LiveAnnouncements'
 import { ProductPage } from './product-page/ProductPage'
-import { navigate, useDocumentTitle, useRoutePath } from './routing'
+import { useNavigate, useDocumentTitle, useRoutePath } from './routing'
 import { resolveRoutePage } from './routing/routePage.logic'
 
 export type CollectionAppProps = {
@@ -48,6 +48,7 @@ export function CollectionApp({ manifests }: CollectionAppProps) {
 // stays mounted and its product switch runs the move, so nothing remounts
 // under a redirect or a product switch.
 function RoutedCollection({ collection }: { readonly collection: ProductCollection }) {
+  const navigate = useNavigate()
   const route = parseRoute(useRoutePath())
 
   // The root replaces itself with the first product's path, so back from
@@ -58,7 +59,7 @@ function RoutedCollection({ collection }: { readonly collection: ProductCollecti
     if (route.kind === 'root') {
       navigate(formatProductPath(collection.first.slug), { replace: true })
     }
-  }, [route.kind, collection])
+  }, [route.kind, collection, navigate])
 
   const page = resolveRoutePage(route, collection)
   return page.kind === 'product' ? (
