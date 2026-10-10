@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { ResourceHolds } from '@lib/async/resourceHolds'
 import { useAppStore, selectProductStatus, selectRendererStatus } from '@store/index'
@@ -14,7 +14,6 @@ import { productFailureMessage } from './product/failureMessage'
 import { StageAlert } from './StageAlert'
 import { StageCanvas } from './StageCanvas'
 import { StageLife } from './StageLife'
-import { StageElementContext } from './stageElementContext'
 import { backendRequestFromLocation } from './backendRequest'
 import { canMountCanvas, stageEnvironmentFile } from './canvasMount'
 import { useRendererLifecycle } from './useRendererLifecycle'
@@ -50,7 +49,6 @@ export type StageProps = {
 // owns no landmark and fills the box its container gives it; the app owns
 // the page frame.
 export function Stage({ content, overlay }: StageProps = {}) {
-  const elementRef = useRef<HTMLDivElement>(null)
   const [clock] = useState(() => new FrameClock())
   // A dropped hold is released once the effect flush that dropped it has
   // ended: React runs a flush's cleanups and setups in one synchronous call,
@@ -72,7 +70,7 @@ export function Stage({ content, overlay }: StageProps = {}) {
   const stageFailed = rendererStatus.kind === 'failed'
   const canvasLife = useStageCanvasLife(productStatus.kind === 'loading', stageFailed)
 
-  const canvas = canMountCanvas(request) && (
+  const canvas = canMountCanvas(request) ? (
     <StageCanvas
       clock={clock}
       stageRenderer={stageRenderer}
@@ -82,30 +80,28 @@ export function Stage({ content, overlay }: StageProps = {}) {
       onRendererRetired={canvasLife.retire}
       content={stageFailed ? null : content}
     />
-  )
+  ) : null
 
   return (
-    <StageElementContext.Provider value={elementRef}>
-      <div className={styles.stage} ref={elementRef}>
-        <StageProbesContext.Provider value={probes}>
-          <StageHoldsContext.Provider value={holds}>
-            <AutomationBridge clock={clock} probes={probes} getToneMapping={getToneMapping} />
-            <StageEnvironmentProvider
-              file={stageEnvironmentFile(request, stageConfig.environmentFile)}
-            >
-              <StageLife key={canvasLife.epoch} canvas={canvas} overlay={overlay} />
-            </StageEnvironmentProvider>
-            {stageFailed && <StageAlert reason={rendererStatus.reason} />}
-            {productStatus.kind === 'failed' && (
-              <StageAlert
-                testid="product-alert"
-                reason={`${productStatus.slug}: ${productFailureMessage(productStatus.failure)}`}
-              />
-            )}
-            {import.meta.env.DEV && <DevHud clock={clock} />}
-          </StageHoldsContext.Provider>
-        </StageProbesContext.Provider>
-      </div>
-    </StageElementContext.Provider>
+    <div className={styles.stage}>
+      <StageProbesContext.Provider value={probes}>
+        <StageHoldsContext.Provider value={holds}>
+          <AutomationBridge clock={clock} probes={probes} getToneMapping={getToneMapping} />
+          <StageEnvironmentProvider
+            file={stageEnvironmentFile(request, stageConfig.environmentFile)}
+          >
+            <StageLife key={canvasLife.epoch} canvas={canvas} overlay={overlay} />
+          </StageEnvironmentProvider>
+          {stageFailed && <StageAlert reason={rendererStatus.reason} />}
+          {productStatus.kind === 'failed' && (
+            <StageAlert
+              testid="product-alert"
+              reason={`${productStatus.slug}: ${productFailureMessage(productStatus.failure)}`}
+            />
+          )}
+          {import.meta.env.DEV && <DevHud clock={clock} />}
+        </StageHoldsContext.Provider>
+      </StageProbesContext.Provider>
+    </div>
   )
 }
