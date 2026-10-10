@@ -3,6 +3,10 @@ import type { Page } from '@playwright/test'
 import { expect, test } from './fixtures'
 import { readExplodeModelFacts } from './explodeModelFacts'
 import { frameFaultPath, pollProductChannel, remountProduct } from './productFailureChannel'
+import {
+  expectProductRetirementReports,
+  observeEnvironmentSettleFailures,
+} from './environmentSettleReports'
 import { expectPoll, harnessPath, harnessProducts, waitForProductReady } from './productSpecs'
 import { siteCopy } from '../../src/lib/copy/site'
 import { frameFaultMessage } from '../../src/app/product-harness/frameFaultQuery.ts'
@@ -85,10 +89,12 @@ for (const product of products) {
   test(`after a present fault fails the ${product.slug}, the next product on a fresh canvas attaches its exploded view and drives it`, async ({
     page,
     backendPath,
+    consoleGate,
   }) => {
     // Two product loads: the faulted first mount, then the remount.
     test.setTimeout(testBudgetMs({ productLoads: 2 }))
 
+    await observeEnvironmentSettleFailures(page)
     await page.goto(frameFaultPath(backendPath, product.slug, 'present', 'product'))
     await pollProductChannel(page).toEqual({
       product: 'failed',
@@ -124,6 +130,7 @@ for (const product of products) {
     await expectPoll(page, () => window.__viewer?.explode?.moving, testBodyBudgetMs).toBe(false)
     await expectPoll(page, () => window.__viewer?.explode?.t, testBodyBudgetMs).toBe(1)
     await expectPose(page, facts.lastPose)
+    await expectProductRetirementReports(page, consoleGate)
   })
 }
 
