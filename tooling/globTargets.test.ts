@@ -1,15 +1,20 @@
 import { ESLint } from 'eslint'
-import { resolve } from 'node:path'
+import { relative, resolve } from 'node:path'
 import { beforeAll, expect, it } from 'vitest'
 import { createConfig } from './eslintConfig.ts'
 import { plantAndLintCases } from './lintSuite.ts'
 import type { PlantedSuite } from './lintSuite.ts'
 import { globCases, globCompositionCases } from './plantedGlobRules.ts'
-import { SUBPROCESS_FIXTURE_TIMEOUT_MS } from './subprocess.fixtures.ts'
+import { TOOL_FIXTURE_TIMEOUT_MS } from './subprocess.fixtures.ts'
 
 const root = resolve(import.meta.dirname, '..')
 let suite: PlantedSuite
-let eslint: ESLint
+let realResults: Map<string, ESLint.LintResult>
+const realImporters = [
+  'src/products/index.ts',
+  'src/app/productsIndex.test.ts',
+  'src/app/product-harness/main.fixtures.tsx',
+]
 const cases = [
   ...globCompositionCases(),
   ...globCases().filter(
@@ -22,21 +27,25 @@ const cases = [
 
 beforeAll(async () => {
   suite = await plantAndLintCases(cases)
-  eslint = new ESLint({
+}, TOOL_FIXTURE_TIMEOUT_MS)
+
+beforeAll(async () => {
+  const eslint = new ESLint({
     cwd: root,
     overrideConfigFile: true,
     overrideConfig: await createConfig({ root }),
   })
-}, SUBPROCESS_FIXTURE_TIMEOUT_MS)
+  const results = await eslint.lintFiles(realImporters)
+  realResults = new Map(
+    results.map((result) => [relative(root, result.filePath).replace(/\\/g, '/'), result]),
+  )
+}, TOOL_FIXTURE_TIMEOUT_MS)
 
-for (const importer of [
-  'src/products/index.ts',
-  'src/app/productsIndex.test.ts',
-  'src/app/product-harness/main.fixtures.tsx',
-]) {
-  it(`${importer} retains its clean real glob`, async () => {
-    const results = await eslint.lintFiles([importer])
-    expect(results.flatMap((result) => result.messages)).toEqual([])
+for (const importer of realImporters) {
+  it(`${importer} retains its clean real glob`, () => {
+    const result = realResults.get(importer)
+    expect(result, `${importer} was linted`).toBeDefined()
+    expect(result?.messages).toEqual([])
   })
 }
 

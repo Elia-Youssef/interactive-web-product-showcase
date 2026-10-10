@@ -6,15 +6,28 @@ import {
   type MappingList,
 } from '@gltf-transform/extensions'
 import { MeshoptEncoder } from 'meshoptimizer'
-import { expect, it } from 'vitest'
+import type { Document } from '@gltf-transform/core'
+import { beforeAll, expect, it } from 'vitest'
+import { TOOL_FIXTURE_TIMEOUT_MS } from '../tooling/subprocess.fixtures.ts'
 import { fixtureModelPathOf } from './fixtureProducts.ts'
 import { createModelIO } from './modelIo.ts'
 import { finishColorProduct } from './finishColorProduct.fixtures.ts'
 
-it('the served color fixture carries reproducible unlit red and gray mappings', async () => {
+let doc: Document
+let rebuiltBytes: Buffer
+let servedBytes: Buffer
+beforeAll(async () => {
   const file = fixtureModelPathOf(path.resolve(import.meta.dirname, '..'), 'finish-colors')
   const io = await createModelIO()
-  const doc = await io.read(file)
+  doc = await io.read(file)
+  await MeshoptEncoder.ready
+  const built = await finishColorProduct()
+  built.io.registerDependencies({ 'meshopt.encoder': MeshoptEncoder })
+  rebuiltBytes = Buffer.from(await built.io.writeBinary(built.doc))
+  servedBytes = await readFile(file)
+}, TOOL_FIXTURE_TIMEOUT_MS)
+
+it('the served color fixture carries reproducible unlit red and gray mappings', () => {
   const variants = doc.createExtension(KHRMaterialsVariants).listVariants()
   expect(variants.map((variant) => variant.getName())).toEqual(['red', 'gray'])
   let changedSurfaces = 0
@@ -47,8 +60,6 @@ it('the served color fixture carries reproducible unlit red and gray mappings', 
     }
   }
   expect(changedSurfaces).toBe(2)
-  await MeshoptEncoder.ready
-  const built = await finishColorProduct()
-  built.io.registerDependencies({ 'meshopt.encoder': MeshoptEncoder })
-  expect(Buffer.from(await built.io.writeBinary(built.doc))).toEqual(await readFile(file))
+  // Deep Buffer equality took 1742 ms alone; native comparison still checks every byte.
+  expect(rebuiltBytes.equals(servedBytes)).toBe(true)
 })

@@ -6,7 +6,8 @@
 // written to catch, and the control cannot pass while the fixture model
 // stays as it is.
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
+import { TOOL_FIXTURE_TIMEOUT_MS } from '../tooling/subprocess.fixtures.ts'
 import { homeFitMargin } from '../src/lib/camera/config.ts'
 import { parseProduct } from '../src/lib/product/index.ts'
 import { readContractModelFacts } from './contractFacts.ts'
@@ -54,13 +55,22 @@ async function controlInput(): Promise<ContractRuleInput> {
   }
 }
 
-async function controlFindings(): Promise<ReadonlyMap<ContractRuleGroup, ContractRuleMessages>> {
-  return runContractRules(await controlInput())
-}
-
 describe('the placeholder fixture, validated explicitly', () => {
-  it('fails the home fit on its assembled pose, by the verdict the rule prints', async () => {
-    const input = await controlInput()
+  let input: ContractRuleInput
+  let findings: ReadonlyMap<ContractRuleGroup, ContractRuleMessages>
+  let parsedSlug: string
+  beforeAll(async () => {
+    input = await controlInput()
+    findings = runContractRules(input)
+    const parseProduct = await loadParseProduct()
+    const load = await readManifestFile(fixtureManifestPathOf(ROOT, SLUG))
+    if (load.kind !== 'loaded') {
+      throw new Error(`the fixture manifest of ${SLUG} did not load`)
+    }
+    parsedSlug = parseProduct(load.manifest, 'fixture-control').slug
+  }, TOOL_FIXTURE_TIMEOUT_MS)
+
+  it('fails the home fit on its assembled pose, by the verdict the rule prints', () => {
     const report = homeFitReportOf(input)
     if (report.kind !== 'measured') {
       throw new Error(`the fixture's home fit answered ${report.kind}, not a measurement`)
@@ -73,12 +83,12 @@ describe('the placeholder fixture, validated explicitly', () => {
     // whatever the clip drives: it misses the contract margin.
     expect(assembled.holds).toBe(false)
     expect(assembled.free).toBeLessThan(homeFitMargin)
-    const violations = runContractRules(input).get('cameras')?.violations ?? []
+    const violations = findings.get('cameras')?.violations ?? []
     expect(violations).toContain(`home-holds-both-poses: ${poseViolationOf(assembled)}`)
   })
 
-  it('fails the occlusion rules: four AO images across the file, every slot at texCoord 0', async () => {
-    const violations = (await controlFindings()).get('materials')?.violations ?? []
+  it('fails the occlusion rules: four AO images across the file, every slot at texCoord 0', () => {
+    const violations = findings.get('materials')?.violations ?? []
     const byRule = (key: string) => violations.filter((message) => message.startsWith(`${key}:`))
     expect(byRule('one-occlusion-image')).toEqual([
       expect.stringMatching(/^one-occlusion-image: the occlusion slots sample 4 images/),
@@ -91,23 +101,22 @@ describe('the placeholder fixture, validated explicitly', () => {
     expect(byRule('lit-materials-occluded')).toEqual([])
   })
 
-  it('holds the storage rule: its rotation output is no translation output', async () => {
+  it('holds the storage rule: its rotation output is no translation output', () => {
     // The clip's rotation output is stored through the quaternion filter,
     // the meshopt writer's own choice for a rotation channel; the storage
     // rule reads translation outputs only, by the channel that reads them.
-    const violations = (await controlFindings()).get('model')?.violations ?? []
+    const violations = findings.get('model')?.violations ?? []
     expect(violations.filter((message) => message.startsWith('storage-matches-pipeline:'))).toEqual(
       [],
     )
   })
 
-  it('fails the channels rule on every rotation channel its clip drives', async () => {
-    const input = await controlInput()
+  it('fails the channels rule on every rotation channel its clip drives', () => {
     const rotations = input.structure.animationChannels.filter(
       (channel) => channel.path === 'rotation',
     )
     expect(rotations.length).toBeGreaterThan(0)
-    const violations = runContractRules(input).get('explode')?.violations ?? []
+    const violations = findings.get('explode')?.violations ?? []
     expect(violations.filter((message) => message.startsWith('clip-channels-on-parts:'))).toEqual(
       rotations.map(
         (channel) =>
@@ -118,12 +127,7 @@ describe('the placeholder fixture, validated explicitly', () => {
     )
   })
 
-  it('parses the fixture manifest through the real schema', async () => {
-    const parseProduct = await loadParseProduct()
-    const load = await readManifestFile(fixtureManifestPathOf(ROOT, SLUG))
-    if (load.kind !== 'loaded') {
-      throw new Error(`the fixture manifest of ${SLUG} did not load`)
-    }
-    expect(parseProduct(load.manifest, 'fixture-control').slug).toBe(SLUG)
+  it('parses the fixture manifest through the real schema', () => {
+    expect(parsedSlug).toBe(SLUG)
   })
 })

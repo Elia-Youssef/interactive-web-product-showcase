@@ -4,7 +4,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { execFixtureFile, SUBPROCESS_FIXTURE_TIMEOUT_MS } from './subprocess.fixtures.ts'
+import { execFixtureFile, TOOL_FIXTURE_TIMEOUT_MS } from './subprocess.fixtures.ts'
 import { parseLocalOnlyEntries } from './localOnlyPaths.ts'
 import type { LocalOnlyEntry } from './localOnlyPaths.ts'
 import { readLocalOnlyEntries } from './localOnlyReader.ts'
@@ -93,7 +93,7 @@ describe('readLocalOnlyEntries', () => {
     empty = readLocalOnlyEntries(repoRoot)
     writeFileSync(join(repoRoot, '.git', 'info', 'exclude'), planted)
     parsed = readLocalOnlyEntries(repoRoot)
-  }, SUBPROCESS_FIXTURE_TIMEOUT_MS)
+  }, TOOL_FIXTURE_TIMEOUT_MS)
 
   afterAll(() => {
     rmSync(repoRoot, { recursive: true, force: true })

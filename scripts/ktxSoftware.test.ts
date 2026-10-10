@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from 'vitest'
-import { SUBPROCESS_FIXTURE_TIMEOUT_MS } from '../tooling/subprocess.fixtures.ts'
+import { TOOL_FIXTURE_TIMEOUT_MS } from '../tooling/subprocess.fixtures.ts'
 import {
   KTX_BIN_ENV_VAR,
   KTX_VERSION_MIN,
@@ -171,7 +171,7 @@ describe('runKtxCommand', () => {
   let nonzero: ReturnType<typeof runKtxCommand>
   let missing: ReturnType<typeof runKtxCommand>
   beforeAll(async () => {
-    const options = { timeout: SUBPROCESS_FIXTURE_TIMEOUT_MS }
+    const options = { timeout: TOOL_FIXTURE_TIMEOUT_MS }
     success = runKtxCommand(process.execPath, ['-e', 'process.stdout.write("ok")'], options)
     nonzero = runKtxCommand(
       process.execPath,
@@ -180,7 +180,7 @@ describe('runKtxCommand', () => {
     )
     missing = runKtxCommand('definitely-not-an-executable-here', ['--version'], options)
     await Promise.allSettled([success, nonzero, missing])
-  }, SUBPROCESS_FIXTURE_TIMEOUT_MS)
+  }, TOOL_FIXTURE_TIMEOUT_MS)
 
   it('resolves on a zero exit', async () => {
     await expect(success).resolves.toMatchObject({ stdout: 'ok' })

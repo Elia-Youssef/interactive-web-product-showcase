@@ -1,7 +1,7 @@
 import { copyFile, readFile, readdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { beforeAll, describe, expect, it } from 'vitest'
-import { SUBPROCESS_FIXTURE_TIMEOUT_MS } from '../tooling/subprocess.fixtures.ts'
+import { TOOL_FIXTURE_TIMEOUT_MS } from '../tooling/subprocess.fixtures.ts'
 import { runFixtureGltfCli } from './gltfCli.fixtures.ts'
 import { createModelIO } from './modelIo.ts'
 import { withTempDir, writeOptimizedModel } from './optimizedModel.fixtures.ts'
@@ -16,10 +16,10 @@ const root = path.resolve(import.meta.dirname, '..')
 const slugs = await listShippedSlugs(root)
 
 describe('authored storage round trips', () => {
-  it.each(slugs)(
-    'keeps decoded semantics of a copied %s model through the storage codec',
-    async (slug) => {
-      await withTempDir(async (dir) => {
+  describe.each(slugs)('the %s storage codec', (slug) => {
+    let losses: string[]
+    beforeAll(async () => {
+      losses = await withTempDir(async (dir) => {
         const paths = productPaths(root, slug)
         const inputPath = path.join(dir, 'source.glb')
         const outputPath = path.join(dir, 'candidate.glb')
@@ -28,12 +28,13 @@ describe('authored storage round trips', () => {
         const doc = await io.read(inputPath)
         const before = readProductPreservation(doc)
         await writeOptimizedModel(doc, outputPath)
-        expect(
-          findPreservationLosses(before, readProductPreservation(await io.read(outputPath))),
-        ).toEqual([])
+        return findPreservationLosses(before, readProductPreservation(await io.read(outputPath)))
       })
-    },
-  )
+    }, TOOL_FIXTURE_TIMEOUT_MS)
+    it(`keeps decoded semantics of a copied ${slug} model through the storage codec`, () => {
+      expect(losses).toEqual([])
+    })
+  })
 
   describe.each(slugs)('the %s pipeline settings', (slug) => {
     async function publishedFixture() {
@@ -78,7 +79,7 @@ describe('authored storage round trips', () => {
     let fixture: Awaited<ReturnType<typeof publishedFixture>>
     beforeAll(async () => {
       fixture = await publishedFixture()
-    }, SUBPROCESS_FIXTURE_TIMEOUT_MS)
+    }, TOOL_FIXTURE_TIMEOUT_MS)
 
     it(`publishes the validated candidate at the ${slug} pipeline settings`, () => {
       const { before, candidate, checked, published, files } = fixture

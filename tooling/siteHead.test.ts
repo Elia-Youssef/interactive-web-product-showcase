@@ -6,6 +6,7 @@ import type { IndexHtmlTransformHook } from 'vite'
 import { beforeAll, describe, expect, test } from 'vitest'
 import { fillHead } from '../scripts/headFill.ts'
 import { loadCopyMeta } from '../scripts/manifestIo.ts'
+import { TOOL_FIXTURE_TIMEOUT_MS } from './subprocess.fixtures.ts'
 
 const ROOT = join(import.meta.dirname, '..')
 const SITE_ENTRY = 'index.html'
@@ -18,9 +19,10 @@ const htmlFiles = readdirSync(ROOT, { withFileTypes: true })
   .sort()
 
 describe('the configured site-head HTML hook', () => {
-  let transform: OmitThisParameter<IndexHtmlTransformHook>
+  const heads = new Map<string, { original: string; result: unknown; expected: string }>()
 
   beforeAll(async () => {
+    let transform: OmitThisParameter<IndexHtmlTransformHook> | undefined
     await resolveConfig(
       {
         root: ROOT,
@@ -43,22 +45,29 @@ describe('the configured site-head HTML hook', () => {
       },
       'serve',
     )
-  })
+    if (transform === undefined) throw new Error('the configured HTML hook did not resolve')
+    for (const file of htmlFiles) {
+      const original = await readFile(join(ROOT, file), 'utf8')
+      const result = await transform(original, {
+        // The entry filename owns the head even when the request is a site
+        // fallback route, or another page is requested through an alias.
+        path: file === SITE_ENTRY ? '/p/sample' : '/',
+        filename: join(ROOT, file),
+      })
+      const expected =
+        file === SITE_ENTRY ? fillHead(original, (await loadCopyMeta()).siteMetaSet()) : original
+      heads.set(file, { original, result, expected })
+    }
+  }, TOOL_FIXTURE_TIMEOUT_MS)
 
-  test.each(htmlFiles)('%s receives only the head its entry owns', async (file) => {
-    const original = await readFile(join(ROOT, file), 'utf8')
-    const result = await transform(original, {
-      // The entry filename owns the head even when the request is a site
-      // fallback route, or another page is requested through an alias.
-      path: file === SITE_ENTRY ? '/p/sample' : '/',
-      filename: join(ROOT, file),
-    })
+  test.each(htmlFiles)('%s receives only the head its entry owns', (file) => {
+    const head = heads.get(file)
+    if (head === undefined) throw new Error(`missing head evidence for ${file}`)
     if (file === SITE_ENTRY) {
-      const copyMeta = await loadCopyMeta()
-      expect(result).toBe(fillHead(original, copyMeta.siteMetaSet()))
-      expect(result).not.toBe(original)
+      expect(head.result).toBe(head.expected)
+      expect(head.result).not.toBe(head.original)
     } else {
-      expect(result).toBe(original)
+      expect(head.result).toBe(head.original)
     }
   })
 })

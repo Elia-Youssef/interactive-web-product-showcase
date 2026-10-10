@@ -4,6 +4,8 @@ import { expandGlobImports } from './globImports.ts'
 import { createGlobFileTree } from './globFileTree.ts'
 import { expandGatedGlob } from './globImportSource.ts'
 import { globCall, globCalls } from './globImportProof.fixtures.ts'
+import type { GlobExpansion } from './globImports.ts'
+import { TOOL_FIXTURE_TIMEOUT_MS } from './subprocess.fixtures.ts'
 
 const importer = 'src/lib/importer.ts'
 const files = [
@@ -16,92 +18,64 @@ const files = [
   'src/lib/node_modules/package/a.ts',
 ]
 
-let tree: ReturnType<typeof createGlobFileTree>
-beforeAll(() => {
-  tree = createGlobFileTree(resolve(import.meta.dirname, '..'), files)
-})
-afterAll(() => tree.remove())
-
-function expand(argumentsCode: string) {
-  return expandGatedGlob(tree.root, globCall(argumentsCode), importer, files)
-}
-
-describe('glob import expansion', () => {
-  for (const pattern of ["'./*.ts'", '`./*.ts`', "['./z.ts', './a.ts']"]) {
-    it(`expands the literal form ${pattern}, excluding self and sorting`, async () => {
-      expect(await expand(pattern)).toEqual({
-        kind: 'targets',
-        files: ['src/lib/a.ts', 'src/lib/z.ts'],
-      })
-    })
-  }
-
-  it('resolves root paths and parent-relative paths', async () => {
-    expect(await expand("['/src/app/*.ts', '../app/*.ts']")).toEqual({
-      kind: 'targets',
-      files: ['src/app/a.ts'],
-    })
-  })
-
-  it('applies negations independently of order and deduplicates', async () => {
-    expect(await expand("['!./z.ts', './*.ts', './a.ts']")).toEqual({
-      kind: 'targets',
-      files: ['src/lib/a.ts'],
-    })
-  })
-
-  it('matches braces and globstars without including hidden or package files by default', async () => {
-    expect(await expand("'./**/{a,b}.ts'")).toEqual({
-      kind: 'targets',
-      files: ['src/lib/a.ts', 'src/lib/nested/b.ts'],
-    })
-  })
-
-  it('exhaustive includes hidden files and package files', async () => {
-    expect(await expand("'./**/*.ts', { exhaustive: true }")).toEqual({
-      kind: 'targets',
-      files: files.filter((file) => file.startsWith('src/lib/') && file !== importer).sort(),
-    })
-  })
-
-  it('an explicit hidden name matches without exhaustive', async () => {
-    expect(await expand("'./.hidden.ts'")).toEqual({
-      kind: 'targets',
-      files: ['src/lib/.hidden.ts'],
-    })
-  })
-
-  it('a static package directory becomes the search root before ignores apply', async () => {
-    expect(await expand("'./node_modules/package/*.ts'")).toEqual({
-      kind: 'targets',
-      files: ['src/lib/node_modules/package/a.ts'],
-    })
-  })
-
-  it('case sensitivity is explicit and defaults to sensitive', async () => {
-    expect(await expand("'./A.ts'")).toEqual({ kind: 'targets', files: [] })
-    expect(await expand("'./A.ts', { caseSensitive: false }")).toEqual({
-      kind: 'targets',
-      files: ['src/lib/a.ts'],
-    })
-  })
-
-  it('resolves a literal base option', async () => {
-    expect(await expand("'./*.ts', { base: '/src/app' }")).toEqual({
-      kind: 'targets',
-      files: ['src/app/a.ts'],
-    })
-    expect(await expand("'./*.ts', { base: '../app' }")).toEqual({
-      kind: 'targets',
-      files: ['src/app/a.ts'],
-    })
-  })
-
-  it('does not expand a directory name into its descendants', async () => {
-    expect((await expand("'./nested'")).kind).toBe('problem')
-  })
-
-  for (const pattern of [
+const targetCases = [
+  ...["'./*.ts'", '`./*.ts`', "['./z.ts', './a.ts']"].map((pattern) => ({
+    title: `expands the literal form ${pattern}, excluding self and sorting`,
+    probes: [{ pattern, targets: ['src/lib/a.ts', 'src/lib/z.ts'] }],
+  })),
+  {
+    title: 'resolves root paths and parent-relative paths',
+    probes: [{ pattern: "['/src/app/*.ts', '../app/*.ts']", targets: ['src/app/a.ts'] }],
+  },
+  {
+    title: 'applies negations independently of order and deduplicates',
+    probes: [{ pattern: "['!./z.ts', './*.ts', './a.ts']", targets: ['src/lib/a.ts'] }],
+  },
+  {
+    title: 'matches braces and globstars without including hidden or package files by default',
+    probes: [{ pattern: "'./**/{a,b}.ts'", targets: ['src/lib/a.ts', 'src/lib/nested/b.ts'] }],
+  },
+  {
+    title: 'exhaustive includes hidden files and package files',
+    probes: [
+      {
+        pattern: "'./**/*.ts', { exhaustive: true }",
+        targets: files.filter((file) => file.startsWith('src/lib/') && file !== importer).sort(),
+      },
+    ],
+  },
+  {
+    title: 'an explicit hidden name matches without exhaustive',
+    probes: [{ pattern: "'./.hidden.ts'", targets: ['src/lib/.hidden.ts'] }],
+  },
+  {
+    title: 'a static package directory becomes the search root before ignores apply',
+    probes: [
+      { pattern: "'./node_modules/package/*.ts'", targets: ['src/lib/node_modules/package/a.ts'] },
+    ],
+  },
+  {
+    title: 'case sensitivity is explicit and defaults to sensitive',
+    probes: [
+      { pattern: "'./A.ts'", targets: [] },
+      { pattern: "'./A.ts', { caseSensitive: false }", targets: ['src/lib/a.ts'] },
+    ],
+  },
+  {
+    title: 'resolves a literal base option',
+    probes: [
+      { pattern: "'./*.ts', { base: '/src/app' }", targets: ['src/app/a.ts'] },
+      { pattern: "'./*.ts', { base: '../app' }", targets: ['src/app/a.ts'] },
+    ],
+  },
+  {
+    title: 'accepts an empty literal array as a zero-file expansion',
+    probes: [{ pattern: '[]', targets: [] }],
+  },
+]
+const problemCases = [
+  { title: 'does not expand a directory name into its descendants', pattern: "'./nested'" },
+  ...[
     'pattern',
     '`./${name}.ts`',
     '123',
@@ -112,17 +86,38 @@ describe('glob import expansion', () => {
     "'./*.ts', options",
     "'./*.ts', { exhaustive: exhaustive }",
     "'./*.ts', { ...options }",
-  ]) {
-    it(`fails closed for ${pattern}`, async () => {
-      expect((await expand(pattern)).kind).toBe('problem')
+  ].map((pattern) => ({ title: `fails closed for ${pattern}`, pattern })),
+]
+
+let tree: ReturnType<typeof createGlobFileTree>
+const expansions = new Map<string, GlobExpansion>()
+beforeAll(async () => {
+  tree = createGlobFileTree(resolve(import.meta.dirname, '..'), files)
+  const patterns = [
+    ...targetCases.flatMap((probe) => probe.probes.map((item) => item.pattern)),
+    ...problemCases.map((probe) => probe.pattern),
+  ]
+  for (const pattern of patterns) {
+    expansions.set(pattern, await expandGatedGlob(tree.root, globCall(pattern), importer, files))
+  }
+}, TOOL_FIXTURE_TIMEOUT_MS)
+afterAll(() => tree.remove())
+
+describe('glob import expansion', () => {
+  for (const { title, probes } of targetCases) {
+    it(title, () => {
+      for (const { pattern, targets } of probes) {
+        expect(expansions.get(pattern)).toEqual({ kind: 'targets', files: targets })
+      }
+    })
+  }
+  for (const { title, pattern } of problemCases) {
+    it(title, () => {
+      expect(expansions.get(pattern)?.kind).toBe('problem')
     })
   }
 
-  it('accepts an empty literal array as a zero-file expansion', async () => {
-    expect(await expand('[]')).toEqual({ kind: 'targets', files: [] })
-  })
-
-  it('comments, other receivers, dynamic imports and new URL are not glob calls', async () => {
+  it('comments, other receivers, dynamic imports and new URL are not glob calls', () => {
     expect(
       globCalls(
         "// import.meta.glob('./*.ts')\nconst files = other.glob('./*.ts'); import(pattern); new URL(pattern, import.meta.url)",

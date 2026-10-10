@@ -1,7 +1,7 @@
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ESLint } from 'eslint'
-import { describe, expect, test } from 'vitest'
+import { beforeAll, describe, expect, test } from 'vitest'
 import {
   extensionGlob,
   fixtureMarker,
@@ -9,6 +9,7 @@ import {
   jsxExtensions,
   testFileGlob,
 } from './extensions.ts'
+import { TOOL_FIXTURE_TIMEOUT_MS } from './subprocess.fixtures.ts'
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -37,12 +38,16 @@ describe('globAlternation', () => {
 })
 
 describe('the JSX parsing block', () => {
+  let config: Awaited<ReturnType<ESLint['calculateConfigForFile']>>
+  beforeAll(async () => {
+    const eslint = new ESLint({ cwd: repoRoot })
+    config = await eslint.calculateConfigForFile(join(repoRoot, 'src/app/App.tsx'))
+  }, TOOL_FIXTURE_TIMEOUT_MS)
+
   // The glob built from jsxExtensions must reach real .tsx files: a pattern
   // that matches nothing leaves the block silently dead.
-  test('applies to a .tsx file in the resolved ESLint config', async () => {
-    const eslint = new ESLint({ cwd: repoRoot })
-    const config = await eslint.calculateConfigForFile(join(repoRoot, 'src/app/App.tsx'))
+  test('applies to a .tsx file in the resolved ESLint config', () => {
     expect(jsxExtensions).toContain('tsx')
     expect(config.languageOptions?.parserOptions?.ecmaFeatures?.jsx).toBe(true)
-  }, 60_000)
+  })
 })

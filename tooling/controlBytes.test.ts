@@ -13,7 +13,7 @@ import {
   isForbiddenControl,
 } from './controlBytes.ts'
 import { generatedFilePaths } from './generatedFiles.ts'
-import { execFixtureFile, SUBPROCESS_FIXTURE_TIMEOUT_MS } from './subprocess.fixtures.ts'
+import { execFixtureFile, TOOL_FIXTURE_TIMEOUT_MS } from './subprocess.fixtures.ts'
 
 const plantedPath = 'src/lib/planted.ts'
 const allowedControls = [0x09, 0x0a, 0x0d]
@@ -98,7 +98,7 @@ describe('the scan of the gated text files', () => {
       writeFileSync(join(repoRoot, generated), `x${char(0)}\n`)
     }
     lines = formatControlByteFindings(scanGatedFilesForControlBytes(repoRoot)).split('\n')
-  }, SUBPROCESS_FIXTURE_TIMEOUT_MS)
+  }, TOOL_FIXTURE_TIMEOUT_MS)
 
   afterAll(() => {
     rmSync(repoRoot, { recursive: true, force: true })

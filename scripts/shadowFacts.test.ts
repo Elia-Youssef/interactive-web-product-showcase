@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url'
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
+import { TOOL_FIXTURE_TIMEOUT_MS } from '../tooling/subprocess.fixtures.ts'
 import { KHRTextureTransform } from '@gltf-transform/extensions'
 import { createModelIO } from './modelIo.ts'
 import { readShadowFacts } from './shadowFacts.ts'
@@ -10,6 +11,19 @@ import { alphaRegion } from './shadowFootprint.ts'
 import { SHADOW_SETTINGS } from './shadowSettings.ts'
 
 describe('shadow facts at the file boundary', () => {
+  let shippedFacts: Awaited<ReturnType<typeof readShadowFacts>>
+  let shippedRegion: ReturnType<typeof alphaRegion> | undefined
+  beforeAll(async () => {
+    const io = await createModelIO()
+    const doc = await io.read(
+      fileURLToPath(new URL('../public/models/fjor-tast/model.glb', import.meta.url)),
+    )
+    shippedFacts = await readShadowFacts(doc)
+    if (shippedFacts.kind === 'measured') {
+      shippedRegion = alphaRegion(shippedFacts.grid, SHADOW_SETTINGS.alphaThreshold)
+    }
+  }, TOOL_FIXTURE_TIMEOUT_MS)
+
   it('reads world floor axes through unnamed scaled and translated nodes', async () => {
     const doc = buildDocument()
     setShadowFixture(doc)
@@ -57,16 +71,12 @@ describe('shadow facts at the file boundary', () => {
     expect(await createShadowAlphaReader()(rawAlphaKtx(grid))).toEqual(grid)
   })
 
-  it('decodes the shipped ETC1S mip zero to the recorded texel bounds', async () => {
-    const io = await createModelIO()
-    const doc = await io.read(
-      fileURLToPath(new URL('../public/models/fjor-tast/model.glb', import.meta.url)),
-    )
-    const facts = await readShadowFacts(doc)
+  it('decodes the shipped ETC1S mip zero to the recorded texel bounds', () => {
+    const facts = shippedFacts
     expect(facts.kind).toBe('measured')
     if (facts.kind !== 'measured') throw new Error(facts.reason)
     expect([facts.grid.width, facts.grid.height]).toEqual([1024, 1024])
-    expect(alphaRegion(facts.grid, SHADOW_SETTINGS.alphaThreshold)).toEqual({
+    expect(shippedRegion).toEqual({
       regionPx: { x: [11, 1014], y: [12, 1004] },
       edgeAlpha: 0,
     })
