@@ -1,7 +1,11 @@
 import { expect, test } from 'vitest'
 import {
   createCameraSlice,
+  selectCameraLive,
   selectCameraOutcome,
+  selectHomeArrival,
+  selectTiltLimit,
+  selectZoomLimit,
   selectCameraReadout,
   selectCameraRequestChannel,
   type CameraSliceState,
@@ -144,4 +148,65 @@ test('a recorded outcome lands in the slice with its sequence, the newest kept',
     request: home,
     outcome: { kind: 'rejected', reason: 'unknown-view' },
   })
+})
+
+test('the limit selectors read the end state exactly, and nothing while idle', () => {
+  const { slice, read } = makeSlice()
+  expect(selectCameraLive(read())).toBe(false)
+  expect(selectZoomLimit(read())).toBeNull()
+  expect(selectTiltLimit(read())).toBeNull()
+
+  const live = {
+    kind: 'live',
+    azimuth: 0,
+    distance: 2,
+    endDistance: 2,
+    minDistance: 1,
+    maxDistance: 4,
+    endPolar: 1,
+    minPolar: 0.25,
+    maxPolar: 2.75,
+  } as const
+  slice.cameraPublishReadout(live)
+  expect(selectCameraLive(read())).toBe(true)
+  expect(selectZoomLimit(read())).toBeNull()
+  expect(selectTiltLimit(read())).toBeNull()
+
+  slice.cameraPublishReadout({ ...live, endDistance: 1, endPolar: 2.75 })
+  expect(selectZoomLimit(read())).toBe('closest')
+  expect(selectTiltLimit(read())).toBe('bottom')
+
+  slice.cameraPublishReadout({ ...live, endDistance: 4, endPolar: 0.25 })
+  expect(selectZoomLimit(read())).toBe('farthest')
+  expect(selectTiltLimit(read())).toBe('top')
+})
+
+test('the home arrival is the sequence of the newest request settled at home', () => {
+  const { slice, read } = makeSlice()
+  expect(selectHomeArrival(read())).toBeNull()
+
+  slice.cameraRequestOutcome({
+    kind: 'arrived',
+    sequence: 3,
+    request: { kind: 'view', viewId: 'home' },
+  })
+  expect(selectHomeArrival(read())).toBe(3)
+
+  slice.cameraRequestOutcome({ kind: 'arrived', sequence: 4, request: { kind: 'zoom', steps: 1 } })
+  expect(selectHomeArrival(read()), 'a newer request moved the camera on').toBeNull()
+
+  slice.cameraRequestOutcome({
+    kind: 'rejected',
+    sequence: 5,
+    request: { kind: 'view', viewId: 'home' },
+    reason: 'no-plan',
+  })
+  expect(selectHomeArrival(read()), 'a rejected request arrived nowhere').toBeNull()
+
+  slice.cameraRequestOutcome({
+    kind: 'arrived',
+    sequence: 6,
+    request: { kind: 'view', viewId: 'driver' },
+  })
+  expect(selectHomeArrival(read())).toBeNull()
 })

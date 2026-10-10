@@ -1,3 +1,6 @@
+import { tiltLimitOf, type TiltLimit } from '@lib/camera/orbitStep'
+import { zoomLimitOf, type ZoomLimit } from '@lib/camera/zoom'
+import { CAMERA_HOME_ID } from '@lib/product/contractNames'
 import {
   applyCameraOutcomeEvent,
   applyCameraReadoutEvent,
@@ -71,4 +74,39 @@ export function selectCameraRequestChannel(state: CameraSliceState): CameraReque
 
 export function selectCameraOutcome(state: CameraSliceState): CameraOutcomeRecord | null {
   return state.cameraOutcome
+}
+
+// Whether a product view is presented: the camera readout is live.
+export function selectCameraLive(state: CameraSliceState): boolean {
+  return state.cameraReadout.kind === 'live'
+}
+
+// The zoom limit the camera's move ends at, or null inside the range and
+// while no view is presented. A primitive, so a subscriber re-renders when
+// the limit changes, not on every frame of a move.
+export function selectZoomLimit(state: CameraSliceState): ZoomLimit | null {
+  const readout = state.cameraReadout
+  return readout.kind === 'live'
+    ? zoomLimitOf(readout.endDistance, { min: readout.minDistance, max: readout.maxDistance })
+    : null
+}
+
+// The tilt limit the camera's move ends at, the same way.
+export function selectTiltLimit(state: CameraSliceState): TiltLimit | null {
+  const readout = state.cameraReadout
+  return readout.kind === 'live'
+    ? tiltLimitOf(readout.endPolar, { min: readout.minPolar, max: readout.maxPolar })
+    : null
+}
+
+// The sequence of the newest settled request when it brought the camera to
+// the home view, or null when the newest settled request is any other.
+export function selectHomeArrival(state: CameraSliceState): number | null {
+  const record = state.cameraOutcome
+  return record !== null &&
+    record.outcome.kind === 'arrived' &&
+    record.request.kind === 'view' &&
+    record.request.viewId === CAMERA_HOME_ID
+    ? record.sequence
+    : null
 }

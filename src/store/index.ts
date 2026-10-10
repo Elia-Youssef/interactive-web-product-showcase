@@ -6,8 +6,12 @@ export { selectFinishStatus, selectSelectedVariant, type FinishStatus } from './
 export { selectSelectedHotspot, type HotspotStatus } from './slices/hotspot'
 export { selectProductFailed, selectProductStatus, type ProductStatus } from './slices/product'
 export {
+  selectCameraLive,
   selectCameraOutcome,
   selectCameraReadout,
+  selectHomeArrival,
+  selectTiltLimit,
+  selectZoomLimit,
   selectCameraRequestChannel,
   hasUnhandledCameraRequest,
   type CameraOutcomeEvent,
