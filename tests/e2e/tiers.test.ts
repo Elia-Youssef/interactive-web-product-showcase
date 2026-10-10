@@ -121,9 +121,11 @@ describe('specSelection', () => {
 
   it('runs a general spec on the full tier and nowhere else', () => {
     for (const project of projects) {
-      expect(runs(project, 'finishes', 'tiered'), project).toBe(
-        projectProfiles[project]?.tier === 'full',
-      )
+      for (const spec of ['finishes', 'routerLifecycle']) {
+        expect(runs(project, spec, 'tiered'), `${project}: ${spec}`).toBe(
+          projectProfiles[project]?.tier === 'full',
+        )
+      }
     }
   })
 
