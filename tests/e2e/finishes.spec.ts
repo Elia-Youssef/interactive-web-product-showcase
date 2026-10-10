@@ -4,7 +4,7 @@ import { readFinishExpectations } from './finishModel'
 import { measureFinishChange } from './finishPixels'
 import { settledStageCapture } from './stageCapture'
 import { settledFrames } from './stageSettle'
-import { testBodyBudgetMs } from './budgets'
+import { midDragSettleBudgetMs, restWindowBudgetMs, testBodyBudgetMs } from './budgets'
 import { manifest as colorSubject } from '../fixtures/products/finish-colors/finish-colors.fixtures'
 import { harnessPath, waitForProductReady } from './productSpecs'
 import { canvasCenter } from './stageCamera'
@@ -19,16 +19,6 @@ import { startTouchSweep } from './syntheticTouch'
 
 const product = (await loadCollection()).first
 const expectations = await readFinishExpectations(product.slug)
-
-// How long the drag keeps waiting for the mid-drag settle, and why it is
-// this long: the settle under test is two presented frames, the slowest
-// build renders about every 31 ms (below), and the drag must hold past two
-// settles (one per switch) with the clicks inside. An older settle design,
-// which recompiled while any frame raced its compile, never finished inside
-// a drag on that build at all; this budget is far above two settles and far
-// below that design's own drag length, so a regression fails here on the
-// budget instead of on the test's timeout.
-const midDragSettleBudgetMs = 9_000
 
 // The consecutive liveness reads in which neither the sweep moved nor a
 // frame was recorded before the drag counts as dead. One read is two page
@@ -91,7 +81,7 @@ test(`clicking each swatch of ${product.slug} applies exactly that finish's mate
     // The switch is a scene mutation: at rest the settle has presented it
     // and no frame renders between two reads.
     const atRest = await settledFrames(page)
-    await page.waitForTimeout(400)
+    await page.waitForTimeout(restWindowBudgetMs)
     expect(await page.evaluate(() => window.__viewer?.renderedFrames ?? -1)).toBe(atRest)
   }
 })

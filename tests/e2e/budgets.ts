@@ -59,10 +59,22 @@ export const hudDrainBudgetMs = 10_000
 // times that slow move, with room for the matrix's slowest browser.
 export const transitionMoveBudgetMs = 12_000
 
-// The window a claim of "nothing renders at rest" waits through between its
-// two frame-count reads. The stage renders only on invalidations, and the
-// longest motion the specs leave running into such a window is the explode
-// spring, whose full move ends within its settle time of 0.8 s (the explode
-// feature's config), so a window several times that settle time cannot
-// contain a frame the stage still owes.
+// The window a claim of "nothing more happens at rest" waits through
+// between its two reads, whatever the reads compare: the stage's frame
+// counts across a rest claim, or the gallery's fired callbacks once the
+// move's two debts are paid. The stage renders only on invalidations, and
+// the longest motion the specs leave running into such a window is the
+// explode spring, whose full move ends within its settle time of 0.8 s (the
+// explode feature's config), so a window several times that settle time
+// cannot contain a frame the stage still owes.
 export const restWindowBudgetMs = 2_000
+
+// How long a held drag keeps waiting for a finish switch's settle to
+// resolve mid-drag. The settle under test is two presented frames, the
+// slowest build renders about every 31 ms, and the drag must hold past two
+// settles (one per switch) with the clicks inside. An older settle design,
+// which recompiled while any frame raced its compile, never finished inside
+// a drag on that build at all; this budget is far above two settles and far
+// below that design's own drag length, so a regression fails here on the
+// budget instead of on the test's timeout.
+export const midDragSettleBudgetMs = 9_000

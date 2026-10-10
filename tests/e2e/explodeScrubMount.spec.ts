@@ -5,6 +5,7 @@ import { expectPoll, harnessPath, productLoadBudgetMs, waitForProductReady } fro
 import { expectFocusOn, expectUnavailable } from './stageKeys'
 import { focusVisibly } from './measurementFocus'
 import { product, readoutOf, sliderOf, toggleLabel } from './explodeScrubSection'
+import { formatExplodePercent } from '../../src/lib/copy/productPanel'
 
 // The exploded view's scrub section under the mount lifecycle, on the dev
 // harness: the readouts a remount returns to, and the focus a detach leaves
@@ -24,7 +25,7 @@ test('remounting from open returns the slider and the readout to 0%', async ({
   await slider.fill('0.5')
   await expectPoll(page, () => window.__viewer?.explode?.moving, testBodyBudgetMs).toBe(false)
   await expectPoll(page, () => window.__viewer?.explode?.t, testBodyBudgetMs).toBe(0.5)
-  await expect(readoutOf(page)).toHaveText('50%')
+  await expect(readoutOf(page)).toHaveText(formatExplodePercent(0.5))
 
   const remount = page.getByTestId('remount-product')
 
@@ -36,7 +37,7 @@ test('remounting from open returns the slider and the readout to 0%', async ({
   await expectPoll(page, () => window.__viewer?.explode ?? null, testBodyBudgetMs).toBeNull()
   await expectUnavailable(slider)
   await expect(slider).toHaveValue('0')
-  await expect(readoutOf(page)).toHaveText('0%')
+  await expect(readoutOf(page)).toHaveText(formatExplodePercent(0))
 
   // Remount: presented assembled again, the control live at the rest.
   await remount.click()
@@ -44,7 +45,7 @@ test('remounting from open returns the slider and the readout to 0%', async ({
   await expectPoll(page, () => window.__viewer?.explode?.t, testBodyBudgetMs).toBe(0)
   await expect(slider).toBeEnabled()
   await expect(slider).toHaveValue('0')
-  await expect(readoutOf(page)).toHaveText('0%')
+  await expect(readoutOf(page)).toHaveText(formatExplodePercent(0))
 })
 
 test('the section stays focused while the view detaches under it, and answers again', async ({

@@ -5,16 +5,8 @@ import type { FrameStats } from '@lib/renderer/frameStats'
 import { selectRendererBackend, useAppStore } from '@store/index'
 import type { FrameClock } from '../FrameClock'
 import { hudRefreshMs } from './config'
+import { formatFps, formatTickMs } from './restText'
 import styles from './DevHud.module.css'
-
-// Display formatting lives here, never in the statistics: the math is exact.
-function formatFps(fps: number): string {
-  return fps.toFixed(1)
-}
-
-function formatTickMs(tickMs: number | null): string {
-  return tickMs === null ? '-' : `${tickMs.toFixed(1)} ms`
-}
 
 type DevHudProps = {
   readonly clock: FrameClock

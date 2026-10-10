@@ -1,10 +1,12 @@
 import { expect, test } from './fixtures'
 import type { Locator, Page } from '@playwright/test'
 import { siteCopy } from '../../src/lib/copy/site'
-import { zoomReadoutText } from '../../src/lib/copy/stageReadouts'
+import { angleReadoutText, zoomReadoutText } from '../../src/lib/copy/stageReadouts'
+import { normalizedAzimuthDegrees } from '../../src/lib/camera/azimuth'
 import { loadCollection } from './productList'
 import { readProductCameraFacts } from './productCamera'
 import { waitForProductReady } from './productSpecs'
+import { phoneReference } from './layoutContracts'
 import { settledFrames, settledStage } from './stageSettle'
 import {
   ASPECT_SIDES,
@@ -102,7 +104,11 @@ for (const side of ASPECT_SIDES) {
     // band the controls' rest threshold maps to at the home lens, which is
     // the plan's base lens.
     expectLensAtRest(home, facts.home.fovY, expected.fovY, 'Reset')
-    await expect(page.locator('[data-corner="top-right"]')).toHaveText('325 / 360')
+    // The readout is the home view's own azimuth, read from the facts and
+    // normalized and formatted the way the chrome formats it.
+    await expect(page.locator('[data-corner="top-right"]')).toHaveText(
+      angleReadoutText(normalizedAzimuthDegrees(homeAzimuth)),
+    )
     await expect(page.locator('[data-corner="bottom-right"]')).toContainText(
       zoomReadoutText(expected.zoomPercent),
     )
@@ -151,7 +157,7 @@ test('under 640px the pill keeps every control, so a single pointer zooms', asyn
   page,
   backendPath,
 }) => {
-  await page.setViewportSize({ width: 390, height: 844 })
+  await page.setViewportSize(phoneReference)
   await readyStage(page, backendPath)
 
   // Pinch is a two-finger gesture, so the phone keeps the zoom buttons and

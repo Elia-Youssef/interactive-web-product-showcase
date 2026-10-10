@@ -1,4 +1,5 @@
 import { expect, test } from './fixtures'
+import { siteCopy } from '../../src/lib/copy/site'
 import { loadCollection } from './productList'
 import { readProductCameraFacts } from './productCamera'
 import { waitForProductReady } from './productSpecs'
@@ -49,7 +50,7 @@ test('a resize across the tablet breakpoint keeps the zoom percentage and the az
   expectLimitsAtAspect(desktop, desktopAspect)
   // Zoom in a step so the percentage is not the home default the resize
   // could keep by accident.
-  await page.getByRole('button', { name: 'Zoom in' }).click()
+  await page.getByRole('button', { name: siteCopy.zoomInLabel }).click()
   await settledFrames(page)
   const moved = await readCamera(page)
   if (moved === null) {

@@ -21,7 +21,7 @@ test.setTimeout(testBudgetMs({ productLoads: 2 }))
 // (tests/e2e/collection.spec.ts).
 const collection = await loadCollection()
 const first = collection.first
-const NOT_FOUND_PATH = '/p/does-not-exist'
+const NOT_FOUND_PATH = formatProductPath('does-not-exist')
 
 test('a deep link to a product slug presents it and the title names it', async ({
   page,

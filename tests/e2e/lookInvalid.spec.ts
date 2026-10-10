@@ -1,4 +1,5 @@
 import { expect, test } from './fixtures'
+import { harnessOverrides } from '../../src/app/product-harness/harnessOverrides'
 import { harnessPath, harnessProducts, waitForProductReady } from './productSpecs'
 import type { Product } from '../../src/lib/product'
 
@@ -23,10 +24,17 @@ function lookPath(backendPath: string, rawLook: string): string {
 }
 
 test('a look parameter that is not JSON shows the harness alert', async ({ page, backendPath }) => {
-  await page.goto(lookPath(backendPath, 'bright'))
+  const rawLook = 'bright'
+  await page.goto(lookPath(backendPath, rawLook))
+  // The expected reason is the harness parse's own answer to the planted
+  // query, so the alert is held to the builder's words, not a second copy.
+  const parse = harnessOverrides(`look=${encodeURIComponent(rawLook)}`)
+  if (parse.kind !== 'invalid') {
+    throw new Error('the planted look parameter must fail the harness parse')
+  }
   const alert = page.getByTestId('harness-alert')
   await expect(alert).toBeVisible()
-  await expect(alert).toContainText('the look parameter is not JSON')
+  await expect(alert).toContainText(parse.reason)
 })
 
 test('a look parameter with an unknown key names the key', async ({ page, backendPath }) => {

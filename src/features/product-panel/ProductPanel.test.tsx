@@ -2,6 +2,7 @@ import { expect, test } from 'vitest'
 import { renderToString } from 'react-dom/server'
 import type { ProductInput } from '@lib/product'
 import { parseProduct, productEyebrowText } from '@lib/product'
+import { siteCopy } from '@lib/copy/site'
 import { AppStoreProvider } from '@store/index'
 import { ProductPanel } from './ProductPanel'
 
@@ -94,7 +95,7 @@ test('the panel runs in one order: name, finishes, story, explode controls', () 
 test('the finish list carries the site heading and one swatch per finish', () => {
   const html = renderPanel()
 
-  expect(html).toContain('Choose your finish')
+  expect(html).toContain(siteCopy.finishHeading)
   expect(html).toContain('aria-label="Graphite"')
   expect(html).toContain('aria-label="Sage Green"')
 })
@@ -103,7 +104,7 @@ test('the swatches are one single-choice radio group named by the site heading',
   const html = renderPanel()
 
   expect(html).toContain('role="radiogroup"')
-  expect(html).toContain('aria-label="Choose your finish"')
+  expect(html).toContain(`aria-label="${siteCopy.finishHeading}"`)
   expect((html.match(/role="radio"/g) ?? []).length).toBe(2)
 })
 

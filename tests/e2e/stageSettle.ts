@@ -1,5 +1,6 @@
 import { expect, type Page } from '@playwright/test'
 import { hudDrainBudgetMs } from './budgets'
+import { hudRestText } from '../../src/viewer/hud/restText'
 
 // The stage's frame count as the automation hook counts it. A read is one
 // instant; the rest windows that compare two reads are the settle helpers
@@ -42,6 +43,10 @@ export async function settledStage(page: Page): Promise<void> {
   }
   // The HUD drain budget from the suite's budget module: the rolling
   // window's fall to the rest text, an order of magnitude above the drain.
-  await expect(page.getByTestId('hud-fps')).toHaveText('0.0', { timeout: hudDrainBudgetMs })
-  await expect(page.getByTestId('hud-tick-cpu')).toHaveText('-', { timeout: hudDrainBudgetMs })
+  await expect(page.getByTestId('hud-fps')).toHaveText(hudRestText.fps, {
+    timeout: hudDrainBudgetMs,
+  })
+  await expect(page.getByTestId('hud-tick-cpu')).toHaveText(hudRestText.tickMs, {
+    timeout: hudDrainBudgetMs,
+  })
 }

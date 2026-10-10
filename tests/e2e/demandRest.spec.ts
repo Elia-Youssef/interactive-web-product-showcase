@@ -1,30 +1,8 @@
-import type { Page } from '@playwright/test'
 import { expect, test } from './fixtures'
-import { productLoadBudgetMs, testBodyBudgetMs } from './budgets'
+import { productLoadBudgetMs, restWindowBudgetMs, testBodyBudgetMs } from './budgets'
 import { requireCamera } from './hotspotViews'
-
-function renderedFrames(page: Page): Promise<number> {
-  return page.evaluate(() => window.__viewer?.renderedFrames ?? -1)
-}
-
-// How long the frame count must hold still before the stage counts as
-// settled. A late layout or font load lands inside the window and keeps the
-// poll running, so no fixed sleep precedes the at-rest measurement.
-const settleWindowMs = 500
-
-// Polls until the frame count is unchanged across a whole settle window and
-// returns the count it settled on.
-async function settledFrames(page: Page): Promise<number> {
-  let reference = await renderedFrames(page)
-  for (;;) {
-    await page.waitForTimeout(settleWindowMs)
-    const current = await renderedFrames(page)
-    if (current === reference) {
-      return current
-    }
-    reference = current
-  }
-}
+import { renderedFramesOf, settledFrames } from './stageSettle'
+import { hudRestText } from '../../src/viewer/hud/restText'
 
 test('the stage stands still at rest and renders again on a resize', async ({
   page,
@@ -51,18 +29,19 @@ test('the stage stands still at rest and renders again on a resize', async ({
     })
     .not.toBeNull()
 
-  // At rest under demand mode, with the HUD mounted: nothing renders for 2 s.
+  // At rest under demand mode, with the HUD mounted: nothing renders
+  // through the suite's rest window.
   const framesAtRest = await settledFrames(page)
-  await page.waitForTimeout(2000)
-  expect(await renderedFrames(page)).toBe(framesAtRest)
+  await page.waitForTimeout(restWindowBudgetMs)
+  expect(await renderedFramesOf(page)).toBe(framesAtRest)
 
-  // The HUD's rolling window has passed, so its FPS reads exactly zero.
-  await expect(page.getByTestId('hud-fps')).toHaveText('0.0')
+  // The HUD's rolling window has passed, so its FPS reads its rest text.
+  await expect(page.getByTestId('hud-fps')).toHaveText(hudRestText.fps)
 
   // A viewport resize owes a frame, and the renderer renders it.
   await page.setViewportSize({ width: 900, height: 600 })
   await expect
-    .poll(() => renderedFrames(page), {
+    .poll(() => renderedFramesOf(page), {
       message: 'the resize must render at least one frame',
       timeout: testBodyBudgetMs,
     })
@@ -98,10 +77,10 @@ test('a page scroll at rest renders no frame and moves no camera', async ({
   await page.evaluate(() => window.scrollTo(0, 150))
   // The premise: the document really scrolled, so the canvas really moved.
   expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
-  // The debounce window of the canvas's own measurement, then the settle
-  // window: a scroll that owed a frame would have rendered it here.
-  await page.waitForTimeout(settleWindowMs)
+  // The canvas measurement's own debounce, then the suite's rest window: a
+  // scroll that owed a frame would have rendered it here.
+  await page.waitForTimeout(restWindowBudgetMs)
 
-  expect(await renderedFrames(page)).toBe(framesAtRest)
+  expect(await renderedFramesOf(page)).toBe(framesAtRest)
   expect(await requireCamera(page)).toEqual(cameraAtRest)
 })

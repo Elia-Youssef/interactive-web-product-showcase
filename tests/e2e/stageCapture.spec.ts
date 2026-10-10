@@ -11,6 +11,7 @@ import { settledStageCapture } from './stageCapture'
 import type { RegionBox } from './stagePixels'
 import { countRegionPixelsBrighterThan, decodeScreenshotRGBA } from './stagePixels'
 import { settledStage } from './stageSettle'
+import { hudRestText } from '../../src/viewer/hud/restText'
 import { ambientMotion } from '../../src/lib/motion/ambientMotion'
 
 test('a capture pins declared ambient motion at rest and leaves other paused motion alone', async ({
@@ -140,8 +141,8 @@ test('a stage capture returns with the HUD at rest and repeats pixel-exact acros
   // before the drain gets here with the live values still on the HUD. This
   // read is the deterministic check; the pixel comparisons below fail only
   // when the drain shortens the widest HUD row between two shots.
-  expect(await page.getByTestId('hud-fps').textContent()).toBe('0.0')
-  expect(await page.getByTestId('hud-tick-cpu').textContent()).toBe('-')
+  expect(await page.getByTestId('hud-fps').textContent()).toBe(hudRestText.fps)
+  expect(await page.getByTestId('hud-tick-cpu').textContent()).toBe(hudRestText.tickMs)
 
   const second = await settledStageCapture(page)
 

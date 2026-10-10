@@ -4,6 +4,7 @@ import { harnessPath, harnessProducts, waitForProductReady } from './productSpec
 import { completedPresentation } from './presentationCompletion'
 import { cardHeadingOf, markerOf } from './hotspotViews'
 import { tokenPx } from './hotspotCardChecks'
+import { harnessStageBox } from './e2eViewport'
 
 // The floating card lays out at its content's width, clamped by the card
 // width token, for every hotspot of every product. The placement may dock
@@ -27,7 +28,7 @@ for (const product of products) {
       page,
       backendPath,
     }) => {
-      await page.setViewportSize({ width: 1280, height: 720 })
+      await page.setViewportSize(harnessStageBox)
       await page.goto(harnessPath(backendPath, product.slug))
       await waitForProductReady(page)
       await completedPresentation(page)
