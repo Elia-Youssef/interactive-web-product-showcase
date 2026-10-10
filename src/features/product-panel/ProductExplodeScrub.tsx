@@ -4,8 +4,8 @@
 // text is the readout's own string, so assistive tech and the readout say
 // the same thing. Its name is the scrub name of the copy module, the
 // toggle's word plus what the slider changes, so the two controls of the
-// section never share one name. It is disabled while the product has no
-// attached view, exactly like the toggle.
+// section never share one name. It waits unavailable while the product has
+// no attached view, exactly like the toggle.
 
 import type { Product } from '@lib/product'
 import {
@@ -37,7 +37,7 @@ export function ProductExplodeScrub({ product }: { product: Product }) {
         value={target}
         valueText={percent}
         step={explodeScrubStep}
-        disabled={!attached}
+        unavailable={!attached}
         onChange={(value) => explodeScrub(product.slug, value)}
       />
       <span className={styles.readoutCell} data-explode-readout>

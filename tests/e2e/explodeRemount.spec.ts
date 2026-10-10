@@ -8,6 +8,7 @@ import {
   observeEnvironmentSettleFailures,
 } from './environmentSettleReports'
 import { expectPoll, harnessPath, harnessProducts, waitForProductReady } from './productSpecs'
+import { expectUnavailable } from './stageKeys'
 import { siteCopy } from '../../src/lib/copy/site'
 import { frameFaultMessage } from '../../src/app/product-harness/frameFaultQuery.ts'
 
@@ -67,12 +68,12 @@ for (const product of products) {
     await expectPose(page, facts.lastPose)
 
     // Unmount from the open state: the reading is gone and the toggle,
-    // still rendered with its product's row, is disabled while nothing is
-    // attached.
+    // still rendered with its product's row, waits unavailable while
+    // nothing is attached.
     await remount.click()
     await expectPoll(page, () => window.__viewer?.product, productLoadBudgetMs).toBe('idle')
     await expectPoll(page, () => window.__viewer?.explode ?? null, testBodyBudgetMs).toBeNull()
-    await expect(explodeToggle).toBeDisabled()
+    await expectUnavailable(explodeToggle)
 
     // Remount: the toggle is enabled and not pressed, and the presentation
     // is assembled again, at the clip's first keyframes.
@@ -105,8 +106,8 @@ for (const product of products) {
     const explodeToggle = page.getByRole('button', { name: toggleLabel })
 
     // The failed product left the stage with its view: nothing is attached,
-    // so the toggle is disabled and there is no reading.
-    await expect(explodeToggle).toBeDisabled()
+    // so the toggle waits unavailable and there is no reading.
+    await expectUnavailable(explodeToggle)
     await expectPoll(page, () => window.__viewer?.explode ?? null, testBodyBudgetMs).toBeNull()
     const retiredCanvas = await page.locator('canvas').elementHandle()
     if (retiredCanvas === null) {

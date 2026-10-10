@@ -118,7 +118,7 @@ test('the initial store state renders the product default as the checked finish'
   expect(html.match(/aria-checked="true"/g)).toHaveLength(1)
 })
 
-test('the explode toggle sits after the swatches, named by the manifest, disabled while detached', () => {
+test('the explode toggle sits after the swatches, named by the manifest, waiting while detached', () => {
   const html = renderToString(
     <AppStoreProvider>
       <ProductPanel
@@ -131,17 +131,19 @@ test('the explode toggle sits after the swatches, named by the manifest, disable
   )
 
   // The manifest label is the accessible name. The static render runs no
-  // effects, so the store holds no attached view and the toggle renders
-  // disabled: a click before the model is presented cannot arm anything.
-  // The swatch group precedes it, as the panel order has it.
+  // effects, so the store holds no attached view and the toggle announces
+  // the wait: a press before the model is presented cannot arm anything,
+  // and the focus a keyboard user left on the button stays. The swatch
+  // group precedes it, as the panel order has it.
   expect(html).toContain('role="radiogroup"')
   expect(html.indexOf('role="radiogroup"')).toBeLessThan(html.indexOf('See inside</button>'))
   expect(html).toContain('aria-pressed="false"')
-  expect(html).toContain('disabled')
+  expect(html).toContain('aria-disabled="true"')
+  expect(html).not.toMatch(/\sdisabled[=\s/>]/)
   expect(html).toContain('See inside</button>')
 })
 
-test('the scrub control sits under the toggle, named apart from it, disabled while detached', () => {
+test('the scrub control sits under the toggle, named apart from it, waiting while detached', () => {
   const html = renderToString(
     <AppStoreProvider>
       <ProductPanel
@@ -157,7 +159,7 @@ test('the scrub control sits under the toggle, named apart from it, disabled whi
   // copy module's scrub name, the toggle's word plus what the slider
   // changes, so the section's two controls never share one name. The
   // static render runs no effects, so nothing is attached and nothing
-  // publishes: the slider is disabled at the assembled rest and the
+  // publishes: the slider announces the wait at the assembled rest and the
   // readout shows 0%.
   expect(html).toContain('type="range"')
   expect(html.indexOf('See inside</button>')).toBeLessThan(html.indexOf('type="range"'))
@@ -167,7 +169,8 @@ test('the scrub control sits under the toggle, named apart from it, disabled whi
   expect(html).toContain('data-explode-readout')
   expect(html.match(/aria-valuetext/g)).toHaveLength(1)
   const slider = html.slice(html.indexOf('<input'))
-  expect(slider).toContain('disabled')
+  expect(slider).toContain('aria-disabled="true"')
+  expect(slider).not.toMatch(/\sdisabled[=\s/>]/)
 })
 
 test('a manifest without an explode label names the toggle by the site word', () => {
