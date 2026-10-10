@@ -209,6 +209,26 @@ describe('applyCameraOutcomeEvent', () => {
     expect(next).toBe(newer)
   })
 
+  it('keeps the newer record when a retired reports after it', () => {
+    const newer = applyCameraOutcomeEvent(initialCameraOutcome, {
+      kind: 'arrived',
+      sequence: 5,
+      request: zoomIn,
+    })
+    const next = applyCameraOutcomeEvent(newer, { kind: 'retired', sequence: 4, request: home })
+    expect(next).toBe(newer)
+  })
+
+  it('leaves an equal record when a retired repeats for the recorded sequence', () => {
+    const retired = applyCameraOutcomeEvent(initialCameraOutcome, {
+      kind: 'retired',
+      sequence: 2,
+      request: zoomIn,
+    })
+    const next = applyCameraOutcomeEvent(retired, { kind: 'retired', sequence: 2, request: zoomIn })
+    expect(next).toEqual(retired)
+  })
+
   it('replaces the outcome of the recorded sequence written again', () => {
     const arrived = applyCameraOutcomeEvent(initialCameraOutcome, {
       kind: 'arrived',
@@ -226,10 +246,11 @@ describe('applyCameraOutcomeEvent', () => {
 
   // The bound is the design: a held key asks once per frame for as long as
   // it is held, and the record stays one entry however many settle.
-  it('stays one entry over any number of requests', () => {
+  it('stays one entry over any number of requests, retirements in the mix', () => {
     let record = initialCameraOutcome
     for (let sequence = 1; sequence <= 10_000; sequence += 1) {
-      record = applyCameraOutcomeEvent(record, { kind: 'arrived', sequence, request: zoomIn })
+      const kind = sequence % 3 === 0 ? 'unchanged' : sequence % 3 === 1 ? 'arrived' : 'retired'
+      record = applyCameraOutcomeEvent(record, { kind, sequence, request: zoomIn })
     }
     expect(record).toEqual({ sequence: 10_000, request: zoomIn, outcome: { kind: 'arrived' } })
     expect(Object.keys(record ?? {})).toEqual(['sequence', 'request', 'outcome'])
