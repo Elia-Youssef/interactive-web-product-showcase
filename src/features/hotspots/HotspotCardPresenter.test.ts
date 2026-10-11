@@ -172,6 +172,27 @@ describe('HotspotCardPresenter', () => {
     expect(publishes()).toBe(2)
   })
 
+  it("holds the card key's placement record until the position changes", () => {
+    const { overlay, presenter } = setup()
+    overlay.onPass(() => presenter.present(), 'presenter')
+    pass(overlay, { width: 800, height: 600 }, { driver: { x: 400, y: 300 }, knob: null })
+    presenter.show(fromMarker('driver'))
+    presenter.measure(card)
+    const placed = overlay.placementOf(CARD_OVERLAY_KEY)
+    expect(placed).toEqual({ kind: 'placed', x: 430, y: 250 })
+
+    // The same pass again lands the same values, so the record the overlay
+    // holds is neither replaced nor rewritten.
+    pass(overlay, { width: 800, height: 600 }, { driver: { x: 400, y: 300 }, knob: null })
+    expect(overlay.placementOf(CARD_OVERLAY_KEY)).toBe(placed)
+
+    // A pass that moves the marker publishes a fresh record at the new spot.
+    pass(overlay, { width: 800, height: 600 }, { driver: { x: 402, y: 300 }, knob: null })
+    const moved = overlay.placementOf(CARD_OVERLAY_KEY)
+    expect(moved).not.toBe(placed)
+    expect(moved).toEqual({ kind: 'placed', x: 432, y: 250 })
+  })
+
   it('hides a docked card in the dock while its marker hides, never changing its slot, for both reasons it docked', () => {
     const roomy = { width: 800, height: 600 }
     const cramped = { width: 250, height: 200 }

@@ -3,11 +3,11 @@ import {
   cardBoxAt,
   placeHotspotCard,
   type CardMetrics,
-  type CardPlacement,
   type CardPlacementInput,
+  type FloatingCardSpot,
 } from './cardPlacement'
-import { markerKeepOut, type StagePoint } from './markerBox'
-import type { StageBox } from './projection'
+import { markerKeepOut, type StagePoint, type StageRect } from './markerBox'
+import type { StageBox, StageRectTarget } from './projection'
 
 // The metrics of the cases: a 44 px hit box, the card 8 px off it, and a
 // ring reaching 5 px outside the hit box. A marker's keep-out box is then
@@ -16,6 +16,17 @@ const metrics: CardMetrics = { markerHitPx: 44, cardOffsetPx: 8, focusOutsetPx: 
 const card = { width: 200, height: 100 }
 const stage: StageBox = { width: 800, height: 600 }
 const center: StagePoint = { x: 400, y: 300 }
+
+// Each case gets its own spot and box prefilled with NaN, so a field the
+// rule left unwritten fails the case instead of carrying an earlier case's
+// answer.
+function freshSpot(): FloatingCardSpot {
+  return { side: 'right', left: Number.NaN, top: Number.NaN, right: Number.NaN, bottom: Number.NaN }
+}
+
+function freshBox(): StageRectTarget {
+  return { left: Number.NaN, top: Number.NaN, right: Number.NaN, bottom: Number.NaN }
+}
 
 function input(overrides: Partial<CardPlacementInput>): CardPlacementInput {
   const marker = overrides.marker ?? center
@@ -31,38 +42,33 @@ function input(overrides: Partial<CardPlacementInput>): CardPlacementInput {
   }
 }
 
-function sideOf(placement: CardPlacement): string {
-  return placement.kind === 'beside' ? placement.side : 'docked'
+function sideOf(placementInput: CardPlacementInput): string {
+  const spot = freshSpot()
+  return placeHotspotCard(placementInput, spot) ? spot.side : 'docked'
+}
+
+function boxOf(placementInput: CardPlacementInput): StageRect {
+  const spot = freshSpot()
+  if (!placeHotspotCard(placementInput, spot)) {
+    throw new Error('the case was expected to float the card beside its marker')
+  }
+  return { left: spot.left, top: spot.top, right: spot.right, bottom: spot.bottom }
 }
 
 describe('cardBoxAt', () => {
   it('hangs the card the offset off the hit box, centered across the side axis', () => {
-    expect(cardBoxAt('right', center, card, metrics)).toEqual({
-      left: 430,
-      top: 250,
-      right: 630,
-      bottom: 350,
-    })
-    expect(cardBoxAt('left', center, card, metrics)).toEqual({
-      left: 170,
-      top: 250,
-      right: 370,
-      bottom: 350,
-    })
-    expect(cardBoxAt('below', center, card, metrics)).toEqual({
-      left: 300,
-      top: 330,
-      right: 500,
-      bottom: 430,
-    })
-    expect(cardBoxAt('above', center, card, metrics)).toEqual({
-      left: 300,
-      top: 170,
-      right: 500,
-      bottom: 270,
-    })
+    expect(boxAt('right', center)).toEqual({ left: 430, top: 250, right: 630, bottom: 350 })
+    expect(boxAt('left', center)).toEqual({ left: 170, top: 250, right: 370, bottom: 350 })
+    expect(boxAt('below', center)).toEqual({ left: 300, top: 330, right: 500, bottom: 430 })
+    expect(boxAt('above', center)).toEqual({ left: 300, top: 170, right: 500, bottom: 270 })
   })
 })
+
+function boxAt(side: 'right' | 'left' | 'below' | 'above', marker: StagePoint): StageRect {
+  const box = freshBox()
+  cardBoxAt(side, marker, card, metrics, box)
+  return { left: box.left, top: box.top, right: box.right, bottom: box.bottom }
+}
 
 // Each row: what the case shows, the input, and the side it lands on. The
 // rows walk the preference order (each side chosen once the sides before
@@ -196,16 +202,17 @@ const rows: readonly (readonly [string, CardPlacementInput, string])[] = [
 
 describe('placeHotspotCard', () => {
   it.each(rows)('%s', (_why, placementInput, expected) => {
-    expect(sideOf(placeHotspotCard(placementInput))).toBe(expected)
+    expect(sideOf(placementInput)).toBe(expected)
   })
 
-  it('answers the box of the side it chose', () => {
-    const placement = placeHotspotCard(input({ marker: { x: 700, y: 300 } }))
-    expect(placement).toEqual({
-      kind: 'beside',
-      side: 'left',
-      box: cardBoxAt('left', { x: 700, y: 300 }, card, metrics),
-    })
+  it('answers the spot of the side it chose, whole', () => {
+    const placed = boxOf(input({ marker: { x: 700, y: 300 } }))
+    const expected = boxAt('left', { x: 700, y: 300 })
+    expect(placed).toEqual(expected)
+    expect(placed.left).not.toBeNaN()
+    expect(placed.top).not.toBeNaN()
+    expect(placed.right).not.toBeNaN()
+    expect(placed.bottom).not.toBeNaN()
   })
 
   it('never answers a box outside the stage or over a keep-out box, over a dense grid of cases', () => {
@@ -217,22 +224,27 @@ describe('placeHotspotCard', () => {
     for (let x = 0; x <= stage.width; x += 25) {
       for (let y = 0; y <= stage.height; y += 25) {
         const marker = { x, y }
-        const placement = placeHotspotCard(input({ marker, placedMarkers: [marker, ...others] }))
-        if (placement.kind === 'docked') {
+        const spot = freshSpot()
+        if (!placeHotspotCard(input({ marker, placedMarkers: [marker, ...others] }), spot)) {
           continue
         }
-        const { box } = placement
-        expect(box.left).toBeGreaterThanOrEqual(0)
-        expect(box.top).toBeGreaterThanOrEqual(0)
-        expect(box.right).toBeLessThanOrEqual(stage.width)
-        expect(box.bottom).toBeLessThanOrEqual(stage.height)
-        for (const placed of [marker, ...others]) {
-          const keepOut = markerKeepOut(placed, metrics)
+        const placed = {
+          left: spot.left,
+          top: spot.top,
+          right: spot.right,
+          bottom: spot.bottom,
+        }
+        expect(placed.left).toBeGreaterThanOrEqual(0)
+        expect(placed.top).toBeGreaterThanOrEqual(0)
+        expect(placed.right).toBeLessThanOrEqual(stage.width)
+        expect(placed.bottom).toBeLessThanOrEqual(stage.height)
+        for (const markerOfInterest of [marker, ...others]) {
+          const keepOut = markerKeepOut(markerOfInterest, metrics)
           const covers =
-            box.left < keepOut.right &&
-            keepOut.left < box.right &&
-            box.top < keepOut.bottom &&
-            keepOut.top < box.bottom
+            placed.left < keepOut.right &&
+            keepOut.left < placed.right &&
+            placed.top < keepOut.bottom &&
+            keepOut.top < placed.bottom
           expect(covers).toBe(false)
         }
       }
