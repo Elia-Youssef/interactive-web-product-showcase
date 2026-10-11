@@ -5,7 +5,11 @@
 // layout three's Matrix4.elements hands over, so the lib stays free of any
 // scene graph and the viewer passes its live matrices through unchanged.
 //
-// The math is exact; rounding belongs to the display, if anywhere.
+// Every answer is written into a caller-owned target, so a per-frame caller
+// reuses its storage and allocates nothing. The one projection math both
+// public functions use is the clip space transform, itself written into a
+// caller-owned scratch. The math is exact; rounding belongs to the display,
+// if anywhere.
 
 export type WorldPoint = {
   readonly x: number
@@ -37,43 +41,61 @@ export type StageProjection = {
   readonly inFront: boolean
 }
 
-// Projects one world point through the camera's view and projection matrices
-// into stage CSS pixels from the stage box's top-left, and reports whether
-// the point stands in front of the camera. A perspective camera looks down
-// its view space -Z, so the clip w of the standard projection is -viewZ:
-// positive exactly when the point is in front.
+// The stage projection's mutable target: structurally a StageProjection,
+// filled per call so a per-frame caller reuses one record.
+export type StageProjectionTarget = {
+  x: number
+  y: number
+  inFront: boolean
+}
+
+// The clip space position's mutable scratch, shared by both projections.
+export type ClipSpaceTarget = {
+  x: number
+  y: number
+  w: number
+}
+
+// The one projection math: a world point through the camera's view and
+// projection matrices into clip space. A perspective camera looks down its
+// view space -Z, so the clip w of the standard projection is -viewZ:
+// positive exactly when the point is in front of the camera.
+export function projectToClipSpace(
+  x: number,
+  y: number,
+  z: number,
+  camera: CameraMatrices,
+  target: ClipSpaceTarget,
+): void {
+  const view = camera.viewMatrix
+  // The view-space point: the world point through the world-to-camera
+  // matrix, whose translation rides in the matrix's fourth column.
+  const viewX = at(view, 0) * x + at(view, 4) * y + at(view, 8) * z + at(view, 12)
+  const viewY = at(view, 1) * x + at(view, 5) * y + at(view, 9) * z + at(view, 13)
+  const viewZ = at(view, 2) * x + at(view, 6) * y + at(view, 10) * z + at(view, 14)
+  const p = camera.projectionMatrix
+  target.x = at(p, 0) * viewX + at(p, 4) * viewY + at(p, 8) * viewZ + at(p, 12)
+  target.y = at(p, 1) * viewX + at(p, 5) * viewY + at(p, 9) * viewZ + at(p, 13)
+  target.w = at(p, 3) * viewX + at(p, 7) * viewY + at(p, 11) * viewZ + at(p, 15)
+}
+
+// Projects one world point through the camera's matrices into stage CSS
+// pixels from the stage box's top-left, and reports whether the point
+// stands in front of the camera.
 export function projectToStage(
   point: WorldPoint,
   camera: CameraMatrices,
   stage: StageBox,
-): StageProjection {
-  const view = viewTransform(point, camera.viewMatrix)
-  const p = camera.projectionMatrix
-  const clipX = at(p, 0) * view.x + at(p, 4) * view.y + at(p, 8) * view.z + at(p, 12)
-  const clipY = at(p, 1) * view.x + at(p, 5) * view.y + at(p, 9) * view.z + at(p, 13)
-  const clipW = at(p, 3) * view.x + at(p, 7) * view.y + at(p, 11) * view.z + at(p, 15)
-  const inFront = clipW > 0
-  const ndcX = clipX / clipW
-  const ndcY = clipY / clipW
-  return {
-    x: ((ndcX + 1) / 2) * stage.width,
-    y: ((1 - ndcY) / 2) * stage.height,
-    inFront,
-  }
-}
-
-// The view-space point: the world point through the world-to-camera matrix.
-// The view translation rides in the matrix's fourth column.
-function viewTransform(
-  point: WorldPoint,
-  view: ReadonlyArray<number>,
-): { readonly x: number; readonly y: number; readonly z: number; readonly w: number } {
-  return {
-    x: at(view, 0) * point.x + at(view, 4) * point.y + at(view, 8) * point.z + at(view, 12),
-    y: at(view, 1) * point.x + at(view, 5) * point.y + at(view, 9) * point.z + at(view, 13),
-    z: at(view, 2) * point.x + at(view, 6) * point.y + at(view, 10) * point.z + at(view, 14),
-    w: at(view, 3) * point.x + at(view, 7) * point.y + at(view, 11) * point.z + at(view, 15),
-  }
+  target: StageProjectionTarget,
+  clip: ClipSpaceTarget,
+): void {
+  projectToClipSpace(point.x, point.y, point.z, camera, clip)
+  const inFront = clip.w > 0
+  const ndcX = clip.x / clip.w
+  const ndcY = clip.y / clip.w
+  target.x = ((ndcX + 1) / 2) * stage.width
+  target.y = ((1 - ndcY) / 2) * stage.height
+  target.inFront = inFront
 }
 
 // A world-space axis-aligned box: the extent of a subject on the stage, as
@@ -87,8 +109,8 @@ export type WorldBox = {
   readonly maxZ: number
 }
 
-// The stage rect a projection fills, mutable so a per-frame caller reuses
-// one target instead of allocating. Structurally a StageRect.
+// The screen extent a projection fills, mutable so a per-frame caller
+// reuses one target instead of allocating. Structurally a StageRect.
 export type StageRectTarget = {
   left: number
   top: number
@@ -106,36 +128,31 @@ export function projectBoxExtent(
   camera: CameraMatrices,
   stage: StageBox,
   target: StageRectTarget,
+  clip: ClipSpaceTarget,
 ): boolean {
   let seen = false
   for (let corner = 0; corner < 8; corner += 1) {
-    const point = {
-      x: (corner & 1) === 0 ? box.minX : box.maxX,
-      y: (corner & 2) === 0 ? box.minY : box.maxY,
-      z: (corner & 4) === 0 ? box.minZ : box.maxZ,
-    }
-    const view = viewTransform(point, camera.viewMatrix)
-    const p = camera.projectionMatrix
-    const clipX = at(p, 0) * view.x + at(p, 4) * view.y + at(p, 8) * view.z + at(p, 12)
-    const clipY = at(p, 1) * view.x + at(p, 5) * view.y + at(p, 9) * view.z + at(p, 13)
-    const clipW = at(p, 3) * view.x + at(p, 7) * view.y + at(p, 11) * view.z + at(p, 15)
-    if (clipW <= 0) {
+    const x = (corner & 1) === 0 ? box.minX : box.maxX
+    const y = (corner & 2) === 0 ? box.minY : box.maxY
+    const z = (corner & 4) === 0 ? box.minZ : box.maxZ
+    projectToClipSpace(x, y, z, camera, clip)
+    if (clip.w <= 0) {
       continue
     }
-    const x = ((clipX / clipW + 1) / 2) * stage.width
-    const y = ((1 - clipY / clipW) / 2) * stage.height
+    const sx = ((clip.x / clip.w + 1) / 2) * stage.width
+    const sy = ((1 - clip.y / clip.w) / 2) * stage.height
     if (!seen) {
-      target.left = x
-      target.right = x
-      target.top = y
-      target.bottom = y
+      target.left = sx
+      target.right = sx
+      target.top = sy
+      target.bottom = sy
       seen = true
       continue
     }
-    target.left = Math.min(target.left, x)
-    target.right = Math.max(target.right, x)
-    target.top = Math.min(target.top, y)
-    target.bottom = Math.max(target.bottom, y)
+    target.left = Math.min(target.left, sx)
+    target.right = Math.max(target.right, sx)
+    target.top = Math.min(target.top, sy)
+    target.bottom = Math.max(target.bottom, sy)
   }
   return seen
 }

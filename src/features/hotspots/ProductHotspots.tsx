@@ -6,6 +6,7 @@ import { useStageProbes } from '@viewer/automation/stageProbesContext'
 import { useLoadedProduct, type LoadedProduct } from '@viewer/product/loadedProduct'
 import { usePresentedFrame } from '@viewer/stageFrameContext'
 import { useStageOverlay } from '@viewer/overlay/stageOverlayContext'
+import type { OverlayPlace, OverlayPlaceBox } from '@viewer/overlay/StageOverlay'
 import { collectOccluders } from './occluders'
 import { readMarkerExtent } from '@lib/hotspots/cardLayout'
 import { MarkerExtentSource } from './markerExtentSource'
@@ -26,8 +27,14 @@ import { HotspotPlacer } from './placer'
 //
 // The occluders are every mesh of the product except the rig's shadow
 // subtree, collected once per load: finishes swap materials, never geometry.
-// The same effect registers the stage's hotspots probe, so the automation
-// reads each anchor's live world position while this side holds the product.
+// The placer and its anchors live exactly as long as this load does: the
+// page keys the product per switch life, and the life's leave is what
+// clears the overlay's per-product records, so the placer's memory of what
+// it published can never outlive the records it compares them against. The
+// pass writer is built once per its inputs, so a frame runs the pass
+// without allocating the writer. The same effect registers the stage's
+// hotspots probe, so the automation reads each anchor's live world position
+// while this side holds the product.
 export function ProductHotspots() {
   const loaded = useLoadedProduct()
   const overlay = useStageOverlay()
@@ -39,7 +46,7 @@ export function ProductHotspots() {
   useEffect(() => overlay.geometry.subscribe(invalidate), [overlay, invalidate])
 
   const occluders = useMemo(() => collectOccluders(loaded), [loaded])
-  const placer = useMemo(() => new HotspotPlacer(), [])
+  const placer = useMemo(() => new HotspotPlacer(loaded.rig.hotspots), [loaded])
   // The marker extent comes from the tokens on the document root, per
   // stage size.
   const extentSource = useMemo(
@@ -47,27 +54,25 @@ export function ProductHotspots() {
       new MarkerExtentSource(() => readMarkerExtent(getComputedStyle(document.documentElement))),
     [],
   )
+  const writeAll = useCallback(
+    (write: OverlayPlace, writeBox: OverlayPlaceBox) =>
+      placer.place(
+        occluders,
+        camera,
+        size,
+        extentSource.for(size),
+        write,
+        writeBox,
+        overlay.geometry.read(size),
+      ),
+    [placer, occluders, camera, size, extentSource, overlay],
+  )
   // One overlay pass per presented frame: every marker of the frame is
   // written before the overlay's pass listeners, the open card among them,
   // decide against the complete set, and every hotspot's subject extent is
   // published with it, so the open card's decision always reads the extent
   // of the frame that placed its marker.
-  const place = useCallback(
-    () =>
-      overlay.pass(size, (write, writeBox) =>
-        placer.place(
-          loaded.rig.hotspots,
-          occluders,
-          camera,
-          size,
-          extentSource.for(size),
-          write,
-          writeBox,
-          overlay.geometry.read(size),
-        ),
-      ),
-    [placer, loaded, occluders, camera, size, extentSource, overlay],
-  )
+  const place = useCallback(() => overlay.pass(size, writeAll), [overlay, size, writeAll])
   usePresentedFrame('content', place)
 
   useEffect(
