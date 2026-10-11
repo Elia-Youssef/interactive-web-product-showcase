@@ -217,7 +217,7 @@ function resolveCameras(
   if (home === undefined) {
     problems.push({
       node: homeName,
-      message: `no ${homeName} node, the start and reset view is required`,
+      message: `No ${homeName} node; the home view is required for startup and reset`,
     })
   } else {
     resolveCameraNode(cameras, CAMERA_HOME_ID, home, problems)
@@ -253,7 +253,7 @@ function resolveShadow(nodes: NamedNodes, problems: RigProblem[]): Object3D | nu
   if (shadow === undefined) {
     problems.push({
       node: SHADOW_NODE_NAME,
-      message: `no ${SHADOW_NODE_NAME} node, the baked contact shadow is required`,
+      message: `No ${SHADOW_NODE_NAME} node; the baked contact shadow is required`,
     })
     return null
   }
