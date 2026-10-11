@@ -42,6 +42,13 @@ export function zoomStepMoves(distance: number, range: DistanceRange, direction:
 // zoomStepMoves: the controls hold a reached limit exactly.
 export type ZoomLimit = 'closest' | 'farthest'
 
+// The direction whose step cannot pass each distance limit: positive
+// steps zoom in, negative steps zoom out. Presentation reads this rule.
+export const zoomDirectionAtLimit = {
+  closest: 1,
+  farthest: -1,
+} as const satisfies Readonly<Record<ZoomLimit, 1 | -1>>
+
 export function zoomLimitOf(distance: number, range: DistanceRange): ZoomLimit | null {
   if (distance === range.min) {
     return 'closest'
