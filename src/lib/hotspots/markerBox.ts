@@ -34,9 +34,17 @@ export type MarkerExtent = {
 }
 
 // The box a marker keeps clear: its hit box grown by the focus ring's reach
-// on every side.
+// on every side. The half is the one helper every keep-out rule reads, so
+// the box, the stage check and the obstacle checks cannot drift apart.
+export function markerKeepOutHalfPx(extent: MarkerExtent): number {
+  return extent.markerHitPx / 2 + extent.focusOutsetPx
+}
+
+// The keep-out box of a marker as a record, for callers that hold or
+// compare whole boxes. Per-frame rules read the half directly and build
+// nothing.
 export function markerKeepOut(marker: StagePoint, extent: MarkerExtent): StageRect {
-  const half = extent.markerHitPx / 2 + extent.focusOutsetPx
+  const half = markerKeepOutHalfPx(extent)
   return {
     left: marker.x - half,
     top: marker.y - half,
@@ -47,13 +55,20 @@ export function markerKeepOut(marker: StagePoint, extent: MarkerExtent): StageRe
 
 // Whether the marker's whole keep-out box lies inside the stage, edges
 // included: a marker whose box crosses an edge would put part of its hit
-// area or its focus ring under whatever sits beside the stage.
+// area or its focus ring under whatever sits beside the stage. The check
+// reads the half directly, so a per-frame caller allocates no box record.
 export function isKeepOutInsideStage(
   marker: StagePoint,
   stage: StageBox,
   extent: MarkerExtent,
 ): boolean {
-  return isRectInsideStage(markerKeepOut(marker, extent), stage)
+  const half = markerKeepOutHalfPx(extent)
+  return (
+    marker.x - half >= 0 &&
+    marker.y - half >= 0 &&
+    marker.x + half <= stage.width &&
+    marker.y + half <= stage.height
+  )
 }
 
 // Whether a box lies inside the stage, edges included.

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useLayoutEffect } from 'react'
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame, type RootState } from '@react-three/fiber'
 import type {
   FrameFailureReport,
@@ -36,6 +36,20 @@ export function useStageFramePath(): StageFramePath {
 // priority orders it among the frame's steps the way R3F's own does, lower
 // first; every step runs before the present, so a priority at or past the
 // present's is a composition error.
+//
+// The step handed to the frame path is built once per hook: the frame
+// callback stamps the frame's state and delta on the holder first, so a
+// frame runs the latest committed callback without wrapping it in a fresh
+// closure. The holder takes a committed render's scope and callback in a
+// layout effect, and frames run between commits, so a render React threw
+// away never runs and a committed one never runs stale.
+type StageFrameHolder = {
+  scope: FrameOwnerScope
+  callback: (state: RootState, deltaSeconds: number) => void
+  state: RootState | null
+  deltaSeconds: number
+}
+
 export function useStageFrame(
   scope: FrameOwnerScope,
   callback: (state: RootState, deltaSeconds: number) => void,
@@ -47,8 +61,26 @@ export function useStageFrame(
       `a stage frame callback runs before the present: its priority ${priority} must stay below ${STAGE_PRESENT_PRIORITY}`,
     )
   }
+  const holder = useRef<StageFrameHolder>({ scope, callback, state: null, deltaSeconds: 0 })
+  useLayoutEffect(() => {
+    holder.current.scope = scope
+    holder.current.callback = callback
+  })
+  const step = useMemo(() => {
+    const runStep = (): void => {
+      const current = holder.current
+      if (current.state === null) {
+        throw new Error('a stage frame step ran before its frame stamped the frame state')
+      }
+      current.callback(current.state, current.deltaSeconds)
+    }
+    return runStep
+  }, [holder])
   useFrame((state, delta) => {
-    frames.run(scope, () => callback(state, delta))
+    const current = holder.current
+    current.state = state
+    current.deltaSeconds = delta
+    frames.run(current.scope, step)
   }, priority)
 }
 

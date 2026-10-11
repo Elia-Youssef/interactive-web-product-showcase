@@ -57,9 +57,12 @@ type FrameOwner = {
   readonly report: FrameFailureReport
 }
 
+// A listener entry keeps its own liveness, so releasing it is a plain flag
+// and a run needs no snapshot of the subscription set.
 type FrameListener = {
   readonly scope: FrameOwnerScope
   readonly listener: PresentedFrameListener
+  held: boolean
 }
 
 type FramePathState =
@@ -72,9 +75,12 @@ type FramePathState =
 
 export class StageFramePath {
   private readonly owners = new Map<FrameOwnerScope, FrameOwner>()
-  private readonly listeners = new Set<FrameListener>()
+  private readonly listeners: FrameListener[] = []
   private readonly retirementSubscribers = new Set<() => void>()
   private state: FramePathState = { kind: 'presenting' }
+  // Whether a listener run is in progress: releases during it defer their
+  // entry's removal to its end.
+  private runningListeners = false
 
   constructor(private readonly host: StageFramePathHost) {}
 
@@ -112,14 +118,20 @@ export class StageFramePath {
   // the named scope's code. Subscribing owes one frame: under demand mode a
   // listener that arrives while the stage is at rest would otherwise wait
   // for a frame nothing scheduled. The release is bound to this
-  // subscription, and a stale one fails loudly.
+  // subscription, and a stale one fails loudly. A release outside a run
+  // drops the entry at once; during a run the entry stays until the run's
+  // end, its flag deciding whether it runs.
   listen(scope: FrameOwnerScope, listener: PresentedFrameListener): () => void {
-    const entry: FrameListener = { scope, listener }
-    this.listeners.add(entry)
+    const entry: FrameListener = { scope, listener, held: true }
+    this.listeners.push(entry)
     this.host.invalidate()
     return () => {
-      if (!this.listeners.delete(entry)) {
+      if (!entry.held) {
         throw new Error('the release of a presented-frame listener is stale')
+      }
+      entry.held = false
+      if (!this.runningListeners) {
+        this.dropReleasedListeners()
       }
     }
   }
@@ -128,7 +140,7 @@ export class StageFramePath {
   // step ran to its end, false when the path is halted or retired or the
   // step threw, which halts the path.
   run(scope: FrameOwnerScope, step: () => void): boolean {
-    return this.guard(step, scope, (owner) => ({ kind: 'halted', by: owner }))
+    return this.guard(step, scope, 'halted')
   }
 
   // Runs the present, the step inside three's render. Returns true when it
@@ -141,7 +153,7 @@ export class StageFramePath {
     // From a presenting path, the guard returns false only for a present
     // that threw: the one transition into retired, told to the stage and
     // the retirement subscribers once.
-    const presented = this.guard(render, frameOwnerScopes[0], () => ({ kind: 'retired' }))
+    const presented = this.guard(render, frameOwnerScopes[0], 'retired')
     if (!presented) {
       this.host.retired()
       for (const callback of [...this.retirementSubscribers]) {
@@ -155,23 +167,41 @@ export class StageFramePath {
   // of its own scope, so a listener that throws halts the path and fails its
   // owner like a frame callback. The listeners after a failed one do not
   // run. Called only after a frame presented.
+  //
+  // The run covers the subscriptions it began with, in subscription order:
+  // a listener added during the run first runs on the next one, and a
+  // listener released during the run, by itself or by an earlier one, does
+  // not run again in it. The liveness flags make that rule a plain walk
+  // over the entries, with the released ones dropped before the run begins
+  // and again at its end, so a run allocates no snapshot of the
+  // subscription set and no released entry lingers past it.
   runListeners(): void {
-    for (const { scope, listener } of [...this.listeners]) {
-      if (!this.run(scope, listener)) {
-        return
+    this.dropReleasedListeners()
+    this.runningListeners = true
+    const count = this.listeners.length
+    try {
+      for (let index = 0; index < count; index += 1) {
+        const entry = this.listeners[index]
+        if (entry === undefined || !entry.held) {
+          continue
+        }
+        if (!this.run(entry.scope, entry.listener)) {
+          return
+        }
       }
+    } finally {
+      this.runningListeners = false
+      this.dropReleasedListeners()
     }
   }
 
   // Runs a step unless the path is halted or retired. A step that throws
-  // moves the path to the state its kind calls for and reaches the owner of
-  // the named scope, or of the first broader scope holding one, once; with
-  // no owner there it rethrows, since a failure is never swallowed.
-  private guard(
-    step: () => void,
-    scope: FrameOwnerScope,
-    failed: (owner: FrameOwner) => FramePathState,
-  ): boolean {
+  // moves the path to the state its failure calls for and reaches the owner
+  // of the named scope, or of the first broader scope holding one, once; with
+  // no owner there it rethrows, since a failure is never swallowed. The
+  // failure's kind travels as a flag, so the path builds the one state
+  // record only when a failure actually happened.
+  private guard(step: () => void, scope: FrameOwnerScope, onThrow: 'halted' | 'retired'): boolean {
     if (this.state.kind !== 'presenting') {
       return false
     }
@@ -183,10 +213,24 @@ export class StageFramePath {
       if (owner === null) {
         throw cause
       }
-      this.state = failed(owner)
+      this.state = onThrow === 'halted' ? { kind: 'halted', by: owner } : { kind: 'retired' }
       owner.report(asError(cause))
       return false
     }
+  }
+
+  // Removes the released entries in place, so steady runs walk a stable
+  // array and only subscriptions change its length.
+  private dropReleasedListeners(): void {
+    let write = 0
+    for (let read = 0; read < this.listeners.length; read += 1) {
+      const entry = this.listeners[read]
+      if (entry !== undefined && entry.held) {
+        this.listeners[write] = entry
+        write += 1
+      }
+    }
+    this.listeners.length = write
   }
 
   private ownerFrom(scope: FrameOwnerScope): FrameOwner | null {

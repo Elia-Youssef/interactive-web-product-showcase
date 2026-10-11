@@ -7,7 +7,12 @@
 // is the anchor's own part at worst, never a nearer occluder.
 
 import type { StageBox, StageProjection } from './projection'
-import { isKeepOutInsideStage, type MarkerExtent, type StageRect } from './markerBox'
+import {
+  isKeepOutInsideStage,
+  markerKeepOutHalfPx,
+  type MarkerExtent,
+  type StageRect,
+} from './markerBox'
 import { rectsMeetBounds } from './chromeGeometry'
 
 // The nearest occluder hit along the ray from the camera to the anchor, or
@@ -32,7 +37,7 @@ export function isMarkerPlaceable(
   if (!projection.inFront || !isKeepOutInsideStage(projection, stage, extent)) {
     return false
   }
-  const half = extent.markerHitPx / 2 + extent.focusOutsetPx
+  const half = markerKeepOutHalfPx(extent)
   for (const obstacle of obstacles) {
     if (
       rectsMeetBounds(

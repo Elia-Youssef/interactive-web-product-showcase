@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { cardBoxAt, type CardMetrics } from './cardPlacement'
+import { cardBoxAt, type CardMetrics, type CardSide } from './cardPlacement'
+import type { StageRectTarget } from './projection'
 import {
   parseCardDockPolicy,
   presentHotspotCard,
@@ -7,6 +8,7 @@ import {
   type CardPresentation,
   type CardPresentationInput,
   type CardSlotKind,
+  type FloatingCard,
 } from './cardPresentation'
 
 const metrics: CardMetrics = { markerHitPx: 44, cardOffsetPx: 8, focusOutsetPx: 5 }
@@ -17,13 +19,27 @@ const roomy = { width: 800, height: 600 }
 const cramped = { width: 250, height: 200 }
 const crampedMarker = { x: 125, y: 100 }
 
-const beside: CardPresentation = {
-  slot: 'floating',
-  at: { side: 'right', box: cardBoxAt('right', marker, card, metrics) },
+// Each case gets its own floating record prefilled with NaN, so a field the
+// rule left unwritten fails the case instead of carrying an earlier case's
+// answer.
+function freshFloating(): FloatingCard {
+  return {
+    slot: 'floating',
+    at: {
+      side: 'right',
+      left: Number.NaN,
+      top: Number.NaN,
+      right: Number.NaN,
+      bottom: Number.NaN,
+    },
+  }
 }
-const floatingHidden: CardPresentation = { slot: 'floating', at: null }
-const dockedShown: CardPresentation = { slot: 'docked', shown: true }
-const dockedHidden: CardPresentation = { slot: 'docked', shown: false }
+
+function boxAt(side: CardSide, at: { x: number; y: number }): StageRectTarget {
+  const box: StageRectTarget = { left: 0, top: 0, right: 0, bottom: 0 }
+  cardBoxAt(side, at, card, metrics, box)
+  return box
+}
 
 function input(
   policy: CardDockPolicy,
@@ -31,7 +47,7 @@ function input(
   room: boolean,
   current: CardSlotKind | null,
 ): CardPresentationInput {
-  const at = room ? marker : crampedMarker
+  const at = markerPlaced && room ? marker : crampedMarker
   return {
     origin: 'marker',
     policy,
@@ -46,46 +62,103 @@ function input(
   }
 }
 
-type Row = readonly [CardDockPolicy, boolean, boolean, CardSlotKind | null, CardPresentation]
+const besideRight = (floating: FloatingCard): CardPresentation => ({
+  slot: 'floating',
+  at: floating.at,
+})
+
+// The sentinel a row uses for the floating-beside answer, which only the
+// caller's own record can express.
+const BESIDE_RIGHT = 'beside right' as const
+
+type Row = readonly [
+  CardDockPolicy,
+  boolean,
+  boolean,
+  CardSlotKind | null,
+  CardPresentation | typeof BESIDE_RIGHT,
+]
 
 // Every combination of the policy, the marker placed or hidden, room or
 // none around the marker, and the slot the card is in now: the policy
 // docks first, a hidden marker hides the card in the slot it is in, and a
 // floating layout floats beside the marker or docks when there is no room.
 const rows: readonly Row[] = [
-  ['always', true, true, null, dockedShown],
-  ['always', true, false, 'docked', dockedShown],
-  ['always', false, true, 'docked', dockedHidden],
-  ['always', false, false, 'floating', dockedHidden],
-  ['when-crowded', true, true, null, beside],
-  ['when-crowded', true, true, 'docked', beside],
-  ['when-crowded', true, false, 'floating', dockedShown],
-  ['when-crowded', true, false, 'docked', dockedShown],
-  ['when-crowded', false, true, 'floating', floatingHidden],
-  ['when-crowded', false, true, null, floatingHidden],
-  ['when-crowded', false, true, 'docked', dockedHidden],
-  ['when-crowded', false, false, 'docked', dockedHidden],
-  ['when-crowded', false, false, 'floating', floatingHidden],
+  ['always', true, true, null, { slot: 'docked', shown: true }],
+  ['always', true, false, 'docked', { slot: 'docked', shown: true }],
+  ['always', false, true, 'docked', { slot: 'docked', shown: false }],
+  ['always', false, false, 'floating', { slot: 'docked', shown: false }],
+  ['when-crowded', true, true, null, BESIDE_RIGHT],
+  ['when-crowded', true, true, 'docked', BESIDE_RIGHT],
+  ['when-crowded', true, false, 'floating', { slot: 'docked', shown: true }],
+  ['when-crowded', true, false, 'docked', { slot: 'docked', shown: true }],
+  ['when-crowded', false, true, 'floating', { slot: 'floating', at: null }],
+  ['when-crowded', false, true, null, { slot: 'floating', at: null }],
+  ['when-crowded', false, true, 'docked', { slot: 'docked', shown: false }],
+  ['when-crowded', false, false, 'docked', { slot: 'docked', shown: false }],
+  ['when-crowded', false, false, 'floating', { slot: 'floating', at: null }],
 ]
+
+function decided(placementInput: CardPresentationInput): {
+  answer: CardPresentation
+  floating: FloatingCard
+} {
+  const floating = freshFloating()
+  const answer = presentHotspotCard(placementInput, floating)
+  return { answer, floating }
+}
+
+function expectedOf(
+  expected: CardPresentation | typeof BESIDE_RIGHT,
+  floating: FloatingCard,
+): CardPresentation {
+  return expected === BESIDE_RIGHT ? besideRight(floating) : expected
+}
 
 describe('presentHotspotCard', () => {
   it.each(rows)(
     'policy %s, marker placed %s, room %s, now %s',
     (policy, markerPlaced, room, current, expected) => {
-      expect(presentHotspotCard(input(policy, markerPlaced, room, current))).toEqual(expected)
+      const { answer, floating } = decided(input(policy, markerPlaced, room, current))
+      expect(answer).toEqual(expectedOf(expected, floating))
     },
   )
 
+  it('floats at the spot the placement rule filled, with every field written', () => {
+    const { answer } = decided(input('when-crowded', true, true, null))
+    const expected = boxAt('right', marker)
+    expect(answer.slot).toBe('floating')
+    const at = answer.slot === 'floating' && answer.at !== null ? answer.at : null
+    expect(at).not.toBeNull()
+    expect(at?.left).toBe(expected.left)
+    expect(at?.top).toBe(expected.top)
+    expect(at?.right).toBe(expected.right)
+    expect(at?.bottom).toBe(expected.bottom)
+    expect(at?.left).not.toBeNaN()
+    expect(at?.top).not.toBeNaN()
+    expect(at?.right).not.toBeNaN()
+    expect(at?.bottom).not.toBeNaN()
+  })
+
+  it('returns the caller own floating record, not a fresh one', () => {
+    const { answer, floating } = decided(input('when-crowded', true, true, null))
+    expect(answer).toBe(floating)
+  })
+
   it('hides a card before the first placement pass, in the slot it is in', () => {
     const before = { ...input('when-crowded', true, true, null), stage: null }
-    expect(presentHotspotCard(before)).toEqual(floatingHidden)
-    expect(presentHotspotCard({ ...before, current: 'docked' })).toEqual(dockedHidden)
+    expect(decided(before).answer).toEqual({ slot: 'floating', at: null })
+    expect(decided({ ...before, current: 'docked' }).answer).toEqual({
+      slot: 'docked',
+      shown: false,
+    })
   })
 
   it('waits for the first measure before it places a floating card', () => {
-    expect(presentHotspotCard({ ...input('when-crowded', true, true, null), card: null })).toEqual(
-      floatingHidden,
-    )
+    expect(decided({ ...input('when-crowded', true, true, null), card: null }).answer).toEqual({
+      slot: 'floating',
+      at: null,
+    })
   })
 
   it('docks a card whose every side covers its subject', () => {
@@ -93,7 +166,7 @@ describe('presentHotspotCard', () => {
       ...input('when-crowded', true, true, 'floating'),
       subject: { left: 0, top: 100, right: roomy.width, bottom: 500 },
     }
-    expect(presentHotspotCard(covered)).toEqual(dockedShown)
+    expect(decided(covered).answer).toEqual({ slot: 'docked', shown: true })
   })
 
   it('docks a card whose every side covers stage chrome', () => {
@@ -101,7 +174,7 @@ describe('presentHotspotCard', () => {
       ...input('when-crowded', true, true, 'floating'),
       obstacles: [{ left: 0, top: 0, right: roomy.width, bottom: roomy.height }],
     }
-    expect(presentHotspotCard(covered)).toEqual(dockedShown)
+    expect(decided(covered).answer).toEqual({ slot: 'docked', shown: true })
   })
 })
 
@@ -113,14 +186,14 @@ describe('presentHotspotCard for a card opened from the list', () => {
     'policy %s, marker placed %s, room %s, now %s: listed',
     (policy, markerPlaced, room, current) => {
       expect(
-        presentHotspotCard({ ...input(policy, markerPlaced, room, current), origin: 'list' }),
+        decided({ ...input(policy, markerPlaced, room, current), origin: 'list' }).answer,
       ).toEqual({ slot: 'listed' })
     },
   )
 
   it('is listed before the first pass and before any measure', () => {
     const before = { ...input('when-crowded', false, true, null), stage: null, card: null }
-    expect(presentHotspotCard({ ...before, origin: 'list' })).toEqual({ slot: 'listed' })
+    expect(decided({ ...before, origin: 'list' }).answer).toEqual({ slot: 'listed' })
   })
 })
 

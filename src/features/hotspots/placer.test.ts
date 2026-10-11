@@ -10,8 +10,16 @@ import {
 } from 'three/webgpu'
 import { describe, expect, it } from 'vitest'
 import { HotspotPlacer } from './placer'
-import type { OverlayPlacement, OverlayRect } from '@viewer/overlay/StageOverlay'
-import type { ProductHotspot } from '@viewer/rig/productRig'
+import type { OverlayPlacement } from '@viewer/overlay/StageOverlay'
+import {
+  CAMERA_Z_M,
+  cameraLookingDownZ,
+  EXTENT,
+  hotspotAt,
+  NO_OBSTACLES,
+  STAGE,
+  writesOf,
+} from './placer.fixtures'
 
 // The placer against real three meshes, in Node: the camera on +Z looking
 // down its -Z axis, the anchor on that axis at the case's distance, and one
@@ -21,67 +29,17 @@ import type { ProductHotspot } from '@viewer/rig/productRig'
 // unit, the pretest's perpendicular-distance arithmetic is the step that
 // rejects the plate, before the triangles are read.
 
-const STAGE = { width: 800, height: 600 }
-// The marker extent of the tokens: a 44 px hit box and a 5 px ring reach.
-const EXTENT = { markerHitPx: 44, focusOutsetPx: 5 }
-const CAMERA_Z_M = 5
-
 // The camera-to-anchor distances the cases walk: below 1 m, where a ray
 // cast on a non-unit direction kept markers visible behind real occluders,
 // at 1 m, and above.
 const DISTANCES_M = [0.3, 0.5, 1, 2, 5] as const
 
 const PLATE = new BoxGeometry(0.1, 0.1, 0.01)
-// The subject part of every case: a 0.2 m cube centered on the anchor, so
-// its projected extent is the projection of a known box.
-const PART = new BoxGeometry(0.2, 0.2, 0.2)
-
-// One hotspot whose anchor sits at the origin of a part that carries the
-// part geometry, both at the given world position.
-function hotspotAt(id: string, positionZ: number): ProductHotspot {
-  const anchor = new Object3D()
-  const part = new Group()
-  part.add(new Mesh(PART))
-  part.add(anchor)
-  part.position.set(0, 0, positionZ)
-  part.updateMatrixWorld(true)
-  return { id, node: anchor, part }
-}
-
-type PlacerWrites = {
-  placements: Map<string, OverlayPlacement>
-  boxes: Map<string, OverlayRect>
-}
-
-// The writes of one placer run over the given hotspots.
-function writesOf(
-  hotspots: readonly ProductHotspot[],
-  occluders: Mesh[],
-  camera: PerspectiveCamera,
-): PlacerWrites {
-  const writes: PlacerWrites = { placements: new Map(), boxes: new Map() }
-  new HotspotPlacer().place(
-    hotspots,
-    occluders,
-    camera,
-    STAGE,
-    EXTENT,
-    (key, placement) => {
-      writes.placements.set(key, placement)
-    },
-    (key, box) => {
-      writes.boxes.set(key, box)
-    },
-  )
-  return writes
-}
 
 // The placement the placer writes for its one hotspot in a scene built for
 // the given anchor distance and occluder position, null for no occluder.
 function placedAt(distanceM: number, occluderZM: number | null): OverlayPlacement {
-  const camera = new PerspectiveCamera()
-  camera.position.set(0, 0, CAMERA_Z_M)
-  camera.updateMatrixWorld(true)
+  const camera = cameraLookingDownZ(CAMERA_Z_M)
 
   const occluders: Mesh[] = []
   if (occluderZM !== null) {
@@ -115,14 +73,14 @@ describe('HotspotPlacer', () => {
     node.updateMatrixWorld(true)
     const placements: OverlayPlacement[] = []
     try {
-      new HotspotPlacer().place(
-        [{ id: 'example', node, part: node }],
+      new HotspotPlacer([{ id: 'example', node, part: node }]).place(
         [mesh],
         camera,
         STAGE,
         EXTENT,
         (_key, placement) => placements.push(placement),
         () => {},
+        NO_OBSTACLES,
       )
       expect(placements).toEqual([{ kind: 'placed', x: 400, y: 300 }])
     } finally {
@@ -181,18 +139,14 @@ describe('HotspotPlacer', () => {
     }
 
     it('publishes the projected extent of the part the anchor rides on', () => {
-      const camera = new PerspectiveCamera()
-      camera.position.set(0, 0, CAMERA_Z_M)
-      camera.updateMatrixWorld(true)
+      const camera = cameraLookingDownZ(CAMERA_Z_M)
       const distanceM = 2
       const writes = writesOf([hotspotAt('probe', CAMERA_Z_M - distanceM)], [], camera)
       expectBoxAtExtent(writes, distanceM, camera)
     })
 
     it('publishes the extent of a marker hidden by an occluder, which stays placeable', () => {
-      const camera = new PerspectiveCamera()
-      camera.position.set(0, 0, CAMERA_Z_M)
-      camera.updateMatrixWorld(true)
+      const camera = cameraLookingDownZ(CAMERA_Z_M)
       const distanceM = 2
       const plate = new Mesh(PLATE)
       plate.position.set(0, 0, CAMERA_Z_M - distanceM / 2)
@@ -208,7 +162,7 @@ describe('HotspotPlacer', () => {
     // against this module's own half-extent arithmetic: the exact matrices
     // differ from the closed form by ulps, so the fields compare closely.
     function expectBoxAtExtent(
-      writes: PlacerWrites,
+      writes: ReturnType<typeof writesOf>,
       distanceM: number,
       camera: PerspectiveCamera,
     ): void {

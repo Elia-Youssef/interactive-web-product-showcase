@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { projectBoxExtent } from './projection'
 import { cameraAt, SQUARE, straightCamera } from './projectionFixtures'
+import type { ClipSpaceTarget } from './projection'
 
 // The box extent projection against the same camera fixtures the point
 // projection holds its math against: a quarter-turn camera on +Z, whose
 // half extent at a view depth equals that depth, so the table names its
 // boxes in plain fractions of the frustum slice.
+
+// Each case gets its own clip scratch prefilled with NaN.
+function freshClip(): ClipSpaceTarget {
+  return { x: Number.NaN, y: Number.NaN, w: Number.NaN }
+}
 
 describe('projectBoxExtent', () => {
   it('answers the rect that covers the eight corners of the box', () => {
@@ -19,6 +25,7 @@ describe('projectBoxExtent', () => {
       straightCamera,
       SQUARE,
       target,
+      freshClip(),
     )
 
     expect(onStage).toBe(true)
@@ -37,6 +44,7 @@ describe('projectBoxExtent', () => {
       cameraAt({ x: 0, y: 0, z: 0.25 }, { x: 0, y: 0, z: -1 }, 1),
       SQUARE,
       target,
+      freshClip(),
     )
 
     expect(onStage).toBe(true)
@@ -56,6 +64,7 @@ describe('projectBoxExtent', () => {
       straightCamera,
       SQUARE,
       target,
+      freshClip(),
     )
 
     expect(onStage).toBe(false)

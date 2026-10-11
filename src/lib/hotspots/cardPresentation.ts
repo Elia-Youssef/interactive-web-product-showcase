@@ -16,10 +16,20 @@
 // - A floating card waits for its first measure before it can be placed,
 //   then floats beside its marker without covering its subject, or docks
 //   when no side has room.
+//
+// The answer is a union the caller switches on exhaustively. Every case
+// that can recur returns a constant record, and the one case with a
+// position returns the caller's own floating record, filled by the
+// placement rule, so a per-pass decision allocates nothing.
 
 import type { HotspotOrigin } from './flow'
 import type { StageBox } from './projection'
-import { placeHotspotCard, type BoxSize, type CardMetrics, type CardSide } from './cardPlacement'
+import {
+  placeHotspotCard,
+  type BoxSize,
+  type CardMetrics,
+  type FloatingCardSpot,
+} from './cardPlacement'
 import type { StagePoint, StageRect } from './markerBox'
 
 // The layout's dock policy: 'always' docks every card, 'when-crowded' floats
@@ -56,44 +66,57 @@ export type CardPresentationInput = {
 // before its first measure. A docked card is shown or hidden in the dock.
 export type CardPresentation =
   | { readonly slot: 'listed' }
-  | {
-      readonly slot: 'floating'
-      readonly at: { readonly side: CardSide; readonly box: StageRect } | null
-    }
   | { readonly slot: 'docked'; readonly shown: boolean }
+  | { readonly slot: 'floating'; readonly at: FloatingCardSpot | null }
+
+// The caller's floating record: the presentation returned when the card
+// floats beside its marker, its spot filled by the placement rule. Owned
+// by the caller, refilled per decision.
+export type FloatingCard = {
+  slot: 'floating'
+  at: FloatingCardSpot
+}
 
 const LISTED: CardPresentation = { slot: 'listed' }
-
-const FLOATING_HIDDEN: CardPresentation = { slot: 'floating', at: null }
 const DOCKED_SHOWN: CardPresentation = { slot: 'docked', shown: true }
 const DOCKED_HIDDEN: CardPresentation = { slot: 'docked', shown: false }
+const FLOATING_HIDDEN: CardPresentation = { slot: 'floating', at: null }
 
-export function presentHotspotCard(input: CardPresentationInput): CardPresentation {
+export function presentHotspotCard(
+  input: CardPresentationInput,
+  floating: FloatingCard,
+): CardPresentation {
   if (input.origin === 'list') {
     return LISTED
   }
-  const placed = input.stage !== null && input.marker !== null
+  const markerPlaced = placedOnStage(input)
   if (input.policy === 'always') {
-    return placed ? DOCKED_SHOWN : DOCKED_HIDDEN
+    return markerPlaced ? DOCKED_SHOWN : DOCKED_HIDDEN
   }
-  if (input.stage === null || input.marker === null) {
+  if (!markerPlaced) {
     return input.current === 'docked' ? DOCKED_HIDDEN : FLOATING_HIDDEN
   }
-  if (input.card === null) {
+  if (!measuredOnStage(input)) {
     return FLOATING_HIDDEN
   }
-  const placement = placeHotspotCard({
-    stage: input.stage,
-    marker: input.marker,
-    placedMarkers: input.placedMarkers,
-    subject: input.subject,
-    obstacles: input.obstacles,
-    card: input.card,
-    metrics: input.metrics,
-  })
-  return placement.kind === 'docked'
-    ? DOCKED_SHOWN
-    : { slot: 'floating', at: { side: placement.side, box: placement.box } }
+  return placeHotspotCard(input, floating.at) ? floating : DOCKED_SHOWN
+}
+
+// Whether the decision has a placed marker on a staged pass: the placement
+// rule's precondition on the stage and the marker.
+function placedOnStage(
+  input: CardPresentationInput,
+): input is CardPresentationInput & { stage: StageBox; marker: StagePoint } {
+  return input.stage !== null && input.marker !== null
+}
+
+// Whether that placed, staged selection also carries the card's first
+// measure: the placement rule's last precondition, completing its view of
+// the input so the rule reads the presentation input itself.
+function measuredOnStage(
+  input: CardPresentationInput & { stage: StageBox; marker: StagePoint },
+): input is CardPresentationInput & { stage: StageBox; marker: StagePoint; card: BoxSize } {
+  return input.card !== null
 }
 
 // The policy a layout declares, as text, checked at the boundary: an

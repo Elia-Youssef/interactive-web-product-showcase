@@ -11,4 +11,4 @@ export {
   explodeClipTime,
 } from './clipTime'
 export { isSpringAtRest, springSettings, stepSpring } from './spring'
-export type { SpringSettings, SpringState, SpringStep } from './spring'
+export type { SpringSettings, SpringState, SpringStepTarget } from './spring'

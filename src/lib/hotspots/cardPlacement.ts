@@ -7,17 +7,21 @@
 // own controls) and covers none of its subject (the part the open hotspot
 // describes, whose projected extent is an obstacle like any other, so the
 // card never hides what it is about). When no side qualifies the card docks.
-// All lengths are CSS pixels in the stage box, y running down, the space the
-// marker projection answers in.
+// All lengths are CSS pixels in the stage box, y running down, the space
+// the marker projection answers in.
 //
 // The math is exact: a box that only touches the stage edge is inside it,
 // and a box that only touches a keep-out box or an obstacle does not cover
 // it.
+//
+// The answer is written into a caller-owned target, so a per-pass caller
+// reuses its storage and allocates nothing: the target doubles as the
+// working box of the side under test.
 
-import type { StageBox } from './projection'
+import type { StageBox, StageRectTarget } from './projection'
 import {
   isRectInsideStage,
-  markerKeepOut,
+  markerKeepOutHalfPx,
   type MarkerExtent,
   type StagePoint,
   type StageRect,
@@ -56,57 +60,102 @@ export type CardPlacementInput = {
   readonly metrics: CardMetrics
 }
 
-export type CardPlacement =
-  | { readonly kind: 'beside'; readonly side: CardSide; readonly box: StageRect }
-  | { readonly kind: 'docked' }
+// The spot a floating card takes: the side it floats on and the box it
+// occupies there, mutable so the caller owns the one record it is filled
+// into.
+export type FloatingCardSpot = {
+  side: CardSide
+  left: number
+  top: number
+  right: number
+  bottom: number
+}
 
-const DOCKED: CardPlacement = { kind: 'docked' }
-
-export function placeHotspotCard(input: CardPlacementInput): CardPlacement {
+// Places the card into the spot: true when it floats beside the marker,
+// with the spot holding the side it chose and that side's box; false when
+// it docks, with no side qualifying.
+export function placeHotspotCard(input: CardPlacementInput, spot: FloatingCardSpot): boolean {
   for (const side of CARD_SIDES) {
-    const box = cardBoxAt(side, input.marker, input.card, input.metrics)
+    cardBoxAt(side, input.marker, input.card, input.metrics, spot)
+    spot.side = side
     if (
-      isRectInsideStage(box, input.stage) &&
-      !coversAnyMarker(box, input) &&
-      !(input.subject !== null && overlaps(box, input.subject)) &&
-      !input.obstacles.some((obstacle) => overlaps(box, obstacle))
+      isRectInsideStage(spot, input.stage) &&
+      !coversAnyMarker(spot, input) &&
+      !(input.subject !== null && overlaps(spot, input.subject)) &&
+      !coversAnyObstacle(spot, input.obstacles)
     ) {
-      return { kind: 'beside', side, box }
+      return true
     }
   }
-  return DOCKED
+  return false
 }
 
 // The card's box on one side of the marker: the token gap off the marker's
-// hit box along the side's axis, centered on the marker across it.
+// hit box along the side's axis, centered on the marker across it, written
+// into the target.
 export function cardBoxAt(
   side: CardSide,
   marker: StagePoint,
   card: BoxSize,
   metrics: CardMetrics,
-): StageRect {
+  target: StageRectTarget,
+): void {
   const reach = metrics.markerHitPx / 2 + metrics.cardOffsetPx
   switch (side) {
     case 'right':
-      return besideAt(marker.x + reach, marker.y - card.height / 2, card)
+      besideAt(marker.x + reach, marker.y - card.height / 2, card, target)
+      return
     case 'left':
-      return besideAt(marker.x - reach - card.width, marker.y - card.height / 2, card)
+      besideAt(marker.x - reach - card.width, marker.y - card.height / 2, card, target)
+      return
     case 'below':
-      return besideAt(marker.x - card.width / 2, marker.y + reach, card)
+      besideAt(marker.x - card.width / 2, marker.y + reach, card, target)
+      return
     case 'above':
-      return besideAt(marker.x - card.width / 2, marker.y - reach - card.height, card)
+      besideAt(marker.x - card.width / 2, marker.y - reach - card.height, card, target)
+      return
   }
 }
 
-function besideAt(left: number, top: number, card: BoxSize): StageRect {
-  return { left, top, right: left + card.width, bottom: top + card.height }
+function besideAt(left: number, top: number, card: BoxSize, target: StageRectTarget): void {
+  target.left = left
+  target.top = top
+  target.right = left + card.width
+  target.bottom = top + card.height
 }
 
 function coversAnyMarker(box: StageRect, input: CardPlacementInput): boolean {
-  return input.placedMarkers.some((marker) => overlaps(box, markerKeepOut(marker, input.metrics)))
+  const half = markerKeepOutHalfPx(input.metrics)
+  for (const marker of input.placedMarkers) {
+    if (overlapsBounds(box, marker.x - half, marker.y - half, marker.x + half, marker.y + half)) {
+      return true
+    }
+  }
+  return false
+}
+
+function coversAnyObstacle(box: StageRect, obstacles: readonly StageRect[]): boolean {
+  for (const obstacle of obstacles) {
+    if (overlaps(box, obstacle)) {
+      return true
+    }
+  }
+  return false
 }
 
 // Two boxes overlap when they share area; boxes that only touch do not.
 function overlaps(a: StageRect, b: StageRect): boolean {
   return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
+}
+
+// A box against an axis-aligned box given by its edges, the keep-out test's
+// shape: the marker's center and its extent, with no record built for it.
+function overlapsBounds(
+  a: StageRect,
+  left: number,
+  top: number,
+  right: number,
+  bottom: number,
+): boolean {
+  return a.left < right && left < a.right && a.top < bottom && top < a.bottom
 }

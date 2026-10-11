@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { CameraMatrices, StageBox, WorldPoint } from './projection'
+import type { CameraMatrices, StageBox, StageProjectionTarget, WorldPoint } from './projection'
 import { projectToStage } from './projection'
 import {
   cameraAt,
@@ -17,7 +17,21 @@ import {
 // The point projection's own table, against the camera fixtures the box
 // extent's table shares: every case names its point in plain multiples of
 // the view depth, and a quarter-turn camera maps the frustum edge to the
-// box edge.
+// box edge. Each case gets its own targets prefilled with NaN, so a field
+// the projection left unwritten fails the case instead of carrying a
+// earlier case's answer.
+
+import type { ClipSpaceTarget } from './projection'
+
+// A target prefilled with the wrong answer of every kind: NaN for the
+// numbers, the negated expectation for the flag.
+function freshTarget(inFront: boolean): StageProjectionTarget {
+  return { x: Number.NaN, y: Number.NaN, inFront: !inFront }
+}
+
+function freshClip(): ClipSpaceTarget {
+  return { x: Number.NaN, y: Number.NaN, w: Number.NaN }
+}
 
 type Case = {
   readonly name: string
@@ -133,12 +147,13 @@ const cases: readonly Case[] = [
 describe('projectToStage', () => {
   for (const entry of cases) {
     it(`projects ${entry.name}`, () => {
-      const projection = projectToStage(entry.point, entry.camera, entry.stage)
+      const target = freshTarget(entry.inFront)
+      projectToStage(entry.point, entry.camera, entry.stage, target, freshClip())
 
-      expect(projection.inFront).toBe(entry.inFront)
+      expect(target.inFront).toBe(entry.inFront)
       if (entry.inFront) {
-        expect(projection.x).toBeCloseTo(entry.expected.x, 9)
-        expect(projection.y).toBeCloseTo(entry.expected.y, 9)
+        expect(target.x).toBeCloseTo(entry.expected.x, 9)
+        expect(target.y).toBeCloseTo(entry.expected.y, 9)
       }
     })
   }
@@ -148,23 +163,27 @@ describe('projectToStage', () => {
     // land at the box center, whatever the eye is, because the view matrix
     // carries the whole transform.
     const camera = cameraAt({ x: 3, y: 4, z: 5 }, { x: 0, y: 0, z: 0 }, 1)
-    const projection = projectToStage({ x: 0, y: 0, z: 0 }, camera, SQUARE)
+    const target = freshTarget(true)
+    projectToStage({ x: 0, y: 0, z: 0 }, camera, SQUARE, target, freshClip())
 
-    expect(projection.inFront).toBe(true)
-    expect(projection.x).toBeCloseTo(400, 6)
-    expect(projection.y).toBeCloseTo(400, 6)
+    expect(target.inFront).toBe(true)
+    expect(target.x).toBeCloseTo(400, 6)
+    expect(target.y).toBeCloseTo(400, 6)
   })
 
   it('keeps the projection exact for a point just inside the edge', () => {
     // No rounding: a 1/1000 frustum step inside the edge is 1/1000 of a
     // half-box in pixels, and the answer carries it.
-    const projection = projectToStage(
+    const target = freshTarget(true)
+    projectToStage(
       { x: 0.999 * depth, y: 0, z: 3 - depth },
       straightCamera,
       SQUARE,
+      target,
+      freshClip(),
     )
 
-    expect(projection.x).toBeCloseTo(799.6, 9)
+    expect(target.x).toBeCloseTo(799.6, 9)
   })
 
   it('lands the general matrix projection a hair past the edge it touches', () => {
@@ -176,9 +195,10 @@ describe('projectToStage', () => {
       viewMatrix: lookAtView({ x: 0, y: 0, z: 3 }, { x: 0, y: 0, z: 0 }),
       projectionMatrix: perspectiveProjection(Math.PI / 2, 1, NEAR, FAR),
     }
-    const projection = projectToStage({ x: -depth, y: 0, z: 3 - depth }, generalCamera, SQUARE)
+    const target = freshTarget(true)
+    projectToStage({ x: -depth, y: 0, z: 3 - depth }, generalCamera, SQUARE, target, freshClip())
 
-    expect(projection.x).toBeLessThan(0)
-    expect(projection.x).toBeGreaterThan(-1e-9)
+    expect(target.x).toBeLessThan(0)
+    expect(target.x).toBeGreaterThan(-1e-9)
   })
 })
