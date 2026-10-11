@@ -37,6 +37,7 @@ import { stageCaptureCases } from './plantedCaptureRules.ts'
 import { frameLoopCases } from './plantedFrameLoopRules.ts'
 import { reducedMotionCases } from './plantedReducedMotionRules.ts'
 import { globCases } from './plantedGlobRules.ts'
+import { fixtureBudgetCases } from './plantedFixtureBudgetRules.ts'
 
 export type { PlantedCase } from './plantedShapes.ts'
 export { LAYERS_RULE } from './plantedShapes.ts'
@@ -58,6 +59,7 @@ export function buildPlantedCases(): readonly PlantedCase[] {
     ...extensionCases(),
     ...bannedPackageCases(),
     ...fixtureCases(),
+    ...fixtureBudgetCases(),
     ...sizeCases(),
     ...consoleCases(),
     ...hooksCases(),
@@ -92,6 +94,7 @@ function plantSupportFiles(project: PlantedProject): void {
     project.add(`src/${layer.folder}/target.ts`, targetModuleCode(layer))
   }
   project.add('tooling/helper.ts', 'export const helper = 1\n')
+  project.add('tooling/subprocess.fixtures.ts', 'export const TOOL_FIXTURE_TIMEOUT_MS = 1\n')
   project.add('src/lib/cycle-b.ts', valueImport('./cycle-a'))
   project.add('src/ui/cycle-tsx-b.tsx', valueImport('./cycle-tsx-a'))
   project.add('src/lib/one-way-b.ts', "export const layerTarget = 'one-way'\n")

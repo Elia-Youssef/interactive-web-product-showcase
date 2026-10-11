@@ -1,6 +1,7 @@
 import path from 'node:path'
 import type { Document } from '@gltf-transform/core'
 import { describe, expect, it } from 'vitest'
+import { TOOL_FIXTURE_TIMEOUT_MS } from '../tooling/subprocess.fixtures.ts'
 import { createModelIO } from './modelIo.ts'
 import { withTempDir, writeOptimizedModel } from './optimizedModel.fixtures.ts'
 import { preservationFixture } from './preservation.fixtures.ts'
@@ -95,48 +96,49 @@ describe('complete authored animation data', () => {
     )
   })
 
-  it('accepts cubic translation storage while retaining its tangents', async () => {
-    await withTempDir(async (dir) => {
-      const doc = preservationFixture()
-      setTrack(
-        doc,
-        'CUBICSPLINE',
-        [0, 1],
-        [
-          0, 0, 0, 0.013, 0.027, 0.039, 0.11, 0.23, 0.31, 0.13, 0.21, 0.33, 0.213, 0.127, 0.139, 0,
-          0, 0,
-        ],
-      )
-      const before = readProductPreservation(doc)
-      const file = path.join(dir, 'candidate.glb')
-      await writeOptimizedModel(doc, file)
-      const io = await createModelIO()
-      expect(findPreservationLosses(before, readProductPreservation(await io.read(file)))).toEqual(
-        [],
-      )
-    })
-  })
-
-  it.each(['rotation', 'scale'] as const)(
-    'accepts the installed %s filter round trip',
-    async (pathName) => {
+  describe('stored animation round trips', { timeout: TOOL_FIXTURE_TIMEOUT_MS }, () => {
+    it('accepts cubic translation storage while retaining its tangents', async () => {
       await withTempDir(async (dir) => {
         const doc = preservationFixture()
-        const values =
-          pathName === 'rotation'
-            ? [0, 0, 0, 1, 0, Math.sin(0.27), 0, Math.cos(0.27)]
-            : [1, 1, 1, 1.137, 1.241, 1.319]
-        setTrack(doc, 'LINEAR', [0, 1], values, pathName)
+        setTrack(
+          doc,
+          'CUBICSPLINE',
+          [0, 1],
+          [
+            0, 0, 0, 0.013, 0.027, 0.039, 0.11, 0.23, 0.31, 0.13, 0.21, 0.33, 0.213, 0.127, 0.139,
+            0, 0, 0,
+          ],
+        )
         const before = readProductPreservation(doc)
         const file = path.join(dir, 'candidate.glb')
         await writeOptimizedModel(doc, file)
         const io = await createModelIO()
-        const after = readProductPreservation(await io.read(file))
-        expect(after.semantics.tracks[0]?.values).not.toEqual(before.semantics.tracks[0]?.values)
-        expect(findPreservationLosses(before, after)).toEqual([])
+        expect(
+          findPreservationLosses(before, readProductPreservation(await io.read(file))),
+        ).toEqual([])
       })
-    },
-  )
+    })
+    it.each(['rotation', 'scale'] as const)(
+      'accepts the installed %s filter round trip',
+      async (pathName) => {
+        await withTempDir(async (dir) => {
+          const doc = preservationFixture()
+          const values =
+            pathName === 'rotation'
+              ? [0, 0, 0, 1, 0, Math.sin(0.27), 0, Math.cos(0.27)]
+              : [1, 1, 1, 1.137, 1.241, 1.319]
+          setTrack(doc, 'LINEAR', [0, 1], values, pathName)
+          const before = readProductPreservation(doc)
+          const file = path.join(dir, 'candidate.glb')
+          await writeOptimizedModel(doc, file)
+          const io = await createModelIO()
+          const after = readProductPreservation(await io.read(file))
+          expect(after.semantics.tracks[0]?.values).not.toEqual(before.semantics.tracks[0]?.values)
+          expect(findPreservationLosses(before, after)).toEqual([])
+        })
+      },
+    )
+  })
 
   it('rejects a changed rotation key', () => {
     const doc = preservationFixture()

@@ -9,7 +9,8 @@ import { Document, NodeIO } from '@gltf-transform/core'
 import { EXTMeshoptCompression } from '@gltf-transform/extensions'
 import { MESHOPT_DEFAULTS } from '@gltf-transform/functions'
 import { MeshoptDecoder, MeshoptEncoder } from 'meshoptimizer'
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
+import { TOOL_FIXTURE_TIMEOUT_MS } from '../tooling/subprocess.fixtures.ts'
 import { GEOMETRY_STORAGE_FILE } from './geometryStorage.ts'
 import { buildGeometryStageArgs } from './pipeline.ts'
 import {
@@ -102,12 +103,24 @@ describe('the geometry storage file', () => {
     expect(MESHOPT_DEFAULTS.quantizePosition).toBe(POSITION_QUANTIZE_BITS)
   })
 
-  it('states the key bits the meshopt writer filters translation keys with', async () => {
-    await MeshoptEncoder.ready
-    const atBits = exponentialFilterRoundTrip(KEYS, KEY_FILTER_BITS)
-    expect(atBits).not.toEqual(exponentialFilterRoundTrip(KEYS, KEY_FILTER_BITS - 1))
-    expect(atBits).not.toEqual(exponentialFilterRoundTrip(KEYS, KEY_FILTER_BITS + 1))
-    expect(await keysThroughTheWriter(KEYS)).toEqual(atBits)
+  describe('the stored translation keys', () => {
+    let atBits: number[]
+    let belowBits: number[]
+    let aboveBits: number[]
+    let writtenKeys: number[]
+    beforeAll(async () => {
+      await MeshoptEncoder.ready
+      atBits = exponentialFilterRoundTrip(KEYS, KEY_FILTER_BITS)
+      belowBits = exponentialFilterRoundTrip(KEYS, KEY_FILTER_BITS - 1)
+      aboveBits = exponentialFilterRoundTrip(KEYS, KEY_FILTER_BITS + 1)
+      writtenKeys = await keysThroughTheWriter(KEYS)
+    }, TOOL_FIXTURE_TIMEOUT_MS)
+
+    it('states the key bits the meshopt writer filters translation keys with', () => {
+      expect(atBits).not.toEqual(belowBits)
+      expect(atBits).not.toEqual(aboveBits)
+      expect(writtenKeys).toEqual(atBits)
+    })
   })
 
   it('refuses bits outside what the encoders take, naming the file and the field', () => {

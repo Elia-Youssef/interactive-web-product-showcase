@@ -4,6 +4,7 @@
 // productAgreement.test.ts; this file pins what a proof built on a
 // reconstructed tree would miss.
 import { describe, expect, it } from 'vitest'
+import { TOOL_FIXTURE_TIMEOUT_MS } from '../../tooling/subprocess.fixtures.ts'
 import { PerspectiveCamera, Quaternion, Vector3 } from 'three'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -47,81 +48,85 @@ describe('the camera facts normalize like three, on random directions', () => {
   })
 })
 
-describe('the real loader against the geometry classes the contract bans', () => {
-  const fixtureDirs: string[] = []
+describe(
+  'the real loader against the geometry classes the contract bans',
+  { timeout: TOOL_FIXTURE_TIMEOUT_MS },
+  () => {
+    const fixtureDirs: string[] = []
 
-  // A fixture document written to a .glb, with one shape grafted onto the
-  // first part's primitive.
-  async function writeFixtureGltf(graft: (doc: Document) => void): Promise<string> {
-    const doc = buildDocument({ hotspotNames: [], meshopt: false })
-    graft(doc)
-    const dir = await mkdtemp(path.join(tmpdir(), 'geometry-fixture-'))
-    fixtureDirs.push(dir)
-    const modelPath = path.join(dir, 'model.glb')
-    const io = await createModelIO()
-    await io.write(modelPath, doc)
-    return modelPath
-  }
-
-  it('frames a morph target wider than the document facts, which the reconstructed tree cannot see', async () => {
-    const modelPath = await writeFixtureGltf((doc) => {
-      const primitive = doc
-        .getRoot()
-        .listNodes()
-        .find((node) => node.getName() === 'PART_base')
-        ?.getMesh()
-        ?.listPrimitives()[0]
-      if (primitive === undefined) {
-        throw new Error('the fixture mesh is missing')
-      }
-      const target = doc.createPrimitiveTarget()
-      target.setAttribute('POSITION', vec3Accessor(doc, [0, 2, 0, 0, 2, 0, 0, 2, 0, 0, 2, 0]))
-      primitive.addTarget(target)
-    })
-    const doc = await (await modelIOSoon()).read(modelPath)
-    const documentFrame = frameSpanOfMeshBoxes(readMeshBoxes(doc))
-    const parsed = await readSharedParsedProduct(modelPath)
-    const loaderFrame = measureModelFrame(parsed.scene)
-    // The loader widens the box by the morph displacement, and the
-    // document facts widen by the same displacement: one frame, which is
-    // why the class is a contract matter at all.
-    expect(loaderFrame.radius).toBe(documentFrame.radius)
-    expect(loaderFrame.radius).toBeGreaterThan(2)
-    // The reconstructed tree reads no morph targets: a proof built on it
-    // would measure the unwidened frame here and see no drift.
-    const reconstructedFrame = measureModelFrame(buildThreeTree(doc))
-    expect(reconstructedFrame.radius).not.toBe(loaderFrame.radius)
-    expect(reconstructedFrame.radius).toBeLessThan(loaderFrame.radius)
-  })
-
-  it('frames a points primitive the same way the document facts do', async () => {
-    const modelPath = await writeFixtureGltf((doc) => {
-      const scene = doc.getRoot().listScenes()[0]
-      if (scene === undefined) {
-        throw new Error('the fixture scene is missing')
-      }
-      const mesh = doc.createMesh('PART_dots')
-      const primitive = doc.createPrimitive().setMode(0)
-      primitive.setAttribute('POSITION', vec3Accessor(doc, [0, 0, 0, 1, 1, 1]))
-      mesh.addPrimitive(primitive)
-      scene.addChild(doc.createNode('PART_dots').setMesh(mesh))
-    })
-    const doc = await (await modelIOSoon()).read(modelPath)
-    const documentFrame = frameSpanOfMeshBoxes(readMeshBoxes(doc))
-    const parsed = await readSharedParsedProduct(modelPath)
-    const loaderFrame = measureModelFrame(parsed.scene)
-    // Points are objects with geometry, the set three's Box3 selects, and
-    // the runtime frame selects the same set.
-    expect(loaderFrame.centerX).toBe(documentFrame.center[0])
-    expect(loaderFrame.centerY).toBe(documentFrame.center[1])
-    expect(loaderFrame.centerZ).toBe(documentFrame.center[2])
-    expect(loaderFrame.radius).toBe(documentFrame.radius)
-    expect(loaderFrame.meshes).toBe(5)
-  })
-
-  it('leaves no fixture files behind', async () => {
-    for (const dir of fixtureDirs) {
-      await rm(dir, { recursive: true, force: true })
+    // A fixture document written to a .glb, with one shape grafted onto the
+    // first part's primitive.
+    async function writeFixtureGltf(graft: (doc: Document) => void): Promise<string> {
+      const doc = buildDocument({ hotspotNames: [], meshopt: false })
+      graft(doc)
+      const dir = await mkdtemp(path.join(tmpdir(), 'geometry-fixture-'))
+      fixtureDirs.push(dir)
+      const modelPath = path.join(dir, 'model.glb')
+      const io = await createModelIO()
+      await io.write(modelPath, doc)
+      return modelPath
     }
-  })
-})
+
+    it('frames a morph target wider than the document facts, which the reconstructed tree cannot see', async () => {
+      const modelPath = await writeFixtureGltf((doc) => {
+        const primitive = doc
+          .getRoot()
+          .listNodes()
+          .find((node) => node.getName() === 'PART_base')
+          ?.getMesh()
+          ?.listPrimitives()[0]
+        if (primitive === undefined) {
+          throw new Error('the fixture mesh is missing')
+        }
+        const target = doc.createPrimitiveTarget()
+        target.setAttribute('POSITION', vec3Accessor(doc, [0, 2, 0, 0, 2, 0, 0, 2, 0, 0, 2, 0]))
+        primitive.addTarget(target)
+      })
+      const doc = await (await modelIOSoon()).read(modelPath)
+      const documentFrame = frameSpanOfMeshBoxes(readMeshBoxes(doc))
+      const parsed = await readSharedParsedProduct(modelPath)
+      const loaderFrame = measureModelFrame(parsed.scene)
+      // The loader widens the box by the morph displacement, and the
+      // document facts widen by the same displacement: one frame, which is
+      // why the class is a contract matter at all.
+      expect(loaderFrame.radius).toBe(documentFrame.radius)
+      expect(loaderFrame.radius).toBeGreaterThan(2)
+      // The reconstructed tree reads no morph targets: a proof built on it
+      // would measure the unwidened frame here and see no drift.
+      const reconstructedFrame = measureModelFrame(buildThreeTree(doc))
+      expect(reconstructedFrame.radius).not.toBe(loaderFrame.radius)
+      expect(reconstructedFrame.radius).toBeLessThan(loaderFrame.radius)
+    })
+
+    it('frames a points primitive the same way the document facts do', async () => {
+      const modelPath = await writeFixtureGltf((doc) => {
+        const scene = doc.getRoot().listScenes()[0]
+        if (scene === undefined) {
+          throw new Error('the fixture scene is missing')
+        }
+        const mesh = doc.createMesh('PART_dots')
+        const primitive = doc.createPrimitive().setMode(0)
+        primitive.setAttribute('POSITION', vec3Accessor(doc, [0, 0, 0, 1, 1, 1]))
+        mesh.addPrimitive(primitive)
+        scene.addChild(doc.createNode('PART_dots').setMesh(mesh))
+      })
+      const doc = await (await modelIOSoon()).read(modelPath)
+      const documentFrame = frameSpanOfMeshBoxes(readMeshBoxes(doc))
+      const parsed = await readSharedParsedProduct(modelPath)
+      const loaderFrame = measureModelFrame(parsed.scene)
+      // Points are objects with geometry, the set three's Box3 selects, and
+      // the runtime frame selects the same set.
+      expect(loaderFrame.centerX).toBe(documentFrame.center[0])
+      expect(loaderFrame.centerY).toBe(documentFrame.center[1])
+      expect(loaderFrame.centerZ).toBe(documentFrame.center[2])
+      expect(loaderFrame.radius).toBe(documentFrame.radius)
+      expect(loaderFrame.meshes).toBe(5)
+    })
+
+    it('leaves no fixture files behind', async () => {
+      for (const dir of fixtureDirs) {
+        await rm(dir, { recursive: true, force: true })
+      }
+    })
+  },
+)
