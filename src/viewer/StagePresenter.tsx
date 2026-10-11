@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { addEffect, useFrame, useThree } from '@react-three/fiber'
 import type { FrameClock } from './FrameClock'
 import { presentFrame } from './presentFrame'
@@ -26,6 +26,8 @@ type StagePresenterProps = {
 // measurement.
 export function StagePresenter({ clock, onFirstFrame }: StagePresenterProps) {
   const gl = useThree((state) => state.gl)
+  const scene = useThree((state) => state.scene)
+  const camera = useThree((state) => state.camera)
   const invalidate = useThree((state) => state.invalidate)
   const frames = useStageFramePath()
   const tickStartMs = useRef(0)
@@ -49,20 +51,22 @@ export function StagePresenter({ clock, onFirstFrame }: StagePresenterProps) {
     return unsubscribeBefore
   }, [gl, invalidate])
 
-  useFrame((state) => {
-    presentFrame(
-      frames,
-      () => state.gl.render(state.scene, state.camera),
-      () => {
-        const atMs = performance.now()
-        clock.recordFrame(atMs, atMs - tickStartMs.current)
-        if (!firstFrameSeen.current) {
-          firstFrameSeen.current = true
-          onFirstFrame()
-        }
-      },
-    )
-  }, STAGE_PRESENT_PRIORITY)
+  // The present's render and record steps are built once per renderer,
+  // scene, camera and clock, so a frame presents and records without
+  // allocating a closure for either.
+  const present = useMemo(() => {
+    const render = () => gl.render(scene, camera)
+    const record = () => {
+      const atMs = performance.now()
+      clock.recordFrame(atMs, atMs - tickStartMs.current)
+      if (!firstFrameSeen.current) {
+        firstFrameSeen.current = true
+        onFirstFrame()
+      }
+    }
+    return () => presentFrame(frames, render, record)
+  }, [frames, gl, scene, camera, clock, onFirstFrame])
+  useFrame(present, STAGE_PRESENT_PRIORITY)
 
   return null
 }
