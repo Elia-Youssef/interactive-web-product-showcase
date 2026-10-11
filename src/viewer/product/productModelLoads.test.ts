@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { Object3D } from 'three/webgpu'
 import { loadProductModel, type LoadedModel, type ProductModelSources } from './productModelLoads'
+import { unwatchedProgress } from './stageModelLoads.fixtures'
 
 // The model load's ordering and failure mapping, over sources whose
 // promises the test settles by hand: no network, no loader, no clock.
@@ -79,6 +80,7 @@ describe('loadProductModel', () => {
         },
       },
       url,
+      unwatchedProgress,
     )
 
     expect(started).toEqual([`bytes of ${url}`, 'decoder'])
@@ -108,6 +110,7 @@ describe('loadProductModel', () => {
         },
       },
       url,
+      unwatchedProgress,
       () => Promise.resolve(bytes),
     )
 
@@ -140,7 +143,7 @@ describe('loadProductModel', () => {
     ]
     for (const [label, broken] of failures) {
       const { sources } = recordingSources(() => Promise.resolve({ name: 'meshopt' }))
-      const load = await loadProductModel({ ...sources, ...broken }, url)
+      const load = await loadProductModel({ ...sources, ...broken }, url, unwatchedProgress)
 
       expect(load, label).toEqual({
         kind: 'failed',
@@ -151,7 +154,7 @@ describe('loadProductModel', () => {
 
   it('settles a bytes start that throws before returning its promise as the load failure', async () => {
     const { sources } = recordingSources(() => Promise.resolve({ name: 'meshopt' }))
-    const load = loadProductModel(sources, url, () => {
+    const load = loadProductModel(sources, url, unwatchedProgress, () => {
       throw new TypeError('the read ahead is gone')
     })
 

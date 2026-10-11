@@ -1,5 +1,6 @@
 import type { AnimationClip, Object3D } from 'three/webgpu'
 import { KeyedLoads, type KeyedLoad } from '@lib/async/keyedLoads'
+import type { TransferReporter } from '@lib/async/loadLedger'
 import { startPromise } from '@lib/async/startPromise'
 import { asError } from '@lib/errors'
 import type { ProductFailure } from '@lib/product'
@@ -32,12 +33,20 @@ export type ProductModelLoad =
 
 export type ProductModelEntry = KeyedLoad<ProductModelLoad>
 
+// The byte progress one transfer reports to. A model load owns a wanted
+// one (the readout's figure counts it), and a read ahead owns a not-wanted
+// one (the bytes register, but the figure does not count them until a load
+// takes the transfer over).
+export type ModelProgress = (url: string, wanted: boolean) => TransferReporter
+
 // The request a model's byte fetch carries: its priority against the
 // page's other fetches, high for the product the visitor waits for and low
-// for the files read ahead, and, for a read ahead, the signal its owner
-// cancels it with once nothing wants it any more.
+// for the files read ahead, the progress its bytes report through, and, for
+// a read ahead, the signal its owner cancels it with once nothing wants it
+// any more.
 export type ModelRequest = {
   readonly priority: 'high' | 'low'
+  readonly progress: TransferReporter
   readonly signal?: AbortSignal
 }
 
@@ -67,6 +76,8 @@ export class StageModelLoads<Decoder> {
   // its read ahead is released or taken over by a model load.
   readonly #cancels = new Map<string, AbortController>()
   readonly #sources: ProductModelSources<Decoder>
+  readonly #progress: ModelProgress
+  readonly #disposeDecoders: () => void
   #settling = 0
   #leases = 0
   #retired = false
@@ -74,16 +85,23 @@ export class StageModelLoads<Decoder> {
 
   constructor(
     sources: ProductModelSources<Decoder>,
-    private readonly disposeDecoders = () => {},
+    progress: ModelProgress,
+    disposeDecoders = () => {},
   ) {
     this.#sources = sources
+    this.#progress = progress
+    this.#disposeDecoders = disposeDecoders
     this.#bytes = new KeyedLoads((url) => {
       const cancel = new AbortController()
       // The read starts inside the guard, so a source that throws before
       // returning its promise fails the read ahead as a rejection: the
       // entry and its cancel are recorded together, never a cancel alone.
       const read = startPromise(() =>
-        this.#sources.fetchModel(url, { priority: 'low', signal: cancel.signal }),
+        this.#sources.fetchModel(url, {
+          priority: 'low',
+          progress: this.#progress(url, false),
+          signal: cancel.signal,
+        }),
       )
       this.#cancels.set(url, cancel)
       // A read ahead that fails is nobody's failure while it waits for a
@@ -97,7 +115,8 @@ export class StageModelLoads<Decoder> {
       // The entry borrows the decoders through parsing AND result disposal,
       // including intentionally uncancelled work after its canvas retires.
       this.#leases += 1
-      return loadProductModel(this.#sources, url, () => this.#modelBytes(url))
+      const progress = this.#progress(url, true)
+      return loadProductModel(this.#sources, url, progress, () => this.#modelBytes(url, progress))
     })
   }
 
@@ -159,7 +178,7 @@ export class StageModelLoads<Decoder> {
   #drain(): void {
     if (this.#retired && this.#leases === 0 && this.#cancels.size === 0 && !this.#disposed) {
       this.#disposed = true
-      this.disposeDecoders()
+      this.#disposeDecoders()
     }
   }
 
@@ -170,16 +189,19 @@ export class StageModelLoads<Decoder> {
   }
 
   // The bytes a model load reads: those of a read ahead it takes over, or
-  // its own high-priority fetch. A taken read ahead that failed or was
-  // cancelled is never handed over as the load's failure: the load reads
-  // the file itself, so a speculative failure never fails a product.
-  #modelBytes(url: string): Promise<ArrayBuffer> {
+  // its own high-priority fetch. The take-over claims the transfer the read
+  // ahead registered, making it wanted over the bytes already read. A taken
+  // read ahead that failed or was cancelled is never handed over as the
+  // load's failure: the load reads the file itself, so a speculative
+  // failure never fails a product, and the transfer's reporter stays the
+  // one the load claimed.
+  #modelBytes(url: string, progress: TransferReporter): Promise<ArrayBuffer> {
     const taken = this.#bytes.take(url)
     if (taken === undefined) {
-      return this.#sources.fetchModel(url, { priority: 'high' })
+      return this.#sources.fetchModel(url, { priority: 'high', progress })
     }
     this.#retireCancel(url)
-    return taken.value.catch(() => this.#sources.fetchModel(url, { priority: 'high' }))
+    return taken.value.catch(() => this.#sources.fetchModel(url, { priority: 'high', progress }))
   }
 
   // Takes the cancel of a live read ahead out of the record, exactly once.
@@ -206,7 +228,8 @@ export class StageModelLoads<Decoder> {
 export function loadProductModel<Decoder>(
   sources: ProductModelSources<Decoder>,
   url: string,
-  bytes: () => Promise<ArrayBuffer> = () => sources.fetchModel(url, { priority: 'high' }),
+  progress: TransferReporter,
+  bytes: () => Promise<ArrayBuffer> = () => sources.fetchModel(url, { priority: 'high', progress }),
 ): Promise<ProductModelLoad> {
   return startPromise(() => Promise.all([bytes(), sources.decoder()]))
     .then(([data, decoder]) => sources.parse(data, url, decoder))

@@ -1,11 +1,9 @@
 import type { RendererBackend } from '@lib/renderer/backend'
+import type { RendererStatus } from '@lib/renderer/status'
 
-// The renderer status is a union, not a flag pile: exactly one of these
-// shapes holds at any time.
-export type RendererStatus =
-  | { kind: 'initializing' }
-  | { kind: 'ready'; backend: RendererBackend }
-  | { kind: 'failed'; reason: string }
+// The renderer status is the domain's own union, owned beside the backend
+// it names; the slice carries it and owns its transitions.
+export type { RendererStatus }
 
 export type RendererEvent =
   | { kind: 'ready'; backend: RendererBackend }

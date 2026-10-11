@@ -1,15 +1,9 @@
 import type { ProductFailure, ProductModelCounts, ProductRigSummary } from '@lib/product'
+import type { ProductStatus } from '@lib/product/status'
 
-// The product status is a union, not a flag pile: exactly one of these
-// shapes holds at any time. The rig summary and the model counts ride with
-// the ready status, so the automation hook never recomputes them per access,
-// and the typed failure rides with the failed status, so a reader tells the
-// kind of failure from its facts, never from a message.
-export type ProductStatus =
-  | { kind: 'idle' }
-  | { kind: 'loading'; slug: string }
-  | { kind: 'ready'; slug: string; rig: ProductRigSummary; model: ProductModelCounts }
-  | { kind: 'failed'; slug: string; failure: ProductFailure }
+// The product status is the domain's own union, owned beside the failure it
+// names; the slice carries it and owns its transitions.
+export type { ProductStatus }
 
 export type ProductEvent =
   | { kind: 'load'; slug: string }

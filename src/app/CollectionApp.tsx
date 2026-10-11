@@ -7,6 +7,7 @@ import {
   productDocumentTitle,
 } from '@lib/routing'
 import { siteCopy } from '@lib/copy/site'
+import { EscapeProvider } from '@ui/index'
 import { AppStoreProvider } from '@store/index'
 import { useEffect } from 'react'
 import { CollectionProvider } from './collection/CollectionProvider'
@@ -31,7 +32,11 @@ export function CollectionApp({ manifests }: CollectionAppProps) {
   return (
     <AppStoreProvider>
       <CollectionProvider manifests={manifests}>
-        {(collection) => <RoutedCollection collection={collection} />}
+        {(collection) => (
+          <EscapeProvider>
+            <RoutedCollection collection={collection} />
+          </EscapeProvider>
+        )}
       </CollectionProvider>
     </AppStoreProvider>
   )

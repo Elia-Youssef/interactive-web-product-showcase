@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { LoadLedger } from '@lib/async/loadLedger'
 import { RetriedLoad } from '@lib/async/retriedLoad'
 import { StageModelLoads, type LoadedModel } from './productModelLoads'
 import {
@@ -23,8 +24,25 @@ describe('StageModelLoads', () => {
     const first = loads.readModel(url)
 
     expect(loads.readModel(url)).toBe(first)
-    expect(requests).toEqual([{ url, request: { priority: 'high' } }])
+    expect(requests).toEqual([{ url, request: { priority: 'high', progress: expect.anything() } }])
     expect(loads.report()).toEqual({ models: [url], bytes: [], settling: 0 })
+  })
+
+  it('registers the read ahead as bytes nobody waits for, and the load as wanted', async () => {
+    const { loads, ledger, requests } = stage()
+
+    const ahead = loads.readAhead(url)
+    await ahead.value
+    expect(requests).toHaveLength(1)
+    // The read ahead's bytes are in the ledger, and no figure counts them.
+    expect(ledger.read().fraction).toBeNull()
+
+    const model = loads.readModel(url)
+    // The load takes the same transfer over: the same bytes now count,
+    // with no second fetch.
+    expect(ledger.read().fraction).toBe(0.5)
+    await model.value
+    expect(requests).toHaveLength(1)
   })
 
   it('reads a file ahead at low priority with a cancel, as bytes only', async () => {
@@ -38,7 +56,10 @@ describe('StageModelLoads', () => {
     await ahead.value
 
     expect(requests).toEqual([
-      { url, request: { priority: 'low', signal: expect.any(AbortSignal) } },
+      {
+        url,
+        request: { priority: 'low', progress: expect.anything(), signal: expect.any(AbortSignal) },
+      },
     ])
     expect(loads.report()).toEqual({ models: [], bytes: [url], settling: 0 })
   })
@@ -72,8 +93,11 @@ describe('StageModelLoads', () => {
 
     expect((await model.value).kind).toBe('loaded')
     expect(requests).toEqual([
-      { url, request: { priority: 'low', signal: expect.any(AbortSignal) } },
-      { url, request: { priority: 'high' } },
+      {
+        url,
+        request: { priority: 'low', progress: expect.anything(), signal: expect.any(AbortSignal) },
+      },
+      { url, request: { priority: 'high', progress: expect.anything() } },
     ])
     expect(loads.report()).toEqual({ models: [url], bytes: [], settling: 0 })
   })
@@ -104,8 +128,11 @@ describe('StageModelLoads', () => {
 
     expect((await model.value).kind).toBe('loaded')
     expect(requests).toEqual([
-      { url, request: { priority: 'low', signal: expect.any(AbortSignal) } },
-      { url, request: { priority: 'high' } },
+      {
+        url,
+        request: { priority: 'low', progress: expect.anything(), signal: expect.any(AbortSignal) },
+      },
+      { url, request: { priority: 'high', progress: expect.anything() } },
     ])
   })
 
@@ -158,7 +185,10 @@ describe('StageModelLoads', () => {
       Promise.reject(new TypeError('Failed to fetch dynamically imported module')),
     )
     const recorded = recordingSources(() => decoder.read())
-    const loads = new StageModelLoads(recorded.sources)
+    const ledger = new LoadLedger()
+    const loads = new StageModelLoads(recorded.sources, (requested, wanted) =>
+      ledger.transfer(requested, wanted),
+    )
 
     const first = loads.readModel('/models/a/model.glb')
     const second = loads.readModel('/models/b/model.glb')
@@ -190,7 +220,10 @@ describe('StageModelLoads', () => {
         : Promise.resolve({ name: 'meshopt' })
     })
     const recorded = recordingSources(() => decoder.read())
-    const loads = new StageModelLoads(recorded.sources)
+    const ledger = new LoadLedger()
+    const loads = new StageModelLoads(recorded.sources, (requested, wanted) =>
+      ledger.transfer(requested, wanted),
+    )
 
     const failed = loads.readModel('/models/a/model.glb')
     expect((await failed.value).kind).toBe('failed')

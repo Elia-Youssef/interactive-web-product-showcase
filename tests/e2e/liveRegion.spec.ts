@@ -1,8 +1,17 @@
+import { productModelUrl } from '../../src/lib/product'
+import { stageConfig } from '../../src/viewer/config'
 import { expect, test } from './fixtures'
 import { loadCollection } from './productList'
 import { waitForProductReady } from './productSpecs'
 import { productLoadBudgetMs, testBudgetMs } from './budgets'
 import { neighborsOf, productPathOf, rowControls, expectProduct } from './collectionFacts'
+import { holdDownloads } from './heldDownloads'
+import {
+  holdRevealDelay,
+  recordReadoutReveals,
+  recordedReadoutReveals,
+  releaseRevealDelay,
+} from './loadReadoutFacts'
 import { createCollection, productName } from '../../src/lib/product'
 import type { Page } from '@playwright/test'
 
@@ -108,4 +117,61 @@ test('successive products with identical names refresh the live message', async 
     )
     .toBe(false)
   await previousMessage.dispose()
+})
+
+test('a navigation away from a held load keeps the product name it announced', async ({
+  page,
+  backendPath,
+}) => {
+  test.setTimeout(testBudgetMs({ productLoads: 2 }))
+  const viaNext = neighborsOf(collection, first).next
+  const held = await holdDownloads(page, [productModelUrl(first.slug)])
+  try {
+    await page.goto(backendPath)
+
+    // The held cold load reveals the readout and announces the loading word.
+    const region = page.locator('[data-live-announcement]')
+    await expect.poll(() => region.textContent(), { timeout: productLoadBudgetMs }).toBe('Loading')
+
+    await rowControls(page, collection, first).next.click()
+    await expectProduct(page, viaNext)
+
+    // The switch announces the product the stage now shows, and the wait that
+    // ends behind it never erases the name: the clear belongs to the loading
+    // word alone.
+    await expect(region).toHaveText(productName(viaNext))
+  } finally {
+    await held.releaseAll()
+  }
+})
+
+test('the reveal announces the loading word once the delay has passed, and the wait clears it', async ({
+  page,
+  backendPath,
+}) => {
+  test.setTimeout(testBudgetMs({ productLoads: 1 }))
+  const heldPaths = [stageConfig.environmentFile, productModelUrl(collection.first.slug)]
+  await holdRevealDelay(page, 60_000)
+  await recordReadoutReveals(page)
+  const held = await holdDownloads(page, heldPaths)
+  await page.goto(backendPath)
+  await expect.poll(() => held.allHeld(), { timeout: productLoadBudgetMs }).toBe(true)
+
+  const region = page.locator('[data-live-announcement]')
+  await held.release(2)
+  await expect
+    .poll(() => page.locator('[data-load-readout]').textContent(), { timeout: productLoadBudgetMs })
+    .toMatch(/%$/)
+  // Bytes move, no reveal has started, and the region holds nothing.
+  expect(await recordedReadoutReveals(page)).toEqual([])
+  await expect(region).toHaveText('')
+
+  // Release the held delay: the reveal starts, and its word is spoken.
+  await releaseRevealDelay(page)
+  await expect.poll(() => region.textContent(), { timeout: productLoadBudgetMs }).toBe('Loading')
+  expect((await recordedReadoutReveals(page)).length).toBeGreaterThan(0)
+
+  await held.releaseAll()
+  await waitForProductReady(page)
+  await expect(region).toHaveText('')
 })

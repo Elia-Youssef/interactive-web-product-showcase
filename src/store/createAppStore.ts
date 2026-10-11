@@ -11,6 +11,7 @@ import { applyExplodeEvent, explodeTargetOf, type ExplodeEvent } from './slices/
 import { createExplodeSlice, selectExplodeTarget, type ExplodeSlice } from './slices/explode'
 import { createFinishSlice, type FinishSlice } from './slices/finish'
 import { createHotspotSlice, type HotspotSlice } from './slices/hotspot'
+import { createLoadProgressSlice, type LoadProgressSlice } from './slices/loadProgress'
 import { createProductSlice, type ProductSlice } from './slices/product'
 import { createRendererSlice, type RendererSlice } from './slices/renderer'
 
@@ -44,6 +45,7 @@ export type AppState = RendererSlice &
   CameraSlice &
   HotspotSlice &
   ExplodeSlice &
+  LoadProgressSlice &
   FlowActions
 
 type SetAppState = (updater: (state: AppState) => AppState | Partial<AppState>) => void
@@ -56,6 +58,7 @@ export function createAppStore() {
     ...createCameraSlice(set),
     ...createHotspotSlice(),
     ...createExplodeSlice(set),
+    ...createLoadProgressSlice(set),
     ...createFlowActions(set),
   }))
 }

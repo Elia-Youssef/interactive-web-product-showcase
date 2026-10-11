@@ -36,10 +36,12 @@ type ProductProps = {
 // its presented content included, and a failed product leaves the stage on
 // the store's word: its content stops rendering, so nothing of it is
 // presented again and nothing is thrown.
-// The content mounts under a Suspense boundary whose fallback is null, as
-// there is no branded loader yet, and around it sits the product's own
-// error boundary, for programming errors only; it reports them to the same
-// channel, so even those fail the product, never the renderer.
+// The content mounts under a Suspense boundary whose fallback is null: the
+// loading readout the page composes over the stage is the wait's own
+// signal, drawn outside the canvas where a boundary fallback could never
+// reach. Around the boundary sits the product's own error boundary, for
+// programming errors only; it reports them to the same channel, so even
+// those fail the product, never the renderer.
 export function Product({ manifest, onSettled, children }: ProductProps) {
   const slug = manifest.slug
   const productLoad = useAppStore((state) => state.productLoad)

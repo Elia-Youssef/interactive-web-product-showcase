@@ -37,6 +37,10 @@ export const siteCopy = {
   panelLabel: 'Product details',
   highlightsHeading: 'Highlights',
   credit: 'Elia Youssef, Technical Lead, Rebel Art Studios',
+
+  // The loading readout's own words: the one label it shows, which CSS
+  // uppercases on the stage, and the one word its reveal announces.
+  loadingLabel: 'Loading',
 } as const
 
 export type SiteCopy = typeof siteCopy

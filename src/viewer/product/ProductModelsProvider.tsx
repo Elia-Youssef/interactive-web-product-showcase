@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { useThree } from '@react-three/fiber'
 import { assertStageRenderer } from '../stageIdentity'
 import { useStageHolds } from '../stageHoldsContext'
+import { useLoadLedger } from '../loadLedgerContext'
 import { createProductKtx2Loader, type ProductMeshoptDecoder } from './decoders'
 import { createGltfModelSources } from './gltfModelSources'
 import { StageModelLoads } from './productModelLoads'
@@ -33,18 +34,23 @@ export function ProductModelsProvider({ children }: { readonly children: ReactNo
   const gl = useThree((state) => state.gl)
   const owners = useStageModelOwners()
   const holds = useStageHolds()
+  const ledger = useLoadLedger()
   const [loads, setLoads] = useState<StageModelLoads<ProductMeshoptDecoder> | null>(null)
 
   useEffect(() => {
     assertStageRenderer(gl)
     const ktx2 = createProductKtx2Loader(gl)
-    const created = new StageModelLoads(createGltfModelSources(ktx2), () => {
-      try {
-        ktx2.dispose()
-      } finally {
-        releaseOwner()
-      }
-    })
+    const created = new StageModelLoads(
+      createGltfModelSources(ktx2),
+      (url, wanted) => ledger.transfer(url, wanted),
+      () => {
+        try {
+          ktx2.dispose()
+        } finally {
+          releaseOwner()
+        }
+      },
+    )
     const releaseOwner = owners.register(created)
     holds.hold(created)
     setLoads(created)
@@ -52,7 +58,7 @@ export function ProductModelsProvider({ children }: { readonly children: ReactNo
       setLoads(null)
       holds.drop(created, () => created.retire())
     }
-  }, [gl, owners, holds])
+  }, [gl, owners, holds, ledger])
 
   if (loads === null) {
     return null

@@ -64,6 +64,11 @@ async function maskedViewportCapture(
 export async function settledForCapture(page: Page): Promise<void> {
   await settledStage(page)
   await expect.poll(() => runningCaptureMotion(page), { timeout: testBodyBudgetMs }).toBe(0)
+  // The loading readout is absent at rest: no capture can hold it, and a
+  // stray one of its animations would already have stalled the wait above.
+  await expect
+    .poll(() => page.locator('[data-load-readout]').count(), { timeout: testBodyBudgetMs })
+    .toBe(0)
 }
 
 // Captures the stage at rest: the settled wait first, then the shot. Two

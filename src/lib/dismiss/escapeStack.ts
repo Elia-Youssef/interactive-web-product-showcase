@@ -18,6 +18,8 @@ export type EscapeStack = {
   register(layer: EscapeLayer): () => void
   // Asks the topmost layer to dismiss and reports whether there was one.
   dismissTopmost(): boolean
+  // How many layers are open: the rule a listener's presence derives from.
+  size(): number
 }
 
 export function createEscapeStack(): EscapeStack {
@@ -48,6 +50,9 @@ export function createEscapeStack(): EscapeStack {
       }
       topmost.dismiss()
       return true
+    },
+    size() {
+      return layers.length
     },
   }
 }
