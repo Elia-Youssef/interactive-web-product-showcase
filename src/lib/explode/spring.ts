@@ -25,11 +25,14 @@ export type SpringSettings = {
   readonly omegaRadiansPerSecond: number
 }
 
-// One step of the motion: the state after elapsedSeconds toward the target.
-// The last field says whether the step ended the motion, either because the
-// step snapped or because the state was already at rest.
-export type SpringStep = SpringState & {
-  readonly atRest: boolean
+// One step of the motion, written into a target the caller owns: the
+// state after elapsedSeconds toward the target, and whether the step ended
+// the motion, either because the step snapped or because the state was
+// already at rest.
+export type SpringStepTarget = {
+  value: number
+  velocity: number
+  atRest: boolean
 }
 
 // At rest means the motion is finished: exactly on the target with no
@@ -59,10 +62,11 @@ export function springSettings(settleSeconds: number, restThreshold: number): Sp
   return { settleSeconds, restThreshold, omegaRadiansPerSecond: omega }
 }
 
-// Steps the state toward the target over elapsedSeconds. Critically damped,
-// so the value approaches the target without crossing it for every state
-// the spring itself produced, and the exact closed form makes one long step
-// land where many short steps land, within float rounding.
+// Steps the state toward the target over elapsedSeconds, filling the
+// caller-owned target record. Critically damped, so the value approaches
+// the target without crossing it for every state the spring itself
+// produced, and the exact closed form makes one long step land where many
+// short steps land, within float rounding.
 //
 // The rest rule ends the motion: within the threshold of the target the
 // step snaps exactly onto it with no velocity, so the caller can stop
@@ -72,14 +76,18 @@ export function stepSpring(
   target: number,
   elapsedSeconds: number,
   settings: SpringSettings,
-): SpringStep {
+  into: SpringStepTarget,
+): void {
   if (!Number.isFinite(elapsedSeconds) || elapsedSeconds < 0) {
     throw new RangeError(
       `the spring step needs a non-negative elapsed time in seconds, got ${elapsedSeconds}`,
     )
   }
   if (isSpringAtRest(state, target)) {
-    return { value: state.value, velocity: 0, atRest: true }
+    into.value = state.value
+    into.velocity = 0
+    into.atRest = true
+    return
   }
   const gap = state.value - target
   // The start side of the band needs no rounding allowance: the comparison
@@ -87,7 +95,10 @@ export function stepSpring(
   // and there they are within a factor of two, so their subtraction is
   // exact (Sterbenz). A wide gap rounds, but stays far from the edge.
   if (Math.abs(gap) <= settings.restThreshold) {
-    return { value: target, velocity: 0, atRest: true }
+    into.value = target
+    into.velocity = 0
+    into.atRest = true
+    return
   }
   const omega = settings.omegaRadiansPerSecond
   // The closed form of x'' = omega^2 (target - x) - 2 omega x', whose
@@ -111,13 +122,14 @@ export function stepSpring(
   // the band ends the motion there, exactly on the target with no velocity
   // left, so the caller can stop invalidating on an exact comparison.
   if (Math.abs(landing) <= restBand) {
-    return { value: target, velocity: 0, atRest: true }
+    into.value = target
+    into.velocity = 0
+    into.atRest = true
+    return
   }
-  return {
-    value: target + landing,
-    velocity: (slope - omega * offset) * decay,
-    atRest: false,
-  }
+  into.value = target + landing
+  into.velocity = (slope - omega * offset) * decay
+  into.atRest = false
 }
 
 // The u where a critically damped spring started at rest first enters its

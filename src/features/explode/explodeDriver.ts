@@ -1,4 +1,4 @@
-import { isSpringAtRest, stepSpring, type SpringState } from '@lib/explode'
+import { isSpringAtRest, stepSpring, type SpringState, type SpringStepTarget } from '@lib/explode'
 import { explodeSpring } from './config'
 import type { ExplodePose } from './explodePose'
 
@@ -20,19 +20,17 @@ type ExplodeAnchor = {
   target: number
 }
 
-// The spring's state now. An anchor at rest short-circuits before any time
-// math, so an ageless anchor reads as the rest it holds.
-function springAt(anchor: ExplodeAnchor, nowMs: number): SpringState {
+// The spring's state now, written into the caller's target record. An
+// anchor at rest short-circuits before any time math, so an ageless anchor
+// reads as the rest it holds. The state is evaluated toward the anchor's
+// own target: toward a newer one, an ageless anchor would read as already
+// there.
+function springAt(anchor: ExplodeAnchor, nowMs: number, into: SpringStepTarget): SpringState {
   if (isSpringAtRest(anchor.base, anchor.target)) {
     return anchor.base
   }
-  const step = stepSpring(
-    anchor.base,
-    anchor.target,
-    (nowMs - anchor.startedAtMs) / 1000,
-    explodeSpring,
-  )
-  return { value: step.value, velocity: step.velocity }
+  stepSpring(anchor.base, anchor.target, (nowMs - anchor.startedAtMs) / 1000, explodeSpring, into)
+  return into
 }
 
 // A listener of the applied progress. It runs synchronously after every
@@ -85,60 +83,91 @@ function createProgressFeed() {
   }
 }
 
+// The anchor of a jump under reduced motion: the target itself, at rest on
+// it, so the next frame reads the pose the jump applied.
+function jumpAnchor(target: number, nowMs: number): ExplodeAnchor {
+  return { base: { value: target, velocity: 0 }, startedAtMs: nowMs, target }
+}
+
+// The anchor a retarget re-anchors to: the motion's state at the moment of
+// the retarget, frozen as the base the new motion runs from. The answer
+// also says whether that anchor still owes frames.
+function reanchor(
+  anchor: ExplodeAnchor,
+  target: number,
+  nowMs: number,
+  stepped: SpringStepTarget,
+): { anchor: ExplodeAnchor; owesFrames: boolean } {
+  const current = springAt(anchor, nowMs, stepped)
+  return {
+    anchor: {
+      base: { value: current.value, velocity: current.velocity },
+      startedAtMs: nowMs,
+      target,
+    },
+    owesFrames: current.value !== target || current.velocity !== 0,
+  }
+}
+
+// The driver's mutable numbers live in a record, not in closure slots: a
+// closure slot stores a double as a fresh boxed heap number on every write,
+// while a record field holds one mutable box the store lands in.
+type AppliedProgress = {
+  value: number
+}
+
 export function createExplodeDriver(pose: ExplodePose, nowMs: number): ExplodeDriver {
-  let anchor: ExplodeAnchor = { base: { value: 0, velocity: 0 }, startedAtMs: nowMs, target: 0 }
-  let applied = 0
+  let anchor: ExplodeAnchor = jumpAnchor(0, nowMs)
+  // The spring's step target, owned by the driver so a frame of the motion
+  // allocates nothing. The retarget and the frame step never interleave,
+  // so one record serves both.
+  const stepped: SpringStepTarget = { value: 0, velocity: 0, atRest: true }
+  const applied: AppliedProgress = { value: 0 }
   let owesFrames = false
   const feed = createProgressFeed()
-  pose.apply(applied)
-  feed.emit(applied)
+  pose.apply(applied.value)
+  feed.emit(applied.value)
 
   return {
-    retarget(target, nowMs, reducedMotion) {
+    retarget(target, atMs, reducedMotion) {
       if (reducedMotion) {
-        anchor = { base: { value: target, velocity: 0 }, startedAtMs: nowMs, target }
-        if (applied !== target) {
+        anchor = jumpAnchor(target, atMs)
+        if (applied.value !== target) {
           pose.apply(target)
-          applied = target
-          feed.emit(applied)
+          applied.value = target
+          feed.emit(applied.value)
         }
         owesFrames = true
         return owesFrames
       }
-      // The carry-over state is evaluated toward the anchor's own target:
-      // toward the new one an ageless anchor would read as already there.
-      const current = springAt(anchor, nowMs)
-      anchor = { base: current, startedAtMs: nowMs, target }
-      owesFrames = current.value !== target || current.velocity !== 0
+      const reanchored = reanchor(anchor, target, atMs, stepped)
+      anchor = reanchored.anchor
+      owesFrames = reanchored.owesFrames
       return owesFrames
     },
     step(nowMs) {
-      const step = stepSpring(
-        anchor.base,
-        anchor.target,
-        (nowMs - anchor.startedAtMs) / 1000,
-        explodeSpring,
-      )
+      const elapsed = (nowMs - anchor.startedAtMs) / 1000
+      stepSpring(anchor.base, anchor.target, elapsed, explodeSpring, stepped)
       // Two independent decisions. The pose is written when the step moved
       // the progress; the loop is kept alive while the spring runs. A frame
       // that landed no movement still owes the next one: dropping the
       // invalidation here would end the move silently on a coarse timer,
       // where the first frame can land inside the retarget's own tick.
-      if (step.value !== applied) {
-        pose.apply(step.value)
-        applied = step.value
-        feed.emit(applied)
+      if (stepped.value !== applied.value) {
+        pose.apply(stepped.value)
+        applied.value = stepped.value
+        feed.emit(applied.value)
       }
-      owesFrames = !step.atRest
+      owesFrames = !stepped.atRest
       return owesFrames
     },
-    appliedProgress: () => applied,
+    appliedProgress: () => applied.value,
     moving: () => owesFrames,
     subscribe(listener) {
       const release = feed.subscribe(listener)
       // A new subscriber is caught up at once, with the progress the pose
       // already holds.
-      listener(applied)
+      listener(applied.value)
       return release
     },
     dispose: () => pose.dispose(),
