@@ -8,6 +8,7 @@ import { checkChrome } from './hotspotChromeChecks'
 import { completedPresentation, clickCompleted, revealCompleted } from './presentationCompletion'
 import { highlightsButtonOf, itemOf } from './highlightsList'
 import { focusVisibly } from './measurementFocus'
+import { selectMarkersAtHome } from './markerSelection'
 
 const products = (await shippedProducts()).filter((product) => product.hotspots.length > 0)
 for (const viewport of [...referenceLayouts, ...reflowViewports]) {
@@ -19,8 +20,9 @@ for (const viewport of [...referenceLayouts, ...reflowViewports]) {
       await page.setViewportSize({ width: viewport.width, height: viewport.height })
       await readyStage(page, productPathOf(backendPath, product))
       const hidden = await checkChrome(page, product)
-      const shown = product.hotspots.find((hotspot) => !hidden.includes(hotspot.id))
-      if (shown !== undefined && (await markerOf(page, shown.title).isVisible())) {
+      const eligible = await selectMarkersAtHome(page, product)
+      const shown = product.hotspots.find((hotspot) => eligible.shown.has(hotspot.id))
+      if (shown !== undefined) {
         await clickCompleted(page, markerOf(page, shown.title))
         await completedPresentation(page)
         await checkChrome(page, product)

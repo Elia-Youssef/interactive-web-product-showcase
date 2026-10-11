@@ -2,6 +2,9 @@ import type { Page } from '@playwright/test'
 import { siteCopy } from '../../src/lib/copy/site'
 import { expect } from './fixtures'
 import { stagePixelEpsilon } from './hotspotViews'
+import { mountedMarkerOf } from './hotspotViews'
+import { expectCardPartsInsideBand } from './cardBand'
+import { completedPresentation, revealCompleted } from './presentationCompletion'
 import { boxOf, cardSideOf, expectCardInsideStage, openCardOf } from './hotspotCardChecks'
 import { excessOf, geometryOf, SIDES, sideBoxOf, type Geometry } from './hotspotCardGeometry'
 
@@ -26,6 +29,7 @@ export async function expectCardWhereTheLayoutPutsIt(
   markerTitles: readonly string[],
   openHotspotId: string,
 ): Promise<void> {
+  await completedPresentation(page)
   const inPanel = page
     .getByRole('complementary', { name: siteCopy.panelLabel })
     .getByTestId('hotspot-card')
@@ -33,6 +37,9 @@ export async function expectCardWhereTheLayoutPutsIt(
     await expectDockedInView(page)
     return
   }
+  if (await expectUnplacedMarkerCard(page, openTitle, openHotspotId)) return
+  await revealCompleted(page, page.locator('canvas'))
+  if (await expectUnplacedMarkerCard(page, openTitle, openHotspotId)) return
   const geometry = await geometryOf(
     page,
     openTitle,
@@ -52,6 +59,31 @@ export async function expectCardWhereTheLayoutPutsIt(
     return
   }
   await expectFloatingCardOnChosenSide(page, openTitle, geometry, excess)
+}
+
+// Marker loss keeps a panel card readable and hides a floating card.
+// Geometry has no anchor to measure in either unplaced-marker case.
+async function expectUnplacedMarkerCard(
+  page: Page,
+  title: string,
+  hotspotId: string,
+): Promise<boolean> {
+  if (await mountedMarkerOf(page, title).isVisible()) return false
+  const stage = page.getByRole('region', { name: siteCopy.stageLabel })
+  const floating = stage.getByTestId('hotspot-card')
+  if ((await floating.count()) === 0) {
+    await expectDockedInView(page)
+  } else {
+    await expect(floating).toHaveCount(1)
+    await expect(floating, 'only a floating card hides with its marker').toBeHidden()
+    expect(await page.evaluate(() => window.__viewer?.overlay?.card)).toMatchObject({
+      selected: hotspotId,
+      slot: 'floating',
+      mounted: true,
+      shown: false,
+    })
+  }
+  return true
 }
 
 // The floating card hangs on the first side whose box clears everything:
@@ -95,12 +127,11 @@ async function expectFloatingCardOnChosenSide(
 export async function expectDockedInView(page: Page): Promise<void> {
   const panel = page.getByRole('complementary', { name: siteCopy.panelLabel })
   const docked = panel.getByTestId('hotspot-card')
-  await expect(docked, 'the docked card is in view in the panel').toBeInViewport()
-  await expect(docked.getByRole('heading'), 'the docked title is in view').toBeInViewport()
-  await expect(
+  await revealCompleted(page, docked.getByRole('button', { name: siteCopy.closeLabel }))
+  await expectCardPartsInsideBand([
+    docked.getByRole('heading'),
     docked.getByRole('button', { name: siteCopy.closeLabel }),
-    'the docked close button is in view',
-  ).toBeInViewport()
+  ])
   await expect(
     page.getByRole('region', { name: siteCopy.stageLabel }).getByTestId('hotspot-card'),
     'a docked card leaves the stage',

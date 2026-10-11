@@ -19,8 +19,8 @@ import { siteCopy } from '../../src/lib/copy/site'
 // frame's final placements with the progress that frame applied. The
 // subjects are the hotspots whose marker the scrub hides and shows from
 // the home view, by the shipped model's own facts, so the proof can fail:
-// a hotspot whose marker never hides could not tell a card that ignores
-// it. The set is guarded at run time, per host, so no subject means a failure,
+// a hotspot whose marker never hides could not distinguish the two slot
+// rules. The set is guarded at run time, per host, so no subject means a failure,
 // never a silent pass.
 
 const extent = await readMarkerExtentTokens()

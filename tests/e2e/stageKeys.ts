@@ -1,3 +1,4 @@
+import { selectMarkersAtHome } from './markerSelection'
 import type { Locator, Page } from '@playwright/test'
 import { siteCopy } from '../../src/lib/copy/site'
 import { stageCameraConfig } from '../../src/viewer/camera/config'
@@ -123,9 +124,10 @@ export async function expectUnavailable(control: Locator): Promise<void> {
 // The marker of the first hotspot the home view shows: a marker the view
 // hides leaves the role tree, so the visible one is a shown one.
 export async function shownMarkerOf(page: Page, product: Product): Promise<Locator> {
+  const { shown } = await selectMarkersAtHome(page, product)
   for (const hotspot of product.hotspots) {
     const marker = markerOf(page, hotspot.title)
-    if (await marker.isVisible()) {
+    if (shown.has(hotspot.id)) {
       return marker
     }
   }

@@ -10,6 +10,7 @@ import type { BrowserName } from './matrix'
 import { waitForProductReady } from './productSpecs'
 import { markerOf } from './hotspotViews'
 import { clickCompleted, completedPresentation } from './presentationCompletion'
+import { selectMarkersAtHome } from './markerSelection'
 
 // The reads and expectations of the collection spec: the collection's own
 // neighbors, the row's controls by accessible name, the wait for a
@@ -137,12 +138,14 @@ export function productWithHotspots(collection: ProductCollection): Product {
 }
 
 // Opens the card of the first hotspot whose marker is shown at the home
-// view and returns its title once the card has landed. A marker the view
-// hides leaves the role tree, so the role query finds a shown one only.
+// view and returns its title once the card has landed. The shared boundary
+// proves geometry and explains every absent candidate through live chrome.
 export async function openShownCard(page: Page, product: Product): Promise<string> {
+  await completedPresentation(page)
+  const { shown } = await selectMarkersAtHome(page, product)
   for (const candidate of product.hotspots) {
     const marker = markerOf(page, candidate.title)
-    if (await marker.isVisible()) {
+    if (shown.has(candidate.id)) {
       await openCardWith(page, marker)
       return candidate.title
     }

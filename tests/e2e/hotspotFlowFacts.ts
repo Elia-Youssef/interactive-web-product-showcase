@@ -10,6 +10,7 @@ import { resolvedDistanceRange, viewExpectation } from './stageCamera'
 import { selectFlowSubjects, type FlowSubject } from './flowSubjects'
 import { cardCloseButtonOf, harnessCanvasDrivePoint, markerOf } from './hotspotViews'
 import { revealCompleted } from './presentationCompletion'
+import { revealActiveMarker } from './revealActiveMarker'
 
 // The per-product facts the flow specs read: every product's authored
 // camera views and hotspot facts, once per file, and the flow shape each
@@ -107,7 +108,13 @@ export type CloseWay = readonly [string, (page: Page, openTitle: string) => Prom
 export const closeWays: readonly CloseWay[] = [
   ['Escape', async (page) => page.keyboard.press('Escape')],
   ['the card close button', async (page) => cardCloseButtonOf(page).click()],
-  ['pressing the active marker', async (page, openTitle) => markerOf(page, openTitle).click()],
+  [
+    'pressing the active marker',
+    async (page, openTitle) => {
+      await revealActiveMarker(page, openTitle)
+      await markerOf(page, openTitle).click()
+    },
+  ],
   [
     'outside dismissal',
     async (page) => {

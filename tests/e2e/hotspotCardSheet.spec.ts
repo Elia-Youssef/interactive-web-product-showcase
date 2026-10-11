@@ -1,18 +1,21 @@
 import { hotspotTestProducts } from './hotspotTestProducts'
-import type { Locator } from '@playwright/test'
 import { expect, test } from './fixtures'
 import { siteCopy } from '../../src/lib/copy/site'
 import { expectProduct, productPathOf } from './collectionFacts'
 import { clickCompleted, completedPresentation, revealCompleted } from './presentationCompletion'
 import { loadCollection } from './productList'
-import { restWindowBudgetMs } from './budgets'
+import { testBudgetMs } from './budgets'
+import { selectMarkersAtHome } from './markerSelection'
+import { openChromeAlternative } from './chromeAlternative'
+import { expectCardPartsInsideBand } from './cardBand'
 import { expectCloseAnswers } from './hotspotCardOracle'
 import { markerOf } from './hotspotViews'
+import type { Page } from '@playwright/test'
 
 // The docked card fits the sheet's visible band on a phone held sideways:
 // at 844x390 the band under the stage is a hundred pixels, too short for
 // the full card, so the docked card takes its compact form there and the
-// dock lands its top at the band's top. Every part of the open card is
+// dock lands its top at the band's top. Every part of the stage card is
 // inside the panel band after its native scroll. The compact dock stays readable
 // when its marker loses placement.
 // The explode control stays reachable: the band scrolls to it and its toggle
@@ -30,6 +33,7 @@ for (const product of hotspotTestProducts(collection.products, 'docked card shee
     page,
     backendPath,
   }, testInfo) => {
+    test.setTimeout(testBudgetMs({ productLoads: 1, cameraDrives: product.hotspots.length * 2 }))
     await page.setViewportSize({ width: WIDTH, height: HEIGHT })
     await page.goto(productPathOf(backendPath, product))
     await expectProduct(page, product)
@@ -37,20 +41,35 @@ for (const product of hotspotTestProducts(collection.products, 'docked card shee
 
     // Keyboard activation reaches every shown marker even when two pointer
     // hit areas overlap, so crowding cannot omit a card from the band proof.
-    const shown = (
-      await page.evaluate(() => {
-        const markers = [...document.querySelectorAll('[data-slot="stage"] button[aria-pressed]')]
-        return markers
-          .filter((marker) => getComputedStyle(marker).visibility === 'visible')
-          .map((marker) => marker.getAttribute('aria-label'))
-      })
-    ).filter((label): label is string => label !== null)
-    expect(
-      shown.length,
-      `${product.slug} must show a marker it can press at ${WIDTH}x${HEIGHT}`,
-    ).toBeGreaterThan(0)
+    const read = await selectMarkersAtHome(page, product)
+    const shown = product.hotspots
+      .filter((hotspot) => read.shown.has(hotspot.id))
+      .map((hotspot) => hotspot.title)
+    if (shown.length === 0) {
+      for (const hotspot of product.hotspots) {
+        expect(read.chromeHidden, 'chrome explains every absent marker at home').toContain(
+          hotspot.id,
+        )
+        await openChromeAlternative(page, product, hotspot)
+        const card = page.getByTestId('hotspot-card')
+        await completedPresentation(page)
+        await expectCardPartsInsideBand([
+          card.getByRole('heading'),
+          card.getByRole('button', { name: siteCopy.closeLabel }),
+        ])
+        await expectCloseAnswers(page)
+        await expectExplodeReachable(page, explodeLabel)
+        await clickCompleted(page, card.getByRole('button', { name: siteCopy.closeLabel }))
+        await completedPresentation(page)
+      }
+    }
     await testInfo.attach('short-sheet-subjects', {
-      body: JSON.stringify({ slug: product.slug, shown }),
+      body: JSON.stringify({
+        slug: product.slug,
+        shown,
+        chromeHidden: read.chromeHidden,
+        route: shown.length === 0 ? 'Highlights' : 'markers',
+      }),
       contentType: 'application/json',
     })
 
@@ -67,7 +86,7 @@ for (const product of hotspotTestProducts(collection.products, 'docked card shee
       // The whole card sits inside the panel band once the dock's scroll
       // lands: the header (eyebrow and close button), the title and every
       // bullet, edges included.
-      await expectFullyInsideBand(panel, HEIGHT, [
+      await expectCardPartsInsideBand([
         card.locator('[class*="eyebrow"]'),
         card.getByRole('button', { name: siteCopy.closeLabel, includeHidden: true }),
         card.getByRole('heading', { includeHidden: true }),
@@ -78,11 +97,7 @@ for (const product of hotspotTestProducts(collection.products, 'docked card shee
 
       // The explode control under the docked card is reachable: the band
       // scrolls to it and the toggle passes a real pointer actionability check.
-      const explode = page.getByRole('button', { name: explodeLabel })
-      await revealCompleted(page, explode)
-      await expect(explode).toBeInViewport()
-      await expect(explode).toBeEnabled()
-      await explode.click({ trial: true })
+      await expectExplodeReachable(page, explodeLabel)
 
       await clickCompleted(page, card.getByRole('button', { name: siteCopy.closeLabel }))
       await expect(card).toHaveCount(0)
@@ -95,40 +110,10 @@ for (const product of hotspotTestProducts(collection.products, 'docked card shee
   })
 }
 
-// Every part lies inside the panel's scrollport intersected with the
-// viewport. A part above the panel can still be inside the viewport while
-// clipped by the panel. The existing half-pixel layout-grid bound remains.
-async function expectFullyInsideBand(
-  panel: Locator,
-  viewportHeight: number,
-  parts: readonly Locator[],
-): Promise<void> {
-  for (const part of parts) {
-    const count = await part.count()
-    if (count === 0) {
-      throw new Error('every named card part must be present in the band')
-    }
-    for (let index = 0; index < count; index++) {
-      await expect
-        .poll(
-          async () => {
-            const [band, box] = await Promise.all([
-              panel.boundingBox(),
-              part.nth(index).evaluate((element) => {
-                const box = element.getBoundingClientRect()
-                return { y: box.top, height: box.height }
-              }),
-            ])
-            if (band === null || box === null) {
-              return false
-            }
-            const top = Math.max(0, band.y)
-            const bottom = Math.min(viewportHeight, band.y + band.height)
-            return box.y >= top - 0.5 && box.y + box.height <= bottom + 0.5
-          },
-          { timeout: restWindowBudgetMs },
-        )
-        .toBe(true)
-    }
-  }
+async function expectExplodeReachable(page: Page, label: string): Promise<void> {
+  const explode = page.getByRole('button', { name: label })
+  await revealCompleted(page, explode)
+  await expect(explode).toBeInViewport()
+  await expect(explode).toBeEnabled()
+  await explode.click({ trial: true })
 }

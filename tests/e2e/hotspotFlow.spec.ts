@@ -47,7 +47,7 @@ for (const flow of flows) {
   const slug = product.slug
   const closeUp = flow.subject.closeUps[0]
   const plain = flow.subject.plains[0]
-  const appPlain = applicationPlains.plainOf(slug)
+  const hasAppPlain = applicationPlains.hasPlain(slug)
 
   const pressSubject = closeUp ?? plain
   if (pressSubject !== undefined) {
@@ -118,14 +118,15 @@ for (const flow of flows) {
     })
   }
 
-  if (appPlain !== undefined) {
-    test(`hotspots ${slug}: opening the plain hotspot ${appPlain.title} shows its card and renders no frame`, async ({
+  if (hasAppPlain) {
+    test(`hotspots ${slug}: opening a pressable plain hotspot shows its card and renders no frame`, async ({
       page,
       backendPath,
     }) => {
       await page.setViewportSize(applicationPlains.viewport)
       await page.goto(productPathOf(backendPath, product))
       await waitForProductReady(page)
+      const appPlain = await applicationPlains.selectPlain(page, slug)
       await settledFrames(page)
 
       const cameraBefore = await requireCamera(page)

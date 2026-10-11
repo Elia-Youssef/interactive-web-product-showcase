@@ -10,8 +10,9 @@ import { containedScale } from './stageCamera'
 // Which markers the shipped model shows from its views on one stage,
 // computed in Node from the hotspot facts: per authored view, and the
 // azimuth swing from home a drag can turn through with a marker still
-// shown. The rule is the runtime's visibility rule restated over the
-// shipped meshes, so the specs choose their subjects from the product's own
+// shown. These candidates prove projection, stage fit and occlusion over the
+// shipped meshes; markerSelection adds the live CSS chrome before a routed
+// marker press. The specs choose their subjects from the product's own
 // geometry, never from the viewer's scene graph. A marker shows only while
 // its whole keep-out box fits the stage, so what a view shows depends on
 // the stage's size in pixels: every fact here is for the stage box the
@@ -115,7 +116,7 @@ export type MarkerScene = {
 // visibility rule restated (see markerViewsOf).
 export function markersShownIn(
   facts: MarkerScene,
-  view: AuthoredView,
+  view: Pick<AuthoredView, 'position' | 'target' | 'fovY' | 'aspect'>,
   stage: MarkerStage,
 ): ReadonlySet<string> {
   const scale = containedScale(view.aspect, stage.box.width / stage.box.height)

@@ -1,6 +1,7 @@
 import { canvasDrivePoint } from './canvasDrivePoint'
 import type { Locator, Page } from '@playwright/test'
 import { siteCopy } from '../../src/lib/copy/site'
+import type { Product } from '../../src/lib/product'
 import { expect } from './fixtures'
 import { readCamera } from './stageCamera'
 import { harnessStageBox } from './lookHarness'
@@ -74,6 +75,22 @@ export function markerOf(page: Page, title: string) {
 // the role tree. Pointer and focus drives still use the visible markerOf.
 export function mountedMarkerOf(page: Page, title: string) {
   return stageOverlayOf(page).getByRole('button', { name: title, includeHidden: true })
+}
+
+// The ids of the hotspots whose markers the page shows at its current
+// view: the one source of the chrome half of a marker selection. Which
+// corners show, the pill's wrapped height and the live readout widths are
+// page outcomes, so the runtime's own visibility is the only reader of
+// them; the Node oracle (productMarkerViews.ts) proves the half Node can
+// compute, the projection, the stage fit and the occlusion.
+export async function shownMarkerIdsOf(page: Page, product: Product): Promise<ReadonlySet<string>> {
+  const shown = new Set<string>()
+  for (const hotspot of product.hotspots) {
+    if (await mountedMarkerOf(page, hotspot.title).isVisible()) {
+      shown.add(hotspot.id)
+    }
+  }
+  return shown
 }
 
 // The card of the open hotspot: its title heading, the one card the single
