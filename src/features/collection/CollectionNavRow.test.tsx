@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import { renderToString } from 'react-dom/server'
-import type { LinkProps } from '@ui/index'
+import { EscapeProvider, type LinkProps } from '@ui/index'
 import { createCollection } from '@lib/product'
 import { sampleOneManifest, sampleThreeManifest, sampleTwoManifest } from '@lib/product/fixtures'
 import { siteCopy } from '@lib/copy/site'
@@ -24,7 +24,9 @@ function renderRow(slug: string): string {
     throw new Error(`the fixture collection holds no '${slug}'`)
   }
   return renderToString(
-    <CollectionNavRow product={product} collection={collection} link={FakeLink} />,
+    <EscapeProvider>
+      <CollectionNavRow product={product} collection={collection} link={FakeLink} />
+    </EscapeProvider>,
   )
 }
 

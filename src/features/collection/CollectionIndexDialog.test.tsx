@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 import { renderToString } from 'react-dom/server'
-import type { LinkProps } from '@ui/index'
+import { EscapeProvider, type LinkProps } from '@ui/index'
 import { createCollection } from '@lib/product'
 import { sampleOneManifest, sampleThreeManifest, sampleTwoManifest } from '@lib/product/fixtures'
 import { siteCopy } from '@lib/copy/site'
@@ -20,13 +20,15 @@ const collection = createCollection([sampleOneManifest, sampleTwoManifest, sampl
 
 function renderDialog(currentSlug: string): string {
   return renderToString(
-    <CollectionIndexDialog
-      open={false}
-      onClose={() => {}}
-      products={collection.products}
-      currentSlug={currentSlug}
-      link={FakeLink}
-    />,
+    <EscapeProvider>
+      <CollectionIndexDialog
+        open={false}
+        onClose={() => {}}
+        products={collection.products}
+        currentSlug={currentSlug}
+        link={FakeLink}
+      />
+    </EscapeProvider>,
   )
 }
 
