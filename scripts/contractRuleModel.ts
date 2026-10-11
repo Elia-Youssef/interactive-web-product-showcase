@@ -13,6 +13,7 @@ import {
   SHADOW_NODE_NAME,
 } from '../src/lib/product/contractNames.ts'
 import { SHORT_COMPONENT_TYPE } from './componentTypes.ts'
+import { duplicateNodeNameMessage } from '../src/lib/product/contractDiagnostics.ts'
 import { KEY_FILTER_BITS } from './settings.ts'
 import type { PositionGrid } from './storageGrid.ts'
 import type { PositionStorageFact, TranslationOutputFact } from './storageFacts.ts'
@@ -57,10 +58,7 @@ export const modelRules: readonly ContractRule[] = [
       return {
         violations: [...counts]
           .filter(([, count]) => count > 1)
-          .map(
-            ([name, count]) =>
-              `node name '${name}' appears ${count} times, the contract needs one node per name`,
-          ),
+          .map(([name, count]) => duplicateNodeNameMessage(name, count)),
         warnings: [],
       }
     },

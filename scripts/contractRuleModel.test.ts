@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest'
 import { KHRLightsPunctual } from '@gltf-transform/extensions'
 import { modelRules } from './contractRuleModel.ts'
+import { duplicateNodeNameMessage } from '../src/lib/product/contractDiagnostics.ts'
 import { addRootNode, buildDocument, nodeNamed } from './validateFixtures.ts'
 import { contractRuleInputOf } from './contractRuleFixtures.ts'
 
@@ -116,7 +117,7 @@ describe('the model-group contract rules', () => {
   it('the one-node rule reports a repeated contract name', async () => {
     expect(
       await violationsOf('one-node-per-contract-name', (doc) => addRootNode(doc, 'PART_base')),
-    ).toEqual(["node name 'PART_base' appears 2 times, the contract needs one node per name"])
+    ).toEqual([duplicateNodeNameMessage('PART_base', 2)])
   })
 
   it('the one-shadow rule reports a missing shadow and a second one', async () => {

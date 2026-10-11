@@ -43,6 +43,11 @@ export type { ProductModelCounts } from './modelCounts'
 export { closeUpHotspotIds } from './rigSummary'
 export type { ProductClipSummary, ProductHotspotSummary, ProductRigSummary } from './rigSummary'
 export type { RigProblem } from './rigProblem'
+export {
+  duplicateNodeNameMessage,
+  unknownMappingMaterialMessage,
+  unknownMappingVariantMessage,
+} from './contractDiagnostics'
 export type { ProductFailure, ProductFailureKind } from './failure'
 export {
   finishEntryMaterialIndexes,

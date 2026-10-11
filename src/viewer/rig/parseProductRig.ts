@@ -5,6 +5,7 @@ import {
   HOTSPOT_PREFIX,
   PART_PREFIX,
   SHADOW_NODE_NAME,
+  duplicateNodeNameMessage,
   readVariantNames,
   type Product,
   type RigProblem,
@@ -152,7 +153,7 @@ function duplicateNameProblems(nodes: NamedNodes): RigProblem[] {
     if (count > 1) {
       problems.push({
         node: name,
-        message: `node name '${name}' appears ${count} times, the contract needs one node per name`,
+        message: duplicateNodeNameMessage(name, count),
       })
     }
   }

@@ -1,5 +1,13 @@
 import { expect, test } from 'vitest'
 import { finishEntryMaterialIndexes } from './variants'
+import {
+  duplicateMappingVariantMessage,
+  invalidMappingMessage,
+  missingMappingMaterialMessage,
+  missingMappingVariantMessage,
+  unknownMappingMaterialMessage,
+  unknownMappingVariantMessage,
+} from './contractDiagnostics'
 import { brokenFinishProblems, plannedFinish } from './finishPlan.fixtures'
 
 // The glTF JSON fixtures stand in for the parser JSON a load hands over:
@@ -140,13 +148,13 @@ test('a file without meshes plans the declared variants and nothing else', () =>
 
 test('a mapping naming an unknown variant index breaks naming the mesh and primitive', () => {
   expect(brokenFinishProblems(jsonWith([meshWith(0, [mapping(1, [2])])]))).toEqual([
-    { mesh: 0, primitive: 0, message: 'the mapping at 0 names variant 2, the file declares 2' },
+    { mesh: 0, primitive: 0, message: unknownMappingVariantMessage(0, 2, 2) },
   ])
 })
 
 test('a mapping naming an unknown material index breaks naming the mesh and primitive', () => {
   expect(brokenFinishProblems(jsonWith([meshWith(0, [mapping(7, [0])])]))).toEqual([
-    { mesh: 0, primitive: 0, message: 'the mapping at 0 names material 7, the file carries 7' },
+    { mesh: 0, primitive: 0, message: unknownMappingMaterialMessage(0, 7, 7) },
   ])
 })
 
@@ -164,10 +172,47 @@ test('a mapping that names no material, no variant, or a taken variant breaks', 
     jsonWith([meshWith(0, [{}, mapping(1, []), mapping(2, [0]), mapping(3, [0, 0])])]),
   )
   expect(problems.map((problem) => problem.message)).toEqual([
-    'the mapping at 0 names no material',
-    'the mapping at 1 names no variant',
-    'the mapping at 3 names variant 0 a second time',
+    missingMappingMaterialMessage(0),
+    missingMappingVariantMessage(1),
+    duplicateMappingVariantMessage(3, 0),
   ])
+})
+
+// Every mapping branch carries owner copy through the real plan reader.
+// Capitalization is a sentence rule independent of those owned words.
+test.each([
+  { kind: 'non-object', mappings: [null], message: invalidMappingMessage(0) },
+  { kind: 'missing material', mappings: [{}], message: missingMappingMaterialMessage(0) },
+  {
+    kind: 'unknown material',
+    mappings: [mapping(7, [0])],
+    message: unknownMappingMaterialMessage(0, 7, 7),
+  },
+  {
+    kind: 'missing variants',
+    mappings: [{ material: 1 }],
+    message: missingMappingVariantMessage(0),
+  },
+  { kind: 'empty variants', mappings: [mapping(1, [])], message: missingMappingVariantMessage(0) },
+  ...['invalid', -1, 0.5, null].map((variant) => ({
+    kind: `malformed variant ${String(variant)}`,
+    mappings: [{ material: 1, variants: [variant] }],
+    message: unknownMappingVariantMessage(0, variant, 2),
+  })),
+  {
+    kind: 'unknown variant',
+    mappings: [mapping(1, [2])],
+    message: unknownMappingVariantMessage(0, 2, 2),
+  },
+  {
+    kind: 'duplicate variant',
+    mappings: [mapping(1, [0, 0])],
+    message: duplicateMappingVariantMessage(0, 0),
+  },
+])('the $kind diagnostic is an owned sentence', ({ mappings, message }) => {
+  const problems = brokenFinishProblems(jsonWith([meshWith(0, mappings)]))
+  expect(problems).toEqual([{ mesh: 0, primitive: 0, message }])
+  expect(problems[0]?.message.startsWith('The mapping at ')).toBe(true)
 })
 
 test('a malformed variants table breaks before any mapping is read', () => {
