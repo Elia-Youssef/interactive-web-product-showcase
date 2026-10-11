@@ -1,33 +1,25 @@
-import type { FlowFacts, HotspotFlow } from './hotspotFlowFacts'
-import { stageBoxOf, viewportContracts } from './layoutContracts'
+import type { Page } from '@playwright/test'
+import type { FlowFacts } from './hotspotFlowFacts'
+import { viewportContracts } from './layoutContracts'
+import { selectMarkersAtHome } from './markerSelection'
 
-// Plain opens owe no stage frame when the stage box stays fixed. The app's
-// desktop panel scrolls independently; the harness's dock scrolls its canvas.
-// Select a shown plain marker from authored facts for that app stage, and
-// fail at collection if a product's plain proof would otherwise disappear.
-// The facts are the shipped products': the app has a page for those only, so
-// a product outside them, such as a fixture of the test set, has no app plain.
+// Register by hotspot kind, then choose the subject at the live home view
+// before taking the no-frame baseline. Selection reads do not drive a frame.
 export function applicationPlainSubjects(facts: FlowFacts) {
   const viewport = viewportContracts.find((contract) => contract.stagePosition === 'right')
-  if (viewport === undefined) {
-    throw new Error('the plain no-frame proof needs a desktop application layout')
-  }
-  const shownBySlug = facts.markerViewsAt(stageBoxOf(viewport))
+  if (viewport === undefined) throw new Error('the plain no-frame proof needs a desktop layout')
   const flowBySlug = new Map(facts.flows.map((flow) => [flow.subject.product.slug, flow]))
-  const plainOfFlow = (flow: HotspotFlow) => {
-    if (flow.subject.plains.length === 0) {
-      return undefined
-    }
-    const shown = shownBySlug.get(flow.subject.product.slug)
-    const plain = flow.subject.plains.find((hotspot) => shown?.home.has(hotspot.id))
-    if (plain === undefined) {
-      throw new Error(`no shown plain marker in the app for ${flow.subject.product.slug}`)
-    }
-    return plain
+  return {
+    viewport,
+    hasPlain: (slug: string) => (flowBySlug.get(slug)?.subject.plains.length ?? 0) > 0,
+    async selectPlain(page: Page, slug: string) {
+      const flow = flowBySlug.get(slug)
+      if (flow === undefined) throw new Error(`no application flow for ${slug}`)
+      const { shown } = await selectMarkersAtHome(page, flow.subject.product)
+      const plain = flow.subject.plains.find((hotspot) => shown.has(hotspot.id))
+      if (plain === undefined)
+        throw new Error(`no pressable plain marker in the application for ${slug}`)
+      return plain
+    },
   }
-  const plainOf = (slug: string) => {
-    const flow = flowBySlug.get(slug)
-    return flow === undefined ? undefined : plainOfFlow(flow)
-  }
-  return { viewport, plainOf }
 }

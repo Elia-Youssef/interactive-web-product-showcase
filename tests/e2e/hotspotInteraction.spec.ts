@@ -62,10 +62,10 @@ for (const flow of flows) {
   // carry both kinds; the subject selection fails at collection when the
   // whole set lacks one.
   const slug = product.slug
-  const plain = applicationPlains.plainOf(slug)
+  const hasAppPlain = applicationPlains.hasPlain(slug)
   const closeUp = flow.subject.closeUps[0]
 
-  if (plain !== undefined) {
+  if (hasAppPlain) {
     test(`hotspots ${slug}: pressing the marker without a close-up presses it alone in the red token, and the camera stays put`, async ({
       page,
       backendPath,
@@ -73,6 +73,7 @@ for (const flow of flows) {
       await page.setViewportSize(applicationPlains.viewport)
       await page.goto(productPathOf(backendPath, product))
       await waitForProductReady(page)
+      const plain = await applicationPlains.selectPlain(page, slug)
       // The red token as the browser resolves it, read before the settle so
       // the probe is gone before the frame and camera baselines are taken.
       const red = await resolvedTokenColor(page, '--red')

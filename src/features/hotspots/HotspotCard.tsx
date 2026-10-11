@@ -74,14 +74,7 @@ export function HotspotCard({
       if (dock === null) {
         throw new Error('the hotspot card docked, but its composition gave the markers no dock')
       }
-      return (
-        <PanelCard
-          host={dock}
-          className={slot.shown ? styles.docked : `${styles.docked} ${styles.dockedHidden}`}
-          card={card}
-          committed={committed}
-        />
-      )
+      return <PanelCard host={dock} className={styles.docked} card={card} committed={committed} />
   }
 }
 

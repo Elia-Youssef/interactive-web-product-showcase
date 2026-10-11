@@ -2,6 +2,7 @@ import { expect, test as base } from '@playwright/test'
 import type { BrowserName, ChannelSpec } from './matrix'
 import type { ErrorTimes } from './errorLedger'
 import { observePageErrors } from './pageErrors'
+import { withOwnedSetupPage } from './ownedSetupPage'
 import type { RendererBackend } from '../../src/lib/renderer/backend'
 import { e2eBaseURL } from '../../tooling/devHost.ts'
 import { resolveDevPort } from '../../tooling/devPort.ts'
@@ -91,16 +92,16 @@ export const test = base.extend<E2ETestFixtures, E2EWorkerFixtures>({
         // is resolved here, from the same port pool and loopback address the
         // server binds and the config's baseURL is built from.
         const appURL = new URL(backendPath, e2eBaseURL(resolveDevPort(process.env))).toString()
-        const probe = await browser.newPage()
-        await probe.goto(appURL)
-        const brands = await probe.evaluate(
-          () => navigator.userAgentData?.brands.map((entry) => entry.brand) ?? [],
-        )
-        expect(
-          brands,
-          `the ${expectedChannel.name} channel must launch its branded build, not the bundled one`,
-        ).toContain(expectedChannel.brand)
-        await probe.close()
+        await withOwnedSetupPage(browser, async (probe) => {
+          await probe.goto(appURL)
+          const brands = await probe.evaluate(
+            () => navigator.userAgentData?.brands.map((entry) => entry.brand) ?? [],
+          )
+          expect(
+            brands,
+            `the ${expectedChannel.name} channel must launch its branded build, not the bundled one`,
+          ).toContain(expectedChannel.brand)
+        })
       }
       await use()
     },

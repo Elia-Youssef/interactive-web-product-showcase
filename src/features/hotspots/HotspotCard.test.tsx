@@ -47,7 +47,7 @@ test('the floating card renders the manifest copy and the site close label', () 
 })
 
 test('a docked card with no dock from its composition fails loudly', () => {
-  const docked: CardSlot = { hotspotId: hotspot.id, where: 'docked', shown: true }
+  const docked: CardSlot = { hotspotId: hotspot.id, where: 'docked' }
   expect(() => renderToString(<HotspotCard {...cardProps(docked)} />)).toThrow(
     'gave the markers no dock',
   )

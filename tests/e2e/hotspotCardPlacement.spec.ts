@@ -9,7 +9,7 @@ import { shippedProducts } from './productSpecs'
 import { completedPresentation, fillCompleted, revealCompleted } from './presentationCompletion'
 import { expectOrbitAtRest, readCamera, stageAspectOfCanvas } from './stageCamera'
 import { cardHeadingOf, markerOf, mountedMarkerOf } from './hotspotViews'
-import { chromeCollisionsOf } from './hotspotChromeChecks'
+import { selectMarkersAtView } from './markerSelection'
 import { openChromeAlternative } from './chromeAlternative'
 import { flowFacts, type HotspotFlow } from './hotspotFlowFacts'
 import { referenceLayouts, stageBoxOf } from './layoutContracts'
@@ -104,6 +104,8 @@ for (const contract of referenceLayouts) {
     readonly flow: HotspotFlow
     readonly hotspot: HotspotFlow['subject']['product']['hotspots'][number]
     readonly open: OpenView
+    readonly nodeShownAtPress: ReadonlySet<string>
+    readonly nodeShownAtRest: ReadonlySet<string>
   }[] = []
   for (const flow of flows) {
     const product = flow.subject.product
@@ -119,7 +121,13 @@ for (const contract of referenceLayouts) {
       }
       for (const open of openViewsOf(flow, hotspot.id, shownExploded)) {
         if (shownIn(markerViews, open, hotspot.id).has(hotspot.id)) {
-          cases.push({ flow, hotspot, open })
+          cases.push({
+            flow,
+            hotspot,
+            open,
+            nodeShownAtPress: open.openedExploded ? shownExploded : markerViews.home,
+            nodeShownAtRest: shownIn(markerViews, open, hotspot.id),
+          })
         }
       }
     }
@@ -129,7 +137,7 @@ for (const contract of referenceLayouts) {
       )
     }
   }
-  for (const { flow, hotspot, open } of cases) {
+  for (const { flow, hotspot, open, nodeShownAtPress, nodeShownAtRest } of cases) {
     const { product } = flow.subject
     const explodeLabel = product.explode.label ?? siteCopy.defaultExplodeLabel
     const titles = product.hotspots.map((entry) => entry.title)
@@ -153,7 +161,13 @@ for (const contract of referenceLayouts) {
         await fillCompleted(page, explodeScrub, '1')
         await waitForExplodeRestingAt(page, 1)
       }
-      let listed = (await chromeCollisionsOf(page, product)).includes(hotspot.id)
+      const eligible = await selectMarkersAtView(
+        page,
+        product,
+        nodeShownAtPress,
+        open.openedExploded ? 'exploded home' : 'home',
+      )
+      let listed = !eligible.shown.has(hotspot.id)
       if (listed) await openChromeAlternative(page, product, hotspot)
       else await markerOf(page, hotspot.title).click()
       if (open.openedExploded) {
@@ -161,7 +175,15 @@ for (const contract of referenceLayouts) {
         await waitForExplodeRestingAt(page, 0)
       }
       await completedPresentation(page)
-      if (!listed && (await chromeCollisionsOf(page, product)).includes(hotspot.id)) {
+      const rested = await selectMarkersAtView(page, product, nodeShownAtRest, open.name)
+      if (
+        !listed &&
+        rested.chromeHidden.includes(hotspot.id) &&
+        (await page
+          .getByRole('region', { name: siteCopy.stageLabel })
+          .getByTestId('hotspot-card')
+          .count()) > 0
+      ) {
         await expect(openCardOf(page)).toBeHidden()
         await openChromeAlternative(page, product, hotspot)
         listed = true

@@ -17,6 +17,7 @@ import { scrollToReveal } from './scrollToReveal'
 import { completedPresentation } from './presentationCompletion'
 import { closeWays } from './hotspotFlowFacts'
 import { scrollsAsDocument, viewportContracts } from './layoutContracts'
+import { expectCardPartsInsideBand } from './cardBand'
 import {
   expectCameraStayed,
   expectFocused,
@@ -248,11 +249,10 @@ for (const viewport of pageScrollLayouts) {
         // The card's own scroll settles before the band is read: no part is
         // scrolled into view by hand here.
         await completedPresentation(page)
-        await expect(card.getByRole('heading', { name: first.title })).toBeInViewport()
-        await expect(
+        await expectCardPartsInsideBand([
+          card.getByRole('heading', { name: first.title }),
           card.getByRole('button', { name: siteCopy.closeLabel }),
-          'the close button sits in the band the card scrolled to',
-        ).toBeInViewport()
+        ])
 
         await closeBy(page, first.title)
         await expect(card).toHaveCount(0)

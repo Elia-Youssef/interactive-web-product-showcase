@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { markerLossCases } from './markerLoss.fixtures'
 import { cardBoxAt, type CardMetrics, type CardSide } from './cardPlacement'
 import type { StageRectTarget } from './projection'
 import {
@@ -81,21 +82,21 @@ type Row = readonly [
 
 // Every combination of the policy, the marker placed or hidden, room or
 // none around the marker, and the slot the card is in now: the policy
-// docks first, a hidden marker hides the card in the slot it is in, and a
+// docks first, a hidden marker hides only a floating card, and a
 // floating layout floats beside the marker or docks when there is no room.
 const rows: readonly Row[] = [
-  ['always', true, true, null, { slot: 'docked', shown: true }],
-  ['always', true, false, 'docked', { slot: 'docked', shown: true }],
-  ['always', false, true, 'docked', { slot: 'docked', shown: false }],
-  ['always', false, false, 'floating', { slot: 'docked', shown: false }],
+  ['always', true, true, null, { slot: 'docked' }],
+  ['always', true, false, 'docked', { slot: 'docked' }],
+  ['always', false, true, 'docked', { slot: 'docked' }],
+  ['always', false, false, 'floating', { slot: 'docked' }],
   ['when-crowded', true, true, null, BESIDE_RIGHT],
   ['when-crowded', true, true, 'docked', BESIDE_RIGHT],
-  ['when-crowded', true, false, 'floating', { slot: 'docked', shown: true }],
-  ['when-crowded', true, false, 'docked', { slot: 'docked', shown: true }],
+  ['when-crowded', true, false, 'floating', { slot: 'docked' }],
+  ['when-crowded', true, false, 'docked', { slot: 'docked' }],
   ['when-crowded', false, true, 'floating', { slot: 'floating', at: null }],
   ['when-crowded', false, true, null, { slot: 'floating', at: null }],
-  ['when-crowded', false, true, 'docked', { slot: 'docked', shown: false }],
-  ['when-crowded', false, false, 'docked', { slot: 'docked', shown: false }],
+  ['when-crowded', false, true, 'docked', { slot: 'docked' }],
+  ['when-crowded', false, false, 'docked', { slot: 'docked' }],
   ['when-crowded', false, false, 'floating', { slot: 'floating', at: null }],
 ]
 
@@ -116,6 +117,14 @@ function expectedOf(
 }
 
 describe('presentHotspotCard', () => {
+  for (const policy of ['always', 'when-crowded'] as const) {
+    it.each(markerLossCases)(`keeps the ${policy} dock readable after $reason`, ({ marker }) => {
+      expect(marker).toBeNull()
+      expect(decided({ ...input(policy, true, false, 'docked'), marker }).answer).toEqual({
+        slot: 'docked',
+      })
+    })
+  }
   it.each(rows)(
     'policy %s, marker placed %s, room %s, now %s',
     (policy, markerPlaced, room, current, expected) => {
@@ -145,12 +154,11 @@ describe('presentHotspotCard', () => {
     expect(answer).toBe(floating)
   })
 
-  it('hides a card before the first placement pass, in the slot it is in', () => {
+  it('keeps a dock readable before a placement pass while a floating card waits', () => {
     const before = { ...input('when-crowded', true, true, null), stage: null }
     expect(decided(before).answer).toEqual({ slot: 'floating', at: null })
     expect(decided({ ...before, current: 'docked' }).answer).toEqual({
       slot: 'docked',
-      shown: false,
     })
   })
 
@@ -166,7 +174,7 @@ describe('presentHotspotCard', () => {
       ...input('when-crowded', true, true, 'floating'),
       subject: { left: 0, top: 100, right: roomy.width, bottom: 500 },
     }
-    expect(decided(covered).answer).toEqual({ slot: 'docked', shown: true })
+    expect(decided(covered).answer).toEqual({ slot: 'docked' })
   })
 
   it('docks a card whose every side covers stage chrome', () => {
@@ -174,7 +182,7 @@ describe('presentHotspotCard', () => {
       ...input('when-crowded', true, true, 'floating'),
       obstacles: [{ left: 0, top: 0, right: roomy.width, bottom: roomy.height }],
     }
-    expect(decided(covered).answer).toEqual({ slot: 'docked', shown: true })
+    expect(decided(covered).answer).toEqual({ slot: 'docked' })
   })
 })
 

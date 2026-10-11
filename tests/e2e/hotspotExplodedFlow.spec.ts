@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test'
+import { selectMarkersAtHome } from './markerSelection'
 import { expect, test } from './fixtures'
 import { harnessPath, harnessProducts, shippedProducts, waitForProductReady } from './productSpecs'
 import { settledFrames } from './stageSettle'
@@ -142,6 +143,8 @@ for (const flow of flows) {
       await page.goto(formatProductPath(slug) + new URL(backendPath, 'https://app.invalid').search)
       await waitForProductReady(page)
       await settledFrames(page)
+      const { shown } = await selectMarkersAtHome(page, product)
+      expect(shown.has(closeUp.id), 'the Reset subject is pressable at home').toBe(true)
       await markerOf(page, closeUp.title).click()
       await expect(cardHeadingOf(page, closeUp.title)).toBeVisible()
       await settledFrames(page)

@@ -34,14 +34,6 @@
   inline-size: var(--size-fill);
 }
 
-/* A docked card hides with its marker in place: it keeps its element and
-   its space, so the panel does not shift and nothing remounts when the
-   marker shows again. Hidden by visibility, it leaves the accessibility
-   tree and the focus order. */
-.dockedHidden {
-  visibility: hidden;
-}
-
 /* The compact form of the docked card on a sheet band too short for the
    full one (a phone held sideways): tighter padding and gaps, and the
    title at the body size. The card's top lands at the band's top (the

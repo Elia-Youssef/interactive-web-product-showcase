@@ -28,9 +28,9 @@ import { CARD_OVERLAY_KEY, overlayKey } from '@lib/hotspots/hotspotKeys'
 // top-left corner of the box the rule chose, so it rides the overlay's own
 // writer, hidden included, with no React render. The card's slot (listed
 // under its Highlights item, floating in the overlay or docked in the
-// layout's dock) and a docked card's shown state are React state, published through subscribe and snapshot for
+// layout's dock) are React state, published through subscribe and snapshot for
 // useSyncExternalStore: moving the card between slots moves it in the DOM,
-// and a docked card hides in place, keeping its element and its space.
+// and a docked card stays readable throughout its selection.
 //
 // The decision scratch is the presenter's own: the input record the pass
 // refills, the target the pure rules write into, and the reuse of the
@@ -40,7 +40,7 @@ import { CARD_OVERLAY_KEY, overlayKey } from '@lib/hotspots/hotspotKeys'
 export type CardSlot =
   | { readonly hotspotId: string; readonly where: 'listed' }
   | { readonly hotspotId: string; readonly where: 'floating' }
-  | { readonly hotspotId: string; readonly where: 'docked'; readonly shown: boolean }
+  | { readonly hotspotId: string; readonly where: 'docked' }
 
 // The open selection the presenter shows: its hotspot and where it was
 // opened from.
@@ -243,7 +243,7 @@ export class HotspotCardPresenter {
         this.desired.shown = true
         this.overlay.card.intend(this.desired)
         this.placeCardHidden()
-        if (!this.slotSays(hotspotId, 'listed', false)) {
+        if (!this.slotSays(hotspotId, 'listed')) {
           this.publish({ hotspotId, where: 'listed' })
         }
         return
@@ -257,18 +257,17 @@ export class HotspotCardPresenter {
         } else {
           this.placeCardAt(at.left, at.top)
         }
-        if (!this.slotSays(hotspotId, 'floating', false)) {
+        if (!this.slotSays(hotspotId, 'floating')) {
           this.publish({ hotspotId, where: 'floating' })
         }
         return
       }
       case 'docked': {
-        const { shown } = presentation
-        this.desired.shown = shown
+        this.desired.shown = true
         this.overlay.card.intend(this.desired)
         this.placeCardHidden()
-        if (!this.slotSays(hotspotId, 'docked', shown)) {
-          this.publish({ hotspotId, where: 'docked', shown })
+        if (!this.slotSays(hotspotId, 'docked')) {
+          this.publish({ hotspotId, where: 'docked' })
         }
         return
       }
@@ -287,13 +286,10 @@ export class HotspotCardPresenter {
   }
 
   // Whether the last published slot already says exactly this.
-  private slotSays(hotspotId: string, where: CardSlot['where'], dockedShown: boolean): boolean {
+  private slotSays(hotspotId: string, where: CardSlot['where']): boolean {
     const current = this.slot
     if (current === null || current.hotspotId !== hotspotId || current.where !== where) {
       return false
-    }
-    if (current.where === 'docked') {
-      return current.shown === dockedShown
     }
     return true
   }
