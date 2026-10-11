@@ -12,7 +12,7 @@ export const siteCopy = {
   metaDescription:
     'Product Concepts by Rebel Art Studios: interactive 3D concept products. Rotate, zoom, switch finishes and pull each one apart in the browser.',
   stageLabel: 'Interactive 360 view',
-  stageHint: 'Drag or arrows rotate / Scroll or + - zoom',
+  stageHint: 'Drag or arrow keys to rotate and tilt / Scroll or plus and minus to zoom',
   stageKeysDescription:
     'Arrow keys rotate and tilt, with Shift for a fine step. Plus and minus zoom. Home returns to the home view.',
   finishHeading: 'Choose your finish',

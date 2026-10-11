@@ -3,6 +3,7 @@ import { renderToString } from 'react-dom/server'
 import { parseProduct } from '@lib/product'
 import { sampleOneManifest, sampleTwoManifest } from '@lib/product/fixtures'
 import { highlightsLabel } from '@lib/copy/productPanel'
+import { siteCopy } from '@lib/copy/site'
 import { HighlightsSection, type HighlightsSectionProps } from './HighlightsList'
 
 // The Highlights section from plain values, at each state: closed means
@@ -40,8 +41,13 @@ function items(html: string): { readonly title: string; readonly tag: string }[]
 describe('the Highlights section', () => {
   it('is named with its hotspot count, as an h2 section heading', () => {
     const html = render()
-    expect(highlightsLabel(product.hotspots.length)).toBe(`Highlights, ${product.hotspots.length}`)
-    expect(html).toMatch(new RegExp(`<h2[^>]*><button[^>]*>${highlightsLabel(2)}<`))
+    expect(highlightsLabel(product.hotspots.length)).toBe(
+      `${siteCopy.highlightsHeading} (${product.hotspots.length})`,
+    )
+    // The label is copy, and copy may hold regex metacharacters: it is
+    // escaped before it anchors the heading's own button in the markup.
+    const label = highlightsLabel(product.hotspots.length).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    expect(html).toMatch(new RegExp(`<h2[^>]*><button[^>]*>${label}<`))
   })
 
   it('renders closed as its button alone: no list, nothing a marker locator could meet', () => {

@@ -25,8 +25,8 @@ export const manifest = {
       'Orsa Kvern, a single-dose coffee grinder concept by Rebel Art Studios. A 40 mm conical burr and forty clicks from fine to coarse. Explore it in 3D.',
   },
   finishes: [
-    { variant: 'steel', label: 'Brushed Steel', swatch: '#BEB9BA' },
-    { variant: 'walnut', label: 'Walnut Grip', swatch: '#79553F' },
+    { variant: 'steel', label: 'Brushed steel', swatch: '#BEB9BA' },
+    { variant: 'walnut', label: 'Walnut grip', swatch: '#79553F' },
     { variant: 'ink', label: 'Ink', swatch: '#212225' },
   ],
   hotspots: [

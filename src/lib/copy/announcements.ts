@@ -63,8 +63,8 @@ export type AnnouncedState = {
 export const announcementCopy = {
   homeView: 'Home view',
   loading: siteCopy.loadingLabel,
-  zoomLimit: { closest: 'Closest zoom', farthest: 'Farthest zoom' },
-  tiltLimit: { top: 'Top view limit', bottom: 'Bottom view limit' },
+  zoomLimit: { closest: 'Zoom in limit', farthest: 'Zoom out limit' },
+  tiltLimit: { top: 'Tilt up limit', bottom: 'Tilt down limit' },
 } as const satisfies {
   readonly homeView: string
   readonly loading: string

@@ -4,6 +4,7 @@
 // so every control idles behind a no-op.
 
 import type { ReactNode } from 'react'
+import { highlightsLabel } from '@lib/copy/productPanel'
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -159,26 +160,27 @@ const sliderStates = (
 )
 
 const disclosureContent = <p>Neutral sample content.</p>
+const disclosureLabel = highlightsLabel(3)
 
 const disclosureStates = (
   <>
     <State caption="closed">
-      <Disclosure label="Highlights, 3" expanded={false} onToggle={noOp}>
+      <Disclosure label={disclosureLabel} expanded={false} onToggle={noOp}>
         {disclosureContent}
       </Disclosure>
     </State>
     <State caption="hover">
-      <Disclosure label="Highlights, 3" expanded={false} onToggle={noOp} data-force-hover>
+      <Disclosure label={disclosureLabel} expanded={false} onToggle={noOp} data-force-hover>
         {disclosureContent}
       </Disclosure>
     </State>
     <State caption="focus">
-      <Disclosure label="Highlights, 3" expanded={false} onToggle={noOp} data-force-focus>
+      <Disclosure label={disclosureLabel} expanded={false} onToggle={noOp} data-force-focus>
         {disclosureContent}
       </Disclosure>
     </State>
     <State caption="open">
-      <Disclosure label="Highlights, 3" expanded onToggle={noOp}>
+      <Disclosure label={disclosureLabel} expanded onToggle={noOp}>
         {disclosureContent}
       </Disclosure>
     </State>

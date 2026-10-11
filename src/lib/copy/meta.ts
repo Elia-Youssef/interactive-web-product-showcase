@@ -48,6 +48,15 @@ export type MetaHeadSet = {
 // it belongs to.
 export type ProductMetaSet = MetaHeadSet & { readonly socialImageAlt: string }
 
+// Social words are composed here so head-slot readers consume their owner.
+export function socialProductTitle(product: Product, kind: string): string {
+  return `${productName(product)}, ${kind}`
+}
+
+export function socialProductImageAlt(product: Product, kind: string): string {
+  return `${productName(product)} ${kind} in ${activeFinish(product, null).label}, assembled on a dark stage with a blueprint grid, from ${siteCopy.collectionName} by ${siteCopy.studioName}.`
+}
+
 // The social tags shared by the home page and every product page.
 function sharedSocialHead() {
   return {
@@ -81,15 +90,14 @@ export function productMetaSet(product: Product): ProductMetaSet | null {
   if (meta === undefined) {
     return null
   }
-  const name = productName(product)
   return {
     ...sharedSocialHead(),
     title: productDocumentTitle(product, siteCopy.collectionName),
     description: meta.description,
     canonicalUrl: absoluteUrl(formatProductPath(product.slug)),
-    socialTitle: `${name}, ${meta.kind}`,
+    socialTitle: socialProductTitle(product, meta.kind),
     socialDescription: meta.description,
     socialImageUrl: absoluteUrl(socialImagePath(product.slug)),
-    socialImageAlt: `${name} ${meta.kind} in ${activeFinish(product, null).label}, assembled on a dark stage with a blueprint grid, from ${siteCopy.collectionName} by ${siteCopy.studioName}.`,
+    socialImageAlt: socialProductImageAlt(product, meta.kind),
   }
 }
