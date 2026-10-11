@@ -13,8 +13,8 @@
 // behavior specs run on: re deriving a shipped product's hiding height
 // searches on every gate run is the cost this test exists to avoid (one
 // shipped derive costs seconds to minutes, a fixture's stays under two
-// seconds), and the equality of every reader's facts for all six products
-// was proven once against the shipped set at hand back. Each reader runs
+// seconds), and the shipped products' facts go through the same cached
+// readers in every e2e spec that reads them. Each reader runs
 // on every fixture that carries what it reads, and asserts those facts on
 // the derived result, so a fixture that loses them fails here by name
 // instead of passing vacuously.
