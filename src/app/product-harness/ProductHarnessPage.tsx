@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { CollectionError, createCollection, type Product as ProductManifest } from '@lib/product'
 import type { ProductInput } from '@lib/product'
 import { HotspotMarkers } from '@features/hotspots'
+import { EscapeProvider } from '@ui/index'
 import { ProductExplodeScrub, ProductExplodeToggle } from '@features/product-panel'
 import { useFinishOffer } from '@features/variants'
 import { AppStoreProvider, useAppStore } from '@store/index'
@@ -35,9 +36,11 @@ export function ProductHarnessPage({ products }: { readonly products: readonly P
   return (
     <AppStoreProvider>
       <StageSurfaceContext.Provider value={surface}>
-        <main className={styles.frame} ref={bindSurface}>
-          <HarnessStage products={products} />
-        </main>
+        <EscapeProvider>
+          <main className={styles.frame} ref={bindSurface}>
+            <HarnessStage products={products} />
+          </main>
+        </EscapeProvider>
       </StageSurfaceContext.Provider>
     </AppStoreProvider>
   )
