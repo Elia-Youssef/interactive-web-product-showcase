@@ -36,6 +36,13 @@ export type OrbitTurnAngles = Pick<OrbitAngles, 'azimuth' | 'polar'>
 // minimum (the camera nearest straight up), the bottom view at the maximum.
 export type TiltLimit = 'top' | 'bottom'
 
+// The direction whose step cannot pass each physical limit. Copy and
+// controls can name the same boundary without interpreting view names.
+export const tiltDirectionAtLimit = {
+  top: 'down',
+  bottom: 'up',
+} as const satisfies Readonly<Record<TiltLimit, Extract<OrbitDirection, 'up' | 'down'>>>
+
 const signOf: Readonly<Record<OrbitDirection, 1 | -1>> = {
   left: 1,
   right: -1,

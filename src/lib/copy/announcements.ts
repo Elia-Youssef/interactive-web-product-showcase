@@ -12,9 +12,9 @@
 // name it lands on is the state it arrives in, not a change the visitor
 // made. Pure, so the component that holds the region stays render-only.
 
-import type { TiltLimit } from '../camera/orbitStep'
+import { tiltDirectionAtLimit, type TiltLimit } from '../camera/orbitStep'
 import type { HotspotOrigin } from '../hotspots/flow'
-import type { ZoomLimit } from '../camera/zoom'
+import { zoomDirectionAtLimit, type ZoomLimit } from '../camera/zoom'
 import { siteCopy } from './site'
 
 // The limits the camera's move ends at, while a view is presented.
@@ -60,11 +60,26 @@ export type AnnouncedState = {
   readonly loadingWait: boolean
 }
 
+// Labels belong to site copy; the direction that exhausts a limit belongs
+// to the camera. Compose the words so neither fact is repeated by position.
+const tiltControlLabel = { up: siteCopy.tiltUpLabel, down: siteCopy.tiltDownLabel }
+const zoomControlLabel = { 1: siteCopy.zoomInLabel, [-1]: siteCopy.zoomOutLabel }
+
+function limitAnnouncement(label: string): string {
+  return `${label} limit`
+}
+
 export const announcementCopy = {
   homeView: 'Home view',
   loading: siteCopy.loadingLabel,
-  zoomLimit: { closest: 'Zoom in limit', farthest: 'Zoom out limit' },
-  tiltLimit: { top: 'Tilt up limit', bottom: 'Tilt down limit' },
+  zoomLimit: {
+    closest: limitAnnouncement(zoomControlLabel[zoomDirectionAtLimit.closest]),
+    farthest: limitAnnouncement(zoomControlLabel[zoomDirectionAtLimit.farthest]),
+  },
+  tiltLimit: {
+    top: limitAnnouncement(tiltControlLabel[tiltDirectionAtLimit.top]),
+    bottom: limitAnnouncement(tiltControlLabel[tiltDirectionAtLimit.bottom]),
+  },
 } as const satisfies {
   readonly homeView: string
   readonly loading: string
