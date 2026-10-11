@@ -12,7 +12,8 @@ import { completedPresentation } from './presentationCompletion'
 import { siteCopy } from '../../src/lib/copy/site'
 
 // An open card while the explode moves its marker's anchor: the card shows
-// exactly when its marker shows, on every presented frame of a scrub from
+// throughout selection when docked, and with its marker when floating,
+// on every presented frame of a scrub from
 // the assembled pose to fully exploded. The harness probe observes every
 // overlay pass after the card has placed itself, so each sample is one
 // frame's final placements with the progress that frame applied. The
@@ -61,7 +62,7 @@ test.beforeAll(async () => {
 for (const { product, hotspot, host } of subjects) {
   const explodeLabel = product.explode.label ?? siteCopy.defaultExplodeLabel
 
-  test(`hotspots ${product.slug}: the open ${hotspot.title} ${host.slot} card shows exactly when its marker shows while the explode scrubs open`, async ({
+  test(`hotspots ${product.slug}: the open ${hotspot.title} ${host.slot} card follows its slot visibility rule while the explode scrubs open`, async ({
     page,
     backendPath,
   }) => {
@@ -96,7 +97,9 @@ for (const { product, hotspot, host } of subjects) {
     if (samples === null) {
       throw new Error('the harness card probe must be mounted with the product')
     }
-    const mismatched = samples.filter((sample) => sample.cardVisible !== sample.markerVisible)
+    const mismatched = samples.filter(
+      (sample) => sample.cardVisible !== (sample.card?.slot === 'docked' || sample.markerVisible),
+    )
     expect(
       samples.every(
         (sample) =>
@@ -114,7 +117,7 @@ for (const { product, hotspot, host } of subjects) {
     ).toBe(true)
     expect(
       mismatched,
-      'every presented frame shows the card exactly when its marker shows',
+      'every presented frame keeps a dock readable and anchors a floating card to its marker',
     ).toEqual([])
     expect(
       samples.some((sample) => sample.markerVisible),

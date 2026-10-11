@@ -10,9 +10,9 @@
 //   marker the view hides, whatever the stage shows.
 // - A layout that docks every card (the phone's sheet) docks a marker's
 //   card whatever the stage shows.
-// - The open card hides with its marker, in either slot: it points at a
-//   spot the visitor cannot see. A hidden card keeps the slot it is in, so a
-//   marker that hides and shows again never moves its card between slots.
+// - A docked card stays readable throughout its selection. Only a
+//   floating card hides with its marker, keeping its slot until the
+//   marker can anchor it again.
 // - A floating card waits for its first measure before it can be placed,
 //   then floats beside its marker without covering its subject, or docks
 //   when no side has room.
@@ -63,10 +63,10 @@ export type CardPresentationInput = {
 
 // A listed card shows under its list item. A floating card is placed
 // beside its marker, or hidden (at null) while its marker is hidden or
-// before its first measure. A docked card is shown or hidden in the dock.
+// before its first measure. A docked card stays shown in the dock.
 export type CardPresentation =
   | { readonly slot: 'listed' }
-  | { readonly slot: 'docked'; readonly shown: boolean }
+  | { readonly slot: 'docked' }
   | { readonly slot: 'floating'; readonly at: FloatingCardSpot | null }
 
 // The caller's floating record: the presentation returned when the card
@@ -78,8 +78,7 @@ export type FloatingCard = {
 }
 
 const LISTED: CardPresentation = { slot: 'listed' }
-const DOCKED_SHOWN: CardPresentation = { slot: 'docked', shown: true }
-const DOCKED_HIDDEN: CardPresentation = { slot: 'docked', shown: false }
+const DOCKED_SHOWN: CardPresentation = { slot: 'docked' }
 const FLOATING_HIDDEN: CardPresentation = { slot: 'floating', at: null }
 
 export function presentHotspotCard(
@@ -91,10 +90,10 @@ export function presentHotspotCard(
   }
   const markerPlaced = placedOnStage(input)
   if (input.policy === 'always') {
-    return markerPlaced ? DOCKED_SHOWN : DOCKED_HIDDEN
+    return DOCKED_SHOWN
   }
   if (!markerPlaced) {
-    return input.current === 'docked' ? DOCKED_HIDDEN : FLOATING_HIDDEN
+    return input.current === 'docked' ? DOCKED_SHOWN : FLOATING_HIDDEN
   }
   if (!measuredOnStage(input)) {
     return FLOATING_HIDDEN

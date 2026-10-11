@@ -4,8 +4,6 @@ import { expect, test } from './fixtures'
 import { siteCopy } from '../../src/lib/copy/site'
 import { expectProduct, productPathOf } from './collectionFacts'
 import { clickCompleted, completedPresentation, revealCompleted } from './presentationCompletion'
-import { openChromeAlternative } from './chromeAlternative'
-import { chromeCollisionsOf } from './hotspotChromeChecks'
 import { loadCollection } from './productList'
 import { restWindowBudgetMs } from './budgets'
 import { expectCloseAnswers } from './hotspotCardOracle'
@@ -15,8 +13,8 @@ import { markerOf } from './hotspotViews'
 // at 844x390 the band under the stage is a hundred pixels, too short for
 // the full card, so the docked card takes its compact form there and the
 // dock lands its top at the band's top. Every part of the open card is
-// inside the panel band after its native scroll. A chrome-hidden marker
-// hides its compact dock in place and remains reachable through Highlights.
+// inside the panel band after its native scroll. The compact dock stays readable
+// when its marker loses placement.
 // The explode control stays reachable: the band scrolls to it and its toggle
 // can receive a press. The cases are every marker the stage shows at this
 // size, close-up hotspots among them, for every routed product.
@@ -62,12 +60,8 @@ for (const product of hotspotTestProducts(collection.products, 'docked card shee
       const panel = page.getByRole('complementary', { name: siteCopy.panelLabel })
       const card = panel.getByTestId('hotspot-card')
       await completedPresentation(page)
-      const hotspot = product.hotspots.find((entry) => entry.title === title)
-      if (hotspot === undefined) throw new Error('every shown marker has a manifest hotspot')
-      const hidden = (await chromeCollisionsOf(page, product)).includes(hotspot.id)
       await expect(card).toHaveCount(1)
-      if (hidden) await expect(card).toBeHidden()
-      else await expect(card.getByRole('heading', { name: title })).toBeVisible()
+      await expect(card.getByRole('heading', { name: title })).toBeVisible()
       await revealCompleted(page, card)
 
       // The whole card sits inside the panel band once the dock's scroll
@@ -79,24 +73,6 @@ for (const product of hotspotTestProducts(collection.products, 'docked card shee
         card.getByRole('heading', { includeHidden: true }),
         card.getByRole('listitem', { includeHidden: true }),
       ])
-      if (hidden) {
-        const hiddenClose = card.getByRole('button', {
-          name: siteCopy.closeLabel,
-          includeHidden: true,
-        })
-        expect(
-          await hiddenClose.evaluate((element) => {
-            const box = element.getBoundingClientRect()
-            const hit = document.elementFromPoint(
-              box.left + box.width / 2,
-              box.top + box.height / 2,
-            )
-            return hit !== null && element.contains(hit)
-          }),
-          'the chrome-hidden docked card cannot receive a close press',
-        ).toBe(false)
-        await openChromeAlternative(page, product, hotspot)
-      }
       await revealCompleted(page, card.getByRole('button', { name: siteCopy.closeLabel }))
       await expectCloseAnswers(page)
 
