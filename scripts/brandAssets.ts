@@ -11,10 +11,19 @@ const faviconRingSize = 256
 const faviconSize = 32
 const appleSize = 180
 
+// The share of the icon tile the mark spans: the ring and the R are drawn
+// centered at this fraction of the tile, so the brush stroke never touches
+// the icon edge at any size the set rasterizes to.
+const faviconContentShare = 0.84
+
 // Embedded raster preserves the brush texture; the glyph remains a polygon.
 export function buildFaviconSvg(ring: Uint8Array, bg: string, white: string): string {
   const data = Buffer.from(ring).toString('base64')
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${raViewBox}"><rect width="${raBox}" height="${raBox}" fill="${bg}"/><image width="${raBox}" height="${raBox}" href="data:image/png;base64,${data}"/><polygon fill="${white}" points="${raPolygon}"/></svg>\n`
+  // The content group scales about the tile's center: the center point
+  // stays, so the mark keeps its place and spans the named content share.
+  const inset = ((raBox * (1 - faviconContentShare)) / 2).toFixed(1)
+  const content = `translate(${inset} ${inset}) scale(${faviconContentShare})`
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${raViewBox}"><rect width="${raBox}" height="${raBox}" fill="${bg}"/><g transform="${content}"><image width="${raBox}" height="${raBox}" href="data:image/png;base64,${data}"/><polygon fill="${white}" points="${raPolygon}"/></g></svg>\n`
 }
 
 // A single PNG entry, supported by current browsers, wrapped in the ICO directory.

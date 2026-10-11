@@ -2,13 +2,7 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import { LoadLedger } from '@lib/async/loadLedger'
 import { ResourceHolds } from '@lib/async/resourceHolds'
-import {
-  useAppStore,
-  selectProductStatus,
-  selectRendererStatus,
-  type ProductStatus,
-  type RendererStatus,
-} from '@store/index'
+import { useAppStore, selectProductStatus, selectRendererStatus } from '@store/index'
 import { StageProbes } from './automation/StageProbes'
 import { AutomationBridge } from './automation/AutomationBridge'
 import { StageProbesContext } from './automation/stageProbesContext'
@@ -19,8 +13,7 @@ import { StageHoldsContext } from './stageHoldsContext'
 import { StageEnvironmentProvider } from './stageEnvironmentProvider'
 import { StageModelOwnersProvider } from './product/StageModelOwnersProvider'
 import { DevHud } from './hud/DevHud'
-import { productFailureMessage } from './product/failureMessage'
-import { StageAlert } from './StageAlert'
+import { StageAlerts } from './StageAlerts'
 import { StageCanvas } from './StageCanvas'
 import { StageLife } from './StageLife'
 import { backendRequestFromLocation } from './backendRequest'
@@ -115,29 +108,5 @@ export function Stage({ content, overlay }: StageProps = {}) {
         </StageHoldsContext.Provider>
       </StageProbesContext.Provider>
     </div>
-  )
-}
-
-// The alerts of the stage's two failure channels, drawn over everything it
-// mounts: the renderer alert of a failed stage, and the product alert of a
-// failed product. Both can stand together: a stage that failed while its
-// product had already failed still names both.
-function StageAlerts({
-  rendererStatus,
-  productStatus,
-}: {
-  readonly rendererStatus: RendererStatus
-  readonly productStatus: ProductStatus
-}) {
-  return (
-    <>
-      {rendererStatus.kind === 'failed' && <StageAlert reason={rendererStatus.reason} />}
-      {productStatus.kind === 'failed' && (
-        <StageAlert
-          testid="product-alert"
-          reason={`${productStatus.slug}: ${productFailureMessage(productStatus.failure)}`}
-        />
-      )}
-    </>
   )
 }

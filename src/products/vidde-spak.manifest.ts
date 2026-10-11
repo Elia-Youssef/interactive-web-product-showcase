@@ -27,7 +27,7 @@ export const manifest = {
       id: 'lever',
       eyebrow: 'At the elbow',
       title: 'Clutch lever',
-      bullets: ['Sets tension on both arm joints', 'Brass friction discs inside'],
+      bullets: ['Sets friction on both arm joints', 'Brass friction discs inside'],
     },
     {
       id: 'diffuser',

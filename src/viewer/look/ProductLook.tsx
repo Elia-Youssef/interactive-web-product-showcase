@@ -16,7 +16,7 @@ import { useShadowOpacityHolder } from './shadowOpacityContext'
 // is what the flags below are enforced on.
 function shadowMaterialOf(shadowNode: Object3D): Material {
   if (!(shadowNode instanceof Mesh)) {
-    throw new Error('the SHADOW node carries no mesh, so there is no shadow material to look')
+    throw new Error('The SHADOW node carries no mesh, so there is no shadow material to adjust')
   }
   const { material } = shadowNode
   if (Array.isArray(material)) {

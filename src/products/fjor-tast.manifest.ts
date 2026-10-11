@@ -10,16 +10,16 @@ export const manifest = {
   category: 'Desk',
   brand: 'Fjor',
   model: 'Tast',
-  eyebrow: 'Sixty percent keyboard',
+  eyebrow: '60% keyboard',
   tagline: 'Sixty-one keys and nothing you do not use.',
   intro: [
-    'Tast is a sixty percent keyboard with an aluminum case and one knob.',
+    'Tast is a 60% keyboard with an aluminum case and one knob.',
     'A brass weight in the base keeps it planted on the desk.',
   ],
   meta: {
-    kind: 'sixty percent keyboard',
+    kind: '60% keyboard',
     description:
-      'Fjor Tast, a sixty percent keyboard concept by Rebel Art Studios. Sixty-one keys, an aluminum case and a brass weight in the base. Explore it in 3D.',
+      'Fjor Tast, a 60% keyboard concept by Rebel Art Studios. Sixty-one keys, an aluminum case and a brass weight in the base. Explore it in 3D.',
   },
   finishes: [
     { variant: 'carbon', label: 'Carbon', swatch: '#33353A' },
@@ -43,7 +43,7 @@ export const manifest = {
       id: 'weight',
       eyebrow: 'In the base',
       title: 'Brass weight',
-      bullets: ['Adds one kilo of heft', 'Keeps the board planted'],
+      bullets: ['Adds 1 kg of weight', 'Keeps the keyboard planted'],
     },
   ],
   explode: { label: 'Pull apart' },

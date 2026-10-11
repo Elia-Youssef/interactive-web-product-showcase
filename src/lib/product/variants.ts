@@ -4,6 +4,15 @@
 // test builds it from plain fixtures, and everything downstream reads the
 // same plan instead of touching the JSON again.
 
+import {
+  duplicateMappingVariantMessage,
+  invalidMappingMessage,
+  missingMappingMaterialMessage,
+  missingMappingVariantMessage,
+  unknownMappingMaterialMessage,
+  unknownMappingVariantMessage,
+} from './contractDiagnostics'
+
 const VARIANTS_EXTENSION = 'KHR_materials_variants'
 
 // One key of an untyped JSON table, undefined when the table is no object
@@ -226,19 +235,17 @@ function readMappingMaterial(
   mappingIndex: number,
 ): number | null {
   if (typeof mapping !== 'object' || mapping === null) {
-    input.problems.push(input.at(`the mapping at ${mappingIndex} is not an object`))
+    input.problems.push(input.at(invalidMappingMessage(mappingIndex)))
     return null
   }
   const material = readJsonKey(mapping, 'material')
   if (typeof material !== 'number' || !Number.isInteger(material) || material < 0) {
-    input.problems.push(input.at(`the mapping at ${mappingIndex} names no material`))
+    input.problems.push(input.at(missingMappingMaterialMessage(mappingIndex)))
     return null
   }
   if (material >= input.materialCount) {
     input.problems.push(
-      input.at(
-        `the mapping at ${mappingIndex} names material ${material}, the file carries ${input.materialCount}`,
-      ),
+      input.at(unknownMappingMaterialMessage(mappingIndex, material, input.materialCount)),
     )
     return null
   }
@@ -256,7 +263,7 @@ function readMappingVariants(
 ): void {
   const mappedVariants = readJsonKey(mapping, 'variants')
   if (!Array.isArray(mappedVariants) || mappedVariants.length === 0) {
-    input.problems.push(input.at(`the mapping at ${mappingIndex} names no variant`))
+    input.problems.push(input.at(missingMappingVariantMessage(mappingIndex)))
     return
   }
   let taken = false
@@ -266,15 +273,13 @@ function readMappingVariants(
     }
     if (!isVariantIndex(variant, input.variantCount)) {
       input.problems.push(
-        input.at(unknownVariantMessage(mappingIndex, variant, input.variantCount)),
+        input.at(unknownMappingVariantMessage(mappingIndex, variant, input.variantCount)),
       )
       return
     }
     if (variantMaterials.has(variant)) {
       taken = true
-      input.problems.push(
-        input.at(`the mapping at ${mappingIndex} names variant ${variant} a second time`),
-      )
+      input.problems.push(input.at(duplicateMappingVariantMessage(mappingIndex, variant)))
       return
     }
     variantMaterials.set(variant, material)
@@ -288,14 +293,4 @@ function isVariantIndex(variant: unknown, variantCount: number): variant is numb
     variant >= 0 &&
     variant < variantCount
   )
-}
-
-function unknownVariantMessage(
-  mappingIndex: number,
-  variant: unknown,
-  variantCount: number,
-): string {
-  return typeof variant === 'number' && Number.isInteger(variant) && variant >= 0
-    ? `the mapping at ${mappingIndex} names variant ${variant}, the file declares ${variantCount}`
-    : `the mapping at ${mappingIndex} names the malformed variant ${String(variant)}`
 }

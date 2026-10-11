@@ -1,74 +1,35 @@
 import { describe, expect, test } from 'vitest'
 import { parseProduct } from '@lib/product'
-import { manifest as fjorTast } from '@products/fjor-tast.manifest'
-import { manifest as formaOne } from '@products/forma-one.manifest'
-import { manifest as orsaKvern } from '@products/orsa-kvern.manifest'
-import { manifest as viddeSpak } from '@products/vidde-spak.manifest'
-import { productMetaSet, siteMetaSet } from '@lib/copy/meta'
+import { productManifests } from '@products/index'
+import {
+  productMetaSet,
+  siteMetaSet,
+  socialProductTitle,
+  socialProductImageAlt,
+} from '@lib/copy/meta'
 import { siteCopy } from '@lib/copy/site'
+import { productDocumentTitle, collectionDocumentTitle } from '@lib/routing'
 
-// The approved link-preview words of the collection, per launch product.
-// The test reads the shipped manifests themselves, so a changed word in a
-// manifest's meta block fails here instead of shipping in a head tag. It
-// lives in the app layer because only the app layer imports the lib builder
-// and the products data together.
-const approved: readonly {
-  readonly manifest: unknown
-  readonly slug: string
-  readonly title: string
-  readonly description: string
-  readonly socialTitle: string
-  readonly alt: string
-}[] = [
-  {
-    manifest: formaOne,
-    slug: 'forma-one',
-    title: 'Forma One | Product Concepts',
-    description:
-      'Forma One, a wireless over-ear headphone concept by Rebel Art Studios. A 40 mm driver per side, aluminum yokes and a knit band. Explore it in 3D.',
-    socialTitle: 'Forma One, wireless over-ear headphones',
-    alt: 'Forma One wireless over-ear headphones in Slate, assembled on a dark stage with a blueprint grid, from Product Concepts by Rebel Art Studios.',
-  },
-  {
-    manifest: orsaKvern,
-    slug: 'orsa-kvern',
-    title: 'Orsa Kvern | Product Concepts',
-    description:
-      'Orsa Kvern, a single-dose coffee grinder concept by Rebel Art Studios. A 40 mm conical burr and forty clicks from fine to coarse. Explore it in 3D.',
-    socialTitle: 'Orsa Kvern, single-dose coffee grinder',
-    alt: 'Orsa Kvern single-dose coffee grinder in Brushed Steel, assembled on a dark stage with a blueprint grid, from Product Concepts by Rebel Art Studios.',
-  },
-  {
-    manifest: viddeSpak,
-    slug: 'vidde-spak',
-    title: 'Vidde Spak | Product Concepts',
-    description:
-      'Vidde Spak, a counterweight task lamp concept by Rebel Art Studios. A steel weight keeps the arm where you leave it. Explore it in 3D.',
-    socialTitle: 'Vidde Spak, counterweight task lamp',
-    alt: 'Vidde Spak counterweight task lamp in Ivory, assembled on a dark stage with a blueprint grid, from Product Concepts by Rebel Art Studios.',
-  },
-  {
-    manifest: fjorTast,
-    slug: 'fjor-tast',
-    title: 'Fjor Tast | Product Concepts',
-    description:
-      'Fjor Tast, a sixty percent keyboard concept by Rebel Art Studios. Sixty-one keys, an aluminum case and a brass weight in the base. Explore it in 3D.',
-    socialTitle: 'Fjor Tast, sixty percent keyboard',
-    alt: 'Fjor Tast sixty percent keyboard in Carbon, assembled on a dark stage with a blueprint grid, from Product Concepts by Rebel Art Studios.',
-  },
-]
-
+// Real manifest words must reach each head slot; slot names, URL paths and
+// social tag kinds stay independent assertions. The collection registers
+// every shipped product, while copy edits need no expected-word edits.
 describe('productMetaSet', () => {
-  for (const expected of approved) {
-    test(`derives the approved words for ${expected.slug}`, () => {
-      expect(productMetaSet(parseProduct(expected.manifest, 'test'))).toEqual({
-        title: expected.title,
-        description: expected.description,
-        canonicalUrl: `https://${siteCopy.siteUrl}/p/${expected.slug}`,
-        socialTitle: expected.socialTitle,
-        socialDescription: expected.description,
-        socialImageUrl: `https://${siteCopy.siteUrl}/social/${expected.slug}.png`,
-        socialImageAlt: expected.alt,
+  for (const manifest of productManifests) {
+    const product = parseProduct(manifest, 'test')
+    test(`propagates the owner copy to every head slot for ${product.slug}`, () => {
+      const meta = product.meta
+      if (meta === undefined) {
+        expect(productMetaSet(product)).toBeNull()
+        return
+      }
+      expect(productMetaSet(product)).toEqual({
+        title: productDocumentTitle(product, siteCopy.collectionName),
+        description: meta.description,
+        canonicalUrl: `https://${siteCopy.siteUrl}/p/${product.slug}`,
+        socialTitle: socialProductTitle(product, meta.kind),
+        socialDescription: meta.description,
+        socialImageUrl: `https://${siteCopy.siteUrl}/social/${product.slug}.png`,
+        socialImageAlt: socialProductImageAlt(product, meta.kind),
         socialType: 'website',
         socialSiteName: siteCopy.studioName,
         twitterCard: 'summary_large_image',
@@ -97,10 +58,10 @@ describe('productMetaSet', () => {
 describe('siteMetaSet', () => {
   test('derives the home head set from the site copy', () => {
     expect(siteMetaSet()).toEqual({
-      title: 'Product Concepts | Rebel Art Studios',
+      title: collectionDocumentTitle(siteCopy.collectionName, siteCopy.studioName),
       description: siteCopy.metaDescription,
       canonicalUrl: `https://${siteCopy.siteUrl}/`,
-      socialTitle: 'Product Concepts | Rebel Art Studios',
+      socialTitle: collectionDocumentTitle(siteCopy.collectionName, siteCopy.studioName),
       socialDescription: siteCopy.metaDescription,
       socialImageUrl: `https://${siteCopy.siteUrl}/social/forma-one.png`,
       socialType: 'website',

@@ -12,13 +12,13 @@ export const manifest = {
   eyebrow: 'Wireless headphones',
   tagline: 'Weight where it matters, quiet everywhere else.',
   intro: [
-    'A closed-back headphone built around one 40 mm driver per side.',
+    'Closed-back headphones built around one 40 mm driver per side.',
     'Aluminum yokes, steel sliders and a knit band.',
   ],
   meta: {
     kind: 'wireless over-ear headphones',
     description:
-      'Forma One, a wireless over-ear headphone concept by Rebel Art Studios. A 40 mm driver per side, aluminum yokes and a knit band. Explore it in 3D.',
+      'Forma One, a pair of wireless over-ear concept headphones by Rebel Art Studios. A 40 mm driver per side, aluminum yokes and a knit band. Explore it in 3D.',
   },
   finishes: [
     { variant: 'slate', label: 'Slate', swatch: '#6A7078' },
@@ -31,7 +31,7 @@ export const manifest = {
       id: 'driver',
       eyebrow: 'Inside the cup',
       title: 'Driver and pads',
-      bullets: ['40 mm driver per side', 'Magnetic knit pads, swap without tools'],
+      bullets: ['40 mm driver per side', 'Magnetic knit pads for tool-free swaps'],
     },
     {
       id: 'yoke',

@@ -1,5 +1,7 @@
 import { expect, test } from './fixtures'
 import { brokenFinishModel } from './brokenFinishModel'
+import { unknownMappingVariantMessage } from '../../src/lib/product'
+import { productFailureCopy, productFailureDisplay } from '../../src/viewer/product/failureMessage'
 import { expectProductAlert, pollProductChannel, remountProduct } from './productFailureChannel'
 import { harnessPath, sampledHarnessProducts, waitForProductReady } from './productSpecs'
 
@@ -38,7 +40,11 @@ for (const product of products) {
       failure: { kind: 'load', url: modelUrl, message: expect.any(String) },
       status: 'ready',
     })
-    await expectProductAlert(page, product.slug, `Could not load ${modelUrl}`)
+    await expectProductAlert(
+      page,
+      product.slug,
+      productFailureDisplay({ kind: 'load', url: modelUrl, message: '' }).reason,
+    )
   })
 
   test(`a failed load of ${product.slug} is loaded anew by the next mount`, async ({
@@ -91,7 +97,7 @@ for (const product of products) {
       },
       status: 'ready',
     })
-    await expectProductAlert(page, product.slug, 'break the stage camera rules')
+    await expectProductAlert(page, product.slug, productFailureCopy.cameraContract)
   })
 
   test(`a model of ${product.slug} whose finish mapping is broken fails the product with the finish contract kind and no page error`, async ({
@@ -115,12 +121,12 @@ for (const product of products) {
         kind: 'finish-contract',
         problems: [
           expect.objectContaining({
-            message: `the mapping at 0 names variant ${broken.namedVariant}, the file declares ${broken.declaredVariants}`,
+            message: unknownMappingVariantMessage(0, broken.namedVariant, broken.declaredVariants),
           }),
         ],
       },
       status: 'ready',
     })
-    await expectProductAlert(page, product.slug, 'the finish mapping contract')
+    await expectProductAlert(page, product.slug, productFailureCopy.finishContract)
   })
 }

@@ -1,80 +1,86 @@
 import { describe, expect, it } from 'vitest'
-import type { ProductFailure, ProductFailureKind } from '@lib/product'
-import { productFailureMessage } from './failureMessage'
+import type { ProductFailure } from '@lib/product'
+import { productFailureCopy, productFailureDisplay } from './failureMessage'
+import { productFailureFixtures as failures } from './failureMessage.fixtures'
 
-// One failure of every kind, keyed by the kind, so the table cannot miss a
-// member of the union: a kind the union gains fails the typecheck here
-// until it has a row.
-const failures: { readonly [K in ProductFailureKind]: Extract<ProductFailure, { kind: K }> } = {
-  load: { kind: 'load', url: '/models/sample-one/model.glb', message: 'Failed to fetch' },
-  'model-contract': {
-    kind: 'model-contract',
-    problems: [
-      { node: 'HS_shell', message: 'the anchor is not parented to a part' },
-      { node: null, message: 'the model carries no Explode clip' },
-    ],
-  },
-  'finish-contract': {
-    kind: 'finish-contract',
-    problems: [
-      { mesh: 2, primitive: 0, message: 'the mapping at 0 names variant 9, the file declares 2' },
-      { mesh: null, primitive: null, message: 'the variant at 1 has no name' },
-    ],
-  },
-  'camera-contract': {
-    kind: 'camera-contract',
-    problems: [
-      { rule: 'view-within-distance-limits', message: 'the CAM_home distance 1.2 lies outside' },
-      { rule: 'minimum-clears-the-model', message: 'the minimum distance 0.35 is inside' },
-    ],
-  },
-  presentation: { kind: 'presentation', message: 'the settle rejected' },
-  render: { kind: 'render', message: 'a node build threw' },
-  unexpected: { kind: 'unexpected', message: 'a programming error' },
+// The lines one display shows: the reason, then every problem entry.
+function linesOf(failure: ProductFailure): readonly string[] {
+  const display = productFailureDisplay(failure)
+  return [display.reason, ...(display.problems ?? [])]
 }
 
-describe('productFailureMessage', () => {
+describe('productFailureDisplay', () => {
   it('names the model URL and the loader message of a load failure', () => {
-    expect(productFailureMessage(failures.load)).toBe(
-      'Could not load /models/sample-one/model.glb: Failed to fetch',
-    )
+    const display = productFailureDisplay(failures.load)
+    expect(display.reason).toContain(failures.load.url)
+    expect(display.reason).toContain(failures.load.message)
+    expect(display.problems).toBeUndefined()
   })
 
-  it('lists every model contract problem on its own line, with its node when it names one', () => {
-    expect(productFailureMessage(failures['model-contract']).split('\n')).toEqual([
-      'The model breaks the product contract:',
-      '- HS_shell: the anchor is not parented to a part',
-      '- the model carries no Explode clip',
-    ])
+  it('lists every model contract problem under its heading, with its node when it names one', () => {
+    expect(productFailureDisplay(failures['model-contract'])).toEqual({
+      reason: productFailureCopy.modelContract,
+      problems: [
+        `${failures['model-contract'].problems[0]?.node}: ${failures['model-contract'].problems[0]?.message}`,
+        failures['model-contract'].problems[1]?.message,
+      ],
+    })
   })
 
-  it('lists every finish mapping problem on its own line, at its mesh and primitive', () => {
-    expect(productFailureMessage(failures['finish-contract']).split('\n')).toEqual([
-      'The model breaks the finish mapping contract:',
-      '- mesh 2 primitive 0: the mapping at 0 names variant 9, the file declares 2',
-      '- the variant at 1 has no name',
-    ])
+  it('lists every finish mapping problem under its heading, at its mesh and primitive', () => {
+    expect(productFailureDisplay(failures['finish-contract'])).toEqual({
+      reason: productFailureCopy.finishContract,
+      problems: [
+        `mesh 2 primitive 0: ${failures['finish-contract'].problems[0]?.message}`,
+        failures['finish-contract'].problems[1]?.message,
+      ],
+    })
   })
 
-  it('lists every camera rule the authored cameras break on its own line', () => {
-    expect(productFailureMessage(failures['camera-contract']).split('\n')).toEqual([
-      'The authored cameras break the stage camera rules:',
-      '- the CAM_home distance 1.2 lies outside',
-      '- the minimum distance 0.35 is inside',
-    ])
+  it('lists every camera rule the authored cameras break under its heading', () => {
+    expect(productFailureDisplay(failures['camera-contract'])).toEqual({
+      reason: productFailureCopy.cameraContract,
+      problems: failures['camera-contract'].problems.map((problem) => problem.message),
+    })
   })
 
-  it.each(Object.values(failures))('carries the facts of a $kind failure', (failure) => {
-    const message = productFailureMessage(failure)
-    const facts = 'problems' in failure ? failure.problems.map((p) => p.message) : [failure.message]
-    for (const fact of facts) {
-      expect(message).toContain(fact)
+  // The rule the display owns for the whole class: a problem entry becomes
+  // a list item the alert renders, never text that carries its own bullet
+  // character, so no diagnostic line can reach the alert dash prefixed.
+  it('starts no reason and no problem entry with a dash, over every kind', () => {
+    for (const failure of Object.values(failures)) {
+      for (const line of linesOf(failure)) {
+        expect(line.startsWith('-'), line).toBe(false)
+      }
     }
   })
 
+  it.each(Object.values(failures))('carries the facts of a $kind failure', (failure) => {
+    const facts = 'problems' in failure ? failure.problems.map((p) => p.message) : [failure.message]
+    const lines = linesOf(failure)
+    for (const fact of facts) {
+      expect(
+        lines.some((line) => line.includes(fact)),
+        fact,
+      ).toBe(true)
+    }
+  })
+
+  it.each(Object.values(failures))(
+    'uses undefined only for the absent list of $kind',
+    (failure) => {
+      const problems = productFailureDisplay(failure).problems
+      if ('problems' in failure) {
+        expect(problems).toHaveLength(failure.problems.length)
+      } else {
+        expect(problems).toBeUndefined()
+      }
+    },
+  )
+
   it('gives every kind its own heading', () => {
     const headings = Object.values(failures).map(
-      (failure) => productFailureMessage(failure).split(':')[0],
+      (failure) => productFailureDisplay(failure).reason.split(':')[0],
     )
     expect(new Set(headings).size).toBe(headings.length)
   })
