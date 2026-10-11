@@ -173,6 +173,12 @@ export function layerPoliciesAll(root: string): DependenciesPolicy[] {
       allow: { to: { module: { origin: 'external', source: dev } } },
     },
     ...layers.flatMap(layerPolicies),
+    // Model parser tests under src/ share the tooling fixture budget. This
+    // test-only edge leaves production imports and other tooling closed.
+    {
+      from: { file: { categories: [TEST_CATEGORY] } },
+      allow: { to: { file: { path: 'tooling/subprocess.fixtures.ts' } } },
+    },
     ...compositionRootPolicies(),
   ]
 }
