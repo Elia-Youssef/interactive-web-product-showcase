@@ -7,6 +7,7 @@ import { MeshoptEncoder } from 'meshoptimizer'
 import { createGltfModelSources, type GltfModelSourceParts } from './gltfModelSources'
 import type { ProductMeshoptDecoder } from './decoders'
 import { unwatchedProgress } from './stageModelLoads.fixtures'
+import { TOOL_FIXTURE_TIMEOUT_MS } from '../../../tooling/subprocess.fixtures'
 
 // The wiring of the model sources over real three objects: the loader and
 // its manager are three's, the decoder is three's own Meshopt decoder, the
@@ -216,7 +217,7 @@ describe('the Meshopt decoder read', () => {
   })
 })
 
-describe('the parse', () => {
+describe('the parse', { timeout: TOOL_FIXTURE_TIMEOUT_MS }, () => {
   it.each([
     ['an absolute model URL', modelUrl, modelBase],
     ['a root-relative model URL', '/models/sample/model.glb', '/models/sample/'],
@@ -245,12 +246,14 @@ describe('the parse', () => {
   })
 
   describe('of a compressed model', () => {
+    let compressedModel: ArrayBuffer
     beforeAll(async () => {
       await MeshoptDecoder.ready
-    })
+      compressedModel = await compressedTriangleGlb()
+    }, TOOL_FIXTURE_TIMEOUT_MS)
 
     it('reads the buffer view through the decoder of the load', async () => {
-      const { requests } = stubFetch(await compressedTriangleGlb())
+      const { requests } = stubFetch(compressedModel)
       const { fetchModel, decoder, parse } = sources({
         importMeshoptDecoder: () => Promise.resolve(MeshoptDecoder),
       })

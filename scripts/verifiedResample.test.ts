@@ -1,5 +1,6 @@
 import path from 'node:path'
-import { expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
+import { TOOL_FIXTURE_TIMEOUT_MS } from '../tooling/subprocess.fixtures.ts'
 import { MeshoptEncoder } from 'meshoptimizer'
 import { geometryTransforms } from './geometryOptimize.ts'
 import { createModelIO } from './modelIo.ts'
@@ -23,22 +24,24 @@ function bakedCurve(amplitude: number) {
   return doc
 }
 
-it('keeps every original key when greedy thinning exceeds the declared curve tolerance', async () => {
-  await withTempDir(async (dir) => {
-    const doc = bakedCurve(ANIMATION_RESAMPLE_TOLERANCE * 1.8)
-    const before = readProductPreservation(doc)
-    const original = before.semantics.tracks[0]
-    await doc.transform(...geometryTransforms(DEFAULT_OPTIMIZE_SETTINGS))
-    const resampled = readProductPreservation(doc).semantics.tracks[0]
-    const io = await createModelIO()
-    io.registerDependencies({ 'meshopt.encoder': MeshoptEncoder })
-    const candidate = path.join(dir, 'candidate.glb')
-    await io.write(candidate, doc)
-    expect(
-      findPreservationLosses(before, readProductPreservation(await io.read(candidate))),
-    ).toEqual([])
-    expect(resampled?.times).toEqual(original?.times)
-    expect(resampled?.values).toEqual(original?.values)
+describe('resampled model storage', { timeout: TOOL_FIXTURE_TIMEOUT_MS }, () => {
+  it('keeps every original key when greedy thinning exceeds the declared curve tolerance', async () => {
+    await withTempDir(async (dir) => {
+      const doc = bakedCurve(ANIMATION_RESAMPLE_TOLERANCE * 1.8)
+      const before = readProductPreservation(doc)
+      const original = before.semantics.tracks[0]
+      await doc.transform(...geometryTransforms(DEFAULT_OPTIMIZE_SETTINGS))
+      const resampled = readProductPreservation(doc).semantics.tracks[0]
+      const io = await createModelIO()
+      io.registerDependencies({ 'meshopt.encoder': MeshoptEncoder })
+      const candidate = path.join(dir, 'candidate.glb')
+      await io.write(candidate, doc)
+      expect(
+        findPreservationLosses(before, readProductPreservation(await io.read(candidate))),
+      ).toEqual([])
+      expect(resampled?.times).toEqual(original?.times)
+      expect(resampled?.values).toEqual(original?.values)
+    })
   })
 })
 

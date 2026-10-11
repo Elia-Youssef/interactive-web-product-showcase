@@ -108,42 +108,48 @@ describe('authored storage round trips', () => {
     })
   })
 
-  it('rejects an installed semantic mutation while preserving previous bytes', async () => {
-    await withTempDir(async (dir) => {
-      const io = await createModelIO()
-      const inputPath = path.join(dir, 'raw.glb')
-      const outputPath = path.join(dir, 'model.glb')
-      await io.write(inputPath, preservationFixture())
-      await writeFile(outputPath, 'previous artifact')
-      const previous = await readFile(outputPath)
-      const before = readProductPreservation(await io.read(inputPath))
-      const { settings } = await loadOptimizeSettings(path.join(dir, 'absent.json'))
-      let losses: string[] = []
-      await expect(
-        runOptimizePipeline({
-          inputPath,
-          outputPath,
-          settings,
-          io,
-          runKtx: async () => undefined,
-          run: async (args) => {
-            await copyFile(args[1] ?? '', args[2] ?? '')
-            const changed = await io.read(args[2] ?? '')
-            namedNode(changed, 'HS_detail').setTranslation([10, 0, 0])
-            await io.write(args[2] ?? '', changed)
-          },
-          validateCandidate: async (candidate) => {
-            losses = findPreservationLosses(
-              before,
-              readProductPreservation(await io.read(candidate)),
-            )
-            if (losses.length > 0) throw new Error(losses.join(', '))
-          },
-        }),
-      ).rejects.toThrow('world rest changed: HS_detail')
-      expect(losses).toContain('world rest changed: HS_detail')
-      expect(await readFile(outputPath)).toEqual(previous)
-      expect((await readdir(dir)).sort()).toEqual(['model.glb', 'raw.glb'])
-    })
-  })
+  describe(
+    'artifact mutation through the model reader',
+    { timeout: TOOL_FIXTURE_TIMEOUT_MS },
+    () => {
+      it('rejects an installed semantic mutation while preserving previous bytes', async () => {
+        await withTempDir(async (dir) => {
+          const io = await createModelIO()
+          const inputPath = path.join(dir, 'raw.glb')
+          const outputPath = path.join(dir, 'model.glb')
+          await io.write(inputPath, preservationFixture())
+          await writeFile(outputPath, 'previous artifact')
+          const previous = await readFile(outputPath)
+          const before = readProductPreservation(await io.read(inputPath))
+          const { settings } = await loadOptimizeSettings(path.join(dir, 'absent.json'))
+          let losses: string[] = []
+          await expect(
+            runOptimizePipeline({
+              inputPath,
+              outputPath,
+              settings,
+              io,
+              runKtx: async () => undefined,
+              run: async (args) => {
+                await copyFile(args[1] ?? '', args[2] ?? '')
+                const changed = await io.read(args[2] ?? '')
+                namedNode(changed, 'HS_detail').setTranslation([10, 0, 0])
+                await io.write(args[2] ?? '', changed)
+              },
+              validateCandidate: async (candidate) => {
+                losses = findPreservationLosses(
+                  before,
+                  readProductPreservation(await io.read(candidate)),
+                )
+                if (losses.length > 0) throw new Error(losses.join(', '))
+              },
+            }),
+          ).rejects.toThrow('world rest changed: HS_detail')
+          expect(losses).toContain('world rest changed: HS_detail')
+          expect(await readFile(outputPath)).toEqual(previous)
+          expect((await readdir(dir)).sort()).toEqual(['model.glb', 'raw.glb'])
+        })
+      })
+    },
+  )
 })

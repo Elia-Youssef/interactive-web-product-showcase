@@ -20,6 +20,7 @@
 // instead of passing vacuously.
 import { fileURLToPath } from 'node:url'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { TOOL_FIXTURE_TIMEOUT_MS } from '../../tooling/subprocess.fixtures.ts'
 import { NodeIO } from '@gltf-transform/core'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { Mesh } from 'three'
@@ -141,147 +142,149 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe.each(FIXTURE_SLUGS)('the camera facts of %s', (slug) => {
-  it('reads once, freezes, and matches a fresh derive', async () => {
-    vi.resetModules()
-    const { readProductCameraFacts } = await import('./productCamera')
-    const reads = vi.spyOn(NodeIO.prototype, 'read')
-    const warm = await readProductCameraFacts(slug)
-    const warmAgain = await readProductCameraFacts(slug)
-    expect(reads).toHaveBeenCalledTimes(1)
-    expect(warmAgain).toBe(warm)
-    // The derive itself fails by name on a model without its CAM_ cameras,
-    // which is the coverage this reader needs.
-    expect(Object.isFrozen(warm)).toBe(true)
-    expect(Object.isFrozen(warm.home)).toBe(true)
-    expect(Object.isFrozen(warm.home.position)).toBe(true)
-    expect([...warm.closeUps.values()].every((view) => Object.isFrozen(view))).toBe(true)
+describe('fixture product facts', { timeout: TOOL_FIXTURE_TIMEOUT_MS }, () => {
+  describe.each(FIXTURE_SLUGS)('the camera facts of %s', (slug) => {
+    it('reads once, freezes, and matches a fresh derive', async () => {
+      vi.resetModules()
+      const { readProductCameraFacts } = await import('./productCamera')
+      const reads = vi.spyOn(NodeIO.prototype, 'read')
+      const warm = await readProductCameraFacts(slug)
+      const warmAgain = await readProductCameraFacts(slug)
+      expect(reads).toHaveBeenCalledTimes(1)
+      expect(warmAgain).toBe(warm)
+      // The derive itself fails by name on a model without its CAM_ cameras,
+      // which is the coverage this reader needs.
+      expect(Object.isFrozen(warm)).toBe(true)
+      expect(Object.isFrozen(warm.home)).toBe(true)
+      expect(Object.isFrozen(warm.home.position)).toBe(true)
+      expect([...warm.closeUps.values()].every((view) => Object.isFrozen(view))).toBe(true)
 
-    vi.resetModules()
-    const { readProductCameraFacts: readCold } = await import('./productCamera')
-    const cold = await readCold(slug)
-    expect(cameraJsonOf(cold)).toEqual(cameraJsonOf(warm))
-  })
-})
-
-describe.each(HOTSPOT_SLUGS)('the hotspot facts of %s', (slug) => {
-  it('reads and parses once, freezes, and matches a fresh derive', async () => {
-    vi.resetModules()
-    const { readProductHotspotFacts } = await import('./productHotspots')
-    const reads = vi.spyOn(NodeIO.prototype, 'read')
-    const parses = vi.spyOn(GLTFLoader.prototype, 'parseAsync')
-    const warm = await readProductHotspotFacts(slug, productOf(slug))
-    expect(warm.hotspots.length).toBeGreaterThan(0)
-    const warmAgain = await readProductHotspotFacts(slug, productOf(slug))
-    expect(reads).toHaveBeenCalledTimes(1)
-    expect(parses).toHaveBeenCalledTimes(1)
-    expect(warmAgain).toBe(warm)
-    expect(Object.isFrozen(warm)).toBe(true)
-    expect(Object.isFrozen(warm.hotspots)).toBe(true)
-    expect(Object.isFrozen(warm.occluderBounds)).toBe(true)
-    expect(Object.isFrozen(warm.occluders)).toBe(true)
-
-    vi.resetModules()
-    const { readProductHotspotFacts: readCold } = await import('./productHotspots')
-    const cold = await readCold(slug, productOf(slug))
-    expect(hotspotJsonOf(cold)).toEqual(hotspotJsonOf(warm))
-  })
-})
-
-describe.each(FIXTURE_SLUGS)('the model facts of %s', (slug) => {
-  it('reads once, freezes, and matches a fresh derive', async () => {
-    vi.resetModules()
-    const { readProductModelFacts } = await import('./productModel')
-    const reads = vi.spyOn(NodeIO.prototype, 'read')
-    const warm = await readProductModelFacts(slug)
-    expect(warm.partNames.length).toBeGreaterThan(0)
-    expect(warm.hotspotParts.size).toBeGreaterThan(0)
-    const warmAgain = await readProductModelFacts(slug)
-    expect(reads).toHaveBeenCalledTimes(1)
-    expect(warmAgain).toBe(warm)
-    expect(Object.isFrozen(warm)).toBe(true)
-    expect(Object.isFrozen(warm.partNames)).toBe(true)
-
-    vi.resetModules()
-    const { readProductModelFacts: readCold } = await import('./productModel')
-    const cold = await readCold(slug)
-    expect(modelJsonOf(cold)).toEqual(modelJsonOf(warm))
-  })
-})
-
-describe.each(FIXTURE_SLUGS)('the explode facts of %s', (slug) => {
-  it('reads once, freezes, and matches a fresh derive', async () => {
-    vi.resetModules()
-    const { readExplodeModelFacts } = await import('./explodeModelFacts')
-    const reads = vi.spyOn(NodeIO.prototype, 'read')
-    const warm = await readExplodeModelFacts(slug)
-    expect(Object.keys(warm.firstPose).length).toBeGreaterThan(0)
-    const warmAgain = await readExplodeModelFacts(slug)
-    expect(reads).toHaveBeenCalledTimes(1)
-    expect(warmAgain).toBe(warm)
-    expect(Object.isFrozen(warm)).toBe(true)
-    expect(Object.isFrozen(warm.firstPose)).toBe(true)
-
-    vi.resetModules()
-    const { readExplodeModelFacts: readCold } = await import('./explodeModelFacts')
-    const cold = await readCold(slug)
-    expect(explodeJsonOf(cold)).toEqual(explodeJsonOf(warm))
-  })
-})
-
-describe.each(FIXTURE_SLUGS)('the shadow opacity of %s', (slug) => {
-  it('reads once and matches a fresh derive', async () => {
-    vi.resetModules()
-    const { readShadowAuthoredOpacity } = await import('./shadowModelFacts')
-    const reads = vi.spyOn(NodeIO.prototype, 'read')
-    const warm = await readShadowAuthoredOpacity(slug)
-    expect(Number.isFinite(warm)).toBe(true)
-    const warmAgain = await readShadowAuthoredOpacity(slug)
-    expect(reads).toHaveBeenCalledTimes(1)
-    expect(warmAgain).toBe(warm)
-
-    vi.resetModules()
-    const { readShadowAuthoredOpacity: readCold } = await import('./shadowModelFacts')
-    expect(await readCold(slug)).toBe(warm)
-  })
-})
-
-describe.each(HOTSPOT_SLUGS)('the scrub marker facts of %s', (slug) => {
-  it('parses once, freezes, keys by the stage read, and matches a fresh derive', async () => {
-    vi.resetModules()
-    const { readScrubMarkerFacts } = await import('./scrubMarkerFacts')
-    const { readProductCameraFacts } = await import('./productCamera')
-    const reads = vi.spyOn(NodeIO.prototype, 'read')
-    const parses = vi.spyOn(GLTFLoader.prototype, 'parseAsync')
-    const product = productOf(slug)
-    const views = await readProductCameraFacts(slug)
-    const stage = { box: WIDE_BOX, extent: EXTENT }
-    const warm = await readScrubMarkerFacts(product, views.center, views.home, stage)
-    expect(warm.size).toBe(product.hotspots.length)
-    const warmAgain = await readScrubMarkerFacts(product, views.center, views.home, stage)
-    expect(reads).toHaveBeenCalledTimes(1)
-    expect(parses).toHaveBeenCalledTimes(1)
-    expect(warmAgain).toBe(warm)
-    // A Map cannot be frozen; its shown sets are, and its ReadonlyMap type
-    // is what keeps the map itself out of a caller's hands.
-    for (const shown of warm.values()) {
-      expect(Object.isFrozen(shown)).toBe(true)
-    }
-
-    // Another stage is another read: its facts derive separately from the
-    // same one parse, so a second box never sees the first box's answer.
-    const narrow = await readScrubMarkerFacts(product, views.center, views.home, {
-      box: NARROW_BOX,
-      extent: EXTENT,
+      vi.resetModules()
+      const { readProductCameraFacts: readCold } = await import('./productCamera')
+      const cold = await readCold(slug)
+      expect(cameraJsonOf(cold)).toEqual(cameraJsonOf(warm))
     })
-    expect(parses).toHaveBeenCalledTimes(1)
-    expect(narrow).not.toBe(warm)
+  })
 
-    vi.resetModules()
-    const { readScrubMarkerFacts: readCold } = await import('./scrubMarkerFacts')
-    const { readProductCameraFacts: readColdViews } = await import('./productCamera')
-    const coldViews = await readColdViews(slug)
-    const cold = await readCold(product, coldViews.center, coldViews.home, stage)
-    expect(scrubJsonOf(cold)).toEqual(scrubJsonOf(warm))
+  describe.each(HOTSPOT_SLUGS)('the hotspot facts of %s', (slug) => {
+    it('reads and parses once, freezes, and matches a fresh derive', async () => {
+      vi.resetModules()
+      const { readProductHotspotFacts } = await import('./productHotspots')
+      const reads = vi.spyOn(NodeIO.prototype, 'read')
+      const parses = vi.spyOn(GLTFLoader.prototype, 'parseAsync')
+      const warm = await readProductHotspotFacts(slug, productOf(slug))
+      expect(warm.hotspots.length).toBeGreaterThan(0)
+      const warmAgain = await readProductHotspotFacts(slug, productOf(slug))
+      expect(reads).toHaveBeenCalledTimes(1)
+      expect(parses).toHaveBeenCalledTimes(1)
+      expect(warmAgain).toBe(warm)
+      expect(Object.isFrozen(warm)).toBe(true)
+      expect(Object.isFrozen(warm.hotspots)).toBe(true)
+      expect(Object.isFrozen(warm.occluderBounds)).toBe(true)
+      expect(Object.isFrozen(warm.occluders)).toBe(true)
+
+      vi.resetModules()
+      const { readProductHotspotFacts: readCold } = await import('./productHotspots')
+      const cold = await readCold(slug, productOf(slug))
+      expect(hotspotJsonOf(cold)).toEqual(hotspotJsonOf(warm))
+    })
+  })
+
+  describe.each(FIXTURE_SLUGS)('the model facts of %s', (slug) => {
+    it('reads once, freezes, and matches a fresh derive', async () => {
+      vi.resetModules()
+      const { readProductModelFacts } = await import('./productModel')
+      const reads = vi.spyOn(NodeIO.prototype, 'read')
+      const warm = await readProductModelFacts(slug)
+      expect(warm.partNames.length).toBeGreaterThan(0)
+      expect(warm.hotspotParts.size).toBeGreaterThan(0)
+      const warmAgain = await readProductModelFacts(slug)
+      expect(reads).toHaveBeenCalledTimes(1)
+      expect(warmAgain).toBe(warm)
+      expect(Object.isFrozen(warm)).toBe(true)
+      expect(Object.isFrozen(warm.partNames)).toBe(true)
+
+      vi.resetModules()
+      const { readProductModelFacts: readCold } = await import('./productModel')
+      const cold = await readCold(slug)
+      expect(modelJsonOf(cold)).toEqual(modelJsonOf(warm))
+    })
+  })
+
+  describe.each(FIXTURE_SLUGS)('the explode facts of %s', (slug) => {
+    it('reads once, freezes, and matches a fresh derive', async () => {
+      vi.resetModules()
+      const { readExplodeModelFacts } = await import('./explodeModelFacts')
+      const reads = vi.spyOn(NodeIO.prototype, 'read')
+      const warm = await readExplodeModelFacts(slug)
+      expect(Object.keys(warm.firstPose).length).toBeGreaterThan(0)
+      const warmAgain = await readExplodeModelFacts(slug)
+      expect(reads).toHaveBeenCalledTimes(1)
+      expect(warmAgain).toBe(warm)
+      expect(Object.isFrozen(warm)).toBe(true)
+      expect(Object.isFrozen(warm.firstPose)).toBe(true)
+
+      vi.resetModules()
+      const { readExplodeModelFacts: readCold } = await import('./explodeModelFacts')
+      const cold = await readCold(slug)
+      expect(explodeJsonOf(cold)).toEqual(explodeJsonOf(warm))
+    })
+  })
+
+  describe.each(FIXTURE_SLUGS)('the shadow opacity of %s', (slug) => {
+    it('reads once and matches a fresh derive', async () => {
+      vi.resetModules()
+      const { readShadowAuthoredOpacity } = await import('./shadowModelFacts')
+      const reads = vi.spyOn(NodeIO.prototype, 'read')
+      const warm = await readShadowAuthoredOpacity(slug)
+      expect(Number.isFinite(warm)).toBe(true)
+      const warmAgain = await readShadowAuthoredOpacity(slug)
+      expect(reads).toHaveBeenCalledTimes(1)
+      expect(warmAgain).toBe(warm)
+
+      vi.resetModules()
+      const { readShadowAuthoredOpacity: readCold } = await import('./shadowModelFacts')
+      expect(await readCold(slug)).toBe(warm)
+    })
+  })
+
+  describe.each(HOTSPOT_SLUGS)('the scrub marker facts of %s', (slug) => {
+    it('parses once, freezes, keys by the stage read, and matches a fresh derive', async () => {
+      vi.resetModules()
+      const { readScrubMarkerFacts } = await import('./scrubMarkerFacts')
+      const { readProductCameraFacts } = await import('./productCamera')
+      const reads = vi.spyOn(NodeIO.prototype, 'read')
+      const parses = vi.spyOn(GLTFLoader.prototype, 'parseAsync')
+      const product = productOf(slug)
+      const views = await readProductCameraFacts(slug)
+      const stage = { box: WIDE_BOX, extent: EXTENT }
+      const warm = await readScrubMarkerFacts(product, views.center, views.home, stage)
+      expect(warm.size).toBe(product.hotspots.length)
+      const warmAgain = await readScrubMarkerFacts(product, views.center, views.home, stage)
+      expect(reads).toHaveBeenCalledTimes(1)
+      expect(parses).toHaveBeenCalledTimes(1)
+      expect(warmAgain).toBe(warm)
+      // A Map cannot be frozen; its shown sets are, and its ReadonlyMap type
+      // is what keeps the map itself out of a caller's hands.
+      for (const shown of warm.values()) {
+        expect(Object.isFrozen(shown)).toBe(true)
+      }
+
+      // Another stage is another read: its facts derive separately from the
+      // same one parse, so a second box never sees the first box's answer.
+      const narrow = await readScrubMarkerFacts(product, views.center, views.home, {
+        box: NARROW_BOX,
+        extent: EXTENT,
+      })
+      expect(parses).toHaveBeenCalledTimes(1)
+      expect(narrow).not.toBe(warm)
+
+      vi.resetModules()
+      const { readScrubMarkerFacts: readCold } = await import('./scrubMarkerFacts')
+      const { readProductCameraFacts: readColdViews } = await import('./productCamera')
+      const coldViews = await readColdViews(slug)
+      const cold = await readCold(product, coldViews.center, coldViews.home, stage)
+      expect(scrubJsonOf(cold)).toEqual(scrubJsonOf(warm))
+    })
   })
 })

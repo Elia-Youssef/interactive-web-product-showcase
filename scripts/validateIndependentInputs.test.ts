@@ -5,7 +5,8 @@ import { NodeIO } from '@gltf-transform/core'
 import { ALL_EXTENSIONS, KHRLightsPunctual, type MappingList } from '@gltf-transform/extensions'
 import { MeshoptDecoder, MeshoptEncoder } from 'meshoptimizer'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { loadParseProduct, type ParseProduct } from './manifestIo.ts'
+import { loadParseProduct } from './manifestIo.ts'
+import { TOOL_FIXTURE_TIMEOUT_MS } from '../tooling/subprocess.fixtures.ts'
 import { POSITION_QUANTIZE_BITS } from './settings.ts'
 import { positionGridOf } from './storageGrid.ts'
 import { addRootNode, buildDocument, nodeNamed } from './validateFixtures.ts'
@@ -50,7 +51,7 @@ function independentlyInvalidDocument() {
 
 describe('independent validation inputs', () => {
   let tempRoot = ''
-  let parseProduct: ParseProduct
+  const validations = new Map<string, Awaited<ReturnType<typeof validateShippedProduct>>>()
 
   beforeAll(async () => {
     await mkdir(path.join(ROOT, 'scratch'), { recursive: true })
@@ -70,8 +71,11 @@ describe('independent validation inputs', () => {
       path.join(tempRoot, 'src', 'products', 'malformed.manifest.ts'),
       'export const manifest = { slug: 42 }',
     )
-    parseProduct = await loadParseProduct()
-  })
+    const parseProduct = await loadParseProduct()
+    for (const slug of ['missing', 'malformed']) {
+      validations.set(slug, await validateShippedProduct(tempRoot, slug, parseProduct, GRID))
+    }
+  }, TOOL_FIXTURE_TIMEOUT_MS)
 
   afterAll(async () => {
     await rm(tempRoot, { recursive: true, force: true })
@@ -79,8 +83,9 @@ describe('independent validation inputs', () => {
 
   it.each(['missing', 'malformed'])(
     'reports every planted model finding with a %s manifest',
-    async (slug) => {
-      const validation = await validateShippedProduct(tempRoot, slug, parseProduct, GRID)
+    (slug) => {
+      const validation = validations.get(slug)
+      if (validation === undefined) throw new Error(`missing validation evidence for ${slug}`)
       expect(validation.checks.find((check) => check.name === 'manifest')?.status).toBe('fail')
       const keys = validation.checks
         .flatMap((check) => check.violations)

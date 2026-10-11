@@ -14,6 +14,7 @@
 // feature poses it before the plan is built, and only then is the plan
 // built.
 import { describe, expect, it } from 'vitest'
+import { TOOL_FIXTURE_TIMEOUT_MS } from '../../tooling/subprocess.fixtures.ts'
 import { MathUtils, PerspectiveCamera, Vector3 } from 'three'
 import { fileURLToPath } from 'node:url'
 import { productCameraFactsOf } from './productCamera'
@@ -96,168 +97,174 @@ function orbitDistance(view: {
   )
 }
 
-describe('the document facts agree with the real loader on every shipped product', () => {
-  it.each(SHIPPED_SLUGS)('measures the same frame for %s', async (slug) => {
-    const { frame: documentFrame } = await shippedDocument(slug)
-    const parsed = await readSharedParsedProduct(await modelPathOf(ROOT, slug))
-    const runtimeFrame = measureModelFrame(parsed.scene)
-    expect(runtimeFrame.centerX).toBe(documentFrame.center[0])
-    expect(runtimeFrame.centerY).toBe(documentFrame.center[1])
-    expect(runtimeFrame.centerZ).toBe(documentFrame.center[2])
-    expect(runtimeFrame.radius).toBe(documentFrame.radius)
-  })
+describe(
+  'the document facts agree with the real loader on every shipped product',
+  { timeout: TOOL_FIXTURE_TIMEOUT_MS },
+  () => {
+    it.each(SHIPPED_SLUGS)('measures the same frame for %s', async (slug) => {
+      const { frame: documentFrame } = await shippedDocument(slug)
+      const parsed = await readSharedParsedProduct(await modelPathOf(ROOT, slug))
+      const runtimeFrame = measureModelFrame(parsed.scene)
+      expect(runtimeFrame.centerX).toBe(documentFrame.center[0])
+      expect(runtimeFrame.centerY).toBe(documentFrame.center[1])
+      expect(runtimeFrame.centerZ).toBe(documentFrame.center[2])
+      expect(runtimeFrame.radius).toBe(documentFrame.radius)
+    })
 
-  it.each(SHIPPED_SLUGS)('builds the same views and limits for %s', async (slug) => {
-    const modelPath = await modelPathOf(ROOT, slug)
-    const { doc, frame: documentFrame } = await shippedDocument(slug)
-    const facts = productCameraFactsOf(doc, modelPath)
-    const { manifest } = await shippedManifest(slug)
-    const parsed = await readSharedParsedProduct(await modelPathOf(ROOT, slug))
-
-    // The home ray the document facts read, against the loader's camera
-    // world transform, in model space.
-    const homeFact = readCameraFacts(doc).find((fact) => fact.name === CAMERA_HOME_NAME)
-    if (homeFact === undefined || homeFact.ray === null) {
-      throw new Error(`the shipped product ${slug} carries no home camera ray`)
-    }
-    const homeCamera = parsed.scene.getObjectByName(CAMERA_HOME_NAME)
-    if (!(homeCamera instanceof PerspectiveCamera)) {
-      throw new Error(`the loader tree of ${slug} holds no perspective ${CAMERA_HOME_NAME}`)
-    }
-    const position = homeCamera.getWorldPosition(new Vector3())
-    const forward = homeCamera.getWorldDirection(new Vector3())
-    expect([position.x, position.y, position.z]).toEqual(homeFact.ray.position)
-    expect([forward.x, forward.y, forward.z]).toEqual(homeFact.ray.forward)
-    // The fov rides the loader's degrees round trip; on the shipped cameras
-    // it comes back as the authored double.
-    expect(MathUtils.degToRad(homeCamera.fov)).toBe(homeFact.ray.fovY)
-    expect(homeCamera.aspect).toBe(facts.home.aspect)
-
-    // The plan the runtime builds over the centered tree, against the same
-    // facts: the stage's origin as the center, the stage-space rays. Every
-    // view the plan presents is a view the facts carry, by the same id, and
-    // the view set is the one validate checks.
-    const { rig, frame } = presentedProduct(parsed, manifest)
-    const plan = plannedCamera(rig, manifest, frame)
-    const structure = readProductStructure(doc)
-    expect([...plan.views.keys()]).toEqual(
-      contractViews(manifest, structure, documentFrame, cameraContract).views.map(
-        (view) => view.id,
-      ),
-    )
-    for (const [id, view] of plan.views) {
-      const expected = id === CAMERA_HOME_ID ? facts.home : facts.closeUps.get(id)
-      if (expected === undefined) {
-        throw new Error(`the plan of ${slug} presents a view ${id} the facts do not carry`)
-      }
-      expect(view.position).toEqual(expected.position)
-      expect(view.target).toEqual(expected.target)
-      expect(view.near).toBe(expected.near)
-      expect(view.far).toBe(expected.far)
-      expect(orbitDistance(view)).toBe(expected.distance)
-    }
-    expect(plan.authoredAspect).toBe(facts.home.aspect)
-    expect(plan.baseFovY).toBe(facts.home.fovY)
-    // The limits the plan presents: each side the manifest authors, else
-    // the ratio of the same home distance the facts carry.
-    expect(plan.distanceRange.min).toBe(
-      manifest.camera?.minDistance ?? facts.home.distance * cameraLimitConfig.minHomeDistanceRatio,
-    )
-    expect(plan.distanceRange.max).toBe(
-      manifest.camera?.maxDistance ?? facts.home.distance * cameraLimitConfig.maxHomeDistanceRatio,
-    )
-    expect(plan.polarRange.min).toBe((cameraLimitConfig.minPolarAngleDegrees * Math.PI) / 180)
-    expect(plan.polarRange.max).toBe((cameraLimitConfig.maxPolarAngleDegrees * Math.PI) / 180)
-
-    // The shipped manifest holds on both sides.
-    expect(checkCameras(manifest, structure, cameraContract).violations).toEqual([])
-  })
-
-  it.each(SHIPPED_SLUGS)('fails on the same problems for %s on both sides', async (slug) => {
-    const { doc, frame: documentFrame } = await shippedDocument(slug)
-    const facts = productCameraFactsOf(doc, `public/models/${slug}/model.glb`)
-    const { manifest, input } = await shippedManifest(slug)
-    const { rig, frame } = presentedProduct(
-      await readSharedParsedProduct(await modelPathOf(ROOT, slug)),
-      manifest,
-    )
-    const structure = readProductStructure(doc)
-
-    // Camera blocks that bracket a view's distance: validate and the
-    // runtime fail on the same problems, by the same values, in the same
-    // order. The manifest input parses again with the block, so both sides
-    // see the real schema output.
-    const manifestWith = (camera: { minDistance?: number; maxDistance?: number }): Product =>
-      parseProduct({ ...(input as Record<string, unknown>), camera }, `the ${slug} fixture`)
-    for (const bracket of bracketsOf(facts, documentFrame)) {
-      const validateViolations = checkCameras(
-        manifestWith(bracket.block),
-        structure,
-        cameraContract,
-      ).violations
-      const problems = planProblems(rig, manifestWith(bracket.block), frame)
-      if (problems === null) {
-        throw new Error(`the plan built under the bracket of ${slug} for ${bracket.expected}`)
-      }
-      const messages = problems.map((problem) => problem.message)
-      expect(validateViolations).toEqual(messages)
-      // The bracket hits the view it brackets, so the agreement covers that
-      // view's own rule, not only a problem some other view raises.
-      expect(messages).toContainEqual(expect.stringContaining(bracket.expected))
-    }
-  })
-
-  it.each(SHIPPED_SLUGS)(
-    'fails on the same geometry problems for %s on both sides, view by view',
-    async (slug) => {
+    it.each(SHIPPED_SLUGS)('builds the same views and limits for %s', async (slug) => {
+      const modelPath = await modelPathOf(ROOT, slug)
+      const { doc, frame: documentFrame } = await shippedDocument(slug)
+      const facts = productCameraFactsOf(doc, modelPath)
       const { manifest } = await shippedManifest(slug)
-      const { doc: shipped } = await shippedDocument(slug)
-      const ids = contractViews(
-        manifest,
-        readProductStructure(shipped),
-        frameSpanOfMeshBoxes(readMeshBoxes(shipped)),
-        cameraContract,
-      ).views.map((view) => view.id)
-      // One view at a time takes a degenerate field of view in the shipped
-      // document, which both sides then read: validate from the document,
-      // the runtime from the real loader's parse of the same document. The
-      // geometry rule names that view on both sides, by the same message,
-      // and the rules every other view answers to still agree beside it.
-      for (const id of ids) {
-        const { doc } = await shippedDocument(slug)
-        const camera = firstNodeNamed(doc, `${CAMERA_PREFIX}${id}`).getCamera()
-        if (camera === null) {
-          throw new Error(`the ${CAMERA_PREFIX}${id} node of ${slug} carries no camera`)
+      const parsed = await readSharedParsedProduct(await modelPathOf(ROOT, slug))
+
+      // The home ray the document facts read, against the loader's camera
+      // world transform, in model space.
+      const homeFact = readCameraFacts(doc).find((fact) => fact.name === CAMERA_HOME_NAME)
+      if (homeFact === undefined || homeFact.ray === null) {
+        throw new Error(`the shipped product ${slug} carries no home camera ray`)
+      }
+      const homeCamera = parsed.scene.getObjectByName(CAMERA_HOME_NAME)
+      if (!(homeCamera instanceof PerspectiveCamera)) {
+        throw new Error(`the loader tree of ${slug} holds no perspective ${CAMERA_HOME_NAME}`)
+      }
+      const position = homeCamera.getWorldPosition(new Vector3())
+      const forward = homeCamera.getWorldDirection(new Vector3())
+      expect([position.x, position.y, position.z]).toEqual(homeFact.ray.position)
+      expect([forward.x, forward.y, forward.z]).toEqual(homeFact.ray.forward)
+      // The fov rides the loader's degrees round trip; on the shipped cameras
+      // it comes back as the authored double.
+      expect(MathUtils.degToRad(homeCamera.fov)).toBe(homeFact.ray.fovY)
+      expect(homeCamera.aspect).toBe(facts.home.aspect)
+
+      // The plan the runtime builds over the centered tree, against the same
+      // facts: the stage's origin as the center, the stage-space rays. Every
+      // view the plan presents is a view the facts carry, by the same id, and
+      // the view set is the one validate checks.
+      const { rig, frame } = presentedProduct(parsed, manifest)
+      const plan = plannedCamera(rig, manifest, frame)
+      const structure = readProductStructure(doc)
+      expect([...plan.views.keys()]).toEqual(
+        contractViews(manifest, structure, documentFrame, cameraContract).views.map(
+          (view) => view.id,
+        ),
+      )
+      for (const [id, view] of plan.views) {
+        const expected = id === CAMERA_HOME_ID ? facts.home : facts.closeUps.get(id)
+        if (expected === undefined) {
+          throw new Error(`the plan of ${slug} presents a view ${id} the facts do not carry`)
         }
-        camera.setYFov(0)
+        expect(view.position).toEqual(expected.position)
+        expect(view.target).toEqual(expected.target)
+        expect(view.near).toBe(expected.near)
+        expect(view.far).toBe(expected.far)
+        expect(orbitDistance(view)).toBe(expected.distance)
+      }
+      expect(plan.authoredAspect).toBe(facts.home.aspect)
+      expect(plan.baseFovY).toBe(facts.home.fovY)
+      // The limits the plan presents: each side the manifest authors, else
+      // the ratio of the same home distance the facts carry.
+      expect(plan.distanceRange.min).toBe(
+        manifest.camera?.minDistance ??
+          facts.home.distance * cameraLimitConfig.minHomeDistanceRatio,
+      )
+      expect(plan.distanceRange.max).toBe(
+        manifest.camera?.maxDistance ??
+          facts.home.distance * cameraLimitConfig.maxHomeDistanceRatio,
+      )
+      expect(plan.polarRange.min).toBe((cameraLimitConfig.minPolarAngleDegrees * Math.PI) / 180)
+      expect(plan.polarRange.max).toBe((cameraLimitConfig.maxPolarAngleDegrees * Math.PI) / 180)
+
+      // The shipped manifest holds on both sides.
+      expect(checkCameras(manifest, structure, cameraContract).violations).toEqual([])
+    })
+
+    it.each(SHIPPED_SLUGS)('fails on the same problems for %s on both sides', async (slug) => {
+      const { doc, frame: documentFrame } = await shippedDocument(slug)
+      const facts = productCameraFactsOf(doc, `public/models/${slug}/model.glb`)
+      const { manifest, input } = await shippedManifest(slug)
+      const { rig, frame } = presentedProduct(
+        await readSharedParsedProduct(await modelPathOf(ROOT, slug)),
+        manifest,
+      )
+      const structure = readProductStructure(doc)
+
+      // Camera blocks that bracket a view's distance: validate and the
+      // runtime fail on the same problems, by the same values, in the same
+      // order. The manifest input parses again with the block, so both sides
+      // see the real schema output.
+      const manifestWith = (camera: { minDistance?: number; maxDistance?: number }): Product =>
+        parseProduct({ ...(input as Record<string, unknown>), camera }, `the ${slug} fixture`)
+      for (const bracket of bracketsOf(facts, documentFrame)) {
         const validateViolations = checkCameras(
-          manifest,
-          readProductStructure(doc),
+          manifestWith(bracket.block),
+          structure,
           cameraContract,
         ).violations
-        const { rig, frame } = presentedProduct(await parseDocumentWithLoader(doc), manifest)
-        const problems = planProblems(rig, manifest, frame)
+        const problems = planProblems(rig, manifestWith(bracket.block), frame)
         if (problems === null) {
-          throw new Error(`the plan of ${slug} built with a degenerate ${CAMERA_PREFIX}${id}`)
+          throw new Error(`the plan built under the bracket of ${slug} for ${bracket.expected}`)
         }
         const messages = problems.map((problem) => problem.message)
         expect(validateViolations).toEqual(messages)
-        expect(messages).toContain(
-          `the camera CAM_${id} has a field of view of 0 rad, outside the open range (0, ${Math.PI})`,
-        )
+        // The bracket hits the view it brackets, so the agreement covers that
+        // view's own rule, not only a problem some other view raises.
+        expect(messages).toContainEqual(expect.stringContaining(bracket.expected))
       }
-    },
-  )
+    })
 
-  it('brackets a close-up view on the shipped set', async () => {
-    // The close-up brackets above run only for a product whose model
-    // carries a close-up; without one in the set the every-view agreement
-    // would pass on the home view alone.
-    let closeUps = 0
-    for (const slug of SHIPPED_SLUGS) {
-      const { doc } = await shippedDocument(slug)
-      closeUps += productCameraFactsOf(doc, `public/models/${slug}/model.glb`).closeUps.size
-    }
-    expect(closeUps).toBeGreaterThan(0)
-  })
-})
+    it.each(SHIPPED_SLUGS)(
+      'fails on the same geometry problems for %s on both sides, view by view',
+      async (slug) => {
+        const { manifest } = await shippedManifest(slug)
+        const { doc: shipped } = await shippedDocument(slug)
+        const ids = contractViews(
+          manifest,
+          readProductStructure(shipped),
+          frameSpanOfMeshBoxes(readMeshBoxes(shipped)),
+          cameraContract,
+        ).views.map((view) => view.id)
+        // One view at a time takes a degenerate field of view in the shipped
+        // document, which both sides then read: validate from the document,
+        // the runtime from the real loader's parse of the same document. The
+        // geometry rule names that view on both sides, by the same message,
+        // and the rules every other view answers to still agree beside it.
+        for (const id of ids) {
+          const { doc } = await shippedDocument(slug)
+          const camera = firstNodeNamed(doc, `${CAMERA_PREFIX}${id}`).getCamera()
+          if (camera === null) {
+            throw new Error(`the ${CAMERA_PREFIX}${id} node of ${slug} carries no camera`)
+          }
+          camera.setYFov(0)
+          const validateViolations = checkCameras(
+            manifest,
+            readProductStructure(doc),
+            cameraContract,
+          ).violations
+          const { rig, frame } = presentedProduct(await parseDocumentWithLoader(doc), manifest)
+          const problems = planProblems(rig, manifest, frame)
+          if (problems === null) {
+            throw new Error(`the plan of ${slug} built with a degenerate ${CAMERA_PREFIX}${id}`)
+          }
+          const messages = problems.map((problem) => problem.message)
+          expect(validateViolations).toEqual(messages)
+          expect(messages).toContain(
+            `the camera CAM_${id} has a field of view of 0 rad, outside the open range (0, ${Math.PI})`,
+          )
+        }
+      },
+    )
+
+    it('brackets a close-up view on the shipped set', async () => {
+      // The close-up brackets above run only for a product whose model
+      // carries a close-up; without one in the set the every-view agreement
+      // would pass on the home view alone.
+      let closeUps = 0
+      for (const slug of SHIPPED_SLUGS) {
+        const { doc } = await shippedDocument(slug)
+        closeUps += productCameraFactsOf(doc, `public/models/${slug}/model.glb`).closeUps.size
+      }
+      expect(closeUps).toBeGreaterThan(0)
+    })
+  },
+)

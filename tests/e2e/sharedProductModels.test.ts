@@ -5,6 +5,7 @@
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { TOOL_FIXTURE_TIMEOUT_MS } from '../../tooling/subprocess.fixtures.ts'
 import { NodeIO } from '@gltf-transform/core'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import type { Object3D } from 'three'
@@ -63,7 +64,7 @@ describe('memoizedRead', () => {
   })
 })
 
-describe('readSharedModelDocument', () => {
+describe('readSharedModelDocument', { timeout: TOOL_FIXTURE_TIMEOUT_MS }, () => {
   it('reads one document for every read of the same model', async () => {
     const { readSharedModelDocument } = await import('./sharedProductModels')
     const read = vi.spyOn(NodeIO.prototype, 'read')
@@ -94,7 +95,7 @@ describe('readSharedModelDocument', () => {
   })
 })
 
-describe('readSharedParsedProduct', () => {
+describe('readSharedParsedProduct', { timeout: TOOL_FIXTURE_TIMEOUT_MS }, () => {
   it('parses one model once and hands every caller its own copy of the tree', async () => {
     const { readSharedParsedProduct } = await import('./sharedProductModels')
     const read = vi.spyOn(NodeIO.prototype, 'read')

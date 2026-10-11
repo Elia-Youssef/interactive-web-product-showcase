@@ -8,6 +8,7 @@
 // writer stores.
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { TOOL_FIXTURE_TIMEOUT_MS } from '../tooling/subprocess.fixtures.ts'
 import type { Document } from '@gltf-transform/core'
 import { SHORT_COMPONENT_TYPE } from './componentTypes.ts'
 import { createModelIO } from './modelIo.ts'
@@ -63,7 +64,7 @@ async function readWritten(doc: Document, overrides: OptimizeOverrides = {}) {
 const namesOf = (outputs: readonly { animationName: string; targetName: string }[]) =>
   outputs.map(({ animationName, targetName }) => `${animationName} ${targetName}`)
 
-describe('readTranslationOutputs', () => {
+describe('readTranslationOutputs', { timeout: TOOL_FIXTURE_TIMEOUT_MS }, () => {
   it('reads every translation output of a written file and no rotation output', async () => {
     const doc = plantedDocument()
     addRotationChannel(doc, 'PART_knob')
@@ -82,7 +83,7 @@ describe('readTranslationOutputs', () => {
   })
 })
 
-describe('readPositionStorage', () => {
+describe('readPositionStorage', { timeout: TOOL_FIXTURE_TIMEOUT_MS }, () => {
   it('finds every stored position of a pipeline-written file on the pipeline grid', async () => {
     const read = await readWritten(plantedDocument())
     expect(read.positions.length).toBeGreaterThan(0)

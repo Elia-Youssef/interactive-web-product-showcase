@@ -94,7 +94,7 @@ describe('the validate step on every shipped product', () => {
 
 describe('the validate step on a planted product at the old aspect', () => {
   let tempRoot = ''
-  let parseProduct: ParseProduct
+  let validation: Awaited<ReturnType<typeof validateShippedProduct>>
 
   beforeAll(async () => {
     const scratchRoot = path.join(ROOT, 'scratch')
@@ -135,20 +135,19 @@ describe('the validate step on a planted product at the old aspect', () => {
       ].join('\n'),
       'utf8',
     )
-    parseProduct = await loadParseProduct()
-  })
+    validation = await validateShippedProduct(
+      tempRoot,
+      'planted-speaker',
+      await loadParseProduct(),
+      POSITION_GRID,
+    )
+  }, TOOL_FIXTURE_TIMEOUT_MS)
 
   afterAll(async () => {
     await rm(tempRoot, { recursive: true, force: true })
   })
 
-  it('fails by name on every camera aspect', async () => {
-    const validation = await validateShippedProduct(
-      tempRoot,
-      'planted-speaker',
-      parseProduct,
-      POSITION_GRID,
-    )
+  it('fails by name on every camera aspect', () => {
     const cameras = validation.checks.find((check) => check.name === 'cameras')
     expect(cameras?.status).toBe('fail')
     expect(cameras?.violations).toEqual([

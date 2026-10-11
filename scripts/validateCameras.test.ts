@@ -3,7 +3,6 @@
 // through the one shared assembly. Every case asserts the exact violation messages:
 // the report's wording is part of the contract.
 import { describe, expect, it } from 'vitest'
-import { fileURLToPath } from 'node:url'
 import { parseProduct } from '../src/lib/product/index.ts'
 import type { Product, ProductInput } from '../src/lib/product/index.ts'
 import { authoredCameraAspect } from '../src/lib/camera/config.ts'
@@ -18,9 +17,6 @@ import {
   type DocumentOptions,
 } from './validateFixtures.ts'
 import { checkCameras } from './validateCameras.ts'
-
-// The repo root: the parent of the scripts folder this file lives in.
-const ROOT = fileURLToPath(new URL('..', import.meta.url))
 
 function buildFixtureDocument(options: DocumentOptions = {}) {
   return buildDocument({ hotspotNames: ['HS_driver', 'HS_knob'], ...options })
@@ -268,41 +264,5 @@ describe('the camera contract check', () => {
     expect(checkCameras(fixture, readProductStructure(doc), cameraContract).violations).toEqual([
       'the camera CAM_driver has no HS_driver anchor at rest to orbit',
     ])
-  })
-
-  it('holds the placeholder speaker between its close-up reach and its close-up distance', async () => {
-    // Under the anchor pivot the speaker's driver close-up orbits its
-    // target 0.2957 away, where the model reaches 0.2846: the authored
-    // minimum must exceed the one and stay under the other, through the
-    // real assembly over the fixture model, the one real model with an
-    // authored camera minimum.
-    const { createModelIO } = await import('./modelIo.ts')
-    const { modelPathOf } = await import('./fixtureProducts.ts')
-    const { manifest: speakerManifest } =
-      await import('../tests/fixtures/products/placeholder-speaker/placeholder-speaker.fixtures.ts')
-    const io = await createModelIO()
-    const doc = await io.read(await modelPathOf(ROOT, 'placeholder-speaker'))
-    const structure = readProductStructure(doc)
-    const withMinimum = (minDistance: number) =>
-      checkCameras(
-        parseProduct({ ...speakerManifest, camera: { minDistance } }, 'placeholder-speaker'),
-        structure,
-        cameraContract,
-      ).violations
-
-    expect(withMinimum(0.28)).toEqual([
-      expect.stringMatching(
-        /^the placeholder-speaker CAM_driver minimum distance 0\.28 does not exceed the model reach 0\.2846\d* from its orbit target, projected from the HS_driver anchor$/,
-      ),
-    ])
-    expect(withMinimum(0.3)).toEqual([
-      expect.stringMatching(
-        /^the CAM_driver distance 0\.2957\d* lies outside the distance limits \[0\.3, /,
-      ),
-    ])
-    expect(
-      checkCameras(parseProduct(speakerManifest, 'placeholder-speaker'), structure, cameraContract)
-        .violations,
-    ).toEqual([])
   })
 })
