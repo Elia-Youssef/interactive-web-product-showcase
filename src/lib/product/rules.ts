@@ -16,6 +16,22 @@ export const SWATCH_PATTERN = /^#[0-9a-f]{6}$/i
 // whitespace. Line breaks are CR, LF and the Unicode line separators.
 export const SINGLE_LINE_PATTERN = /^\S(?:[^\r\n\u2028\u2029]*\S)?$/
 
+// The look block's bounds. Exposure is a tone mapping multiplier greater
+// than 0 and at most 4; the environment intensity scales the scene's IBL
+// from 0 to 4; the environment rotation turns the IBL about the vertical
+// axis, a full turn excluded; the shadow opacity scales the baked contact
+// shadow's own alpha from 0 to 1.
+export const LOOK_EXPOSURE_MAX = 4
+export const LOOK_ENVIRONMENT_INTENSITY_MAX = 4
+export const LOOK_ENVIRONMENT_ROTATION_DEG_MAX = 360
+export const LOOK_SHADOW_OPACITY_MAX = 1
+
+// The end a product eyebrow may not have: a digit or a separator. The site
+// closes every product eyebrow with the product number ('/ 001'), so the
+// manifest writes the product kind alone; a trailing digit is a number
+// written twice, and a trailing separator is the start of one.
+export const EYEBROW_TRAILING_NUMBER_PATTERN = /[\d/|\u00b7#:-]$/
+
 export const INTRO_MAX_LINES = 2
 
 export const FINISHES_MIN = 1

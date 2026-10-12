@@ -1,0 +1,135 @@
+diff --git a/build/three.webgpu.js b/build/three.webgpu.js
+index 48b30e6bf4bf114ba5524ae509c81c4a043d27ea..fb6d3bb8b7c2e6388f7de22a6e5e548062fcd4f5 100644
+--- a/build/three.webgpu.js
++++ b/build/three.webgpu.js
+@@ -64358,6 +64358,7 @@ class Renderer {
+ 
+ 		if ( this._initialized === true ) {
+ 
++			await this.setAnimationLoop( null );
+ 			this.info.dispose();
+ 
+ 			this._inspector.dispose();
+@@ -64382,7 +64383,6 @@ class Renderer {
+ 		}
+ 
+ 		this.setRenderTarget( null );
+-		this.setAnimationLoop( null );
+ 
+ 	}
+ 
+@@ -76138,12 +76138,15 @@ class WebGLBackend extends Backend {
+ 	}
+ 
+ 	/**
+-	 * Destroys the GPU buffer of a shader attribute.
++	 * Destroys the GPU buffer of a shader attribute and every vertex array
++	 * object whose key holds the attribute.
+ 	 *
+ 	 * @param {BufferAttribute} attribute - The buffer attribute to destroy.
+ 	 */
+ 	destroyAttribute( attribute ) {
+ 
++		this._releaseVaos( attribute );
++
+ 		this.attributeUtils.destroyAttribute( attribute );
+ 
+ 	}
+@@ -76644,6 +76647,57 @@ class WebGLBackend extends Backend {
+ 
+ 	}
+ 
++	/**
++	 * Deletes the vertex array objects of the cache whose key holds the id
++	 * of the given attribute, and resets the vertex binding if one of them
++	 * is bound. A VAO records the buffers of the attributes it was created
++	 * with, so a disposed attribute leaves every VAO holding its buffer
++	 * dangling; the cache is keyed by whole attribute lists, so the keys are
++	 * searched for the attribute's own segment.
++	 *
++	 * @private
++	 * @param {BufferAttribute} attribute - The buffer attribute to release.
++	 */
++	_releaseVaos( attribute ) {
++
++		const id = this.get( attribute ).id;
++
++		if ( id === undefined ) {
++
++			return;
++
++		}
++
++		const { gl, state } = this;
++		const segment = ':' + id + ':';
++		let boundReleased = false;
++
++		for ( const key of Object.keys( this.vaoCache ) ) {
++
++			if ( ( key + ':' ).includes( segment ) ) {
++
++				if ( state.currentVAO === this.vaoCache[ key ] ) {
++
++					boundReleased = true;
++
++				}
++
++				gl.deleteVertexArray( this.vaoCache[ key ] );
++
++				delete this.vaoCache[ key ];
++
++			}
++
++		}
++
++		if ( boundReleased === true ) {
++
++			state.resetVertexState();
++
++		}
++
++	}
++
+ 	/**
+ 	 * Creates a transform feedback from the given transform buffers.
+ 	 *
+diff --git a/build/three.webgpu.nodes.js b/build/three.webgpu.nodes.js
+index e96c4ae08d528fea66c58e5869923c1675822ac9..fb467b3840ef2f537253005c39b9476235b57b33 100644
+--- a/build/three.webgpu.nodes.js
++++ b/build/three.webgpu.nodes.js
+@@ -64358,6 +64358,7 @@ class Renderer {
+ 
+ 		if ( this._initialized === true ) {
+ 
++			await this.setAnimationLoop( null );
+ 			this.info.dispose();
+ 
+ 			this._inspector.dispose();
+@@ -64382,7 +64383,6 @@ class Renderer {
+ 		}
+ 
+ 		this.setRenderTarget( null );
+-		this.setAnimationLoop( null );
+ 
+ 	}
+ 
+diff --git a/src/renderers/common/Renderer.js b/src/renderers/common/Renderer.js
+index c05aa68471f07a0bbbf6203865da1096fea503c1..66e096486c2204c662cc8cbc12024868332f3de5 100644
+--- a/src/renderers/common/Renderer.js
++++ b/src/renderers/common/Renderer.js
+@@ -2697,6 +2697,7 @@ class Renderer {
+ 
+ 		if ( this._initialized === true ) {
+ 
++			await this.setAnimationLoop( null );
+ 			this.info.dispose();
+ 
+ 			this._inspector.dispose();
+@@ -2721,7 +2722,6 @@ class Renderer {
+ 		}
+ 
+ 		this.setRenderTarget( null );
+-		this.setAnimationLoop( null );
+ 
+ 	}
+ 

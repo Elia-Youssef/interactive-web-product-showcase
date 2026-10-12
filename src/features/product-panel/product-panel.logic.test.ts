@@ -1,8 +1,14 @@
 import { expect, test } from 'vitest'
 import type { ProductInput } from '@lib/product'
 import { parseProduct } from '@lib/product'
+import { siteCopy } from '@lib/copy/site'
 import { createAppStore, selectSelectedVariant } from '@store/index'
-import { activeFinish, formatProductIndex } from './product-panel.logic'
+import {
+  activeFinish,
+  explodeScrubName,
+  explodeToggleLabel,
+  formatExplodePercent,
+} from '@lib/copy/productPanel'
 
 // Neutral fixture words, never a real product's: the logic renders whatever the
 // manifest says, and the real words belong to src/products/.
@@ -12,7 +18,7 @@ const sampleManifest = {
   category: 'Audio',
   brand: 'Sample',
   model: 'Two',
-  eyebrow: 'Compact speaker / 001',
+  eyebrow: 'Compact speaker',
   tagline: 'Sound first, everything else second.',
   intro: [],
   finishes: [
@@ -24,15 +30,18 @@ const sampleManifest = {
 
 const product = parseProduct(sampleManifest, 'sample-one')
 
-// The index formatting table: single digits gain a leading zero, longer
-// numbers pass through untouched.
+// The exploded view's whole-percent table: halves round away from a
+// misreading of the pose, so a value in the upper half of a percent reads
+// as the percent it is inside of, and 1 is exactly 100%.
 test.each([
-  { number: 1, expected: '01' },
-  { number: 9, expected: '09' },
-  { number: 10, expected: '10' },
-  { number: 100, expected: '100' },
-])('formatProductIndex($number) is $expected', ({ number, expected }) => {
-  expect(formatProductIndex(number)).toBe(expected)
+  { progress: 0, expected: '0%' },
+  { progress: 0.004, expected: '0%' },
+  { progress: 0.005, expected: '1%' },
+  { progress: 0.5, expected: '50%' },
+  { progress: 0.995, expected: '100%' },
+  { progress: 1, expected: '100%' },
+])('formatExplodePercent($progress) is $expected', ({ progress, expected }) => {
+  expect(formatExplodePercent(progress)).toBe(expected)
 })
 
 test('the active finish is the selected variant when the store holds one', () => {
@@ -53,6 +62,38 @@ test('the active finish is the product default, the first, while nothing is sele
 
 test('a selected variant the product does not offer is the programming error it is', () => {
   expect(() => activeFinish(product, 'graphitee')).toThrowError(/graphitee/)
+})
+
+test('the toggle label is the manifest own word when the manifest names one', () => {
+  const labeled = parseProduct(
+    { ...sampleManifest, explode: { label: 'See inside' } },
+    'sample-one',
+  )
+
+  expect(explodeToggleLabel(labeled)).toBe('See inside')
+})
+
+test('the toggle label falls back to the site word when the manifest names none', () => {
+  // The schema normalizes the explode block, so a manifest without a label
+  // parses with the block present and the label absent.
+  expect(explodeToggleLabel(product)).toBe(siteCopy.defaultExplodeLabel)
+})
+
+test.each([
+  { name: 'the manifest own word', labeled: true },
+  { name: 'the site fallback word', labeled: false },
+])('the scrub name is its own name apart from the toggle, over $name', ({ labeled }) => {
+  const subject = labeled
+    ? parseProduct({ ...sampleManifest, explode: { label: 'See inside' } }, 'sample-one')
+    : product
+
+  const toggle = explodeToggleLabel(subject)
+  const scrub = explodeScrubName(subject)
+
+  // The section's two controls never share one name, whatever word the
+  // manifest chose: the slider's name says what it changes about the view.
+  expect(scrub).not.toBe(toggle)
+  expect(scrub).toBe(`${toggle} progress`)
 })
 
 // The cross-product pairs, over a real store: product A sits selected on a

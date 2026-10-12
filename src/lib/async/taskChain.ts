@@ -18,6 +18,10 @@ export class TaskChain {
   private drain: Promise<void> = Promise.resolve()
   private releaseDrain: (() => void) | null = null
 
+  get pending(): number {
+    return this.running
+  }
+
   // Runs task after every task pushed before it. The returned promise
   // resolves when the task and the whole chain around it have drained, and
   // rejects with the task's own error if the task fails.

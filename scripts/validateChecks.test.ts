@@ -1,24 +1,34 @@
 // The validate checks, over contract documents built in memory with
 // @gltf-transform/core (no Blender, no KTX-Software). Every case builds the
 // fact its rule reads, runs the check group, and asserts the exact
-// violation messages: the report's wording is part of the contract.
+// violation messages: the report's wording is part of the contract. The
+// camera contract check's cases live in validateCameras.test.ts.
 import { describe, expect, it } from 'vitest'
 import { parseProduct } from '../src/lib/product/index.ts'
 import type { Product, ProductInput } from '../src/lib/product/index.ts'
 import { readProductStructure } from './structure.ts'
-import { buildDocument, addRootNode, nodeNamed, type DocumentOptions } from './validateFixtures.ts'
+import {
+  buildDocument,
+  addRootNode,
+  cameraContract,
+  hangUnreadable,
+  nodeNamed,
+  type DocumentOptions,
+} from './validateFixtures.ts'
 import {
   checkBudgets,
-  checkCameras,
   checkEncoding,
   checkExplode,
   checkFinishes,
+  checkGeometry,
   checkHotspots,
   checkManifest,
+  checkMaterials,
   type BudgetFacts,
   type EncodingFacts,
   type TextureFact,
 } from './validateChecks.ts'
+import { checkCameras } from './validateCameras.ts'
 
 // The hotspots of the fixture manifest, on the fixture document's parts.
 const FIXTURE_HOTSPOTS = ['HS_driver', 'HS_knob']
@@ -49,7 +59,7 @@ const fixtureInput = {
   category: 'Audio',
   brand: 'Sample',
   model: 'Speaker',
-  eyebrow: 'Compact speaker / 002',
+  eyebrow: 'Compact speaker',
   tagline: 'A quiet box that fills the room.',
   intro: ['One line.'],
   finishes: [
@@ -86,9 +96,17 @@ describe('the validate checks on a contract document', () => {
       violations: [],
       warnings: [],
     })
-    expect(checkCameras(fixture, structure).violations).toEqual([])
+    expect(checkCameras(fixture, structure, cameraContract).violations).toEqual([])
     expect(checkFinishes(fixture, structure).violations).toEqual([])
+    expect(checkMaterials(structure)).toEqual({
+      name: 'materials',
+      status: 'pass',
+      detail: 'no anisotropy textures',
+      violations: [],
+      warnings: [],
+    })
     expect(checkExplode(fixture, structure).violations).toEqual([])
+    expect(checkGeometry(structure).status).toBe('pass')
     expect(checkEncoding(passingEncoding).status).toBe('pass')
     expect(checkBudgets(passingBudgets).status).toBe('pass')
   })
@@ -125,6 +143,14 @@ describe('the validate checks on a contract document', () => {
     ])
   })
 
+  it('reports an HS_ node whose rest position cannot be read', () => {
+    const doc = buildFixtureDocument()
+    hangUnreadable(doc, 'HS_driver')
+    expect(checkHotspots(fixture, readProductStructure(doc)).violations).toEqual([
+      'hotspot HS_driver has a world matrix that is not a finite 4x4 matrix, so its rest position cannot be read',
+    ])
+  })
+
   it('reports an HS_ node hanging in the scene root', () => {
     const manifest = manifestWith({ hotspots: [driverHotspot] })
     const structure = readProductStructure(
@@ -134,21 +160,6 @@ describe('the validate checks on a contract document', () => {
     expect(result.violations).toEqual([
       'hotspot HS_driver is parented to scene root, expected a PART_ node',
     ])
-  })
-
-  it('reports a missing CAM_home', () => {
-    const structure = readProductStructure(buildFixtureDocument({ cameraNames: ['CAM_driver'] }))
-    const result = checkCameras(fixture, structure)
-    expect(result.violations).toEqual(['no CAM_home node, the start and reset view is required'])
-  })
-
-  it('warns, but does not fail, on a camera that is no manifest hotspot', () => {
-    const structure = readProductStructure(
-      buildFixtureDocument({ cameraNames: ['CAM_home', 'CAM_side'] }),
-    )
-    const result = checkCameras(fixture, structure)
-    expect(result.violations).toEqual([])
-    expect(result.warnings).toEqual([`camera CAM_side has no manifest hotspot 'side'`])
   })
 
   it('reports a manifest finish with no variant and an extra variant', () => {
@@ -231,34 +242,6 @@ describe('the validate checks on a contract document', () => {
       `texture 'BC_body' is image/png, expected image/ktx2`,
       'no EXT_meshopt_compression: the optimize step did not run',
     ])
-  })
-
-  it('reports a file over the model budget', () => {
-    const result = checkBudgets({ ...passingBudgets, fileBytes: 5 * 1024 * 1024 })
-    expect(result.violations).toEqual(['file size 5.00 MB exceeds the 4.00 MB model budget'])
-  })
-
-  it('reports a texture over the edge budget', () => {
-    const result = checkBudgets({
-      ...passingBudgets,
-      textures: [{ label: 'BC_big', mimeType: 'image/ktx2', dimensions: [4096, 4096] }],
-    })
-    expect(result.violations).toEqual([
-      `texture 'BC_big' is 4096x4096 px, over the 2048 px texture edge budget`,
-    ])
-  })
-
-  it('reports draw calls over the budget', () => {
-    const result = checkBudgets({ ...passingBudgets, drawCalls: 51 })
-    expect(result.violations).toEqual(['draw calls 51 exceed the 50 draw call budget'])
-  })
-
-  it('reports a texture whose size is unreadable', () => {
-    const result = checkBudgets({
-      ...passingBudgets,
-      textures: [{ label: 'BC_odd', mimeType: 'image/ktx2', dimensions: null }],
-    })
-    expect(result.violations).toEqual([`texture 'BC_odd' has no readable size`])
   })
 
   it('reports a manifest slug that does not match the folder', () => {

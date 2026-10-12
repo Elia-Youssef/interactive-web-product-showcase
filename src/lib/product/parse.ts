@@ -1,4 +1,4 @@
-import { issuesFromZod } from '../validation'
+import { issuesFromZod, parseWithMessages } from '../validation'
 import { ManifestError } from './errors'
 import { SLUG_PATTERN } from './rules'
 import { productManifestSchema, type Product } from './schema'
@@ -6,7 +6,7 @@ import { productManifestSchema, type Product } from './schema'
 // Validates one manifest at the boundary. Returns the parsed Product, or
 // throws a ManifestError that names the product and every failing field.
 export function parseProduct(raw: unknown, source: string): Product {
-  const result = productManifestSchema.safeParse(raw)
+  const result = parseWithMessages(productManifestSchema, raw)
   if (result.success) {
     return result.data
   }

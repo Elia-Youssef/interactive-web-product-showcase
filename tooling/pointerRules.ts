@@ -10,7 +10,7 @@ export type PointerKind =
   | 'local-path'
   // The decision shorthand with its number
   | 'decision'
-  // A sprint or task label as a whole word
+  // A work item label as a whole word
   | 'task-id'
   // A markdown reference that resolves to no owned file
   | 'markdown'
@@ -140,7 +140,7 @@ function decisionHits(line: string): LineHit[] {
   return patternHits(line, decisionPattern, 'decision')
 }
 
-// A sprint or task label: a capital S, one or two digits, an optional dash
+// A work item label: a capital S, one or two digits, an optional dash
 // with two more, as a whole word. The lookahead rejects a longer label, so
 // an acronym with trailing letters and a three digit task stay clean.
 const taskIdPattern = /\bS\d{1,2}(?:-\d{2})?(?![\w-])/g

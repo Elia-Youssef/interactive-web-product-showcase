@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
+import { TOOL_FIXTURE_TIMEOUT_MS } from '../tooling/subprocess.fixtures.ts'
 import {
   KTX_BIN_ENV_VAR,
   KTX_VERSION_MIN,
@@ -9,17 +10,12 @@ import {
   formatKtxVersion,
   isKtxVersionAtLeast,
   parseKtxVersion,
-  putKtxFolderOnPath,
   resolveKtxSoftware,
+  runKtxCommand,
   type KtxDeps,
-  type KtxResolution,
 } from './ktxSoftware.ts'
 
 const VERSION_MIN_TEXT = formatKtxVersion(KTX_VERSION_MIN)
-
-function resolutionIn(folder: string, source: KtxResolution['source']): KtxResolution {
-  return { folder, source, version: KTX_VERSION_MIN }
-}
 
 function depsWith(overrides: Partial<KtxDeps>): KtxDeps {
   return {
@@ -168,30 +164,35 @@ describe('resolveKtxSoftware', () => {
   })
 })
 
-describe('putKtxFolderOnPath', () => {
-  const KTX_FOLDER = 'C:\\Program Files\\KTX-Software\\bin'
+describe('runKtxCommand', () => {
+  // process.execPath stands in for the ktx executable: a real spawn of a
+  // real executable, with Node scripts as the commands under test.
+  let success: ReturnType<typeof runKtxCommand>
+  let nonzero: ReturnType<typeof runKtxCommand>
+  let missing: ReturnType<typeof runKtxCommand>
+  beforeAll(async () => {
+    const options = { timeout: TOOL_FIXTURE_TIMEOUT_MS }
+    success = runKtxCommand(process.execPath, ['-e', 'process.stdout.write("ok")'], options)
+    nonzero = runKtxCommand(
+      process.execPath,
+      ['-e', 'process.stderr.write("encode failed"); process.exit(3)'],
+      options,
+    )
+    missing = runKtxCommand('definitely-not-an-executable-here', ['--version'], options)
+    await Promise.allSettled([success, nonzero, missing])
+  }, TOOL_FIXTURE_TIMEOUT_MS)
 
-  it('prepends the resolved folder to this process PATH only', () => {
-    const env: Record<string, string | undefined> = { PATH: 'C:\\Windows' }
-    putKtxFolderOnPath(resolutionIn(KTX_FOLDER, 'default'), env, 'win32')
-    expect(env.PATH).toBe(`${KTX_FOLDER};C:\\Windows`)
+  it('resolves on a zero exit', async () => {
+    await expect(success).resolves.toMatchObject({ stdout: 'ok' })
   })
 
-  it('joins entries with the delimiter of the platform it is given', () => {
-    const env: Record<string, string | undefined> = { PATH: 'C:\\Windows' }
-    putKtxFolderOnPath(resolutionIn('C:\\ktx', 'env'), env, 'linux')
-    expect(env.PATH).toBe('C:\\ktx:C:\\Windows')
+  it('raises a KtxError carrying stderr and the exit code on a nonzero exit', async () => {
+    await expect(nonzero).rejects.toThrow(KtxError)
+    await expect(nonzero).rejects.toThrow(/encode failed/)
+    await expect(nonzero).rejects.toThrow(/exit code 3/)
   })
 
-  it('is idempotent when the folder is already on PATH', () => {
-    const env: Record<string, string | undefined> = { PATH: `${KTX_FOLDER};C:\\Windows` }
-    putKtxFolderOnPath(resolutionIn(KTX_FOLDER, 'path'), env, 'win32')
-    expect(env.PATH).toBe(`${KTX_FOLDER};C:\\Windows`)
-  })
-
-  it('works on an empty PATH', () => {
-    const env: Record<string, string | undefined> = {}
-    putKtxFolderOnPath(resolutionIn('C:\\ktx', 'env'), env, 'win32')
-    expect(env.PATH).toBe('C:\\ktx')
+  it('raises a KtxError when the executable itself cannot be run', async () => {
+    await expect(missing).rejects.toThrow(KtxError)
   })
 })

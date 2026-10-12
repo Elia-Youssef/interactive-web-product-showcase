@@ -1,13 +1,20 @@
+import { mkdtemp, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { PLAN_TABLE } from './encodePlan.fixtures.ts'
+import type { ModelDocumentIO } from './pipeline.ts'
+import { buildGeometryStageArgs, runOptimizePipeline } from './pipeline.ts'
 import { DEFAULT_OPTIMIZE_SETTINGS, type OptimizeSettings } from './settings.ts'
 import {
-  buildEtc1sStageArgs,
-  buildGeometryStageArgs,
-  buildUastcStageArgs,
-  runOptimizePipeline,
-  textureSizeRule,
-  type CliRunner,
-} from './pipeline.ts'
+  docWithTextures,
+  KTX2_PLACEHOLDER,
+  recordedCliRunner,
+  recordedKtxRunner,
+  textureByName,
+} from './texture.fixtures.ts'
+import { docWithPrimitives, primitiveAt, tangentOf } from './tangents.fixtures.ts'
 
 const settingsWith = (overrides: Partial<OptimizeSettings>): OptimizeSettings => ({
   ...DEFAULT_OPTIMIZE_SETTINGS,
@@ -17,7 +24,7 @@ const settingsWith = (overrides: Partial<OptimizeSettings>): OptimizeSettings =>
 describe('buildGeometryStageArgs', () => {
   it('carries the structure flags with texture work already done', () => {
     expect(buildGeometryStageArgs('in.glb', 'out.glb', DEFAULT_OPTIMIZE_SETTINGS)).toEqual([
-      'optimize',
+      'optimize-preserving',
       'in.glb',
       'out.glb',
       '--flatten=false',
@@ -27,6 +34,9 @@ describe('buildGeometryStageArgs', () => {
       '--prune=false',
       '--texture-compress=false',
       '--compress=meshopt',
+      `--resample-tolerance=${DEFAULT_OPTIMIZE_SETTINGS.resampleTolerance}`,
+      '--config',
+      fileURLToPath(new URL('./geometryCli.config.ts', import.meta.url)),
     ])
   })
 
@@ -36,109 +46,124 @@ describe('buildGeometryStageArgs', () => {
   })
 })
 
-describe('buildUastcStageArgs', () => {
-  it('emits the encoder parameters from the settings object it is passed', () => {
-    const settings = DEFAULT_OPTIMIZE_SETTINGS
-    const args = buildUastcStageArgs(
-      'in.glb',
-      'out.glb',
-      '{normalTexture,metallicRoughnessTexture}',
-      settings.textureMaxSize,
-      settings,
-    )
-    expect(args).toEqual([
-      'uastc',
-      'in.glb',
-      'out.glb',
-      '--slots={normalTexture,metallicRoughnessTexture}',
-      `--resize=${settings.textureMaxSize}`,
-      `--level=${settings.uastcLevel}`,
-      `--rdo=${settings.uastcRdo}`,
-      `--rdo-lambda=${settings.uastcRdoLambda}`,
-    ])
-  })
-})
-
-describe('buildEtc1sStageArgs', () => {
-  it('emits the quality from the settings object it is passed', () => {
-    const settings = DEFAULT_OPTIMIZE_SETTINGS
-    expect(buildEtc1sStageArgs('in.glb', 'out.glb', settings.textureMaxSize, settings)).toEqual([
-      'etc1s',
-      'in.glb',
-      'out.glb',
-      `--resize=${settings.textureMaxSize}`,
-      `--quality=${settings.etc1sQuality}`,
-    ])
-  })
-})
-
-describe('textureSizeRule', () => {
-  it('gives a texture only the occlusion slot uses the occlusion override', () => {
-    expect(textureSizeRule(['occlusionTexture'])).toBe('occlusionTextureMaxSize')
-  })
-
-  it('encodes a texture shared with the occlusion slot at the maximum', () => {
-    expect(textureSizeRule(['normalTexture', 'occlusionTexture'])).toBe('textureMaxSize')
-    expect(textureSizeRule(['occlusionTexture', 'metallicRoughnessTexture'])).toBe('textureMaxSize')
-  })
-
-  it('keeps every other texture at the maximum', () => {
-    expect(textureSizeRule(['baseColorTexture'])).toBe('textureMaxSize')
-    expect(textureSizeRule([])).toBe('textureMaxSize')
-  })
-})
-
-describe('runOptimizePipeline', () => {
-  const recordedRunner = (): { run: CliRunner; calls: string[][] } => {
-    const calls: string[][] = []
-    const run: CliRunner = async (args) => {
-      calls.push([...args])
-      return undefined
+describe('runOptimizePipeline: the encode plan of one texture per class', () => {
+  it('plans and encodes every texture class exactly as tabulated', async () => {
+    const doc = docWithTextures(PLAN_TABLE.map((row) => row.def))
+    const written: string[] = []
+    const io: ModelDocumentIO = {
+      read: async () => doc,
+      write: async (filePath, writtenDoc) => {
+        expect(writtenDoc).toBe(doc)
+        written.push(filePath)
+      },
     }
-    return { run, calls }
-  }
-
-  it('chains three texture passes and the geometry pass to the output path', async () => {
-    const { run, calls } = recordedRunner()
-    await runOptimizePipeline({
+    const ktx = recordedKtxRunner()
+    const cli = recordedCliRunner()
+    const outputDir = await mkdtemp(path.join(tmpdir(), 'pipeline-test-'))
+    const outputPath = path.join(outputDir, 'nested', 'model.glb')
+    const { plan, textures } = await runOptimizePipeline({
       inputPath: 'raw.glb',
-      outputPath: 'out/model.glb',
+      outputPath,
       settings: settingsWith({ occlusionTextureMaxSize: 512 }),
-      run,
+      io,
+      runKtx: ktx.runKtx,
+      run: async (args) => {
+        await cli.run(args)
+        await writeFile(args[2] ?? '', 'candidate')
+      },
+      validateCandidate: async () => undefined,
     })
-    expect(calls).toHaveLength(4)
-    const [data, occlusion, color, geometry] = calls
-    expect(data?.[0]).toBe('uastc')
-    expect(data?.[1]).toBe('raw.glb')
-    expect(data?.[2]).toMatch(/stage1-data-uastc\.glb$/)
-    expect(data).toContain('--slots={normalTexture,metallicRoughnessTexture}')
-    expect(data).toContain('--resize=2048')
-    expect(occlusion?.[0]).toBe('uastc')
-    expect(occlusion?.[1]).toBe(data?.[2])
-    expect(occlusion?.[2]).toMatch(/stage2-occlusion-uastc\.glb$/)
-    expect(occlusion).toContain('--slots=occlusionTexture')
-    expect(occlusion).toContain('--resize=512')
-    expect(color?.[0]).toBe('etc1s')
-    expect(color?.[1]).toBe(occlusion?.[2])
-    expect(color?.[2]).toMatch(/stage3-color-etc1s\.glb$/)
-    expect(color).toContain('--resize=2048')
-    expect(geometry?.[0]).toBe('optimize')
-    expect(geometry?.[1]).toBe(color?.[2])
-    expect(geometry?.[2]).toBe('out/model.glb')
+    // The plan is the pure value the pipeline executed: one exact entry per
+    // texture class, and every ktx call is one of the planned encodes with
+    // the file names resolved against the workspace.
+    expect(plan.entries).toHaveLength(PLAN_TABLE.length)
+    for (const row of PLAN_TABLE) {
+      const entry = plan.entries.find(
+        (candidate) => candidate.textureIndex === row.entry.textureIndex,
+      )
+      expect(entry, row.name).toEqual(row.entry)
+    }
+    // The run's texture report is drawn from the same plan: each texture
+    // meets its own entry, and names the slots the encoder read, extension
+    // slots included.
+    expect(textures).toHaveLength(PLAN_TABLE.length)
+    for (const row of PLAN_TABLE) {
+      const report = textures[row.entry.textureIndex]
+      expect(
+        {
+          label: report?.label,
+          slots: report?.slots,
+          stage: report?.stage,
+          sizeRule: report?.sizeRule,
+        },
+        row.name,
+      ).toEqual({
+        label: row.def.name,
+        slots: row.entry.slots,
+        stage: row.entry.stage,
+        sizeRule: row.entry.sizeRule,
+      })
+    }
+    expect(ktx.calls).toHaveLength(PLAN_TABLE.length)
+    for (const row of PLAN_TABLE) {
+      // The pool starts the encodes in order but they settle concurrently,
+      // so each call is matched by its unique target file, not by order.
+      const call = ktx.calls.find(
+        (candidate) =>
+          path.basename(candidate[candidate.length - 1] ?? '') === row.entry.targetName,
+      )
+      expect(call, row.name).toEqual([
+        ...row.entry.arguments.slice(0, -2),
+        expect.stringContaining(row.entry.sourceName),
+        expect.stringContaining(row.entry.targetName),
+      ])
+    }
+    // Every texture left the run as KTX2, and the geometry pass ran once.
+    for (const row of PLAN_TABLE) {
+      expect(textureByName(doc, row.def.name)?.getMimeType()).toBe('image/ktx2')
+      expect(textureByName(doc, row.def.name)?.getImage()).toEqual(Buffer.from(KTX2_PLACEHOLDER))
+    }
+    expect(written).toHaveLength(1)
+    expect(written[0]).toMatch(/stage-textures-ktx2\.glb$/)
+    expect(cli.calls).toHaveLength(1)
+    const geometry = cli.calls[0] ?? []
+    expect(geometry[0]).toBe('optimize-preserving')
+    expect(geometry[1]).toBe(written[0])
+    expect(path.dirname(geometry[2] ?? '')).toBe(path.dirname(outputPath))
+    expect(geometry).toContain('--texture-compress=false')
+    expect(geometry).toContain('--compress=meshopt')
   })
+})
 
-  it('carries the encoder parameters of its settings into every texture pass', async () => {
-    const { run, calls } = recordedRunner()
-    await runOptimizePipeline({
+describe('runOptimizePipeline: the tangent stage', () => {
+  it('runs on the document before it is written for the geometry pass', async () => {
+    const doc = docWithPrimitives([{ material: {} }, { material: { normalTexture: true } }])
+    const written: string[] = []
+    const io: ModelDocumentIO = {
+      read: async () => doc,
+      write: async (filePath, writtenDoc) => {
+        expect(writtenDoc).toBe(doc)
+        written.push(filePath)
+      },
+    }
+    const outputDir = await mkdtemp(path.join(tmpdir(), 'pipeline-tangents-'))
+    const { tangents } = await runOptimizePipeline({
       inputPath: 'raw.glb',
-      outputPath: 'out/model.glb',
+      outputPath: path.join(outputDir, 'model.glb'),
       settings: DEFAULT_OPTIMIZE_SETTINGS,
-      run,
+      io,
+      runKtx: recordedKtxRunner().runKtx,
+      run: async (args) => {
+        await writeFile(args[2] ?? '', 'candidate')
+      },
+      validateCandidate: async () => undefined,
     })
-    const [data, , color] = calls
-    expect(data).toContain(`--level=${DEFAULT_OPTIMIZE_SETTINGS.uastcLevel}`)
-    expect(data).toContain(`--rdo=${DEFAULT_OPTIMIZE_SETTINGS.uastcRdo}`)
-    expect(data).toContain(`--rdo-lambda=${DEFAULT_OPTIMIZE_SETTINGS.uastcRdoLambda}`)
-    expect(color).toContain(`--quality=${DEFAULT_OPTIMIZE_SETTINGS.etc1sQuality}`)
+    expect(tangents.primitivesStripped).toBe(1)
+    expect(tangents.primitivesKept).toBe(1)
+    // The written document is the one the stage stripped: the useless
+    // attribute is gone with its accessor, the needed one stays.
+    expect(tangentOf(primitiveAt(doc, 0))).toBeNull()
+    expect(tangentOf(primitiveAt(doc, 1))).not.toBeNull()
+    expect(doc.getRoot().listAccessors()).toHaveLength(5)
   })
 })

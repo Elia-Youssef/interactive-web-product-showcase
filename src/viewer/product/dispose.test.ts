@@ -8,12 +8,15 @@ import {
   type BufferGeometry as Geometry,
   type Material as ThreeMaterial,
   type Texture as ThreeTexture,
-} from 'three'
+} from 'three/webgpu'
+import { plannedFinish } from '@lib/product/finishPlan.fixtures'
+import type { ProductFinishMaterials } from './finishMaterials'
 import { disposeProductScene } from './dispose'
 
-// The disposal is observed through the dispose calls the traversal makes:
-// every geometry, material and texture the scene holds must be told exactly
-// once per run.
+// The disposal is observed through the dispose calls the two passes make:
+// the scene traversal disposes what the scene carries, and the finish table
+// disposes what the load resolved on top of it. The product owns both, so
+// its one release must reach every geometry, material and texture.
 
 function track<T extends { dispose(): void }>(target: T, disposals: string[], label: string): T {
   target.dispose = () => {
@@ -94,27 +97,79 @@ function trackedTree() {
   return { parts, disposals }
 }
 
+// The tables a load resolves, possibly empty for a file without finishes:
+// one parameter per source, the derived material per mapped primitive and
+// index pair, the raw materials the derivations started from, and the
+// materials the scene carried at parse time, which the swap may have
+// replaced.
+function finishesOf(
+  derived: readonly [string, ThreeMaterial][] = [],
+  raws: readonly [number, ThreeMaterial][] = [],
+  sceneMaterials: readonly ThreeMaterial[] = [],
+): ProductFinishMaterials {
+  return {
+    plan: plannedFinish({}),
+    materials: new Map(derived),
+    rawMaterials: new Map(raws),
+    sceneMaterials: new Set(sceneMaterials),
+  }
+}
+
+function noFinishes(): ProductFinishMaterials {
+  return finishesOf()
+}
+
 test('a teardown disposes every geometry, material and texture the scene holds', () => {
   const { parts, disposals } = trackedTree()
 
-  disposeProductScene(parts.root)
+  disposeProductScene(parts.root, noFinishes())
 
+  // Identity sets release geometries, then textures, then materials. A
+  // shared slot never changes how many times its resource is released.
   expect(disposals).toEqual([
     'geometryA',
+    'geometryB',
     'diffuse',
     'normal',
-    'bodyMaterial',
-    'geometryB',
     'grilleMap',
+    'bodyMaterial',
     'grilleMaterial0',
     'grilleMaterial1',
   ])
-  // The variant material is not part of the scene: it exists only in the
-  // variants controller's table, so the scene traversal leaves it alone.
-  expect(disposals).not.toContain('variantMaterial')
 })
 
-test('a finish applied before teardown is disposed with its textures', () => {
+test('the resolved finishes the scene does not carry are disposed with their textures', () => {
+  const { parts, disposals } = trackedTree()
+
+  disposeProductScene(parts.root, finishesOf([['0:0:1', parts.variantMaterial]]))
+
+  expect(disposals).toContain('variantMaterial')
+  expect(disposals).toContain('variantDiffuse')
+})
+
+test('a material the scene and all three tables name is disposed exactly once', () => {
+  const { parts, disposals } = trackedTree()
+  const body = parts.root.children[0]
+  if (!(body instanceof Mesh)) {
+    throw new Error('the fixture body must be a mesh')
+  }
+
+  // The body's default material sits on the scene, in the derived table as
+  // a mapped primitive's default, in the raw record behind that index, and
+  // in the parse-time record: four sources, one owner. Counting the events
+  // pins the whole class: every material the load created goes once,
+  // whatever names it.
+  disposeProductScene(
+    parts.root,
+    finishesOf([['0:0:0', parts.bodyMaterial]], [[0, parts.bodyMaterial]], [parts.bodyMaterial]),
+  )
+
+  expect(disposals.filter((event) => event === 'bodyMaterial')).toHaveLength(1)
+  expect(disposals.filter((event) => event === 'diffuse')).toHaveLength(1)
+  expect(disposals.filter((event) => event === 'normal')).toHaveLength(1)
+})
+
+test('a finish applied before teardown is disposed, and the default with it', () => {
   const { parts, disposals } = trackedTree()
   const body = parts.root.children[0]
   if (!(body instanceof Mesh)) {
@@ -122,16 +177,91 @@ test('a finish applied before teardown is disposed with its textures', () => {
   }
   body.material = parts.variantMaterial
 
-  disposeProductScene(parts.root)
+  // The product owns every resolved material, the replaced default
+  // included: the release names one set from the scene and the tables, so
+  // the applied material goes once, the replaced default with it.
+  disposeProductScene(
+    parts.root,
+    finishesOf([
+      ['0:0:0', parts.bodyMaterial],
+      ['0:0:1', parts.variantMaterial],
+    ]),
+  )
 
   expect(disposals).toContain('variantMaterial')
   expect(disposals).toContain('variantDiffuse')
-  expect(disposals).not.toContain('bodyMaterial')
+  expect(disposals).toContain('bodyMaterial')
+})
+
+test('a load whose meshes were swapped disposes the materials it replaced', () => {
+  const { parts, disposals } = trackedTree()
+  const body = parts.root.children[0]
+  if (!(body instanceof Mesh)) {
+    throw new Error('the fixture body must be a mesh')
+  }
+
+  // The parse recorded the scene's materials, then the first finish swap
+  // replaced the body's on the mesh: the traversal sees only the swapped-in
+  // material, and the parse-time record is what still names the swapped-out
+  // one. Counting the events pins the whole class: every material the load
+  // created goes exactly once, whatever the swaps did to the mesh slots.
+  body.material = parts.variantMaterial
+  const grilleFirst = parts.grilleMaterials[0]
+  if (grilleFirst === undefined) {
+    throw new Error('the fixture grille must carry its first material')
+  }
+  disposeProductScene(
+    parts.root,
+    finishesOf([['0:0:1', parts.variantMaterial]], [], [parts.bodyMaterial, grilleFirst]),
+  )
+
+  // The swapped-out material goes through the record alone. The grille's
+  // first material is both still applied and recorded, and the set disposes
+  // it once all the same.
+  expect(disposals.filter((event) => event === 'bodyMaterial')).toHaveLength(1)
+  expect(disposals.filter((event) => event === 'grilleMaterial0')).toHaveLength(1)
+  expect(disposals).toContain('variantMaterial')
+})
+
+test('every derived and raw finish material the meshes do not carry goes once', () => {
+  const { parts, disposals } = trackedTree()
+
+  // The derived material of a mapped primitive for a finish the product is
+  // not wearing: the clone the loader derives for that mesh, distinct from
+  // the raw material and carried by the derived table alone. The raw
+  // material behind the index is what the derivation started from, carried
+  // by the raw record alone. Neither is on the scene, so each table is the
+  // one pass that reaches it, and the texture the clone shares with the raw
+  // is collected once by identity from both.
+  const derived = parts.variantMaterial.clone()
+  track(derived, disposals, 'derivedVariant')
+  disposeProductScene(parts.root, finishesOf([['2:0:1', derived]], [[1, parts.variantMaterial]]))
+
+  expect(disposals.filter((event) => event === 'derivedVariant')).toHaveLength(1)
+  expect(disposals.filter((event) => event === 'variantMaterial')).toHaveLength(1)
+  expect(disposals).toContain('variantDiffuse')
 })
 
 test('disposing an already disposed scene is safe', () => {
   const parts = productTree()
 
-  disposeProductScene(parts.root)
-  expect(() => disposeProductScene(parts.root)).not.toThrow()
+  disposeProductScene(parts.root, noFinishes())
+  expect(() =>
+    disposeProductScene(parts.root, finishesOf([['0:0:1', parts.variantMaterial]])),
+  ).not.toThrow()
+})
+
+test('shared geometry and texture slots across meshes and finish tables are released once', () => {
+  const geometry = new BufferGeometry()
+  const texture = new Texture()
+  const events: string[] = []
+  track(geometry, events, 'geometry')
+  track(texture, events, 'texture')
+  const first = new MeshStandardMaterial({ map: texture, normalMap: texture })
+  const second = new MeshStandardMaterial({ map: texture })
+  const derived = first.clone()
+  const scene = new Object3D().add(new Mesh(geometry, first), new Mesh(geometry, second))
+  disposeProductScene(scene, finishesOf([['0:0:1', derived]], [[1, second]], [first]))
+  expect(events.filter((event) => event === 'geometry')).toHaveLength(1)
+  expect(events.filter((event) => event === 'texture')).toHaveLength(1)
 })

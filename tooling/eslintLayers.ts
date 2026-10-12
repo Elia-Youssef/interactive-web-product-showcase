@@ -10,6 +10,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   extensionGlob,
+  fixtureMarker,
   scriptExtensions,
   sourceExtensions,
   testFileGlob,
@@ -20,10 +21,14 @@ import type { Layer, LayerName } from './layers.ts'
 
 const SOURCE_FILES = `src/**/*.${extensionGlob(scriptExtensions)}`
 
-// The test files form a file category of their own: the layer policies keep
-// applying to them, and they alone may import the dev tools.
+// The test files and the fixture modules form file categories of their own:
+// the layer policies keep applying to them, and they alone may import the
+// dev tools. A fixture module is test support, not a test: it carries no
+// tests of its own, and only test files and other fixture modules import it.
 const TEST_FILES = testFileGlob(testFileMarkers, sourceExtensions)
 const TEST_CATEGORY = 'test'
+const FIXTURE_FILES = testFileGlob([fixtureMarker], sourceExtensions)
+const FIXTURE_CATEGORY = 'fixture'
 
 // The packages package.json declares, split by manifest section, as
 // micromatch patterns over the module names importers may use, subpaths
@@ -156,18 +161,24 @@ export function layerPoliciesAll(root: string): DependenciesPolicy[] {
     // so a layer ban or the data-only products layer overrides this entry.
     { allow: { to: { module: { origin: 'external', source: runtime } } } },
     // Dev tools do not ship: production code imports runtime packages only.
-    // The test-file allowance below is the one exception, and layer
+    // The test and fixture allowance below is the one exception, and layer
     // policies after it still override both.
     {
       disallow: { to: { module: { origin: 'external', source: dev } } },
       message:
-        'Dev dependencies are the tools of test files: production code imports runtime packages only (tooling/eslintLayers.ts).',
+        'Dev dependencies are the tools of test files and fixture modules: production code imports runtime packages only (tooling/eslintLayers.ts).',
     },
     {
-      from: { file: { categories: [TEST_CATEGORY] } },
+      from: { file: { categories: [TEST_CATEGORY, FIXTURE_CATEGORY] } },
       allow: { to: { module: { origin: 'external', source: dev } } },
     },
     ...layers.flatMap(layerPolicies),
+    // Model parser tests under src/ share the tooling fixture budget. This
+    // test-only edge leaves production imports and other tooling closed.
+    {
+      from: { file: { categories: [TEST_CATEGORY] } },
+      allow: { to: { file: { path: 'tooling/subprocess.fixtures.ts' } } },
+    },
     ...compositionRootPolicies(),
   ]
 }
@@ -195,6 +206,7 @@ export function layerConfigs(root: string): Linter.Config[] {
         'boundaries/files': [
           { category: compositionRoot.category, pattern: compositionRoot.file },
           { category: TEST_CATEGORY, pattern: TEST_FILES },
+          { category: FIXTURE_CATEGORY, pattern: FIXTURE_FILES },
         ],
       },
       rules: {

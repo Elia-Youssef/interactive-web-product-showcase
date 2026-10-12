@@ -1,10 +1,15 @@
 import { useEffect } from 'react'
 import { selectProductStatus, selectRendererStatus, useAppStoreApi } from '@store/index'
 import type { FrameClock } from '../FrameClock'
+import type { StageProbes } from './StageProbes'
 import { createViewerAutomation } from './viewerAutomation'
 
 type AutomationBridgeProps = {
   readonly clock: FrameClock
+  // The stage's probes, created with the stage this bridge serves: the
+  // probe-backed fields read the readers the in-canvas components
+  // registered.
+  readonly probes: StageProbes
   // The live renderer's tone mapping, or null while there is no renderer.
   readonly getToneMapping: () => number | null
 }
@@ -13,10 +18,10 @@ type AutomationBridgeProps = {
 // unmount, on the failure paths included: the hook is the test contract of
 // the whole stage, not only of its happy path. The stage owns the renderer
 // reference and hands the live reads down; every field is read from the
-// store or the clock at access time, so there is no module-level singleton
-// and no copy that can go stale, and a second stage cannot silently take the
+// store, the clock or the probes at access time, so there
+// is no copy that can go stale, and a second stage cannot silently take the
 // contract over.
-export function AutomationBridge({ clock, getToneMapping }: AutomationBridgeProps) {
+export function AutomationBridge({ clock, probes, getToneMapping }: AutomationBridgeProps) {
   const store = useAppStoreApi()
 
   useEffect(() => {
@@ -24,6 +29,7 @@ export function AutomationBridge({ clock, getToneMapping }: AutomationBridgeProp
       throw new Error('window.__viewer is already held by another stage')
     }
     const automation = createViewerAutomation({
+      probes,
       getStatus: () => selectRendererStatus(store.getState()),
       getProductStatus: () => selectProductStatus(store.getState()),
       renderedFrames: () => clock.renderedFrames,
@@ -37,7 +43,7 @@ export function AutomationBridge({ clock, getToneMapping }: AutomationBridgeProp
         delete window.__viewer
       }
     }
-  }, [clock, getToneMapping, store])
+  }, [clock, probes, getToneMapping, store])
 
   return null
 }

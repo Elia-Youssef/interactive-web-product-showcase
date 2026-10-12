@@ -28,3 +28,25 @@ persistent off underline. */
   text-decoration-thickness: var(--hairline-width);
   text-underline-offset: var(--offset-text-underline);
 }
+
+/* Mixed: a partly open toggle. The label lifts to white like pressed, with
+the dotted off underline instead of the solid one, so partial reads apart
+from both ends. */
+.button[aria-pressed='mixed'] {
+  color: var(--white);
+  text-decoration-line: underline;
+  text-decoration-style: var(--underline-partial);
+  text-decoration-color: var(--off);
+  text-decoration-thickness: var(--hairline-width);
+  text-underline-offset: var(--offset-text-underline);
+}
+
+/* Waiting: the control waits for the state it acts on, native or
+announced. It mutes to the one disabled color the controls share, keeps no
+hover, and never suggests an action. Declared after the hover rule, so the
+wait wins. */
+.button:disabled,
+.button[aria-disabled='true'] {
+  color: var(--disabled);
+  cursor: default;
+}

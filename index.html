@@ -3,10 +3,33 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" href="data:," />
+    <link rel="icon" type="image/x-icon" href="" />
+    <link rel="icon" type="image/svg+xml" href="" />
+    <link rel="apple-touch-icon" type="image/png" href="" sizes="180x180" />
     <link
       rel="preload"
-      href="/fonts/montserrat-latin.woff2"
+      href="/fonts/montserrat-latin-400-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/montserrat-latin-500-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/montserrat-latin-600-normal.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/montserrat-latin-800-normal.woff2"
       as="font"
       type="font/woff2"
       crossorigin
@@ -18,7 +41,22 @@
       type="font/woff2"
       crossorigin
     />
-    <title>Product Concepts</title>
+    <!-- Vite fills these slots from src/lib/copy/meta.ts in build and
+         development. The prerender guards the built site head and fills
+         every product page with the same writer. -->
+    <title></title>
+    <meta name="description" content="" />
+    <link rel="canonical" href="" />
+    <meta property="og:type" content="" />
+    <meta property="og:site_name" content="" />
+    <meta property="og:title" content="" />
+    <meta property="og:description" content="" />
+    <meta property="og:url" content="" />
+    <meta property="og:image" content="" />
+    <meta name="twitter:card" content="" />
+    <meta name="twitter:title" content="" />
+    <meta name="twitter:description" content="" />
+    <meta name="twitter:image" content="" />
   </head>
   <body>
     <div id="root"></div>

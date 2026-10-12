@@ -23,9 +23,21 @@ import {
   extensionCases,
   externalsCases,
   foreignScriptCases,
+  fixtureCases,
   stylesCases,
 } from './plantedImportRules.ts'
-import { consoleCases, hooksCases, sizeCases } from './plantedContentRules.ts'
+import {
+  consoleCases,
+  hooksCases,
+  pollBudgetCases,
+  rendererCompileCases,
+  sizeCases,
+} from './plantedContentRules.ts'
+import { stageCaptureCases } from './plantedCaptureRules.ts'
+import { frameLoopCases } from './plantedFrameLoopRules.ts'
+import { reducedMotionCases } from './plantedReducedMotionRules.ts'
+import { globCases } from './plantedGlobRules.ts'
+import { fixtureBudgetCases } from './plantedFixtureBudgetRules.ts'
 
 export type { PlantedCase } from './plantedShapes.ts'
 export { LAYERS_RULE } from './plantedShapes.ts'
@@ -46,9 +58,17 @@ export function buildPlantedCases(): readonly PlantedCase[] {
     ...escapeCases(),
     ...extensionCases(),
     ...bannedPackageCases(),
+    ...fixtureCases(),
+    ...fixtureBudgetCases(),
     ...sizeCases(),
     ...consoleCases(),
     ...hooksCases(),
+    ...rendererCompileCases(),
+    ...frameLoopCases(),
+    ...pollBudgetCases(),
+    ...stageCaptureCases(),
+    ...reducedMotionCases(),
+    ...globCases(),
   ]
 }
 
@@ -74,9 +94,17 @@ function plantSupportFiles(project: PlantedProject): void {
     project.add(`src/${layer.folder}/target.ts`, targetModuleCode(layer))
   }
   project.add('tooling/helper.ts', 'export const helper = 1\n')
+  project.add('tooling/subprocess.fixtures.ts', 'export const TOOL_FIXTURE_TIMEOUT_MS = 1\n')
   project.add('src/lib/cycle-b.ts', valueImport('./cycle-a'))
   project.add('src/ui/cycle-tsx-b.tsx', valueImport('./cycle-tsx-a'))
   project.add('src/lib/one-way-b.ts', "export const layerTarget = 'one-way'\n")
+  // The fixture module the fixture cases import: planted into both trees,
+  // so the importing cases resolve their specifier and the fixture itself
+  // lints clean in each tree under the fixture category.
+  project.add(
+    'src/lib/planted-target.fixtures.ts',
+    "import { layerTarget } from './target'\nexport const plantedFixtureTarget = layerTarget\n",
+  )
 }
 
 export type PlantedSuite = {
@@ -87,7 +115,7 @@ export type PlantedSuite = {
   violationsFromSubdirectory?: LintReport
 }
 
-export function plantAndLintCases(cases: readonly PlantedCase[]): PlantedSuite {
+export async function plantAndLintCases(cases: readonly PlantedCase[]): Promise<PlantedSuite> {
   const violations = plantProject('violations')
   const clean = plantProject('clean')
   try {
@@ -98,18 +126,35 @@ export function plantAndLintCases(cases: readonly PlantedCase[]): PlantedSuite {
       const project = plantedCase.tree === 'violations' ? violations : clean
       project.add(plantedCase.file, plantedCase.code)
     }
-    // The subdirectory run reuses the violations tree, and only happens when
-    // a case needs it: eslint discovers the same config up from there, while
-    // its working directory differs from the tree root.
-    const needsSubdirectoryRun = cases.some(
-      (plantedCase) => plantedCase.lintFrom === 'subdirectory',
-    )
+    violations.configure()
+    clean.configure()
+    // Config discovery needs only the declared subdirectory probes. Keep the
+    // complete configured namespace for their imports and glob expansions.
+    const subdirectoryCases = cases.filter((plantedCase) => plantedCase.lintFrom === 'subdirectory')
+    // Each invocation has its own output and reads the planted config only.
+    // Settle all children before cleanup, even when one invocation fails.
+    const runs = await Promise.allSettled([
+      violations.lint(),
+      clean.lint(),
+      subdirectoryCases.length > 0
+        ? violations.lint({
+            cwd: join(violations.root, 'tooling'),
+            files: subdirectoryCases.map((plantedCase) => plantedCase.file),
+          })
+        : Promise.resolve(undefined),
+    ])
+    const reports = runs.map((run) => {
+      if (run.status === 'rejected') throw run.reason
+      return run.value
+    })
+    const [violationReport, cleanReport, subdirectoryReport] = reports
+    if (violationReport === undefined || cleanReport === undefined) {
+      throw new Error('the planted lint reports are missing')
+    }
     return {
-      violations: violations.lint(),
-      ...(needsSubdirectoryRun
-        ? { violationsFromSubdirectory: violations.lint({ cwd: join(violations.root, 'tooling') }) }
-        : {}),
-      clean: clean.lint(),
+      violations: violationReport,
+      ...(subdirectoryCases.length > 0 ? { violationsFromSubdirectory: subdirectoryReport } : {}),
+      clean: cleanReport,
     }
   } finally {
     violations.remove()

@@ -5,5 +5,17 @@
   left: var(--space-4);
   right: var(--space-4);
   bottom: var(--space-4);
+}
+
+/* The reason and the problem list read as one block: the paragraph loses
+   its default margin, and the list sits one space step below it with its
+   markers inside the box, so no entry is indented past the stage edge. */
+.reason {
   margin: 0;
+}
+
+.problems {
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  list-style-position: inside;
 }

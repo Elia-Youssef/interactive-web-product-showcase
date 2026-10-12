@@ -2,34 +2,42 @@
 // the project does not author, and the one rule every gate reads its files
 // through.
 import { join } from 'node:path'
-import { expect, test } from 'vitest'
-import { basisVendoredPrefix } from '../scripts/basisAssets.ts'
-import { isAuthoredFile, listGatedFiles } from './gatedFiles.ts'
+import { beforeAll, expect, test } from 'vitest'
+import { isAuthoredFile, isGatedTextFile, listGatedFiles } from './gatedFiles.ts'
 import { generatedFilePaths } from './generatedFiles.ts'
 import { listOwnedFiles } from './ownedFiles.ts'
+import { TOOL_FIXTURE_TIMEOUT_MS } from './subprocess.fixtures.ts'
 
 const repoRoot = join(import.meta.dirname, '..')
+let owned: string[]
+let gated: string[]
+beforeAll(() => {
+  owned = listOwnedFiles(repoRoot)
+  gated = listGatedFiles(repoRoot)
+}, TOOL_FIXTURE_TIMEOUT_MS)
 
-test('sources are authored, vendored and generated files are not', () => {
+test('sources are authored, generated files are not', () => {
   expect(isAuthoredFile('src/viewer/Stage.tsx')).toBe(true)
-  expect(isAuthoredFile('scripts/basisAssets.ts')).toBe(true)
   expect(isAuthoredFile('public/models/sample-one/model.glb')).toBe(true)
-  expect(isAuthoredFile(`${basisVendoredPrefix}basis_transcoder.js`)).toBe(false)
   for (const generated of generatedFilePaths) {
     expect(isAuthoredFile(generated), generated).toBe(false)
   }
 })
 
 test('the gated list is the owned list without the files the project does not author', () => {
-  const owned = listOwnedFiles(repoRoot)
-  const gated = listGatedFiles(repoRoot)
-
   expect(gated).toEqual(owned.filter(isAuthoredFile))
-  // The repo does hold vendored files, so the filter is doing real work.
-  expect(owned.some((file) => file.startsWith(basisVendoredPrefix))).toBe(true)
-  expect(gated.some((file) => file.startsWith(basisVendoredPrefix))).toBe(false)
   for (const generated of generatedFilePaths) {
     expect(owned, generated).toContain(generated)
     expect(gated, generated).not.toContain(generated)
+  }
+})
+
+test('text is decided by name: binary extensions and generated files are not gated text', () => {
+  expect(isGatedTextFile('src/viewer/Stage.tsx')).toBe(true)
+  expect(isGatedTextFile('public/_headers')).toBe(true)
+  expect(isGatedTextFile('public/models/sample-one/model.glb')).toBe(false)
+  expect(isGatedTextFile('public/fonts/face.woff2')).toBe(false)
+  for (const generated of generatedFilePaths) {
+    expect(isGatedTextFile(generated), generated).toBe(false)
   }
 })

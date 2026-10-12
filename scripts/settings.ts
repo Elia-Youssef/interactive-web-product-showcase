@@ -9,10 +9,16 @@
 // meshes and cut variant mappings. KTX2 is always requested explicitly
 // and geometry always leaves as Meshopt.
 import { z } from 'zod'
+import { readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { issuesFromZod } from '../src/lib/validation.ts'
 import { isMissingFileError } from './fsErrors.ts'
 import { TEXTURE_MAX_SIZE_PX } from './budgets.ts'
+import {
+  GEOMETRY_STORAGE_FILE,
+  geometryStorageOf,
+  type GeometryStorage,
+} from './geometryStorage.ts'
 
 export type SettingsIssue = {
   path: string
@@ -57,7 +63,57 @@ const textureSize = z
 const uastcLevel = z.literal(4)
 const uastcRdo = z.literal(true)
 const uastcRdoLambda = z.literal(4)
+// RDO multithreading trades determinism for a slight compression gain:
+// KTX-Software's own help for --uastc-rdo-m says disabling it gives
+// "slightly higher compression, deterministic", and gltf-transform 4.5.1
+// leaves it on by default unless this flag is passed. The optimize step
+// must give the same bytes for the same input, so off is the only value.
+const uastcRdoMultithreading = z.literal(false)
+// The zstd supercompression applied to UASTC textures: gltf-transform
+// 4.5.1's optimize KTX2 default (UASTC_DEFAULTS.zstd in cli.mjs), passed to
+// ktx as --zstd. ETC1S (BasisLZ) cannot take zstd, so this is UASTC-only.
+const uastcZstd = z.literal(18)
 const etc1sQuality = z.literal(255)
+// The thread count of every ktx encode. KTX-Software 4.4.2's UASTC encode
+// with RDO is only byte-stable single-threaded: threaded encodes produced
+// two different outputs for the same input across runs, with RDO
+// multithreading already off. gltf-transform 4.5.1 always passes at least
+// two threads (Math.max(2, ...) in cli.mjs) and offers no switch, which is
+// why the encode stage calls ktx directly. One is the only value that
+// gives the same bytes for the same input.
+const ktxThreads = z.literal(1)
+// The size of the pool of concurrent ktx processes that executes the encode
+// plan. Every process encodes one texture with ktxThreads and its output
+// depends only on its own input, so the pool size cannot change any byte;
+// it only overlaps the long single-threaded RDO encodes. Four keeps the
+// peak memory of the pool (source image plus encoder per process) bounded
+// while the encodes run.
+const ktxJobs = z.literal(4)
+
+// The geometry storage every optimize run writes, read once from its shared
+// data file (geometryStorage.ts) and validated like an override file, so a
+// broken file fails at import, naming the file and the field. The
+// contract's storage bounds are derived from these two numbers
+// (storageBounds.ts), and the validate step holds every file against what
+// they imply (contractRuleModel.ts).
+export function resolveGeometryStorage(contents: string, source: string): GeometryStorage {
+  const result = geometryStorageOf(parseSettingsJson(contents, source))
+  if (result.kind === 'invalid') {
+    throw new SettingsError(source, result.issues)
+  }
+  return result.storage
+}
+
+export const GEOMETRY_STORAGE: GeometryStorage = resolveGeometryStorage(
+  readFileSync(GEOMETRY_STORAGE_FILE, 'utf8'),
+  GEOMETRY_STORAGE_FILE,
+)
+export const POSITION_QUANTIZE_BITS = GEOMETRY_STORAGE.positionQuantizeBits
+export const KEY_FILTER_BITS = GEOMETRY_STORAGE.translationKeyFilterBits
+
+// The installed resample transform uses 1e-4 per component (resample.ts).
+// Pin that authored curve budget so encoding and preservation agree.
+export const ANIMATION_RESAMPLE_TOLERANCE = 0.0001
 
 // The full settings of one optimize run. Every field is required: the
 // defaults below are the base, and the file override is a partial pick.
@@ -68,11 +124,16 @@ export const optimizeSettingsSchema = z.strictObject({
   palette: z.boolean(),
   prune: z.boolean(),
   compress: z.literal('meshopt'),
+  resampleTolerance: z.literal(ANIMATION_RESAMPLE_TOLERANCE),
   textureFormat: z.literal('ktx2'),
   uastcLevel,
   uastcRdo,
+  uastcRdoMultithreading,
   uastcRdoLambda,
+  uastcZstd,
   etc1sQuality,
+  ktxThreads,
+  ktxJobs,
   textureMaxSize: textureSize,
   occlusionTextureMaxSize: textureSize,
 })
@@ -122,11 +183,16 @@ const FIXED_DEFAULTS = {
   palette: false,
   prune: false,
   compress: 'meshopt',
+  resampleTolerance: ANIMATION_RESAMPLE_TOLERANCE,
   textureFormat: 'ktx2',
   uastcLevel: 4,
   uastcRdo: true,
+  uastcRdoMultithreading: false,
   uastcRdoLambda: 4,
+  uastcZstd: 18,
   etc1sQuality: 255,
+  ktxThreads: 1,
+  ktxJobs: 4,
 } satisfies Partial<OptimizeSettings>
 
 const DEFAULT_TEXTURE_MAX_SIZE = TEXTURE_MAX_SIZE_PX
@@ -154,14 +220,18 @@ export async function loadOptimizeSettings(
     }
     return { settings: DEFAULT_OPTIMIZE_SETTINGS, usedOverride: false }
   }
-  let raw: unknown
+  return {
+    settings: resolveOptimizeSettings(parseSettingsJson(contents, settingsFile), settingsFile),
+    usedOverride: true,
+  }
+}
+
+// The JSON of one settings file, or a SettingsError naming the file.
+function parseSettingsJson(contents: string, source: string): unknown {
   try {
-    raw = JSON.parse(contents)
+    return JSON.parse(contents)
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
-    throw new SettingsError(settingsFile, [
-      { path: '', message: `expected valid JSON: ${message}` },
-    ])
+    throw new SettingsError(source, [{ path: '', message: `expected valid JSON: ${message}` }])
   }
-  return { settings: resolveOptimizeSettings(raw, settingsFile), usedOverride: true }
 }

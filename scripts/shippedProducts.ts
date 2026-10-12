@@ -7,8 +7,8 @@
 // only files carrying the manifest marker count.
 import { readdir } from 'node:fs/promises'
 import path from 'node:path'
-import { isMissingFileError } from './fsErrors.ts'
-import { MANIFEST_SUFFIX } from './productPaths.ts'
+import { isDirectory, isFile, isMissingFileError } from './fsErrors.ts'
+import { MANIFEST_SUFFIX, productPaths } from './productPaths.ts'
 
 async function listModelSlugs(root: string): Promise<string[]> {
   const modelsDir = path.join(root, 'public', 'models')
@@ -23,7 +23,11 @@ async function listModelSlugs(root: string): Promise<string[]> {
   }
 }
 
-async function listManifestSlugs(root: string): Promise<string[]> {
+// The slugs of the manifest files alone: the products the site has words
+// for. The validate step needs the union with the model folders below; the
+// build steps that write per-product output (the prerender, the social
+// capture) read this list, since a route exists only for a manifest.
+export async function listManifestSlugs(root: string): Promise<string[]> {
   const productsDir = path.join(root, 'src', 'products')
   try {
     const entries = await readdir(productsDir, { withFileTypes: true })
@@ -51,4 +55,11 @@ export async function listShippedSlugs(root: string): Promise<string[]> {
     )
   }
   return slugs
+}
+
+// Whether one slug is a shipped product, by the same two-sided discovery:
+// a folder under public/models, or a manifest file under src/products.
+export async function isShippedSlug(root: string, slug: string): Promise<boolean> {
+  const paths = productPaths(root, slug)
+  return (await isDirectory(path.dirname(paths.modelGlb))) || (await isFile(paths.manifestFile))
 }

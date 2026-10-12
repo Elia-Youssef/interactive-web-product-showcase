@@ -1,18 +1,16 @@
-// The pointer rules over the planted row table, the report format, the scan
-// of a scratch repository with a binary file, and the gate over the real
-// repo. Needles are assembled at runtime, so this file never holds one.
+// The pointer rules over the planted row table, the report format, and the scan
+// of a scratch repository with a binary file. The gate over the real
+// repository runs in the lint command, so no unit test repeats that scan.
+// Needles are assembled at runtime, so this file never holds one.
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
-import { runGit } from './gitCommand.ts'
-import { basisVendoredPrefix } from '../scripts/basisAssets.ts'
+import { execFixtureFile, TOOL_FIXTURE_TIMEOUT_MS } from './subprocess.fixtures.ts'
 import { generatedFilePaths } from './generatedFiles.ts'
 import { formatPointerFindings, scanGatedFilesForPointers } from './pointerGate.ts'
 import { findPointerFindings } from './pointerRules.ts'
 import type { PointerFinding } from './pointerRules.ts'
 import { allPointerRows, plantedPath, taskIdNeedle } from './pointerRows.ts'
-
-const repoRoot = join(import.meta.dirname, '..')
 
 describe('the pointer rules', () => {
   for (const row of allPointerRows) {
@@ -32,12 +30,6 @@ describe('the pointer rules', () => {
   }
 })
 
-describe('the pointer gate over the real repo', () => {
-  test('every owned file passes', () => {
-    expect(scanGatedFilesForPointers(repoRoot)).toEqual([])
-  })
-})
-
 describe('the pointer gate report', () => {
   test('a finding prints as path, line, column, kind and literal', () => {
     const findings = findPointerFindings({
@@ -53,30 +45,29 @@ describe('the pointer gate report', () => {
 describe('the scan of the owned files', () => {
   const scratchRoot = join(import.meta.dirname, '..', 'scratch')
   let repoRoot: string
+  let findings: ReturnType<typeof scanGatedFilesForPointers>
 
-  beforeAll(() => {
+  beforeAll(async () => {
     mkdirSync(scratchRoot, { recursive: true })
     repoRoot = mkdtempSync(join(scratchRoot, 'pointer-scan-'))
-    runGit(repoRoot, ['init', '--quiet'])
+    await execFixtureFile('git', ['init', '--quiet'], { cwd: repoRoot })
     const needleText = ['shipped in ', taskIdNeedle, ' today\n'].join('')
     writeFileSync(join(repoRoot, 'planted.txt'), needleText)
     writeFileSync(
-      join(repoRoot, 'planted.bin'),
+      join(repoRoot, 'planted.png'),
       Buffer.concat([Buffer.alloc(1, 0), Buffer.from(needleText, 'utf8')]),
     )
-    mkdirSync(join(repoRoot, basisVendoredPrefix), { recursive: true })
-    writeFileSync(join(repoRoot, basisVendoredPrefix, 'planted.js'), needleText)
     for (const generated of generatedFilePaths) {
       writeFileSync(join(repoRoot, generated), needleText)
     }
-  }, 30_000)
+    findings = scanGatedFilesForPointers(repoRoot)
+  }, TOOL_FIXTURE_TIMEOUT_MS)
 
   afterAll(() => {
     rmSync(repoRoot, { recursive: true, force: true })
   })
 
-  test('a pointer is found in an authored text file and skipped in binary, vendored and generated ones', () => {
-    const findings = scanGatedFilesForPointers(repoRoot)
+  test('a pointer is found in an authored text file and skipped in binary and generated ones', () => {
     expect(findings).toHaveLength(1)
     expect(findings[0]?.path).toEqual('planted.txt')
     expect(findings[0]?.line).toEqual(1)

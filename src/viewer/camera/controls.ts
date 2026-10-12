@@ -1,0 +1,125 @@
+import type CameraControlsImpl from 'camera-controls'
+import { MathUtils, Spherical, type PerspectiveCamera } from 'three/webgpu'
+import { containedDistanceScale } from '@lib/camera/aspect'
+import { zoomOfLens } from '@lib/camera/lens'
+import { orbitAnglesOf, positionOfOrbitAngles } from '@lib/camera/view'
+import type { OrbitAngles } from '@lib/camera/view'
+import { distanceOfZoomPercent, steppedZoomPercent, zoomPercentOfDistance } from '@lib/camera/zoom'
+import type { DistanceRange, PolarRange } from '@lib/camera/limits'
+import { steppedOrbit, type OrbitTurn } from '@lib/camera/orbitStep'
+import { stageCameraConfig } from './config'
+import type { CameraPlan, CameraView } from './productPlan'
+
+// The controls-level operations of the stage camera, one move each. Every
+// function takes the controls, the plan or view to act on, and the stage
+// aspect, and does no React and no store work: the component and its hooks
+// wire these into their lifecycles.
+
+// The end state of the controls through their public getters: the orbit
+// angles of the camera position and target the current transition is
+// moving toward. The live getters lag an eased move, and the zoom buttons
+// must step from where the move ends, so the steps read the end state, the
+// one state that makes the same request twice run twice. receiveEndValue
+// is the public getters' own default (camera-controls dist/index.d.ts),
+// spelled out in the call so the read's meaning stays in it.
+export function readControlsEndOrbit(controls: CameraControlsImpl): OrbitAngles {
+  const end = controls.getSpherical(new Spherical(), true)
+  return { azimuth: end.theta, polar: end.phi, distance: end.radius }
+}
+
+// The spherical coordinates the controls' current transition ends at, or
+// the live ones at rest: the state a zoom or tilt step reads and clamps,
+// its radius the end distance and its phi the end polar angle. The scratch
+// spherical value is the caller's, reused across reads, so a reader that
+// runs per controls update allocates nothing.
+export function readControlsEnd(controls: CameraControlsImpl, scratch: Spherical): Spherical {
+  return controls.getSpherical(scratch, true)
+}
+
+// The distance limits of a plan at one stage aspect, by the aspect rule:
+// every distance scales by the same factor, so the zoom percentage is the
+// same at any aspect.
+export function scaledRangeOf(plan: CameraPlan, stageAspect: number): DistanceRange {
+  const scale = containedDistanceScale(plan.authoredAspect, stageAspect)
+  return {
+    min: plan.distanceRange.min * scale,
+    max: plan.distanceRange.max * scale,
+  }
+}
+
+// The lens the plan presents once, when it is presented: the plan's base
+// lens and the one clip range of all its views. The views themselves never
+// touch the lens: each rides the controls' zoom channel (see applyView), so
+// the lens eases with the pose under one damping instead of jumping on the
+// first frame.
+export function applyLens(camera: PerspectiveCamera, plan: CameraPlan): void {
+  camera.fov = MathUtils.radToDeg(plan.baseFovY)
+  camera.near = plan.clipRange.near
+  camera.far = plan.clipRange.far
+  camera.updateProjectionMatrix()
+}
+
+// Puts the controls' limits in place and moves the camera onto the view at
+// the stage's aspect scale, the view's lens riding the controls' own zoom
+// channel as the zoom that turns the plan's base lens into the view's. With
+// a transition both ease there under the same smooth time and the promise
+// resolves when both have arrived, which is the same rest; without one they
+// arrive at once.
+export function applyView(
+  controls: CameraControlsImpl,
+  plan: CameraPlan,
+  view: CameraView,
+  stageAspect: number,
+  enableTransition: boolean,
+): Promise<void> {
+  const range = scaledRangeOf(plan, stageAspect)
+  controls.minDistance = range.min
+  controls.maxDistance = range.max
+  controls.minPolarAngle = plan.polarRange.min
+  controls.maxPolarAngle = plan.polarRange.max
+  const scale = containedDistanceScale(plan.authoredAspect, stageAspect)
+  const angles = orbitAnglesOf(view.position, view.target)
+  const position = positionOfOrbitAngles(
+    angles.azimuth,
+    angles.polar,
+    angles.distance * scale,
+    view.target,
+  )
+  const pose = controls.setLookAt(
+    position[0],
+    position[1],
+    position[2],
+    view.target[0],
+    view.target[1],
+    view.target[2],
+    enableTransition,
+  )
+  const lens = controls.zoomTo(zoomOfLens(plan.baseFovY, view.fovY), enableTransition)
+  return Promise.all([pose, lens]).then(() => undefined)
+}
+
+// Zoom steps from the end distance, clamped by the percentage math to the
+// limits.
+export function stepZoom(
+  controls: CameraControlsImpl,
+  range: DistanceRange,
+  steps: number,
+  enableTransition: boolean,
+): Promise<void> {
+  const percent = zoomPercentOfDistance(readControlsEndOrbit(controls).distance, range)
+  const stepped = steppedZoomPercent(percent, steps, stageCameraConfig.zoomStepPercent)
+  return controls.dollyTo(distanceOfZoomPercent(stepped, range), enableTransition)
+}
+
+// A turn of the orbit from the end angles, the polar angle clamped exactly
+// to the plan's limits by the orbit step rule, so repeated steps stop on a
+// limit and the controls' own clamp never has to round one.
+export function stepOrbit(
+  controls: CameraControlsImpl,
+  polarRange: PolarRange,
+  turn: OrbitTurn,
+  enableTransition: boolean,
+): Promise<void> {
+  const end = steppedOrbit(readControlsEndOrbit(controls), turn, polarRange)
+  return controls.rotateTo(end.azimuth, end.polar, enableTransition)
+}

@@ -3,4 +3,4 @@
 // trees call the same factory against their own roots.
 import { createConfig } from './tooling/eslintConfig.ts'
 
-export default createConfig({ root: import.meta.dirname })
+export default await createConfig({ root: import.meta.dirname })

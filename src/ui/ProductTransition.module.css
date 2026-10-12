@@ -1,0 +1,144 @@
+/*
+The product switch transition: the stage-sized surface that draws the
+diagonal band, or the reduced crossfade in its place. The surface clips
+the band to the stage box, so the panel and the top bar are never
+covered, and it never takes a pointer event, so the stage under it keeps
+every drag. Values are tokens.
+*/
+
+.root {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/*
+The diagonal band, oversized so the tilted rectangle still holds the
+whole stage at rest. The inset centers it on the stage, past the box on
+every side; its rest transform is the covered pose, so the cover
+animation lands on it without a jump and the covered phase holds it
+with no animation.
+*/
+.band {
+  position: absolute;
+  inset: var(--switch-band-inset);
+  background-color: var(--switch-band);
+  transform: rotate(var(--switch-band-angle)) translateY(var(--switch-rest));
+}
+
+.band.covering {
+  animation: switch-band-cover var(--duration-switch-move) var(--ease-switch) forwards;
+}
+
+.band.revealing {
+  animation: switch-band-reveal var(--duration-switch-move) var(--ease-switch) forwards;
+}
+
+/*
+The ticker line rides the band's center line and scrolls for as long as
+the band is on the stage. Two identical halves render and the marquee
+shifts exactly one half, so the loop is seamless; the trailing padding
+of a half matches the gap, so the seam reads like any other pause.
+*/
+.track {
+  display: flex;
+  align-items: center;
+  block-size: var(--size-fill);
+  inline-size: max-content;
+  animation: switch-marquee var(--duration-switch-marquee) linear infinite;
+}
+
+.half {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding-inline-end: var(--space-4);
+  font-family: var(--sans);
+  font-size: var(--fs-tagline);
+  font-weight: var(--weight-eyebrow);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--off);
+  white-space: nowrap;
+}
+
+.dot {
+  inline-size: var(--size-switch-dot);
+  block-size: var(--size-switch-dot);
+  border-radius: var(--radius-circle);
+  background-color: var(--off);
+}
+
+/* Reduced motion: the same red without the band, crossfading through the
+   same phases and paying the same callbacks. */
+.fade {
+  position: absolute;
+  inset: 0;
+  background-color: var(--switch-band);
+  opacity: 0;
+}
+
+.fade.covering {
+  animation: switch-fade-in var(--duration-switch-move) var(--ease-switch) forwards;
+}
+
+.fade.covered {
+  opacity: 1;
+}
+
+.fade.revealing {
+  animation: switch-fade-out var(--duration-switch-move) var(--ease-switch) forwards;
+}
+
+/* The band sweeps in along its own tilted axis, from fully off the stage
+   to its rest pose, and out past the opposite edge. */
+@keyframes switch-band-cover {
+  from {
+    transform: rotate(var(--switch-band-angle)) translateY(var(--switch-travel));
+  }
+
+  to {
+    transform: rotate(var(--switch-band-angle)) translateY(var(--switch-rest));
+  }
+}
+
+@keyframes switch-band-reveal {
+  from {
+    transform: rotate(var(--switch-band-angle)) translateY(var(--switch-rest));
+  }
+
+  to {
+    transform: rotate(var(--switch-band-angle)) translateY(calc(-1 * var(--switch-travel)));
+  }
+}
+
+@keyframes switch-marquee {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(var(--switch-marquee-shift));
+  }
+}
+
+@keyframes switch-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes switch-fade-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo } from 'react'
+import { frameFailureReason } from '@lib/renderer/frameFailure'
 import { initFailureReason } from '@lib/renderer/initFailure'
 import type { BackendRequestResult } from '@lib/renderer/request'
 import { useAppStore } from '@store/index'
@@ -7,14 +8,16 @@ import type { StageRendererStart } from './rendererFactory'
 
 // The wiring from the renderer lifecycle to the store's renderer events: an
 // invalid request reaches the store as failed, the ready event waits for the
-// first frame the stage's observer saw, an init failure arrives through the
-// error boundary, and an unmount resets and releases the renderer. Nothing
-// here throws: the factory owns every check that can fail, and its verdict
-// reaches this hook as a resolved or rejected promise.
+// first frame the stage presented, an init failure arrives through the
+// error boundary, a frame that threw under no product arrives from the
+// stage's frame path, and an unmount resets and releases the renderer.
+// Nothing here throws: the factory owns every check that can fail, and its
+// verdict reaches this hook as a resolved or rejected promise.
 export function useRendererLifecycle(request: BackendRequestResult): {
   stageRenderer: StageRendererStart
   handleFirstFrame: () => void
   handleInitError: (error: Error) => void
+  handleFrameFailure: (error: Error) => void
   getToneMapping: () => number | null
 } {
   const rendererReady = useAppStore((state) => state.rendererReady)
@@ -58,10 +61,17 @@ export function useRendererLifecycle(request: BackendRequestResult): {
     [rendererFailed],
   )
 
+  const handleFrameFailure = useCallback(
+    (error: Error) => {
+      rendererFailed(frameFailureReason(error))
+    },
+    [rendererFailed],
+  )
+
   const getToneMapping = useCallback(
     () => stageRenderer.started()?.renderer.toneMapping ?? null,
     [stageRenderer],
   )
 
-  return { stageRenderer, handleFirstFrame, handleInitError, getToneMapping }
+  return { stageRenderer, handleFirstFrame, handleInitError, handleFrameFailure, getToneMapping }
 }

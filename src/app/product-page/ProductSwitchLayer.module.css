@@ -1,0 +1,7 @@
+/* The switch transition's layer: the stage's own box, above everything the
+   stage draws, passing pointer events through. */
+.layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}

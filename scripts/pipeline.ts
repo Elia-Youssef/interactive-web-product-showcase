@@ -1,80 +1,35 @@
-// The optimize pipeline: the structure-preserving transforms plus explicit
-// KTX2 encoding, driven through the gltf-transform CLI.
+// The optimize pipeline: the in-process stages over the Document (the
+// tangent drop and the KTX2 texture encode plan) plus the
+// structure-preserving geometry pass through the gltf-transform CLI.
 //
-// The texture stage runs the CLI's own `optimize` ktx2 settings as three
-// standalone passes, so the per-product occlusion size can be applied: the
-// CLI's `optimize` command has a single global --texture-size, while the
-// standalone `uastc`/`etc1s` commands take --slots and --resize. UASTC
-// covers the data textures and ETC1S the color textures; the encoder
-// parameters come from the settings, fixed to the CLI optimize ktx2 values
-// (see settings.ts).
-//
-// The geometry stage then runs `optimize` with the structure flags and
-// --texture-compress=false: the texture stage already encoded everything,
-// so the geometry stage needs no KTX-Software at all.
-import { mkdir, mkdtemp, rm } from 'node:fs/promises'
+// The texture work is one encode plan over the Document (see ktx2Plan.ts):
+// a pure value that says, per texture, the stage that claims it, the mode,
+// the size, the color space and the full ktx create arguments. The plan is
+// executed in a bounded pool of single-threaded ktx processes (see
+// ktx2Encode.ts). The plan exists so the stage order, the stage set and
+// the per-texture facts are one tested value: the CLI's own optimize ktx2
+// path has a single global --texture-size and always spawns ktx with at
+// least two threads, which is not byte-stable. The tangent stage runs
+// before the plan is built: it strips attributes only, so the texture
+// positions the plan keys on are unaffected. The geometry pass then runs
+// `optimize` with the structure flags and --texture-compress=false: the
+// plan already encoded every texture, so the geometry stage needs no
+// KTX-Software at all.
+import { randomUUID } from 'node:crypto'
+import { mkdir, mkdtemp, open, rename, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
+import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import type { Document } from '@gltf-transform/core'
+import { executeEncodePlan, type Ktx2Runner } from './ktx2Encode.ts'
+import { buildEncodePlan, type EncodePlan } from './ktx2Plan.ts'
+import { describeTextures, type TextureReport } from './report.ts'
 import type { OptimizeSettings } from './settings.ts'
+import { dropUnusedTangents, type TangentReport } from './tangents.ts'
 
-// The slot globs of the CLI's own optimize ktx2 path (MICROMATCH_OPTIONS
-// contains:true, so these match the same slots in the standalone commands).
-// Brace expansion needs a comma, so the single-slot occlusion glob is
-// written plain: '{occlusionTexture}' would match only the literal braces.
-const SLOTS_DATA_TEXTURES = '{normalTexture,metallicRoughnessTexture}'
-const SLOTS_OCCLUSION = 'occlusionTexture'
-
-// Which size setting a texture is encoded with.
-export type TextureSizeRule = 'textureMaxSize' | 'occlusionTextureMaxSize'
-
-// The deliberate rule for textures used by several slots: a texture is
-// encoded once, by the first stage whose slots cover it, so a texture
-// shared between the occlusion slot and another UASTC slot is encoded at
-// textureMaxSize, and the occlusion override applies only to a texture the
-// occlusion slot alone uses. The run report names every shared texture with
-// the rule it got, so the override can never silently miss.
-export function textureSizeRule(slots: readonly string[]): TextureSizeRule {
-  const occlusionOnly = slots.length === 1 && slots[0] === 'occlusionTexture'
-  return occlusionOnly ? 'occlusionTextureMaxSize' : 'textureMaxSize'
-}
-
-// The runner the pipeline is parameterized by: one gltf-transform command.
-// The real runner spawns the CLI; tests record the calls instead.
+// The runner the geometry stage is parameterized by: one gltf-transform
+// command. The real runner spawns the CLI; tests record the calls instead.
 export type CliRunner = (args: readonly string[]) => Promise<unknown>
-
-export function buildUastcStageArgs(
-  inputPath: string,
-  outputPath: string,
-  slots: string,
-  maxSize: number,
-  settings: OptimizeSettings,
-): string[] {
-  return [
-    'uastc',
-    inputPath,
-    outputPath,
-    `--slots=${slots}`,
-    `--resize=${maxSize}`,
-    `--level=${settings.uastcLevel}`,
-    `--rdo=${settings.uastcRdo}`,
-    `--rdo-lambda=${settings.uastcRdoLambda}`,
-  ]
-}
-
-export function buildEtc1sStageArgs(
-  inputPath: string,
-  outputPath: string,
-  maxSize: number,
-  settings: OptimizeSettings,
-): string[] {
-  return [
-    'etc1s',
-    inputPath,
-    outputPath,
-    `--resize=${maxSize}`,
-    `--quality=${settings.etc1sQuality}`,
-  ]
-}
 
 export function buildGeometryStageArgs(
   inputPath: string,
@@ -82,7 +37,7 @@ export function buildGeometryStageArgs(
   settings: OptimizeSettings,
 ): string[] {
   return [
-    'optimize',
+    'optimize-preserving',
     inputPath,
     outputPath,
     `--flatten=${settings.flatten}`,
@@ -92,55 +47,84 @@ export function buildGeometryStageArgs(
     `--prune=${settings.prune}`,
     '--texture-compress=false',
     `--compress=${settings.compress}`,
+    `--resample-tolerance=${settings.resampleTolerance}`,
+    '--config',
+    fileURLToPath(new URL('./geometryCli.config.ts', import.meta.url)),
   ]
+}
+
+// Reading and writing one product Document. The NodeIO of modelIo.ts
+// satisfies this against files; tests use in-memory documents.
+export type ModelDocumentIO = {
+  read(path: string): Promise<Document>
+  write(path: string, doc: Document): Promise<void>
 }
 
 export type PipelineParams = {
   inputPath: string
   outputPath: string
   settings: OptimizeSettings
+  io: ModelDocumentIO
+  runKtx: Ktx2Runner
   run: CliRunner
+  validateCandidate: (candidatePath: string) => Promise<void>
 }
 
-// Runs the full pipeline on one product: three texture passes through a
-// temporary folder, then the geometry pass straight to the output path,
-// creating its folder. The temporary folder is removed even when a stage
-// fails.
-export async function runOptimizePipeline(params: PipelineParams): Promise<void> {
-  const tempDir = await mkdtemp(path.join(tmpdir(), 'optimize-'))
+// The outcome of one pipeline run: the tangent report and the encode plan
+// it executed, and the report of every texture as the encode left it. The
+// report is described from the document the plan was built over, the one
+// document whose texture positions key the plan's entries, so each texture
+// meets its own entry; the written file is not described here, because its
+// geometry pass merges identical textures and shifts the positions after
+// them.
+export type PipelineRun = {
+  plan: EncodePlan
+  textures: readonly TextureReport[]
+  tangents: TangentReport
+}
+
+// Runs the full pipeline on one product and returns the tangent report and
+// the encode plan it executed with the texture report drawn from it, so
+// the run report and the tests print and assert from the same values the
+// stages ran. The stages run on one in-memory Document, written through a
+// temporary folder. The candidate lives beside the destination so rename
+// publishes the checked bytes atomically on the same filesystem. Workspace
+// cleanup completes before publication, leaving no fallible work after it.
+export async function runOptimizePipeline(params: PipelineParams): Promise<PipelineRun> {
+  let tempDir: string | undefined = await mkdtemp(path.join(tmpdir(), 'optimize-'))
+  let candidatePath: string | undefined
   try {
-    const afterDataTextures = path.join(tempDir, 'stage1-data-uastc.glb')
-    const afterOcclusion = path.join(tempDir, 'stage2-occlusion-uastc.glb')
-    const afterAllTextures = path.join(tempDir, 'stage3-color-etc1s.glb')
-    await params.run(
-      buildUastcStageArgs(
-        params.inputPath,
-        afterDataTextures,
-        SLOTS_DATA_TEXTURES,
-        params.settings.textureMaxSize,
-        params.settings,
-      ),
-    )
-    await params.run(
-      buildUastcStageArgs(
-        afterDataTextures,
-        afterOcclusion,
-        SLOTS_OCCLUSION,
-        params.settings.occlusionTextureMaxSize,
-        params.settings,
-      ),
-    )
-    await params.run(
-      buildEtc1sStageArgs(
-        afterOcclusion,
-        afterAllTextures,
-        params.settings.textureMaxSize,
-        params.settings,
-      ),
-    )
+    const doc = await params.io.read(params.inputPath)
+    const tangents = dropUnusedTangents(doc)
+    const plan = buildEncodePlan(doc, params.settings)
+    await executeEncodePlan({
+      doc,
+      plan,
+      workspaceDir: tempDir,
+      jobs: params.settings.ktxJobs,
+      runKtx: params.runKtx,
+    })
+    const textures = describeTextures(doc, plan)
+    const afterTextures = path.join(tempDir, 'stage-textures-ktx2.glb')
+    await params.io.write(afterTextures, doc)
     await mkdir(path.dirname(params.outputPath), { recursive: true })
-    await params.run(buildGeometryStageArgs(afterAllTextures, params.outputPath, params.settings))
-  } finally {
+    const candidate = path.join(path.dirname(params.outputPath), `.optimize-${randomUUID()}.glb`)
+    const handle = await open(candidate, 'wx')
+    candidatePath = candidate
+    await handle.close()
+    await params.run(buildGeometryStageArgs(afterTextures, candidatePath, params.settings))
+    await params.validateCandidate(candidatePath)
     await rm(tempDir, { recursive: true, force: true })
+    tempDir = undefined
+    await rename(candidatePath, params.outputPath)
+    candidatePath = undefined
+    return { plan, textures, tangents }
+  } finally {
+    if (candidatePath !== undefined) {
+      await rm(candidatePath, { force: true })
+    }
+    if (tempDir !== undefined) {
+      await rm(tempDir, { recursive: true, force: true })
+    }
   }
 }

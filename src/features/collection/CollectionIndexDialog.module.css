@@ -1,0 +1,92 @@
+/* The collection index overlay: one surface panel of the top layer over a
+scrim of the page, centered over it at every viewport at its own maximum
+width. The overlay arrives with a short fade through the @starting-style
+entry frame; the motion scale turns the same duration instant under
+reduced motion, and the close is the platform's own. The z order needs no
+token: a modal dialog is the top layer. Values are tokens. */
+
+/* The dialog declares its own placement, the one the platform gives a
+modal dialog, so no shared rule can move it: the fixed box spans the
+viewport and the automatic margins center the panel in it. */
+.dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  box-sizing: border-box;
+  inline-size: min(var(--size-index-dialog-max), var(--size-fill));
+  padding: var(--space-6);
+  border: var(--hairline-width) solid var(--hairline);
+  border-radius: var(--radius);
+  background-color: var(--surface);
+  color: var(--off);
+  opacity: 1;
+  transition: opacity var(--duration-hover);
+}
+
+@starting-style {
+  .dialog[open] {
+    opacity: 0;
+  }
+}
+
+.dialog::backdrop {
+  background-color: rgb(var(--black-rgb) / var(--scrim-alpha));
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-block-end: var(--space-4);
+}
+
+.heading {
+  font-size: var(--fs-tagline);
+  font-weight: var(--weight-tagline);
+  color: var(--white);
+}
+
+.list {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-1);
+}
+
+/* One product per row: the position readout, the name and the category.
+The row is quiet; hover lifts it, and the open page's row carries the
+persistent underline, the way a selected control does. */
+.row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  color: var(--muted);
+  text-decoration: none;
+  font-size: var(--fs-body);
+  transition: color var(--duration-hover);
+}
+
+.name {
+  flex: 1;
+  color: var(--off);
+  transition: color var(--duration-hover);
+}
+
+.row:hover {
+  color: var(--white);
+}
+
+.row:hover .name {
+  color: var(--white);
+}
+
+.row[aria-current='page'] .name {
+  color: var(--white);
+  text-decoration: underline;
+  text-decoration-color: var(--off);
+  text-decoration-thickness: var(--hairline-width);
+  text-underline-offset: var(--offset-text-underline);
+}

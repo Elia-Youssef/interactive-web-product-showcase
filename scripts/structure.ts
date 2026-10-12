@@ -4,8 +4,15 @@
 // resolves HS_ parents by name, past the unnamed wrapper nodes that Meshopt
 // quantization inserts, so nothing depends on mesh placement.
 import type { Document, Node } from '@gltf-transform/core'
-import { KHRMaterialsVariants, type MappingList } from '@gltf-transform/extensions'
+import { KHRMaterialsVariants, type Anisotropy, type MappingList } from '@gltf-transform/extensions'
 import { HOTSPOT_PREFIX } from '../src/lib/product/contractNames.ts'
+import { readAnimationFacts } from './animationFacts.ts'
+import type { ChannelFact } from './animationFacts.ts'
+import { explodedBoundsOf } from './explodedBounds.ts'
+import { readCameraFacts, readGeometryFacts, readMeshBoxes } from './modelFacts.ts'
+import type { CameraFact, GeometryFacts } from './modelFacts.ts'
+import { isMat4, transformPointOf } from '../src/lib/camera/frame.ts'
+import type { MeshBox, ModelBounds, Vec3 } from '../src/lib/camera/frame.ts'
 
 // The extension a file must carry to prove the optimize step ran its
 // Meshopt pass. The reader decodes the compressed accessors, so the
@@ -18,6 +25,11 @@ export type HotspotAnchor = {
   // The nearest named ancestor: the PART_ node the hotspot rides with.
   // null when the hotspot hangs directly in the scene root.
   parentName: string | null
+  // The anchor's rest position, in the document's model space: the origin
+  // of its world matrix as the document authors it, before any animation.
+  // null when the world matrix is not a finite 4x4 matrix, which the
+  // hotspot check reports, so the position is never guessed.
+  restPosition: Vec3 | null
 }
 
 export type ProductStructure = {
@@ -29,7 +41,25 @@ export type ProductStructure = {
   animationNames: string[]
   unlitMaterialNames: string[]
   occlusionMaterialNames: string[]
+  // The materials whose anisotropy reads through a texture: the one
+  // anisotropy form the render contract does not support, so the validate
+  // step rejects it and an authored strength stays the only way in.
+  anisotropyTextureMaterialNames: string[]
   meshoptCompressed: boolean
+  // The camera, mesh and geometry facts the camera and model contracts'
+  // rules read, as plain data; the document itself never leaves the model
+  // step. The camera names derive from the same camera facts, so one read
+  // answers both.
+  cameraFacts: CameraFact[]
+  geometry: GeometryFacts
+  meshBoxes: MeshBox[]
+  // The parts' bounds at the explode clip's last key, the shadow subtree
+  // excluded (null when no part carries geometry): the build-time half of
+  // the home view's reach rule at the explode's end.
+  explodedBounds: ModelBounds | null
+  // Every animation channel of the document, as plain data: the clip's
+  // rule table entries read them beside the bounds they posed.
+  animationChannels: readonly ChannelFact[]
 }
 
 export function isHotspotNode(node: Node): boolean {
@@ -73,8 +103,11 @@ function readMappingCount(doc: Document): number {
 export function readProductStructure(doc: Document): ProductStructure {
   const root = doc.getRoot()
   const variantsExtension = doc.createExtension(KHRMaterialsVariants)
+  const cameraFacts = readCameraFacts(doc)
+  const animationChannels = readAnimationFacts(doc)
   const unlitMaterialNames: string[] = []
   const occlusionMaterialNames: string[] = []
+  const anisotropyTextureMaterialNames: string[] = []
   for (const material of root.listMaterials()) {
     if (material.getExtension('KHR_materials_unlit') !== null) {
       unlitMaterialNames.push(material.getName())
@@ -82,32 +115,72 @@ export function readProductStructure(doc: Document): ProductStructure {
     if (material.getOcclusionTexture() !== null) {
       occlusionMaterialNames.push(material.getName())
     }
+    const anisotropy = material.getExtension<Anisotropy>('KHR_materials_anisotropy')
+    if (anisotropy !== null && anisotropy.getAnisotropyTexture() !== null) {
+      anisotropyTextureMaterialNames.push(material.getName())
+    }
   }
   return {
     nodeNames: root
       .listNodes()
       .map((node) => node.getName())
       .filter((name) => name !== ''),
-    hotspotAnchors: root
-      .listNodes()
-      .filter(isHotspotNode)
-      .map((node) => ({
-        name: node.getName(),
-        parentName: nearestNamedAncestor(node),
-      })),
-    cameraNames: root
-      .listNodes()
-      .filter((node) => node.getCamera() !== null)
-      .map((node) => node.getName()),
+    hotspotAnchors: readHotspotAnchors(doc),
+    cameraNames: cameraFacts.map((fact) => fact.name),
     variantNames: variantsExtension.listVariants().map((variant) => variant.getName()),
     mappingCount: readMappingCount(doc),
     animationNames: root.listAnimations().map((animation) => animation.getName()),
     unlitMaterialNames,
     occlusionMaterialNames,
+    anisotropyTextureMaterialNames,
     meshoptCompressed: root
       .listExtensionsUsed()
       .some((extension) => extension.extensionName === MESHOPT_EXTENSION),
+    cameraFacts,
+    geometry: readGeometryFacts(doc),
+    meshBoxes: readMeshBoxes(doc),
+    explodedBounds: explodedBoundsOf(doc, animationChannels),
+    animationChannels,
   }
+}
+
+// Every HS_ node of the document, in node order, with the part it rides
+// and its rest position.
+export function readHotspotAnchors(doc: Document): HotspotAnchor[] {
+  return doc
+    .getRoot()
+    .listNodes()
+    .filter(isHotspotNode)
+    .map((node) => ({
+      name: node.getName(),
+      parentName: nearestNamedAncestor(node),
+      restPosition: restPositionOf(node),
+    }))
+}
+
+// The rest position of a node: its world matrix's origin, read only from a
+// finite 4x4 matrix. The transform is the shared point transform every
+// document fact uses, so an anchor reads the way a camera position does.
+function restPositionOf(node: Node): Vec3 | null {
+  const matrix = node.getWorldMatrix()
+  if (!isMat4(matrix) || !matrix.every((element) => Number.isFinite(element))) {
+    return null
+  }
+  return transformPointOf(matrix, [0, 0, 0])
+}
+
+// The rest position of every hotspot anchor with a readable one, keyed by
+// the hotspot id after the HS_ prefix: the anchors the close-up views
+// orbit. An anchor without a readable rest is left out, so the pivot rule
+// reports its close-up instead of orbiting a guessed point.
+export function anchorRestsOf(anchors: readonly HotspotAnchor[]): ReadonlyMap<string, Vec3> {
+  const rests = new Map<string, Vec3>()
+  for (const anchor of anchors) {
+    if (anchor.restPosition !== null) {
+      rests.set(anchor.name.slice(HOTSPOT_PREFIX.length), anchor.restPosition)
+    }
+  }
+  return rests
 }
 
 function countByName(anchors: readonly HotspotAnchor[]): Map<string, number> {
@@ -180,7 +253,7 @@ function findHotspotLosses(
 // Compares the structure of an optimized file against its source. Returns
 // every violation, so one pass reports the whole class of losses: a
 // vanished node name, a moved hotspot parent, a lost camera, variant or
-// mapping.
+// animation. Primitive assignments are compared by the semantic reader.
 export function findStructureLosses(before: ProductStructure, after: ProductStructure): string[] {
   const losses: string[] = []
   for (const name of before.nodeNames) {
@@ -203,9 +276,6 @@ export function findStructureLosses(before: ProductStructure, after: ProductStru
     losses.push(
       `variants changed: [${before.variantNames.join(', ')}] -> [${after.variantNames.join(', ')}]`,
     )
-  }
-  if (before.mappingCount !== after.mappingCount) {
-    losses.push(`variant mappings changed: ${before.mappingCount} -> ${after.mappingCount}`)
   }
   for (const name of before.animationNames) {
     if (!after.animationNames.includes(name)) {

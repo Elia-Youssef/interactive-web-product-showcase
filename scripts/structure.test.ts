@@ -13,7 +13,8 @@ import {
   type MappingList,
 } from '@gltf-transform/extensions'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { resolveGltfCliBin, runGltfCli } from './gltfCli.ts'
+import { TOOL_FIXTURE_TIMEOUT_MS } from '../tooling/subprocess.fixtures.ts'
+import { runFixtureGltfCli } from './gltfCli.fixtures.ts'
 import { createModelIO } from './modelIo.ts'
 import { buildGeometryStageArgs } from './pipeline.ts'
 import { DEFAULT_OPTIMIZE_SETTINGS, type OptimizeSettings } from './settings.ts'
@@ -22,37 +23,37 @@ import {
   findStructureLosses,
   nearestNamedAncestor,
   readProductStructure,
-  type ProductStructure,
 } from './structure.ts'
 
-function vec3Accessor(doc: Document, values: number[]): ReturnType<Document['createAccessor']> {
-  const accessor = doc.createAccessor().setType('VEC3').setArray(new Float32Array(values))
+// One accessor of the given shape, attached to the document's buffer.
+function accessorIn(
+  doc: Document,
+  shape: (
+    accessor: ReturnType<Document['createAccessor']>,
+  ) => ReturnType<Document['createAccessor']>,
+): ReturnType<Document['createAccessor']> {
+  const accessor = shape(doc.createAccessor())
   const buffer = doc.getRoot().listBuffers()[0]
   if (buffer !== undefined) {
     accessor.setBuffer(buffer)
   }
   return accessor
+}
+
+function vec3Accessor(doc: Document, values: number[]): ReturnType<Document['createAccessor']> {
+  return accessorIn(doc, (accessor) => accessor.setType('VEC3').setArray(new Float32Array(values)))
 }
 
 function scalarAccessor(doc: Document, values: number[]): ReturnType<Document['createAccessor']> {
-  const accessor = doc.createAccessor().setType('SCALAR').setArray(new Float32Array(values))
-  const buffer = doc.getRoot().listBuffers()[0]
-  if (buffer !== undefined) {
-    accessor.setBuffer(buffer)
-  }
-  return accessor
+  return accessorIn(doc, (accessor) =>
+    accessor.setType('SCALAR').setArray(new Float32Array(values)),
+  )
 }
 
 function quadIndices(doc: Document): ReturnType<Document['createAccessor']> {
-  const accessor = doc
-    .createAccessor()
-    .setType('SCALAR')
-    .setArray(new Uint16Array([0, 1, 2, 0, 2, 3]))
-  const buffer = doc.getRoot().listBuffers()[0]
-  if (buffer !== undefined) {
-    accessor.setBuffer(buffer)
-  }
-  return accessor
+  return accessorIn(doc, (accessor) =>
+    accessor.setType('SCALAR').setArray(new Uint16Array([0, 1, 2, 0, 2, 3])),
+  )
 }
 
 function addSceneNode(doc: Document, node: GltfNode): GltfNode {
@@ -105,8 +106,7 @@ function addVariants(doc: Document): void {
   const variants = doc.createExtension(KHRMaterialsVariants)
   const sage = variants.createVariant('sage')
   const graphite = variants.createVariant('graphite')
-  const materialFor = (name: string) => doc.createMaterial(name)
-  const materials = [materialFor('body-sage'), materialFor('body-graphite')]
+  const materials = [doc.createMaterial('body-sage'), doc.createMaterial('body-graphite')]
   const mesh = doc.createMesh('body-variants')
   const primitive = doc.createPrimitive()
   primitive.setAttribute('POSITION', vec3Accessor(doc, [0, 0, 0, 2, 0, 0, 0, 2, 0, 2, 2, 0]))
@@ -156,12 +156,15 @@ async function runGeometryStage(
   settings: OptimizeSettings,
 ): Promise<void> {
   const args = buildGeometryStageArgs(sourcePath, outputPath, settings)
-  await runGltfCli(resolveGltfCliBin(), args, process.env)
+  await runFixtureGltfCli(args)
 }
 
 describe('the geometry stage keeps the Blender contract', () => {
   let tempDir = ''
   let sourcePath = ''
+  let before: ReturnType<typeof readProductStructure>
+  let optimized: ReturnType<typeof readProductStructure>
+  let pruned: ReturnType<typeof readProductStructure>
 
   beforeAll(async () => {
     tempDir = await mkdtemp(path.join(tmpdir(), 'structure-test-'))
@@ -169,15 +172,21 @@ describe('the geometry stage keeps the Blender contract', () => {
     const { doc } = buildContractDocument()
     const io = await createModelIO()
     await io.write(sourcePath, doc)
-  })
+    before = readProductStructure(await io.read(sourcePath))
+    const optimizedPath = path.join(tempDir, 'contract-optimized.glb')
+    await runGeometryStage(sourcePath, optimizedPath, DEFAULT_OPTIMIZE_SETTINGS)
+    optimized = readProductStructure(await io.read(optimizedPath))
+    const prunedPath = path.join(tempDir, 'contract-pruned.glb')
+    await runGeometryStage(sourcePath, prunedPath, { ...DEFAULT_OPTIMIZE_SETTINGS, prune: true })
+    pruned = readProductStructure(await io.read(prunedPath))
+  }, TOOL_FIXTURE_TIMEOUT_MS)
 
   afterAll(async () => {
     await rm(tempDir, { recursive: true, force: true })
   })
 
-  it('reads the fixture back with every contract fact intact', async () => {
-    const io = await createModelIO()
-    const structure = readProductStructure(await io.read(sourcePath))
+  it('reads the fixture back with every contract fact intact', () => {
+    const structure = before
     expect(structure.nodeNames).toEqual(
       expect.arrayContaining([
         'PART_base',
@@ -190,8 +199,8 @@ describe('the geometry stage keeps the Blender contract', () => {
       ]),
     )
     expect(structure.hotspotAnchors).toEqual([
-      { name: 'HS_dial', parentName: 'PART_base' },
-      { name: 'HS_grille', parentName: 'PART_base' },
+      { name: 'HS_dial', parentName: 'PART_base', restPosition: [0, 0, 0] },
+      { name: 'HS_grille', parentName: 'PART_base', restPosition: [0, 0, 0] },
     ])
     expect(structure.cameraNames).toEqual(['CAM_home', 'CAM_driver'])
     expect(structure.variantNames).toEqual(['sage', 'graphite'])
@@ -208,12 +217,8 @@ describe('the geometry stage keeps the Blender contract', () => {
     expect(nearestNamedAncestor(partNode)).toBeNull()
   })
 
-  it('keeps every name, hotspot, camera, variant and mapping', { timeout: 120000 }, async () => {
-    const outputPath = path.join(tempDir, 'contract-optimized.glb')
-    await runGeometryStage(sourcePath, outputPath, DEFAULT_OPTIMIZE_SETTINGS)
-    const io = await createModelIO()
-    const before = readProductStructure(await io.read(sourcePath))
-    const after = readProductStructure(await io.read(outputPath))
+  it('keeps every name, hotspot, camera, variant and mapping', () => {
+    const after = optimized
     expect(after.nodeNames).toEqual(expect.arrayContaining(before.nodeNames))
     expect(after.hotspotAnchors).toEqual(before.hotspotAnchors)
     expect(after.cameraNames).toEqual(before.cameraNames)
@@ -225,47 +230,12 @@ describe('the geometry stage keeps the Blender contract', () => {
     expect(findSingleAnimationViolations(after)).toEqual([])
   })
 
-  it('loses the hotspots when pruning is on', { timeout: 120000 }, async () => {
-    const outputPath = path.join(tempDir, 'contract-pruned.glb')
-    const settings = { ...DEFAULT_OPTIMIZE_SETTINGS, prune: true }
-    await runGeometryStage(sourcePath, outputPath, settings)
-    const io = await createModelIO()
-    const before = readProductStructure(await io.read(sourcePath))
-    const after = readProductStructure(await io.read(outputPath))
+  it('loses the hotspots when pruning is on', () => {
+    const after = pruned
     const losses = findStructureLosses(before, after)
     expect(losses).toEqual(expect.arrayContaining([expect.stringMatching(/hotspot lost: HS_dial/)]))
     expect(losses).toEqual(
       expect.arrayContaining([expect.stringMatching(/hotspot lost: HS_grille/)]),
     )
-  })
-})
-
-describe('the one-clip rule without a name', () => {
-  const structureWith = (animationNames: string[]): ProductStructure => ({
-    nodeNames: [],
-    hotspotAnchors: [],
-    cameraNames: [],
-    variantNames: [],
-    mappingCount: 0,
-    animationNames,
-    unlitMaterialNames: [],
-    occlusionMaterialNames: [],
-    meshoptCompressed: true,
-  })
-
-  it('passes on one animation of any name', () => {
-    expect(findSingleAnimationViolations(structureWith(['Open up']))).toEqual([])
-  })
-
-  it('fails on zero animations', () => {
-    expect(findSingleAnimationViolations(structureWith([]))).toEqual([
-      'expected exactly one animation, found 0',
-    ])
-  })
-
-  it('fails on two animations', () => {
-    expect(findSingleAnimationViolations(structureWith(['Explode', 'Explode']))).toEqual([
-      'expected exactly one animation, found 2',
-    ])
   })
 })

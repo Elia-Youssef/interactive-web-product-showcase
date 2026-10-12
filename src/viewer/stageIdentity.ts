@@ -12,7 +12,7 @@ export function isStageRenderer(gl: object): gl is WebGPURenderer {
   return gl instanceof WebGPURenderer
 }
 
-export function assertStageRenderer(gl: object): void {
+export function assertStageRenderer(gl: object): asserts gl is WebGPURenderer {
   if (!isStageRenderer(gl)) {
     throw new Error('The stage needs the WebGPURenderer its factory built')
   }

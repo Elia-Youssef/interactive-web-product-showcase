@@ -61,20 +61,46 @@ function crossProductProblems(parsed: readonly ParsedManifest[]): CollectionProb
   if (parsed.length === 0) {
     return [{ product: null, path: null, message: EMPTY_COLLECTION_MESSAGE }]
   }
+  const duplicateSlugs = duplicateProblems(
+    parsed,
+    'slug',
+    (entry) => entry.product.slug,
+    (slug) => `duplicate slug '${slug}'`,
+  )
+  const duplicateNumbers = duplicateProblems(
+    parsed,
+    'number',
+    (entry) => String(entry.product.number),
+    (number) => `duplicate product number ${number}`,
+  )
   return [
-    ...duplicateProblems(
-      parsed,
-      'slug',
-      (entry) => entry.product.slug,
-      (slug) => `duplicate slug '${slug}'`,
-    ),
-    ...duplicateProblems(
-      parsed,
-      'number',
-      (entry) => String(entry.product.number),
-      (number) => `duplicate product number ${number}`,
-    ),
+    ...duplicateSlugs,
+    ...duplicateNumbers,
+    // The sequence rule only means anything for distinct numbers: a
+    // duplicate is its own finding, and a sequence report after one would
+    // just repeat that duplicate as a consequence.
+    ...(duplicateNumbers.length === 0 ? contiguityProblems(parsed) : []),
   ]
+}
+
+// The numbers are the positions: they run 1 to N with no gap, so a
+// product's number is its place in the collection and the counter is
+// number / count. Reports every product whose number is not its position,
+// naming the position's number and the number the product carries.
+function contiguityProblems(parsed: readonly ParsedManifest[]): CollectionProblem[] {
+  const sorted = [...parsed].sort((left, right) => byNumberAscending(left.product, right.product))
+  const problems: CollectionProblem[] = []
+  sorted.forEach((entry, index) => {
+    const expected = index + 1
+    if (entry.product.number !== expected) {
+      problems.push({
+        product: entry.source,
+        path: 'number',
+        message: `expected product number ${expected}, found ${entry.product.number}`,
+      })
+    }
+  })
+  return problems
 }
 
 // Reports every later occurrence of a value that was already used by an

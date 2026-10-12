@@ -5,6 +5,8 @@ import type { ManifestCase } from './manifestCases/case'
 import { finishCases } from './manifestCases/finishes'
 import { hotspotCases } from './manifestCases/hotspots'
 import { identityCases } from './manifestCases/identity'
+import { lookCases } from './manifestCases/look'
+import { metaCases } from './manifestCases/meta'
 import { optionCases } from './manifestCases/options'
 import { parseProduct } from './parse'
 import { DEFAULT_EXPLODE_CLIP } from './rules'
@@ -16,6 +18,8 @@ const casesByConcern: ReadonlyArray<readonly [string, readonly ManifestCase[]]> 
   ['finishes', finishCases],
   ['hotspots', hotspotCases],
   ['explode and camera', optionCases],
+  ['look', lookCases],
+  ['meta', metaCases],
 ]
 
 function manifestErrorThrown(manifest: unknown): ManifestError {

@@ -1,0 +1,95 @@
+/* The hotspot marker, two-tone so it reads on light and dark products: a
+   10px off-white dot with a thin dark rim, in a 28px ring drawn in the
+   boundary white with the same dark rim outside it, on a 44px hit area.
+   Active: the dot turns --red. Hover: the ring lifts to the off-white. The
+   keyboard focus ring is the global :focus-visible recipe, which owns the
+   ring; no second recipe here. Values are tokens. */
+
+.marker {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  inline-size: var(--size-hotspot-hit);
+  block-size: var(--size-hotspot-hit);
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-circle);
+  background: none;
+  cursor: pointer;
+  /* The stage overlay passes pointer events through on its empty area; the
+     marker is the one thing that takes them. */
+  pointer-events: auto;
+  /* The global ring, at the marker's own offset token, the one the card
+     placement keeps clear. */
+  --focus-ring-offset: var(--offset-hotspot-focus-ring);
+}
+
+/* The ring and the dot are centered pseudo-elements on the hit area. */
+.marker::before,
+.marker::after {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  border-radius: var(--radius-circle);
+  content: '';
+}
+
+/* The ring and its dark rim: a spread shadow adds no box, so the ring keeps
+   its own size and the rim rides outside it. */
+.marker::before {
+  inline-size: var(--size-hotspot-ring);
+  block-size: var(--size-hotspot-ring);
+  border: var(--hairline-width) solid var(--marker-ring);
+  box-shadow: 0 0 0 var(--marker-ring-rim-width) var(--marker-ring-rim);
+  transition: border-color var(--duration-hover);
+}
+
+.marker:hover::before,
+.marker[data-force-hover]::before {
+  border-color: var(--marker-ring-hover);
+}
+
+.marker::after {
+  inline-size: var(--size-hotspot-dot);
+  block-size: var(--size-hotspot-dot);
+  background-color: var(--marker-dot);
+  /* The dark rim under the dot, outside its box like the ring's. */
+  box-shadow: 0 0 0 var(--marker-dot-rim-width) var(--marker-dot-rim);
+  transition: background-color var(--duration-hover);
+}
+
+.marker[aria-pressed='true']::after {
+  background-color: var(--red);
+}
+
+/*
+The one first-load pulse: the ring, rim and all, growing out of the marker
+and fading, once, then resting invisible through its forwards fill. It runs
+on the element's own mount, so an occlusion hide with visibility never
+replays it; with reduced motion the duration token resolves to zero, so no
+pulse shows.
+*/
+.pulse {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  inline-size: var(--size-hotspot-ring);
+  block-size: var(--size-hotspot-ring);
+  border: var(--hairline-width) solid var(--marker-ring);
+  border-radius: var(--radius-circle);
+  box-shadow: 0 0 0 var(--marker-ring-rim-width) var(--marker-ring-rim);
+  pointer-events: none;
+  animation: marker-pulse var(--duration-hotspot-pulse) var(--ease-pulse) forwards;
+}
+
+@keyframes marker-pulse {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(2);
+  }
+}

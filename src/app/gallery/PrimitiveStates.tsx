@@ -2,29 +2,31 @@
 // data-force-hover attribute the primitives accept, selected through its
 // prop, and focus forced through the gallery's forceFocus class, which
 // composes the focus tokens exactly as the global :focus-visible recipe
-// does. The copy is neutral sample content of realistic length: product
-// copy belongs only in src/products/.
+// does. The interactive controls run in ControlStates; this file holds
+// the words and marks. The copy is neutral sample content of realistic
+// length: product copy belongs only in src/products/.
 
 import type { ReactNode } from 'react'
 import {
   Card,
+  ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  ChevronUpIcon,
   CloseIcon,
   Divider,
   Eyebrow,
-  IconButton,
+  Marker,
   MinusIcon,
   PlusIcon,
   Readout,
   ResetIcon,
-  Swatch,
-  TextButton,
   Title,
 } from '@ui/index'
+import { controlSections } from './ControlStates'
+import { State, StatesSection } from './States'
 import styles from './gallery.module.css'
 
-// The gallery is a static look review: closing a card has nothing to do.
 const noOp = () => {}
 
 const cardProps = {
@@ -35,30 +37,15 @@ const cardProps = {
   closeLabel: 'Close',
 }
 
-function StatesSection({ name, children }: { name: string; children: ReactNode }) {
-  return (
-    <section className={styles.section}>
-      <Eyebrow>{name}</Eyebrow>
-      <div className={styles.states}>{children}</div>
-    </section>
-  )
-}
-
-function State({ caption, children }: { caption: string; children: ReactNode }) {
-  return (
-    <figure className={styles.state}>
-      {children}
-      <figcaption>
-        <Readout>{caption}</Readout>
-      </figcaption>
-    </figure>
-  )
-}
-
 const eyebrowStates = (
-  <State caption="default">
-    <Eyebrow>Compact speaker / 000</Eyebrow>
-  </State>
+  <>
+    <State caption="default">
+      <Eyebrow>Compact speaker</Eyebrow>
+    </State>
+    <State caption="with tail">
+      <Eyebrow tail="/ 000">Compact speaker</Eyebrow>
+    </State>
+  </>
 )
 
 const titleStates = (
@@ -78,62 +65,8 @@ const cardStates = (
     <State caption="close focus">
       <Card {...cardProps} data-force-focus />
     </State>
-  </>
-)
-
-const textButtonStates = (
-  <>
-    <State caption="default">
-      <TextButton>See inside</TextButton>
-    </State>
-    <State caption="hover">
-      <TextButton data-force-hover>See inside</TextButton>
-    </State>
-    <State caption="selected">
-      <TextButton selected>See inside</TextButton>
-    </State>
-    <State caption="focus">
-      <TextButton className={styles.forceFocus}>See inside</TextButton>
-    </State>
-  </>
-)
-
-const iconButtonStates = (
-  <>
-    <State caption="default">
-      <IconButton aria-label="Zoom in">
-        <PlusIcon />
-      </IconButton>
-    </State>
-    <State caption="hover">
-      <IconButton aria-label="Zoom out" data-force-hover>
-        <MinusIcon />
-      </IconButton>
-    </State>
-    <State caption="focus">
-      <IconButton aria-label="Reset view" className={styles.forceFocus}>
-        <ResetIcon />
-      </IconButton>
-    </State>
-  </>
-)
-
-const swatchStates = (
-  <>
-    <State caption="default">
-      <Swatch color="#9db89d" label="Sage Green" />
-    </State>
-    <State caption="hover">
-      <Swatch color="#9db89d" label="Sage Green" data-force-hover />
-    </State>
-    <State caption="selected">
-      <Swatch color="#2b2e2c" label="Graphite" selected />
-    </State>
-    <State caption="focus">
-      <Swatch color="#9db89d" label="Sage Green" className={styles.forceFocus} />
-    </State>
-    <State caption="selected + focus">
-      <Swatch color="#2b2e2c" label="Graphite" selected className={styles.forceFocus} />
+    <State caption="title h3, a group named by its title">
+      <Card {...cardProps} headingLevel={3} />
     </State>
   </>
 )
@@ -158,6 +91,37 @@ const iconStates = (
     <State caption="chevron right">
       <ChevronRightIcon />
     </State>
+    <State caption="chevron up">
+      <ChevronUpIcon />
+    </State>
+    <State caption="chevron down">
+      <ChevronDownIcon />
+    </State>
+  </>
+)
+
+const markerStates = (
+  <>
+    <State caption="default">
+      <div className={styles.markerCell}>
+        <Marker label="Ported chamber" />
+      </div>
+    </State>
+    <State caption="active">
+      <div className={styles.markerCell}>
+        <Marker label="Ported chamber" active />
+      </div>
+    </State>
+    <State caption="hover">
+      <div className={styles.markerCell}>
+        <Marker label="Ported chamber" data-force-hover />
+      </div>
+    </State>
+    <State caption="focus">
+      <div className={styles.markerCell}>
+        <Marker label="Ported chamber" className={styles.forceFocus} />
+      </div>
+    </State>
   </>
 )
 
@@ -179,12 +143,11 @@ const sections: Record<string, ReactNode> = {
   Eyebrow: eyebrowStates,
   Title: titleStates,
   Card: cardStates,
-  TextButton: textButtonStates,
-  IconButton: iconButtonStates,
-  Swatch: swatchStates,
   Icons: iconStates,
+  Marker: markerStates,
   Divider: dividerStates,
   Readout: readoutStates,
+  ...controlSections,
 }
 
 export function PrimitiveStates() {

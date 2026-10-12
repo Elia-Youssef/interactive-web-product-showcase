@@ -104,7 +104,7 @@ describe('loadParseProduct', () => {
         category: 'Audio',
         brand: 'Sample',
         model: 'Speaker',
-        eyebrow: 'Compact speaker / 002',
+        eyebrow: 'Compact speaker',
         tagline: 'A quiet box that fills the room.',
         intro: [],
         finishes: [{ variant: 'sage', label: 'Sage Green', swatch: '#9DB89D' }],

@@ -1,7 +1,8 @@
 import { expect, test } from 'vitest'
 import { renderToString } from 'react-dom/server'
 import type { ProductInput } from '@lib/product'
-import { parseProduct } from '@lib/product'
+import { parseProduct, productEyebrowText } from '@lib/product'
+import { siteCopy } from '@lib/copy/site'
 import { AppStoreProvider } from '@store/index'
 import { ProductPanel } from './ProductPanel'
 
@@ -19,7 +20,7 @@ const sampleManifest = {
   category: 'Audio',
   brand: 'Sample',
   model: 'Two',
-  eyebrow: 'Compact speaker / 001',
+  eyebrow: 'Compact speaker',
   tagline: 'Sound first, everything else second.',
   intro: ['A first line.', 'A second line.'],
   finishes: [
@@ -40,7 +41,7 @@ function renderPanel(): string {
 test('the panel renders every word from the manifest', () => {
   const html = renderPanel()
 
-  expect(html).toContain('Compact speaker / 001')
+  expect(html).toContain('Compact speaker')
   expect(html).toContain('Sample')
   expect(html).toContain('Two')
   expect(html).toContain('Sound first, everything else second.')
@@ -48,21 +49,133 @@ test('the panel renders every word from the manifest', () => {
   expect(html).toContain('A second line.')
 })
 
+test('the eyebrow is the manifest kind closed by the serial the site composes from the number', () => {
+  const html = renderPanel()
+  const product = parseProduct(sampleManifest, 'sample-one')
+
+  // The serial is one marked fragment after the kind, and the paragraph's
+  // text is the composed eyebrow: the number is written once, in the
+  // manifest's number field.
+  expect(html).toMatch(/<span class="[^"]*" data-eyebrow-tail="true">\/ 001<\/span>/)
+  const paragraph = /<p class="[^"]*">((?:(?!<\/p>).)*data-eyebrow-tail(?:(?!<\/p>).)*)<\/p>/.exec(
+    html,
+  )
+  const text = (paragraph?.[1] ?? '').replace(/<!-- -->/g, '').replace(/<[^>]+>/g, '')
+  expect(text).toBe(productEyebrowText(product))
+  expect(text).toBe('Compact speaker / 001')
+})
+
+test('the panel runs in one order: name, finishes, story, explode controls', () => {
+  const html = renderToString(
+    <AppStoreProvider>
+      <ProductPanel
+        product={parseProduct(
+          { ...sampleManifest, explode: { label: 'See inside' } },
+          'sample-one',
+        )}
+      />
+    </AppStoreProvider>,
+  )
+
+  // The markup is the order on every screen, so this one order is the
+  // visual, reading and keyboard order at every breakpoint.
+  const order = [
+    'data-eyebrow-tail',
+    '<h1',
+    'role="radiogroup"',
+    'Sound first, everything else second.',
+    'A first line.',
+    'See inside</button>',
+    'type="range"',
+  ].map((needle) => html.indexOf(needle))
+  expect(order.every((at) => at >= 0)).toBe(true)
+  expect(order).toEqual([...order].sort((a, b) => a - b))
+})
+
 test('the finish list carries the site heading and one swatch per finish', () => {
   const html = renderPanel()
 
-  expect(html).toContain('Choose your finish')
+  expect(html).toContain(siteCopy.finishHeading)
   expect(html).toContain('aria-label="Graphite"')
   expect(html).toContain('aria-label="Sage Green"')
 })
 
-test('the initial store state renders the product default as the active finish', () => {
+test('the swatches are one single-choice radio group named by the site heading', () => {
+  const html = renderPanel()
+
+  expect(html).toContain('role="radiogroup"')
+  expect(html).toContain(`aria-label="${siteCopy.finishHeading}"`)
+  expect((html.match(/role="radio"/g) ?? []).length).toBe(2)
+})
+
+test('the initial store state renders the product default as the checked finish', () => {
   const html = renderPanel()
 
   // What a static render can prove: the idle store, before any offer, and
   // its fallback to the product default, the first finish. Nothing here
   // reaches a store-driven state, because no effect runs in this render.
-  expect(html).toContain('aria-pressed="true"')
+  expect(html).toContain('aria-checked="true"')
   expect(html).toContain('Graphite')
-  expect(html.match(/aria-pressed="true"/g)).toHaveLength(1)
+  expect(html.match(/aria-checked="true"/g)).toHaveLength(1)
+})
+
+test('the explode toggle sits after the swatches, named by the manifest, waiting while detached', () => {
+  const html = renderToString(
+    <AppStoreProvider>
+      <ProductPanel
+        product={parseProduct(
+          { ...sampleManifest, explode: { label: 'See inside' } },
+          'sample-one',
+        )}
+      />
+    </AppStoreProvider>,
+  )
+
+  // The manifest label is the accessible name. The static render runs no
+  // effects, so the store holds no attached view and the toggle announces
+  // the wait: a press before the model is presented cannot arm anything,
+  // and the focus a keyboard user left on the button stays. The swatch
+  // group precedes it, as the panel order has it.
+  expect(html).toContain('role="radiogroup"')
+  expect(html.indexOf('role="radiogroup"')).toBeLessThan(html.indexOf('See inside</button>'))
+  expect(html).toContain('aria-pressed="false"')
+  expect(html).toContain('aria-disabled="true"')
+  expect(html).not.toMatch(/\sdisabled[=\s/>]/)
+  expect(html).toContain('See inside</button>')
+})
+
+test('the scrub control sits under the toggle, named apart from it, waiting while detached', () => {
+  const html = renderToString(
+    <AppStoreProvider>
+      <ProductPanel
+        product={parseProduct(
+          { ...sampleManifest, explode: { label: 'See inside' } },
+          'sample-one',
+        )}
+      />
+    </AppStoreProvider>,
+  )
+
+  // The slider follows the toggle and takes its accessible name from the
+  // copy module's scrub name, the toggle's word plus what the slider
+  // changes, so the section's two controls never share one name. The
+  // static render runs no effects, so nothing is attached and nothing
+  // publishes: the slider announces the wait at the assembled rest and the
+  // readout shows 0%.
+  expect(html).toContain('type="range"')
+  expect(html.indexOf('See inside</button>')).toBeLessThan(html.indexOf('type="range"'))
+  expect(html).toContain('aria-label="See inside progress"')
+  expect(html).toContain('value="0"')
+  expect(html).toContain('aria-valuetext="0%"')
+  expect(html).toContain('data-explode-readout')
+  expect(html.match(/aria-valuetext/g)).toHaveLength(1)
+  const slider = html.slice(html.indexOf('<input'))
+  expect(slider).toContain('aria-disabled="true"')
+  expect(slider).not.toMatch(/\sdisabled[=\s/>]/)
+})
+
+test('a manifest without an explode label names the toggle by the site word', () => {
+  const html = renderPanel()
+
+  expect(html).toContain('Exploded view</button>')
 })

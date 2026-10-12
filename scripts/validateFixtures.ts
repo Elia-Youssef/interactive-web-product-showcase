@@ -6,9 +6,19 @@
 import { Document, type Node as GltfNode } from '@gltf-transform/core'
 import {
   EXTMeshoptCompression,
+  KHRMaterialsUnlit,
   KHRMaterialsVariants,
   type MappingList,
 } from '@gltf-transform/extensions'
+import { authoredCameraAspect } from '../src/lib/camera/config.ts'
+import { cameraContractProblems } from '../src/lib/camera/contract.ts'
+import { viewPivotOf } from '../src/lib/camera/pivot.ts'
+import { pngBytes } from './texture.fixtures.ts'
+import type { CameraContract } from './manifestIo.ts'
+
+// The camera contract the check suites run, as the real module export: one
+// fixture, imported by every suite that calls the camera check.
+export const cameraContract: CameraContract = { cameraContractProblems, viewPivotOf }
 
 // Where the fixture hotspots hang. The two kinds are distinct tags, not one
 // string, so parenting to a node literally named 'scene' stays expressible
@@ -16,11 +26,33 @@ import {
 export type HotspotParent =
   { readonly kind: 'node'; readonly name: string } | { readonly kind: 'scene' }
 
+// The pose every fixture camera carries. A camera looks down its local -Z,
+// so an identity rotation from the given position looks straight at the
+// fixture model's center; the rotation quaternion re-aims it. The aspect
+// plants the camera contract's cases: the authored ratio to pass, any other
+// ratio to fail it, and null for a camera with none.
+export type CameraPose = {
+  readonly position: [number, number, number]
+  readonly rotation?: [number, number, number, number]
+  readonly fovYDegrees: number
+  readonly aspect: number | null
+}
+
+// The pose the fixture contract passes on: the model framed from the front,
+// at the authored aspect, with the home distance clearing the fixture
+// model's radius.
+export const PASSING_CAMERA_POSE: CameraPose = {
+  position: [1, 1, 4],
+  fovYDegrees: 30,
+  aspect: authoredCameraAspect,
+}
+
 export type DocumentOptions = {
   // HS_ node names, parented to the named node (or the scene root).
   hotspotNames?: string[]
   hotspotParent?: HotspotParent
   cameraNames?: string[]
+  cameraPose?: CameraPose
   variantNames?: string[]
   animationNames?: string[]
   // Whether the document carries the Meshopt extension mark.
@@ -97,9 +129,17 @@ function addHotspots(doc: Document, names: readonly string[], parent: HotspotPar
   }
 }
 
-function addCameras(doc: Document, names: readonly string[]): void {
+function addCameras(doc: Document, names: readonly string[], pose: CameraPose): void {
   for (const name of names) {
-    addSceneNode(doc, doc.createNode(name).setCamera(doc.createCamera(name)))
+    const camera = doc
+      .createCamera(name)
+      .setYFov((pose.fovYDegrees * Math.PI) / 180)
+      .setAspectRatio(pose.aspect)
+    const node = doc.createNode(name).setCamera(camera).setTranslation(pose.position)
+    if (pose.rotation !== undefined) {
+      node.setRotation(pose.rotation)
+    }
+    addSceneNode(doc, node)
   }
 }
 
@@ -109,17 +149,50 @@ function addVariants(doc: Document, names: readonly string[]): void {
   const primitive = doc.createPrimitive()
   primitive.setAttribute('POSITION', vec3Accessor(doc, [0, 0, 0, 2, 0, 0, 0, 2, 0, 2, 2, 0]))
   primitive.setIndices(quadIndices(doc))
+  // The one occlusion image every lit material samples, through the second
+  // UV set: the contract's occlusion rule, so the default document is its
+  // passing case like every other rule's. The image bytes are a valid
+  // minimal PNG, so a write and read back of the document keeps the slot.
+  const occlusion = doc.createTexture('T_ao').setMimeType('image/png').setImage(pngBytes(4, 4))
   const mappingList: MappingList = variants.createMappingList()
   for (const name of names) {
     const variant = variants.createVariant(name)
     const mapping = variants.createMapping()
-    mapping.setMaterial(doc.createMaterial(`body-${name}`))
+    const material = doc.createMaterial(`body-${name}`).setOcclusionTexture(occlusion)
+    material.getOcclusionTextureInfo()?.setTexCoord(1)
+    mapping.setMaterial(material)
     mapping.addVariant(variant)
     mappingList.addMapping(mapping)
   }
   primitive.setExtension('KHR_materials_variants', mappingList)
+  // The assigned material is the first declared finish, the default the
+  // panel names when nothing is selected.
+  const defaultMaterial = mappingList.listMappings()[0]?.getMaterial() ?? null
+  primitive.setMaterial(defaultMaterial)
   mesh.addPrimitive(primitive)
   addSceneNode(doc, doc.createNode('PART_body').setMesh(mesh))
+}
+
+// The shadow plane the contract asks for: a root mesh whose one material
+// is unlit, alpha BLEND, with no variant mapping.
+function addShadow(doc: Document): void {
+  const unlit = doc.createExtension(KHRMaterialsUnlit)
+  const material = doc
+    .createMaterial('MAT_shadow')
+    .setAlphaMode('BLEND')
+    .setExtension('KHR_materials_unlit', unlit.createUnlit())
+  const mesh = doc.createMesh('shadow')
+  const primitive = doc.createPrimitive()
+  // Inside the parts' own box, so the shadow adds its primitive without
+  // moving the frame every camera number reads.
+  primitive.setAttribute(
+    'POSITION',
+    vec3Accessor(doc, [0.2, 0.9, 0, 1.8, 0.9, 0, 0.2, 1.1, 0, 1.8, 1.1, 0]),
+  )
+  primitive.setIndices(quadIndices(doc))
+  primitive.setMaterial(material)
+  mesh.addPrimitive(primitive)
+  addSceneNode(doc, doc.createNode('SHADOW').setMesh(mesh))
 }
 
 function addAnimations(doc: Document, names: readonly string[]): void {
@@ -144,13 +217,45 @@ function addAnimations(doc: Document, names: readonly string[]): void {
   }
 }
 
+// Adds a rotation channel on the named node to the fixture's first clip: a
+// quarter turn about Y over the clip's own time keys. The contract allows
+// translation channels only, so this is how a suite plants the channel
+// kind the rules refuse, and how a written file carries the rotation
+// output the meshopt writer stores through its quaternion filter.
+export function addRotationChannel(doc: Document, nodeName: string): void {
+  const animation = doc.getRoot().listAnimations()[0]
+  const input = animation?.listSamplers()[0]?.getInput()
+  if (animation === undefined || input === null || input === undefined) {
+    throw new Error('the fixture holds no clip with time keys to rotate along')
+  }
+  const output = doc
+    .createAccessor()
+    .setType('VEC4')
+    .setArray(new Float32Array([0, 0, 0, 1, 0, Math.SQRT1_2, 0, Math.SQRT1_2]))
+  const buffer = doc.getRoot().listBuffers()[0]
+  if (buffer !== undefined) {
+    output.setBuffer(buffer)
+  }
+  const sampler = doc.createAnimationSampler().setInput(input).setOutput(output)
+  animation.addSampler(sampler)
+  animation.addChannel(
+    doc
+      .createAnimationChannel()
+      .setSampler(sampler)
+      .setTargetNode(nodeNamed(doc, nodeName))
+      .setTargetPath('rotation'),
+  )
+}
+
 // The contract document every check passes on: two parts, the hotspots on a
-// part, both cameras, the variants, one clip per given name, Meshopt marked.
+// part, both cameras in the passing pose, the variants, one clip per given
+// name, Meshopt marked.
 export function buildDocument(options: DocumentOptions = {}): Document {
   const {
     hotspotNames,
     hotspotParent = { kind: 'node', name: 'PART_base' },
     cameraNames = ['CAM_home', 'CAM_driver'],
+    cameraPose = PASSING_CAMERA_POSE,
     variantNames = ['sage', 'graphite'],
     animationNames = ['Explode'],
     meshopt = true,
@@ -161,9 +266,10 @@ export function buildDocument(options: DocumentOptions = {}): Document {
   addPartMesh(doc, 'PART_base')
   addPartMesh(doc, 'PART_knob')
   addVariants(doc, variantNames)
-  addCameras(doc, cameraNames)
+  addCameras(doc, cameraNames, cameraPose)
   addHotspots(doc, hotspotNames ?? [], hotspotParent)
   addAnimations(doc, animationNames)
+  addShadow(doc)
   if (meshopt) {
     doc.createExtension(EXTMeshoptCompression)
   }
@@ -185,4 +291,19 @@ export function nodeNamed(doc: Document, name: string): GltfNode {
     throw new Error(`the fixture node ${name} is missing`)
   }
   return node
+}
+
+// Hangs the named node under an unnamed wrapper, the kind quantization
+// inserts, whose scale overflows the node's world matrix to infinity: a
+// node whose rest position cannot be read.
+export function hangUnreadable(doc: Document, name: string): void {
+  const node = nodeNamed(doc, name)
+  const parent = node.getParentNode()
+  if (parent === null) {
+    throw new Error(`the fixture ${name} hangs in the scene root`)
+  }
+  const wrapper = doc.createNode('').setScale([Number.MAX_VALUE, 1, 1])
+  parent.removeChild(node)
+  parent.addChild(wrapper)
+  wrapper.addChild(node.setTranslation([Number.MAX_VALUE, 0, 0]))
 }

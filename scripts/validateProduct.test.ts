@@ -8,11 +8,18 @@ import { copyFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { NodeIO } from '@gltf-transform/core'
+import { ALL_EXTENSIONS } from '@gltf-transform/extensions'
+import { MeshoptDecoder, MeshoptEncoder } from 'meshoptimizer'
 import { loadParseProduct, type ParseProduct } from './manifestIo.ts'
 import { MANIFEST_SUFFIX, productPaths } from './productPaths.ts'
 import { validateShippedProduct } from './validateProduct.ts'
+import { POSITION_QUANTIZE_BITS } from './settings.ts'
 import { listShippedSlugs } from './shippedProducts.ts'
+import { positionGridOf } from './storageGrid.ts'
 import { countViolations, countWarnings } from './validateChecks.ts'
+import { buildDocument, PASSING_CAMERA_POSE } from './validateFixtures.ts'
+import { TOOL_FIXTURE_TIMEOUT_MS } from '../tooling/subprocess.fixtures.ts'
 
 // The repo root of this checkout: the parent of the scripts folder.
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
@@ -20,6 +27,10 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url))
 // The shipped products of this checkout, by the discovery the validate step
 // itself runs.
 const SHIPPED_SLUGS = await listShippedSlugs(ROOT)
+
+// The pipeline's quantize grid, as the validate step derives it once for its
+// run and passes to every product.
+const POSITION_GRID = await positionGridOf(POSITION_QUANTIZE_BITS)
 
 // A manifest file that parses, for a product whose model never exists.
 const GHOST_MANIFEST = [
@@ -29,7 +40,7 @@ const GHOST_MANIFEST = [
   "  category: 'Audio',",
   "  brand: 'Sample',",
   "  model: 'Speaker',",
-  "  eyebrow: 'Compact speaker / 002',",
+  "  eyebrow: 'Compact speaker',",
   "  tagline: 'A quiet box that fills the room.',",
   '  intro: [],',
   "  finishes: [{ variant: 'sage', label: 'Sage Green', swatch: '#9DB89D' }],",
@@ -37,31 +48,134 @@ const GHOST_MANIFEST = [
   '}',
 ].join('\n')
 
+// A manifest that parses except for its eyebrow, which still carries the
+// product number the site appends.
+const NUMBERED_EYEBROW_MANIFEST = GHOST_MANIFEST.replace(
+  "slug: 'ghost-speaker'",
+  "slug: 'numbered-speaker'",
+).replace("eyebrow: 'Compact speaker'", "eyebrow: 'Compact speaker / 002'")
+
 describe('the validate step on every shipped product', () => {
-  it.each(SHIPPED_SLUGS)('reports zero violations and zero warnings for %s', async (slug) => {
+  const validations = new Map<string, Awaited<ReturnType<typeof validateShippedProduct>>>()
+  beforeAll(async () => {
     const parseProduct = await loadParseProduct()
-    const validation = await validateShippedProduct(ROOT, slug, parseProduct)
-    expect(validation.checks.map((check) => check.name)).toEqual([
-      'manifest',
-      'model',
-      'hotspots',
-      'cameras',
-      'finishes',
-      'explode',
-      'encoding',
-      'budgets',
-    ])
-    expect(countViolations(validation)).toBe(0)
-    expect(countWarnings(validation)).toBe(0)
-    for (const check of validation.checks) {
-      expect(check.status, check.name).toBe('pass')
+    for (const slug of SHIPPED_SLUGS) {
+      validations.set(slug, await validateShippedProduct(ROOT, slug, parseProduct, POSITION_GRID))
     }
+  }, TOOL_FIXTURE_TIMEOUT_MS)
+  it.each(SHIPPED_SLUGS)(
+    'reports zero violations and only measured shadow warnings for %s',
+    (slug) => {
+      const validation = validations.get(slug)
+      if (validation === undefined) throw new Error(`missing validation evidence for ${slug}`)
+      expect(validation.checks.map((check) => check.name)).toEqual([
+        'manifest',
+        'model',
+        'hotspots',
+        'cameras',
+        'geometry',
+        'finishes',
+        'materials',
+        'explode',
+        'encoding',
+        'budgets',
+      ])
+      expect(countViolations(validation)).toBe(0)
+      expect(countWarnings(validation)).toBe(slug === 'orsa-kvern' ? 1 : 0)
+      for (const warning of validation.checks.flatMap((check) => check.warnings)) {
+        expect(warning).toMatch(/^shadow-footprint-fits-plane: SHADOW x high side/)
+      }
+      for (const check of validation.checks) {
+        expect(check.status, check.name).toBe('pass')
+      }
+    },
+  )
+})
+
+describe('the validate step on a planted product at the old aspect', () => {
+  let tempRoot = ''
+  let validation: Awaited<ReturnType<typeof validateShippedProduct>>
+
+  beforeAll(async () => {
+    const scratchRoot = path.join(ROOT, 'scratch')
+    await mkdir(scratchRoot, { recursive: true })
+    tempRoot = await mkdtemp(path.join(scratchRoot, 'validate-aspect-test-'))
+    await mkdir(path.join(tempRoot, 'src', 'products'), { recursive: true })
+    await mkdir(path.join(tempRoot, 'public', 'models', 'planted-speaker'), { recursive: true })
+    // The contract document with every camera at the old 16:9 television
+    // aspect, written to a real .glb the validate step reads back. The
+    // writer encodes the Meshopt marks the fixture carries, so this IO
+    // carries the encoder beside the decoder and the planted product is
+    // valid except for its camera aspects.
+    const doc = buildDocument({
+      hotspotNames: ['HS_driver', 'HS_knob'],
+      cameraPose: { ...PASSING_CAMERA_POSE, aspect: 16 / 9 },
+    })
+    await MeshoptEncoder.ready
+    const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({
+      'meshopt.encoder': MeshoptEncoder,
+      'meshopt.decoder': MeshoptDecoder,
+    })
+    await io.write(path.join(tempRoot, 'public', 'models', 'planted-speaker', 'model.glb'), doc)
+    await writeFile(
+      path.join(tempRoot, 'src', 'products', `planted-speaker${MANIFEST_SUFFIX}`),
+      [
+        'export const manifest = {',
+        "  slug: 'planted-speaker',",
+        '  number: 2,',
+        "  category: 'Audio',",
+        "  brand: 'Sample',",
+        "  model: 'Speaker',",
+        "  eyebrow: 'Compact speaker',",
+        "  tagline: 'A quiet box that fills the room.',",
+        '  intro: [],',
+        "  finishes: [{ variant: 'sage', label: 'Sage Green', swatch: '#9DB89D' }, { variant: 'graphite', label: 'Graphite', swatch: '#2B2E2C' }],",
+        "  hotspots: [{ id: 'driver', eyebrow: 'A closer look', title: 'Full-range driver', bullets: ['Behind the grille'] }],",
+        '}',
+      ].join('\n'),
+      'utf8',
+    )
+    validation = await validateShippedProduct(
+      tempRoot,
+      'planted-speaker',
+      await loadParseProduct(),
+      POSITION_GRID,
+    )
+  }, TOOL_FIXTURE_TIMEOUT_MS)
+
+  afterAll(async () => {
+    await rm(tempRoot, { recursive: true, force: true })
+  })
+
+  it('fails by name on every camera aspect', () => {
+    const cameras = validation.checks.find((check) => check.name === 'cameras')
+    expect(cameras?.status).toBe('fail')
+    expect(cameras?.violations).toEqual([
+      `camera CAM_home carries aspect ratio ${16 / 9}, expected the authored 1600 / 1422`,
+      `camera CAM_driver carries aspect ratio ${16 / 9}, expected the authored 1600 / 1422`,
+    ])
+    // The planted document is a raw write, not an optimized file: beside
+    // the two aspect defects the encoding check names its plain PNG, and
+    // the storage rule names its float positions and its unfiltered
+    // translation output, the storage the pipeline never writes.
+    const encoding = validation.checks.find((check) => check.name === 'encoding')
+    expect(encoding?.violations).toEqual(["texture 'T_ao' is image/png, expected image/ktx2"])
+    const model = validation.checks.find((check) => check.name === 'model')
+    expect(model?.violations).toEqual([
+      "storage-matches-pipeline: the POSITION of the mesh 'PART_base' is stored as component type 5126, not normalized, the pipeline's 14-bit quantize stores normalized Int16",
+      "storage-matches-pipeline: the POSITION of the mesh 'PART_knob' is stored as component type 5126, not normalized, the pipeline's 14-bit quantize stores normalized Int16",
+      "storage-matches-pipeline: the POSITION of the mesh 'body-variants' is stored as component type 5126, not normalized, the pipeline's 14-bit quantize stores normalized Int16",
+      "storage-matches-pipeline: the POSITION of the mesh 'shadow' is stored as component type 5126, not normalized, the pipeline's 14-bit quantize stores normalized Int16",
+      "storage-matches-pipeline: the translation output of 'PART_base' in the animation 'Explode' is stored with filter NONE, the pipeline's key filter is EXPONENTIAL at 12 bits",
+    ])
+    expect(countViolations(validation)).toBe(8)
   })
 })
 
-describe('the validate step on a temp root, one side missing', () => {
+describe('the validate step on a temp root: one side missing, or a manifest that does not parse', () => {
   let tempRoot = ''
   let parseProduct: ParseProduct
+  let orphanValidation: Awaited<ReturnType<typeof validateShippedProduct>>
 
   beforeAll(async () => {
     const scratchRoot = path.join(ROOT, 'scratch')
@@ -86,34 +200,83 @@ describe('the validate step on a temp root, one side missing', () => {
       GHOST_MANIFEST,
       'utf8',
     )
+    await writeFile(
+      path.join(productsDir, `numbered-speaker${MANIFEST_SUFFIX}`),
+      NUMBERED_EYEBROW_MANIFEST,
+      'utf8',
+    )
     parseProduct = await loadParseProduct()
-  })
+    orphanValidation = await validateShippedProduct(
+      tempRoot,
+      'orphan-speaker',
+      parseProduct,
+      POSITION_GRID,
+    )
+  }, TOOL_FIXTURE_TIMEOUT_MS)
 
   afterAll(async () => {
     await rm(tempRoot, { recursive: true, force: true })
   })
 
   it('validates a manifest-only product as exactly the model missing violation', async () => {
-    const validation = await validateShippedProduct(tempRoot, 'ghost-speaker', parseProduct)
+    const validation = await validateShippedProduct(
+      tempRoot,
+      'ghost-speaker',
+      parseProduct,
+      POSITION_GRID,
+    )
     expect(countViolations(validation)).toBe(1)
     const model = validation.checks.find((check) => check.name === 'model')
     expect(model?.violations).toEqual([
       'model missing: expected public/models/ghost-speaker/model.glb',
     ])
-    for (const name of ['hotspots', 'cameras', 'finishes', 'explode', 'encoding', 'budgets']) {
+    for (const name of [
+      'hotspots',
+      'cameras',
+      'geometry',
+      'finishes',
+      'materials',
+      'explode',
+      'encoding',
+      'budgets',
+    ]) {
       expect(validation.checks.find((check) => check.name === name)?.status, name).toBe('skipped')
     }
   })
 
-  it('validates a model-only product as exactly the manifest missing violation', async () => {
-    const validation = await validateShippedProduct(tempRoot, 'orphan-speaker', parseProduct)
+  it('validates a model-only product as exactly the manifest missing violation', () => {
+    const validation = orphanValidation
     expect(countViolations(validation)).toBe(1)
     const manifest = validation.checks.find((check) => check.name === 'manifest')
     expect(manifest?.violations).toEqual([
       'manifest missing: expected src/products/orphan-speaker.manifest.ts',
     ])
-    for (const name of ['hotspots', 'cameras', 'finishes', 'explode']) {
-      expect(validation.checks.find((check) => check.name === name)?.status, name).toBe('skipped')
+    expect(validation.checks.find((check) => check.name === 'hotspots')?.status).toBe('skipped')
+    for (const name of ['cameras', 'geometry', 'finishes', 'materials', 'explode']) {
+      expect(validation.checks.find((check) => check.name === name)?.status, name).toBe('pass')
     }
+    for (const [group, rule] of [
+      ['finishes', 'default-is-first-finish'],
+      ['cameras', 'authored-minimum-needed'],
+    ]) {
+      expect(validation.checks.find((check) => check.name === group)?.detail).toContain(
+        `${rule}: skipped: missing manifest`,
+      )
+    }
+  })
+
+  it('names an eyebrow that carries the product number as a manifest violation', async () => {
+    expect(NUMBERED_EYEBROW_MANIFEST).toContain("eyebrow: 'Compact speaker / 002'")
+    const validation = await validateShippedProduct(
+      tempRoot,
+      'numbered-speaker',
+      parseProduct,
+      POSITION_GRID,
+    )
+    const manifest = validation.checks.find((check) => check.name === 'manifest')
+    expect(manifest?.status).toBe('fail')
+    expect(manifest?.violations.join('\n')).toContain(
+      'expected the product kind without a trailing number or separator',
+    )
   })
 })

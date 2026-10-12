@@ -1,0 +1,129 @@
+import { expect, type Locator, type Page } from '@playwright/test'
+import { testBodyBudgetMs } from './budgets'
+import { settledStage } from './stageSettle'
+import { pinAmbientMotion, runningCaptureMotion } from './captureMotion'
+
+// The masked stage captures of the suite. The dev HUD shows live timings, so
+// it is masked, and it is right-anchored and sized by its content, so a
+// capture taken before its rolling window drains masks a different box than
+// one taken after. The settled entries own the mask and the wait together:
+// the capture happens only once the stage is at rest, which is settledStage
+// (it leaves the HUD at its rest text) followed by the end of the page's
+// one-time animations, so captures of a run through them cover the same box
+// and the same pixels and can be compared. The instant entry serves the
+// proofs that count one capture on its own at an observed moment; its
+// contract sits on it below.
+
+// The one mask every stage capture carries: the HUD box whose size the
+// settled wait pins.
+export function devHudMask(page: Page): readonly Locator[] {
+  return [page.getByTestId('dev-hud')]
+}
+
+// The mask extensions a caller can add to the standard list, a closed set:
+// the call site names the extension, this module owns the locators. The
+// chrome corners carry bright content of their own over the stage, so a
+// count that reads stage pixels masks all of them beside the HUD, and only
+// the product can answer. The product harness lays its dev controls over
+// the stage the same way, each under the harness control mark, so a count
+// on the harness masks every control the harness carries, whatever it
+// gains.
+export type StageCaptureExtension = 'chromeCorners' | 'harnessControls'
+
+const maskExtensions: Readonly<Record<StageCaptureExtension, (page: Page) => Locator>> = {
+  chromeCorners: (page) => page.locator('[data-corner]'),
+  harnessControls: (page) => page.locator('[data-harness-control]'),
+}
+
+// The standard mask plus the named extensions, painted black over the whole
+// viewport. The viewport is the extent because Chromium drops a presented
+// WebGPU canvas from element and clip captures, and only the plain viewport
+// capture carries it.
+async function maskedViewportCapture(
+  page: Page,
+  extensions: readonly StageCaptureExtension[],
+): Promise<Uint8Array> {
+  const extensionMask = extensions.map((extension) => maskExtensions[extension](page))
+  await pinAmbientMotion(page)
+  return page.screenshot({ mask: [...devHudMask(page), ...extensionMask], maskColor: '#000000' })
+}
+
+// The rest every settled capture waits for: the frame settle and the HUD
+// drain, then the page's one-time DOM animations, the markers' first-load
+// pulse among them. Those run on CSS time, not on frames, so a frame settle
+// does not cover them, and a capture taken mid-pulse pins a transition
+// state instead of the rest the capture claims. The frame settle comes
+// first, so an animation that starts with a late presented frame (a marker
+// that mounts on its first placement) is running by the time the
+// animations are read. They run once per load, so the wait falls through in
+// one poll afterwards. The social capture script waits on this same
+// contract, so its cards pin the same rest the suite's captures do.
+// Declared ambient effects never end, so they are excluded from this wait;
+// every shot below pins them at time zero right before it is taken. Every
+// unmarked effect keeps the original settle rule.
+export async function settledForCapture(page: Page): Promise<void> {
+  await settledStage(page)
+  await expect.poll(() => runningCaptureMotion(page), { timeout: testBodyBudgetMs }).toBe(0)
+  // The loading readout is absent at rest: no capture can hold it, and a
+  // stray one of its animations would already have stalled the wait above.
+  await expect
+    .poll(() => page.locator('[data-load-readout]').count(), { timeout: testBodyBudgetMs })
+    .toBe(0)
+}
+
+// Captures the stage at rest: the settled wait first, then the shot. Two
+// captures through this entry cover the same box, so they can be compared
+// pixel for pixel.
+export async function settledStageCapture(
+  page: Page,
+  extensions: readonly StageCaptureExtension[] = [],
+): Promise<Uint8Array> {
+  await settledForCapture(page)
+  return maskedViewportCapture(page, extensions)
+}
+
+// Captures the presented state at the instant of the call: the standard
+// mask, no rest wait. Its contract: the shot is counted on its own, against
+// a threshold, and never compared with another capture. Only the rest waits
+// pin the HUD's mask box, so a comparison across this entry can always race
+// the drain.
+export async function presentedStageCapture(
+  page: Page,
+  extensions: readonly StageCaptureExtension[] = [],
+): Promise<Uint8Array> {
+  return maskedViewportCapture(page, extensions)
+}
+
+// The visual snapshot of the settled contract: the settled wait and the
+// standard mask, with the runner's own mask color, so a committed baseline
+// keeps its pixels when only the capture's timing changes.
+export async function expectSettledStageScreenshot(
+  page: Page,
+  snapshotName: string,
+): Promise<void> {
+  await settledForCapture(page)
+  await pinAmbientMotion(page)
+  await expect(page).toHaveScreenshot(snapshotName, { mask: [...devHudMask(page)] })
+}
+
+// The DOM element captures the suite measures by ink or holds to a baseline:
+// the document's fonts are ready first, because a swapped face paints
+// different pixels than the one that lands, and nothing masks the element,
+// because the HUD and the stage chrome sit over the stage, never the panel.
+export async function elementCapture(page: Page, element: Locator): Promise<Uint8Array> {
+  await page.evaluate(() => document.fonts.ready)
+  await pinAmbientMotion(page)
+  return element.screenshot()
+}
+
+// The visual snapshot of a DOM element with its own committed baseline: the
+// fonts ready first, so the baseline holds the face the page declares.
+export async function expectElementScreenshot(
+  page: Page,
+  element: Locator,
+  snapshotName: string,
+): Promise<void> {
+  await page.evaluate(() => document.fonts.ready)
+  await pinAmbientMotion(page)
+  await expect(element).toHaveScreenshot(snapshotName, { maxDiffPixelRatio: 0.02 })
+}

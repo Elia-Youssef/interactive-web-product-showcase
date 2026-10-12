@@ -1,8 +1,10 @@
 import { expect, test } from './fixtures'
+import { productLoadBudgetMs, testBodyBudgetMs, testBudgetMs } from './budgets'
 import {
   expectPoll,
   harnessPath,
   harnessProducts,
+  leaveProduct,
   waitForProductReady,
   waitForSettledMemory,
   waitForStageWarm,
@@ -16,11 +18,15 @@ for (const product of products) {
   // renderer-owned textures exist before the baseline is read, so the proof
   // is exact: after every teardown, geometries and textures equal the
   // baseline, and repeating the cycle proves nothing accumulates per cycle.
+  // Every cycle switches through the product's finishes first, so the
+  // finish materials the load resolved ride the same teardown.
   test(`unmounting the ${product.slug} returns the renderer memory to its baseline, every cycle`, async ({
     page,
     backendPath,
   }) => {
-    test.setTimeout(240_000)
+    // The first presentation plus three remount loads, and the memory
+    // settles between them: the budget module's derivation for that count.
+    test.setTimeout(testBudgetMs({ productLoads: 4 }))
     await page.goto(harnessPath(backendPath, product.slug))
 
     await waitForStageWarm(page)
@@ -38,12 +44,13 @@ for (const product of products) {
     // three's node system keeps for the renderer's lifetime) exist and never
     // leave, so this is the one baseline every cycle must return to, exactly.
     await toggle.click()
-    await expectPoll(page, () => window.__viewer?.product).toBe('idle')
+    await expectPoll(page, () => window.__viewer?.product, productLoadBudgetMs).toBe('idle')
     const baseline = await waitForSettledMemory(page)
 
     for (let cycle = 1; cycle <= 3; cycle += 1) {
-      // Mount: a fresh load every time, because each teardown clears the
-      // suspense cache, and its resources sit on top of the empty baseline.
+      // Mount: a fresh load every time, because each teardown forgets the
+      // stage's load of the model, and its resources sit on top of the empty
+      // baseline.
       await toggle.click()
       await waitForProductReady(page)
       expect(await page.evaluate(() => window.__viewer?.model ?? null)).toEqual(presented)
@@ -51,13 +58,29 @@ for (const product of products) {
       expect(mounted.geometries).toBeGreaterThan(baseline.geometries)
       expect(mounted.textures).toBeGreaterThan(baseline.textures)
 
-      // Teardown: every geometry and texture the product held goes, and the
-      // counts return to the exact baseline. Nothing is allowed to lag: one
-      // leaked texture per cycle is the smallest leak there is, and the
-      // equality catches it.
-      await toggle.click()
-      await expectPoll(page, () => window.__viewer?.product).toBe('idle')
+      // Cycle every finish before the teardown, so the resources the
+      // switches touched ride the same teardown. The settled count over a
+      // switch is the lifecycle spec's proof; here every applied finish
+      // must simply be on the product the teardown then releases.
+      for (const finish of product.finishes) {
+        await page.getByTestId(`harness-finish-${finish.variant}`).click()
+        await expectPoll(
+          page,
+          () => window.__viewer?.finish?.applied ?? null,
+          testBodyBudgetMs,
+        ).toBe(finish.variant)
+      }
+
+      // Teardown: every geometry, texture and finish material the product
+      // held goes, and the counts return to the exact baseline. Nothing is
+      // allowed to lag: one leaked texture per cycle is the smallest leak
+      // there is, and the equality catches it. The leave is a scene
+      // mutation, so the stage presents itself without the product, twice,
+      // as every settle does: the canvas never keeps showing a released
+      // product.
+      await leaveProduct(page)
       expect(await page.evaluate(() => window.__viewer?.model ?? null)).toBeNull()
+      expect(await page.evaluate(() => window.__viewer?.finish ?? null)).toBeNull()
       const afterTeardown = await waitForSettledMemory(page)
       expectToEqualBaseline(afterTeardown, baseline, cycle)
     }

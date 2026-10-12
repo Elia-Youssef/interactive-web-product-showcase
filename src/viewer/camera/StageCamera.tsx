@@ -1,0 +1,84 @@
+import { useMemo, useRef, type ReactNode } from 'react'
+import { useThree } from '@react-three/fiber'
+import { PerspectiveCamera } from 'three/webgpu'
+import type { DistanceRange } from '@lib/camera/limits'
+import { useAppStoreApi } from '@store/index'
+import type { CameraPlan } from './productPlan'
+import { StageCameraContext, type StageCameraApi } from './StageCameraContext'
+import {
+  presentPlan,
+  releasePresentation,
+  rotateStep,
+  stepZoomBy,
+  transitionToView,
+  type StageCameraState,
+} from './stageCameraApi'
+import { useStageControls } from './useStageControls'
+import { useCameraControlsConfig } from './useCameraControlsConfig'
+import { useCameraAutomationSource } from './useCameraAutomationSource'
+import { useCameraReadoutPublish, useCameraRequests } from './useCameraStoreBridge'
+import { useCameraResize } from './useCameraResize'
+import { useCameraStepFrame } from './useCameraStepFrame'
+import { useStageAspect } from './useStageAspect'
+import { CameraRequestCompletion } from '@lib/camera/requestCompletion'
+import { useCameraCompletion } from './useCameraCompletion'
+
+type StageCameraProps = {
+  // The scene content the camera presents, which reaches the camera API
+  // through the context below.
+  readonly children?: ReactNode
+}
+
+// The stage camera: the controls mount of useStageControls is the one owner
+// of the stage camera. It is mounted once, outside the product, and it is
+// the only code that moves the camera. It presents the product's plan,
+// executes the UI's requests from the store's camera channel, publishes the
+// live readouts to the store, keeps the view through a resize, and reads
+// itself into the stage's automation slot. The wiring lives in the hooks
+// beside this file; the component only mounts the controls and hands the
+// API out.
+export function StageCamera({ children }: StageCameraProps) {
+  const completion = useMemo(() => new CameraRequestCompletion(), [])
+  const controls = useStageControls(completion)
+  useCameraCompletion(completion, controls)
+  const camera = useThree((state) => state.camera)
+  const size = useThree((state) => state.size)
+  const invalidate = useThree((state) => state.invalidate)
+  const store = useAppStoreApi()
+
+  const planRef = useRef<CameraPlan | null>(null)
+  const appliedRangeRef = useRef<DistanceRange | null>(null)
+  const stageAspect = useStageAspect()
+
+  const state = useMemo<StageCameraState>(
+    () => ({
+      controls,
+      camera,
+      planRef,
+      appliedRangeRef,
+      stageAspect,
+      invalidate,
+    }),
+    [controls, camera, stageAspect, invalidate],
+  )
+
+  useCameraControlsConfig(controls)
+  useCameraReadoutPublish(controls, store)
+  const stepFrame = useCameraStepFrame(invalidate)
+  useCameraRequests(controls, store, state, stepFrame)
+  useCameraResize(controls, size, planRef, appliedRangeRef, invalidate)
+  useCameraAutomationSource(controls, camera instanceof PerspectiveCamera ? camera : null)
+  const api = useMemo<StageCameraApi>(
+    () => ({
+      present: (plan, viewId) => presentPlan(state, plan, viewId),
+      transitionTo: (viewId) => transitionToView(state, viewId),
+      zoomStep: (steps) => stepZoomBy(state, steps),
+      rotateStep: (turn) => rotateStep(state, turn),
+      release: () =>
+        releasePresentation(state, () => store.getState().cameraPublishReadout({ kind: 'idle' })),
+    }),
+    [state, store],
+  )
+
+  return <StageCameraContext.Provider value={api}>{children}</StageCameraContext.Provider>
+}

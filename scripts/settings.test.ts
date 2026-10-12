@@ -5,6 +5,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { TEXTURE_MAX_SIZE_PX } from './budgets.ts'
 import {
   DEFAULT_OPTIMIZE_SETTINGS,
+  ANIMATION_RESAMPLE_TOLERANCE,
+  optimizeSettingsSchema,
   SettingsError,
   loadOptimizeSettings,
   resolveOptimizeSettings,
@@ -20,11 +22,16 @@ describe('resolveOptimizeSettings', () => {
       palette: false,
       prune: false,
       compress: 'meshopt',
+      resampleTolerance: ANIMATION_RESAMPLE_TOLERANCE,
       textureFormat: 'ktx2',
       uastcLevel: 4,
       uastcRdo: true,
+      uastcRdoMultithreading: false,
       uastcRdoLambda: 4,
+      uastcZstd: 18,
       etc1sQuality: 255,
+      ktxThreads: 1,
+      ktxJobs: 4,
       textureMaxSize: 2048,
       occlusionTextureMaxSize: 2048,
     })
@@ -91,6 +98,14 @@ describe('resolveOptimizeSettings', () => {
   it('keeps the encoder parameters out of the override surface', () => {
     expect(() => resolveOptimizeSettings({ uastcLevel: 2 }, 'test')).toThrow(/uastcLevel/)
     expect(() => resolveOptimizeSettings({ etc1sQuality: 128 }, 'test')).toThrow(/etc1sQuality/)
+    expect(() => resolveOptimizeSettings({ uastcRdoMultithreading: true }, 'test')).toThrow(
+      /uastcRdoMultithreading/,
+    )
+  })
+
+  it('rejects every rdo multithreading value but the deterministic off', () => {
+    const withOn = { ...DEFAULT_OPTIMIZE_SETTINGS, uastcRdoMultithreading: true }
+    expect(optimizeSettingsSchema.safeParse(withOn).success).toBe(false)
   })
 
   it('exposes the defaults as a validated settings object', () => {
@@ -102,6 +117,7 @@ describe('resolveOptimizeSettings', () => {
   it('holds the encoder parameters and reads the size default from the budgets', () => {
     expect(DEFAULT_OPTIMIZE_SETTINGS.uastcLevel).toBe(4)
     expect(DEFAULT_OPTIMIZE_SETTINGS.uastcRdo).toBe(true)
+    expect(DEFAULT_OPTIMIZE_SETTINGS.uastcRdoMultithreading).toBe(false)
     expect(DEFAULT_OPTIMIZE_SETTINGS.uastcRdoLambda).toBe(4)
     expect(DEFAULT_OPTIMIZE_SETTINGS.etc1sQuality).toBe(255)
     expect(DEFAULT_OPTIMIZE_SETTINGS.textureMaxSize).toBe(TEXTURE_MAX_SIZE_PX)

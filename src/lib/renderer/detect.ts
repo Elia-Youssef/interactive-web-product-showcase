@@ -21,9 +21,7 @@ export function detectRendererBackend(renderer: BackendCarrier): RendererBackend
   const isWebGPU = 'isWebGPUBackend' in backend && backend.isWebGPUBackend === true
   const isWebGL = 'isWebGLBackend' in backend && backend.isWebGLBackend === true
   if (isWebGPU && isWebGL) {
-    throw new Error(
-      'The renderer claims both the WebGPU and the WebGL2 backend, which is malformed',
-    )
+    throw new Error('The renderer claims both WebGPU and WebGL2 backends, which is malformed')
   }
   if (isWebGPU) {
     return 'webgpu'

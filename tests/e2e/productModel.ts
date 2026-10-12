@@ -1,10 +1,11 @@
 /// <reference types="node" />
-import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Accessor, Animation } from '@gltf-transform/core'
-import { createModelIO } from '../../scripts/modelIo.ts'
+import { modelPathOf } from '../../scripts/fixtureProducts.ts'
 import { readProductStructure } from '../../scripts/structure.ts'
 import { HOTSPOT_PREFIX, PART_PREFIX } from '../../src/lib/product/contractNames.ts'
+import { frozen, frozenShallow } from './frozenFacts'
+import { memoizedRead, readSharedModelDocument } from './sharedProductModels'
 
 // The committed model's own facts, read once per spec from the file the
 // site ships: what the rig summary must report, derived from the model
@@ -28,28 +29,33 @@ export type ProductModelFacts = {
   readonly clipDurationSeconds: number
 }
 
-export async function readProductModelFacts(slug: string): Promise<ProductModelFacts> {
-  const io = await createModelIO()
-  const modelPath = path.join(ROOT, 'public', 'models', slug, 'model.glb')
-  const doc = await io.read(modelPath)
-  const structure = readProductStructure(doc)
+// The model facts per slug, read once per process: every spec file's top
+// level read of the same product shares the one derivation.
+const factsBySlug = new Map<string, Promise<ProductModelFacts>>()
 
-  const animations = doc.getRoot().listAnimations()
-  if (animations.length !== 1) {
-    throw new Error(`expected exactly one animation in ${modelPath}, found ${animations.length}`)
-  }
-  const animation = animations[0]
-  if (animation === undefined) {
-    throw new Error(`the animation of ${modelPath} is missing`)
-  }
+export function readProductModelFacts(slug: string): Promise<ProductModelFacts> {
+  return memoizedRead(factsBySlug, slug, async () => {
+    const modelPath = await modelPathOf(ROOT, slug)
+    const doc = await readSharedModelDocument(modelPath)
+    const structure = readProductStructure(doc)
 
-  return {
-    partNames: structure.nodeNames.filter((name) => name.startsWith(PART_PREFIX)).sort(),
-    cameraNames: structure.cameraNames.sort(),
-    hotspotParts: hotspotPartMap(structure.hotspotAnchors),
-    clipName: animation.getName(),
-    clipDurationSeconds: clipDuration(animation),
-  }
+    const animations = doc.getRoot().listAnimations()
+    if (animations.length !== 1) {
+      throw new Error(`expected exactly one animation in ${modelPath}, found ${animations.length}`)
+    }
+    const animation = animations[0]
+    if (animation === undefined) {
+      throw new Error(`the animation of ${modelPath} is missing`)
+    }
+
+    return frozen({
+      partNames: structure.nodeNames.filter((name) => name.startsWith(PART_PREFIX)).sort(),
+      cameraNames: structure.cameraNames.sort(),
+      hotspotParts: frozenShallow(hotspotPartMap(structure.hotspotAnchors)),
+      clipName: animation.getName(),
+      clipDurationSeconds: clipDuration(animation),
+    })
+  })
 }
 
 function hotspotPartMap(anchors: readonly { name: string; parentName: string | null }[]) {

@@ -1,6 +1,8 @@
 import type { RendererBackend } from '@lib/renderer/backend'
 import { detectRendererBackend } from '@lib/renderer/detect'
+import { StageRendererStartError } from '@lib/renderer/initFailure'
 import type { BackendRequestResult } from '@lib/renderer/request'
+import { asError } from '@lib/errors'
 import { WebGPURenderer } from 'three/webgpu'
 import { stageConfig } from './config'
 import { assertStageRenderer } from './stageIdentity'
@@ -24,8 +26,8 @@ export type StartedStageRenderer = {
 // The renderer start of one stage mount: the async gl factory for R3F's
 // Canvas, and the verdict the factory leaves behind. R3F awaits the factory
 // before any render or configure, so every start-up check that can fail runs
-// inside it, after renderer.init(): the canvas check, the renderer type, the
-// backend detection. A failure rejects the factory promise, which R3F routes
+// inside it: the canvas check before init, then the renderer type and backend
+// detection after init. A failure rejects the factory promise, which R3F routes
 // through the error boundary into the store's failed status. The request
 // decides forceWebGL only; the real backend is read from the live renderer
 // after init, never from the URL.
@@ -54,14 +56,36 @@ export function createStageRenderer(request: BackendRequestResult): StageRendere
       powerPreference: stageConfig.powerPreference,
       forceWebGL: request.request.kind === 'forced-webgl2',
     })
-    await renderer.init()
-    assertStageRenderer(renderer)
-    const startedRenderer: StartedStageRenderer = {
-      renderer,
-      backend: detectRendererBackend(renderer),
+    // The factory owns the renderer until all startup checks pass and R3F
+    // takes it. Rollback must finish before the failure is reported, and a
+    // rollback that fails with its own error travels with the start failure
+    // instead of being dropped.
+    try {
+      await renderer.init()
+      assertStageRenderer(renderer)
+      const startedRenderer: StartedStageRenderer = {
+        renderer,
+        backend: detectRendererBackend(renderer),
+      }
+      started = startedRenderer
+      return renderer
+    } catch (error) {
+      const startup = asError(error)
+      try {
+        await renderer.dispose()
+      } catch (rollbackFailure) {
+        // A disposal after a failed init can reject with the init error
+        // itself: the same failure is not a second one. Identity is read on
+        // the values raised, before normalization, so a non-Error value
+        // raised by both counts once too. Any other rollback rejection is a
+        // failure of its own and is reported with the start failure, the
+        // start failure first.
+        if (rollbackFailure !== error) {
+          throw new StageRendererStartError(startup, asError(rollbackFailure))
+        }
+      }
+      throw startup
     }
-    started = startedRenderer
-    return renderer
   }
 
   return { factory, started: () => started }

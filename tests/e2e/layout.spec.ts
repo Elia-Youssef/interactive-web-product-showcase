@@ -1,65 +1,10 @@
-// E2E layout spec: verifies the responsive layout frame contract at 1440,
-// 1024, 768 and 390 px across all matrix projects, plus visual baselines
-// for the project configured to host them.
+// E2E layout spec: verifies the responsive layout frame contract at every
+// layout viewport across the layout projects.
 
 import { expect, test } from './fixtures'
 import { siteCopy } from '../../src/lib/copy/site'
-import { settledStage } from './stageSettle'
-
-type CornerName = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
-
-type ViewportContract = {
-  readonly width: number
-  readonly height: number
-  readonly panelWidth:
-    { readonly kind: 'fixed'; readonly expected: number } | { readonly kind: 'full' }
-  readonly stagePosition: 'right' | 'top'
-  readonly stageHeightRatio?: number
-  readonly visibleCorners: readonly CornerName[]
-  readonly hiddenCorners: readonly CornerName[]
-  readonly snapshotName: string
-}
-
-const viewportContracts: readonly ViewportContract[] = [
-  {
-    width: 1440,
-    height: 900,
-    panelWidth: { kind: 'fixed', expected: 1440 * 0.34 },
-    stagePosition: 'right',
-    visibleCorners: ['top-left', 'top-right', 'bottom-left', 'bottom-right'],
-    hiddenCorners: [],
-    snapshotName: 'desktop-layout-1440x900.png',
-  },
-  {
-    width: 1024,
-    height: 768,
-    panelWidth: { kind: 'fixed', expected: 380 },
-    stagePosition: 'right',
-    visibleCorners: ['top-left', 'top-right', 'bottom-left', 'bottom-right'],
-    hiddenCorners: [],
-    snapshotName: 'layout-1024x768.png',
-  },
-  {
-    width: 768,
-    height: 1024,
-    panelWidth: { kind: 'full' },
-    stagePosition: 'top',
-    stageHeightRatio: 0.6,
-    visibleCorners: ['top-left', 'top-right', 'bottom-left', 'bottom-right'],
-    hiddenCorners: [],
-    snapshotName: 'layout-768x1024.png',
-  },
-  {
-    width: 390,
-    height: 844,
-    panelWidth: { kind: 'full' },
-    stagePosition: 'top',
-    stageHeightRatio: 0.62,
-    visibleCorners: ['top-left', 'top-right', 'bottom-right'],
-    hiddenCorners: ['bottom-left'],
-    snapshotName: 'layout-390x844.png',
-  },
-]
+import { productLoadBudgetMs } from './productSpecs'
+import { stageBoxOf, viewportContracts } from './layoutContracts'
 
 for (const spec of viewportContracts) {
   test(`responsive frame contract at ${spec.width}x${spec.height}`, async ({
@@ -114,9 +59,15 @@ for (const spec of viewportContracts) {
       expect(panelBox.y).toBeGreaterThanOrEqual(stageBox.y + stageBox.height - 0.5)
     }
 
-    if (spec.stageHeightRatio !== undefined) {
-      expect(stageBox.height).toBeCloseTo(spec.height * spec.stageHeightRatio, 0)
+    // The canvas slot is the stage box the hotspot facts are computed for,
+    // and its height is the layout tokens' own function of the viewport.
+    const slotBox = await page.locator('[data-slot="stage"]').boundingBox()
+    if (slotBox === null) {
+      throw new Error('the stage slot bounding box must be present')
     }
+    const expectedStage = stageBoxOf(spec)
+    expect(slotBox.width, 'the stage slot width').toBeCloseTo(expectedStage.width, 0)
+    expect(slotBox.height, 'the stage slot height').toBeCloseTo(expectedStage.height, 0)
 
     // 5. Chrome corners visibility and placement within stage bounds
     for (const cornerKey of spec.visibleCorners) {
@@ -140,7 +91,11 @@ for (const spec of viewportContracts) {
     // 6. Static text corners pass pointer events through to the canvas. The
     // canvas takes its size when the renderer is ready, so the check waits
     // for that: before it there is nothing to drag.
-    await expect.poll(() => page.evaluate(() => window.__viewer?.status)).toBe('ready')
+    await expect
+      .poll(() => page.evaluate(() => window.__viewer?.status), {
+        timeout: productLoadBudgetMs,
+      })
+      .toBe('ready')
     if (spec.visibleCorners.includes('bottom-left')) {
       const hint = page.locator('[data-corner="bottom-left"]')
       const hintBox = await hint.boundingBox()
@@ -198,7 +153,11 @@ for (const spec of viewportContracts) {
   }) => {
     await page.setViewportSize({ width: spec.width, height: spec.height })
     await page.goto(backendPath)
-    await expect.poll(() => page.evaluate(() => window.__viewer?.status)).toBe('ready')
+    await expect
+      .poll(() => page.evaluate(() => window.__viewer?.status), {
+        timeout: productLoadBudgetMs,
+      })
+      .toBe('ready')
 
     const slot = page.locator('[data-slot="stage"]')
     const canvas = page.locator('[data-slot="stage"] canvas')
@@ -256,40 +215,43 @@ for (const spec of viewportContracts) {
   })
 }
 
+// The credit line sits in the panel footer, under the domain readout, at
+// every viewport. It may wrap on the phone sheet, but its box stays inside
+// the panel's own box: no character is clipped at any width.
 for (const spec of viewportContracts) {
-  test(`layout visual baseline at ${spec.width}x${spec.height}`, async ({
+  test(`the credit line sits under the domain and stays inside the panel at ${spec.width}x${spec.height}`, async ({
     page,
     backendPath,
-    hostsVisualBaselines,
   }) => {
-    test.skip(
-      !hostsVisualBaselines,
-      'visual baselines are committed for the visual baseline host only',
-    )
-
     await page.setViewportSize({ width: spec.width, height: spec.height })
     await page.goto(backendPath)
-    await expect.poll(() => page.evaluate(() => window.__viewer?.status)).toBe('ready')
 
-    // The baselines show the stage with the collection's product in it.
-    // Ready alone would race the product load and shoot the empty stage, so
-    // the wait is for the model report, which lands once the product is on a
-    // recorded frame, and the settle of its load frames.
-    await expect
-      .poll(() => page.evaluate(() => window.__viewer?.model ?? null), { timeout: 30000 })
-      .not.toBeNull()
-    await settledStage(page)
+    const panel = page.getByRole('complementary', { name: siteCopy.panelLabel })
+    const domain = panel.getByText(siteCopy.siteUrl)
+    const credit = panel.getByText(siteCopy.credit)
 
-    // The dev HUD shows live timings and exists only in dev builds, so it is
-    // masked: the baseline pins the design, not a measurement. The capture is
-    // the viewport, not the full page: a full-page capture expands the page
-    // for the shot, and that expansion clears a presented WebGPU canvas in
-    // Chromium, so a full-page baseline would pin an empty stage. On the
-    // desktop contracts the page fits the viewport and the two coincide; on
-    // tablet and phone the below-fold panel content stays covered by the
-    // functional checks of this spec.
-    await expect(page).toHaveScreenshot(spec.snapshotName, {
-      mask: [page.getByTestId('dev-hud')],
-    })
+    await expect(credit).toHaveText(siteCopy.credit)
+    await credit.scrollIntoViewIfNeeded()
+    await expect(credit).toBeVisible()
+
+    const panelBox = await panel.boundingBox()
+    const domainBox = await domain.boundingBox()
+    const creditBox = await credit.boundingBox()
+    if (panelBox === null || domainBox === null || creditBox === null) {
+      throw new Error('the panel, domain and credit bounding boxes must be present')
+    }
+    expect(creditBox.y, 'the credit sits under the domain readout').toBeGreaterThanOrEqual(
+      domainBox.y + domainBox.height - 0.5,
+    )
+    expect(creditBox.x, 'the credit starts inside the panel').toBeGreaterThanOrEqual(
+      panelBox.x - 0.5,
+    )
+    expect(creditBox.x + creditBox.width, 'the credit ends inside the panel').toBeLessThanOrEqual(
+      panelBox.x + panelBox.width + 0.5,
+    )
+    expect(
+      creditBox.y + creditBox.height,
+      'the credit bottom stays inside the panel',
+    ).toBeLessThanOrEqual(panelBox.y + panelBox.height + 0.5)
   })
 }

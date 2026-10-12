@@ -15,12 +15,18 @@ test('Swatch names itself with the finish label', () => {
   expect(html).toContain('aria-label="Sage Green"')
 })
 
-test('Swatch reports unselected by default and selected when selected', () => {
+test('Swatch reports unchecked by default and checked when checked', () => {
   const plain = renderToString(<Swatch color="#9db89d" label="Sage Green" />)
-  const selected = renderToString(<Swatch color="#9db89d" label="Sage Green" selected />)
+  const checked = renderToString(<Swatch color="#9db89d" label="Sage Green" checked />)
 
-  expect(plain).toContain('aria-pressed="false"')
-  expect(selected).toContain('aria-pressed="true"')
+  expect(plain).toContain('aria-checked="false"')
+  expect(checked).toContain('aria-checked="true"')
+})
+
+test('Swatch is a radio of a single-choice group', () => {
+  const html = renderToString(<Swatch color="#9db89d" label="Sage Green" />)
+
+  expect(html).toContain('role="radio"')
 })
 
 test('Swatch paints the finish color inline', () => {

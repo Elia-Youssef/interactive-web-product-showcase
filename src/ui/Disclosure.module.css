@@ -1,0 +1,44 @@
+/* The disclosure: a heading-level text button in the eyebrow's type, with
+the chevron that says which way it goes, over the content it shows. The
+button keeps the control's hit height. Hover lifts the label to white like
+the text buttons. Values are tokens. */
+
+.disclosure {
+  display: grid;
+  row-gap: var(--space-2);
+}
+
+.heading {
+  font: inherit;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-block-size: var(--size-hit-min);
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: var(--fs-eyebrow);
+  font-weight: var(--weight-eyebrow);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--label);
+  transition: color var(--duration-hover);
+}
+
+.button:hover,
+.disclosure[data-force-hover] .button {
+  color: var(--white);
+}
+
+/*
+The forced focus of the gallery demos: the same two declarations the global
+:focus-visible recipe uses, which owns the ring; no second recipe.
+*/
+.disclosure[data-force-focus] .button {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset, var(--focus-offset));
+}

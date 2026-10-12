@@ -13,7 +13,12 @@ the font faces. Nothing product-specific or component-specific lives here.
   box-sizing: border-box;
 }
 
-* {
+/*
+The margin reset spares the surfaces of the top layer: the platform places
+a modal dialog and a popover through an automatic margin, so zeroing it
+would pin every such surface into the top-left corner.
+*/
+:where(:not(dialog, [popover])) {
   margin: 0;
 }
 
@@ -27,6 +32,19 @@ body {
   background-color: var(--bg);
   color: var(--off);
   font-family: var(--sans);
+}
+
+/*
+Form controls come with the engine's own control font, which is not the
+brand face on every engine (WebKit's buttons answer in a serif), so every
+control inherits the document font and the type stays the structure the
+brand sets, whatever draws the control.
+*/
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
 }
 
 /*

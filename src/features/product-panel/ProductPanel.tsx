@@ -1,45 +1,70 @@
-// The panel content, top to bottom: the
-// current product's words, all from its manifest, then the finish list. The
-// product arrives as a prop; the selected finish is the only state, and it
+// The panel content, in one order at every breakpoint: the product's name
+// (eyebrow and title), the finish list, then its story (tagline and
+// intro), the explode controls and the navigation row. The phone's resting
+// sheet shows the first three, so the main action on a phone, switching
+// finishes, needs no scroll; and the markup is the order on every screen,
+// so reading and keyboard order are the visual order with no reordering.
+// The words come from the manifest. The product arrives as a prop; the
+// selected finish is the only state, and it
 // lives in the store's finish slice, which this component reads and writes
-// exclusively. Layout owns the panel container and its hairline; this is
-// the content inside it.
+// exclusively. The offer of the product's finishes is the variants
+// feature's one offer hook; layout owns the panel container and its
+// hairline, and this is the content inside it.
 
-import { useLayoutEffect } from 'react'
+import type { ReactNode } from 'react'
+import { productEyebrow } from '@lib/product'
 import type { Product } from '@lib/product'
 import { siteCopy } from '@lib/copy/site'
 import { selectSelectedVariant, useAppStore } from '@store/index'
-import { Divider, Eyebrow, Readout, Swatch, Title } from '@ui/index'
-import { activeFinish } from './product-panel.logic'
+import { useFinishOffer } from '@features/variants'
+import { Divider, Eyebrow, Readout, SwatchGroup, Title } from '@ui/index'
+import { ProductExplodeScrub } from './ProductExplodeScrub'
+import { ProductExplodeToggle } from './ProductExplodeToggle'
+import { activeFinish } from '@lib/copy/productPanel'
 import styles from './ProductPanel.module.css'
 
 export type ProductPanelProps = {
   product: Product
+  // The navigation row slot, after the explode controls: the composition
+  // decides what a product page navigates with, so the panel never
+  // reaches another feature for it.
+  navigationRow?: ReactNode
+  // The highlights slot, after the explode controls and before the
+  // navigation row: the composition fills it with the hotspots' list.
+  highlights?: ReactNode
 }
 
-export function ProductPanel({ product }: ProductPanelProps) {
-  const finishOffered = useAppStore((state) => state.finishOffered)
+export function ProductPanel({ product, navigationRow, highlights }: ProductPanelProps) {
   const finishSelected = useAppStore((state) => state.finishSelected)
   const selectedVariant = useAppStore((state) => selectSelectedVariant(state, product.slug))
 
-  // The store must know the current product's finishes to select within
-  // them, so the panel offers them under the product's slug, in a layout
-  // effect, so the painted first frame already shows the default finish as
-  // active. The offer names the product, so the first render of a switched
-  // product still reads its own default, never the last product's choice.
-  useLayoutEffect(() => {
-    finishOffered(
-      product.slug,
-      product.finishes.map((finish) => finish.variant),
-    )
-  }, [finishOffered, product])
+  useFinishOffer(product)
 
   const active = activeFinish(product, selectedVariant)
+  const eyebrow = productEyebrow(product)
 
   return (
     <div className={styles.panel}>
-      <Eyebrow>{product.eyebrow}</Eyebrow>
+      <Eyebrow tail={eyebrow.tail}>{eyebrow.lead}</Eyebrow>
       <Title brand={product.brand} model={product.model} />
+      <div className={styles.finish}>
+        <div className={styles.finishHeading}>
+          <Eyebrow level={2}>{siteCopy.finishHeading}</Eyebrow>
+          <span className={styles.activeFinish} data-active-finish>
+            <Readout>{active.label}</Readout>
+          </span>
+        </div>
+        <SwatchGroup
+          label={siteCopy.finishHeading}
+          items={product.finishes.map((finish) => ({
+            key: finish.variant,
+            color: finish.swatch,
+            label: finish.label,
+            checked: finish.variant === active.variant,
+          }))}
+          onSelect={(variant) => finishSelected(product.slug, variant)}
+        />
+      </div>
       <p className={styles.tagline}>{product.tagline}</p>
       <div className={styles.intro}>
         {product.intro.map((line, index) => (
@@ -51,25 +76,10 @@ export function ProductPanel({ product }: ProductPanelProps) {
       <div className={styles.rule}>
         <Divider />
       </div>
-      <div className={styles.finish}>
-        <div className={styles.finishHeading}>
-          <Eyebrow>{siteCopy.finishHeading}</Eyebrow>
-          <span className={styles.activeFinish} data-active-finish>
-            <Readout>{active.label}</Readout>
-          </span>
-        </div>
-        <div className={styles.swatches} role="group" aria-label={siteCopy.finishHeading}>
-          {product.finishes.map((finish) => (
-            <Swatch
-              key={finish.variant}
-              color={finish.swatch}
-              label={finish.label}
-              selected={finish.variant === active.variant}
-              onClick={() => finishSelected(product.slug, finish.variant)}
-            />
-          ))}
-        </div>
-      </div>
+      <ProductExplodeToggle product={product} />
+      <ProductExplodeScrub product={product} />
+      {highlights}
+      {navigationRow}
     </div>
   )
 }

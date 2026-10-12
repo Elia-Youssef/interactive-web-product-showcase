@@ -1,0 +1,253 @@
+import { describe, expect, it } from 'vitest'
+import {
+  cardBoxAt,
+  placeHotspotCard,
+  type CardMetrics,
+  type CardPlacementInput,
+  type FloatingCardSpot,
+} from './cardPlacement'
+import { markerKeepOut, type StagePoint, type StageRect } from './markerBox'
+import type { StageBox, StageRectTarget } from './projection'
+
+// The metrics of the cases: a 44 px hit box, the card 8 px off it, and a
+// ring reaching 5 px outside the hit box. A marker's keep-out box is then
+// 54 px square, and a card hangs 30 px off its marker's center.
+const metrics: CardMetrics = { markerHitPx: 44, cardOffsetPx: 8, focusOutsetPx: 5 }
+const card = { width: 200, height: 100 }
+const stage: StageBox = { width: 800, height: 600 }
+const center: StagePoint = { x: 400, y: 300 }
+
+// Each case gets its own spot and box prefilled with NaN, so a field the
+// rule left unwritten fails the case instead of carrying an earlier case's
+// answer.
+function freshSpot(): FloatingCardSpot {
+  return { side: 'right', left: Number.NaN, top: Number.NaN, right: Number.NaN, bottom: Number.NaN }
+}
+
+function freshBox(): StageRectTarget {
+  return { left: Number.NaN, top: Number.NaN, right: Number.NaN, bottom: Number.NaN }
+}
+
+function input(overrides: Partial<CardPlacementInput>): CardPlacementInput {
+  const marker = overrides.marker ?? center
+  return {
+    stage,
+    marker,
+    placedMarkers: [marker],
+    subject: null,
+    obstacles: [],
+    card,
+    metrics,
+    ...overrides,
+  }
+}
+
+function sideOf(placementInput: CardPlacementInput): string {
+  const spot = freshSpot()
+  return placeHotspotCard(placementInput, spot) ? spot.side : 'docked'
+}
+
+function boxOf(placementInput: CardPlacementInput): StageRect {
+  const spot = freshSpot()
+  if (!placeHotspotCard(placementInput, spot)) {
+    throw new Error('the case was expected to float the card beside its marker')
+  }
+  return { left: spot.left, top: spot.top, right: spot.right, bottom: spot.bottom }
+}
+
+describe('cardBoxAt', () => {
+  it('hangs the card the offset off the hit box, centered across the side axis', () => {
+    expect(boxAt('right', center)).toEqual({ left: 430, top: 250, right: 630, bottom: 350 })
+    expect(boxAt('left', center)).toEqual({ left: 170, top: 250, right: 370, bottom: 350 })
+    expect(boxAt('below', center)).toEqual({ left: 300, top: 330, right: 500, bottom: 430 })
+    expect(boxAt('above', center)).toEqual({ left: 300, top: 170, right: 500, bottom: 270 })
+  })
+})
+
+function boxAt(side: 'right' | 'left' | 'below' | 'above', marker: StagePoint): StageRect {
+  const box = freshBox()
+  cardBoxAt(side, marker, card, metrics, box)
+  return { left: box.left, top: box.top, right: box.right, bottom: box.bottom }
+}
+
+// Each row: what the case shows, the input, and the side it lands on. The
+// rows walk the preference order (each side chosen once the sides before
+// it are rejected) and every rejection reason: the stage edge, another
+// marker's hit box, another marker's focus ring alone, and the card's own
+// marker's ring.
+const rows: readonly (readonly [string, CardPlacementInput, string])[] = [
+  ['an open stage takes the first side', input({}), 'right'],
+  [
+    'the right side leaving the stage falls to the left',
+    input({ marker: { x: 700, y: 300 } }),
+    'left',
+  ],
+  [
+    'both beside sides leaving a narrow stage fall to below',
+    input({ stage: { width: 300, height: 600 }, marker: { x: 150, y: 300 } }),
+    'below',
+  ],
+  [
+    'the stage floor rejecting below too falls to above',
+    input({ stage: { width: 300, height: 600 }, marker: { x: 150, y: 550 } }),
+    'above',
+  ],
+  [
+    'a stage too small for every side docks',
+    input({ stage: { width: 250, height: 200 }, marker: { x: 125, y: 100 } }),
+    'docked',
+  ],
+  [
+    'a card exactly flush with the stage edge is inside it',
+    input({ stage: { width: 630, height: 600 } }),
+    'right',
+  ],
+  [
+    'a card one hundredth of a pixel past the stage edge is outside it',
+    input({ stage: { width: 629.99, height: 600 } }),
+    'left',
+  ],
+  [
+    'a card covering another marker hit box moves to the next side',
+    input({ placedMarkers: [center, { x: 530, y: 300 }] }),
+    'left',
+  ],
+  [
+    'a card covering only another marker focus ring moves to the next side',
+    input({ placedMarkers: [center, { x: 654, y: 300 }] }),
+    'left',
+  ],
+  [
+    'a card that only touches another marker keep-out box covers nothing',
+    input({ placedMarkers: [center, { x: 657, y: 300 }] }),
+    'right',
+  ],
+  [
+    'markers on both beside sides fall to below',
+    input({ placedMarkers: [center, { x: 530, y: 300 }, { x: 270, y: 300 }] }),
+    'below',
+  ],
+  [
+    'markers on three sides fall to above',
+    input({
+      placedMarkers: [center, { x: 530, y: 300 }, { x: 270, y: 300 }, { x: 400, y: 400 }],
+    }),
+    'above',
+  ],
+  [
+    'markers on every side dock',
+    input({
+      placedMarkers: [
+        center,
+        { x: 530, y: 300 },
+        { x: 270, y: 300 },
+        { x: 400, y: 400 },
+        { x: 400, y: 200 },
+      ],
+    }),
+    'docked',
+  ],
+  [
+    'a card covering a chrome obstacle moves to the next side',
+    input({ obstacles: [{ left: 600, top: 320, right: 700, bottom: 360 }] }),
+    'left',
+  ],
+  [
+    'a card that only touches a chrome obstacle covers nothing',
+    input({ obstacles: [{ left: 630, top: 300, right: 700, bottom: 360 }] }),
+    'right',
+  ],
+  [
+    'chrome over every side docks',
+    input({
+      obstacles: [
+        { left: 600, top: 320, right: 700, bottom: 360 },
+        { left: 150, top: 320, right: 200, bottom: 360 },
+        { left: 450, top: 400, right: 480, bottom: 420 },
+        { left: 450, top: 180, right: 480, bottom: 200 },
+      ],
+    }),
+    'docked',
+  ],
+  [
+    'a card covering its own subject moves to the next side',
+    input({ subject: { left: 500, top: 280, right: 780, bottom: 340 } }),
+    'left',
+  ],
+  [
+    'a card that only touches its subject covers nothing',
+    input({ subject: { left: 630, top: 300, right: 780, bottom: 340 } }),
+    'right',
+  ],
+  [
+    'the subject under both beside sides falls to below',
+    input({
+      subject: { left: 170, top: 290, right: 630, bottom: 330 },
+    }),
+    'below',
+  ],
+  [
+    'the subject filling every side docks',
+    input({
+      subject: { left: 0, top: 100, right: 800, bottom: 500 },
+    }),
+    'docked',
+  ],
+  [
+    'an offset inside the ring reach would cover the card own marker ring on every side',
+    input({ metrics: { markerHitPx: 44, cardOffsetPx: 2, focusOutsetPx: 5 } }),
+    'docked',
+  ],
+]
+
+describe('placeHotspotCard', () => {
+  it.each(rows)('%s', (_why, placementInput, expected) => {
+    expect(sideOf(placementInput)).toBe(expected)
+  })
+
+  it('answers the spot of the side it chose, whole', () => {
+    const placed = boxOf(input({ marker: { x: 700, y: 300 } }))
+    const expected = boxAt('left', { x: 700, y: 300 })
+    expect(placed).toEqual(expected)
+    expect(placed.left).not.toBeNaN()
+    expect(placed.top).not.toBeNaN()
+    expect(placed.right).not.toBeNaN()
+    expect(placed.bottom).not.toBeNaN()
+  })
+
+  it('never answers a box outside the stage or over a keep-out box, over a dense grid of cases', () => {
+    const others: StagePoint[] = [
+      { x: 120, y: 90 },
+      { x: 610, y: 140 },
+      { x: 330, y: 470 },
+    ]
+    for (let x = 0; x <= stage.width; x += 25) {
+      for (let y = 0; y <= stage.height; y += 25) {
+        const marker = { x, y }
+        const spot = freshSpot()
+        if (!placeHotspotCard(input({ marker, placedMarkers: [marker, ...others] }), spot)) {
+          continue
+        }
+        const placed = {
+          left: spot.left,
+          top: spot.top,
+          right: spot.right,
+          bottom: spot.bottom,
+        }
+        expect(placed.left).toBeGreaterThanOrEqual(0)
+        expect(placed.top).toBeGreaterThanOrEqual(0)
+        expect(placed.right).toBeLessThanOrEqual(stage.width)
+        expect(placed.bottom).toBeLessThanOrEqual(stage.height)
+        for (const markerOfInterest of [marker, ...others]) {
+          const keepOut = markerKeepOut(markerOfInterest, metrics)
+          const covers =
+            placed.left < keepOut.right &&
+            keepOut.left < placed.right &&
+            placed.top < keepOut.bottom &&
+            keepOut.top < placed.bottom
+          expect(covers).toBe(false)
+        }
+      }
+    }
+  })
+})

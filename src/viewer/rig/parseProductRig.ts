@@ -1,15 +1,19 @@
-import { Camera, type AnimationClip, type Object3D } from 'three'
+import { Camera, type AnimationClip, type Object3D } from 'three/webgpu'
 import {
   CAMERA_HOME_ID,
   CAMERA_PREFIX,
   HOTSPOT_PREFIX,
   PART_PREFIX,
   SHADOW_NODE_NAME,
+  duplicateNodeNameMessage,
+  readVariantNames,
   type Product,
+  type RigProblem,
 } from '@lib/product'
-import { jsonNodeNames, readVariantNames } from './gltfJson'
+import { anchorRestsOf } from './anchorRest'
+import { explodedBoundsOf } from './explodedBounds'
+import { jsonNodeNames } from './gltfJson'
 import type { ProductRig, ProductHotspot } from './productRig'
-import { ProductRigError, type RigProblem } from './rigError'
 
 // What the parse reads the rig from: the loaded glTF result, kept
 // structural so tests build it from plain trees.
@@ -35,17 +39,25 @@ type NamedNodes = {
   shadows: Object3D[]
 }
 
-// Parses the loaded product into its rig, or fails with one ProductRigError
-// listing every contract problem the model has. This is the runtime
-// guarantee every later feature reads; the validate step checks the same
-// contract at build time.
+// The outcome of a rig parse: the rig, or every contract problem the model
+// has. A model that breaks the contract is an outcome the product path
+// anticipates, so it is a value the caller routes, never a throw.
+export type RigParse =
+  | { readonly kind: 'parsed'; readonly rig: ProductRig }
+  | { readonly kind: 'broken'; readonly problems: readonly RigProblem[] }
+
+// Parses the loaded product into its rig, or reports every contract problem
+// the model has, listed at once. This is the runtime guarantee every later
+// feature reads; the validate step checks the same contract at build time.
+// The parse runs on the loaded scene before anything poses it, so the rig
+// carries the anchors' authored rest positions.
 //
 // The contract names are the node table of the glTF JSON, the same facts
 // the validate step reads. The runtime graph cannot be trusted for them
 // alone: the loader names every mesh object after its mesh definition, so
 // the quantize wrapper of PART_base arrives as a scene node named
 // PART_base_1, which is not a contract node but a load artifact.
-export function parseProductRig(source: ProductSource, manifest: Product): ProductRig {
+export function parseProductRig(source: ProductSource, manifest: Product): RigParse {
   const nodes = collectNamedNodes(source.scene, jsonNodeNames(source.json))
   const problems: RigProblem[] = [...duplicateNameProblems(nodes)]
 
@@ -58,15 +70,26 @@ export function parseProductRig(source: ProductSource, manifest: Product): Produ
   const parts = new Map(nodes.parts.map((node) => [node.name, node]))
 
   if (problems.length > 0) {
-    throw new ProductRigError(manifest.slug, problems)
+    return { kind: 'broken', problems }
   }
+  const resolvedShadow = present(shadow, 'the shadow node')
+  const resolvedClip = present(clip, 'the explode clip')
+  // The anchors' rests are read from the unposed tree before the exploded
+  // bounds sample the clip's end: the sample poses the parts and then
+  // restores them, and the rests belong to the rest pose.
+  const anchorRest = anchorRestsOf(source.scene, hotspots)
   return {
-    parts,
-    hotspots,
-    cameras,
-    shadow: present(shadow, 'the shadow node'),
-    clip: present(clip, 'the explode clip'),
-    variants: readVariantNames(source.json),
+    kind: 'parsed',
+    rig: {
+      parts,
+      hotspots,
+      cameras,
+      shadow: resolvedShadow,
+      clip: resolvedClip,
+      variants: readVariantNames(source.json),
+      anchorRest,
+      explodedBounds: explodedBoundsOf(source.scene, resolvedClip, parts, resolvedShadow),
+    },
   }
 }
 
@@ -130,7 +153,7 @@ function duplicateNameProblems(nodes: NamedNodes): RigProblem[] {
     if (count > 1) {
       problems.push({
         node: name,
-        message: `node name '${name}' appears ${count} times, the contract needs one node per name`,
+        message: duplicateNodeNameMessage(name, count),
       })
     }
   }
@@ -194,7 +217,7 @@ function resolveCameras(
   if (home === undefined) {
     problems.push({
       node: homeName,
-      message: `no ${homeName} node, the start and reset view is required`,
+      message: `No ${homeName} node; the home view is required for startup and reset`,
     })
   } else {
     resolveCameraNode(cameras, CAMERA_HOME_ID, home, problems)
@@ -230,7 +253,7 @@ function resolveShadow(nodes: NamedNodes, problems: RigProblem[]): Object3D | nu
   if (shadow === undefined) {
     problems.push({
       node: SHADOW_NODE_NAME,
-      message: `no ${SHADOW_NODE_NAME} node, the baked contact shadow is required`,
+      message: `No ${SHADOW_NODE_NAME} node; the baked contact shadow is required`,
     })
     return null
   }

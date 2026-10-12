@@ -5,13 +5,16 @@ The product details panel.
 On desktop: clamped between 380px and 520px at about 34% width on the left.
 On tablet: follows the stage at full width with a horizontal hairline.
 On phone: becomes a bottom sheet with a grab handle, top corner radius,
-and its own scroll container.
+and its own scroll container, which keeps at least its resting height.
+On a viewport too short for the fixed shell the panel is part of the page,
+which scrolls as one document.
 Values are tokens.
 */
 
-/* The panel is the one scroll container of its content at every breakpoint.
-The content grows to push the footer down but never shrinks below its own
-height: a shrunken content box would let its children run under the footer. */
+/* The panel is the one scroll container of its content wherever the shell
+is fixed. The content grows to push the footer down but never shrinks below
+its own height: a shrunken content box would let its children run under the
+footer. */
 .panel {
   display: flex;
   flex-direction: column;
@@ -25,11 +28,26 @@ height: a shrunken content box would let its children run under the footer. */
 
 .footer {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
 }
 
 .handle {
   display: none;
+}
+
+/* The dock takes no room while nothing is docked in it. */
+.dock:empty {
+  display: none;
+}
+
+/* A card that docks scrolls itself into the panel's view; the scroll eases
+   unless the visitor asks for reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .panel {
+    scroll-behavior: smooth;
+  }
 }
 
 @media (--vp-desktop) {
@@ -44,6 +62,10 @@ height: a shrunken content box would let its children run under the footer. */
     padding: var(--space-8);
     background-color: var(--bg);
     border-inline-end: var(--hairline-width) solid var(--hairline);
+  }
+
+  .dock {
+    margin-block-end: var(--space-8);
   }
 }
 
@@ -61,17 +83,22 @@ height: a shrunken content box would let its children run under the footer. */
     border-block-start: var(--hairline-width) solid var(--hairline);
     border-inline-end: none;
   }
+
+  .dock {
+    margin-block-end: var(--space-8);
+  }
 }
 
 @media (--vp-phone) {
+  /* The sheet keeps at least its resting height and takes whatever the
+  stage leaves beyond it: the stage gives way, the sheet never shrinks. */
   .panel {
     order: 2;
     justify-content: flex-start;
-    flex: 1;
+    flex: 1 0 var(--height-sheet-rest);
     inline-size: var(--size-fill);
     min-inline-size: 0;
     max-inline-size: var(--size-fill);
-    min-block-size: 0;
     padding: var(--space-4) var(--space-6) var(--space-6);
     gap: var(--space-4);
     background-color: var(--surface);
@@ -88,7 +115,17 @@ height: a shrunken content box would let its children run under the footer. */
     inline-size: var(--size-sheet-handle-width);
     block-size: var(--size-sheet-handle-height);
     border-radius: calc(var(--size-sheet-handle-height) / 2);
-    background-color: var(--hairline-hover);
+    background-color: var(--boundary);
     margin-block-end: var(--space-2);
+  }
+}
+
+/* In the scrolling document the panel holds all of its content: no scroller
+nests inside the page. */
+@media (--vp-page-scroll) {
+  .panel {
+    flex: none;
+    block-size: auto;
+    overflow-y: visible;
   }
 }

@@ -2,8 +2,10 @@ import { expect, test } from 'vitest'
 import { renderToString } from 'react-dom/server'
 import type { ComponentType } from 'react'
 import {
+  ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  ChevronUpIcon,
   CloseIcon,
   MinusIcon,
   PlusIcon,
@@ -12,8 +14,10 @@ import {
 } from './index'
 
 const icons: Record<string, ComponentType<IconProps>> = {
+  ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  ChevronUpIcon,
   CloseIcon,
   MinusIcon,
   PlusIcon,

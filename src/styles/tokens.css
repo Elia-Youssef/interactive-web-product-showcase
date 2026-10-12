@@ -23,11 +23,27 @@ their minimum below it, switched by the breakpoints at the end of this file.
   --off: #dfe0e2;
   --muted: #a0a0a0;
   --label: #a9aeb0;
-  --red: #de0b00;
+  /* The red appears at a second alpha in the switch band, so it is stored
+     as channels and every use derives from them. */
+  --red-rgb: 222 11 0;
+  --red: rgb(var(--red-rgb));
   --hairline-alpha: 0.1;
   --hairline-hover-alpha: 0.2;
   --hairline: rgb(var(--white-rgb) / var(--hairline-alpha));
   --hairline-hover: rgb(var(--white-rgb) / var(--hairline-hover-alpha));
+  /*
+  Non-text parts reach 3:1 against what they sit on through one boundary
+  white, never a new hue: 3.8:1 on --bg (the slider track on the stage, the
+  stage controls pill border), 3.7:1 on --surface (the slider track in the
+  panel, the phone sheet handle). The slider's rest fill is --off, 3.7:1 on
+  the track over --bg and 3.3:1 over --surface.
+  */
+  --boundary-alpha: 0.4;
+  --boundary: rgb(var(--white-rgb) / var(--boundary-alpha));
+  /* Disabled controls: 3.8:1 on --bg, a clear 2.2:1 step below the rest label. */
+  --disabled: #6c7173;
+  /* The scrim behind a modal dialog in the top layer: black at one alpha. */
+  --scrim-alpha: 0.4;
 
   /* Fonts */
   --sans: 'Montserrat', sans-serif;
@@ -83,12 +99,73 @@ their minimum below it, switched by the breakpoints at the end of this file.
   */
   --size-hit-min: 44px;
   --size-swatch: 22px;
+  /*
+  The slider thumb of a scrub control. Its track is the hairline and its
+  hit area the touch minimum; the filled fraction arrives as --slider-fill,
+  written on the input by the component the way the backdrop's emphasis is
+  written on the stage, and the value here is the empty fill it falls back
+  to.
+  */
+  --size-slider-thumb: 10px;
+  --slider-fill: 0%;
   --offset-swatch-ring: 3px;
   --size-bullet-dot: 6px;
   --size-icon-button: var(--size-hit-min);
+  /*
+  The box of a visually hidden element, such as the app shell's live
+  region: a one pixel window the page paints nothing through, while the
+  element's words stay in the accessibility tree.
+  */
+  --size-visually-hidden: 1px;
   --size-hotspot-dot: 10px;
   --size-hotspot-ring: 28px;
   --size-hotspot-hit: var(--size-hit-min);
+  /*
+  The two-tone hotspot marker. The inactive dot is off-white, which reads
+  on every dark surface and vanishes on a light one (a pale finish under a
+  pale dot), so the dot carries a black keyline whose edge answers
+  instead. The ring is drawn in the boundary white, 3:1 on the stage, and
+  carries the same thin dark rim outside it, so on a light finish the rim
+  draws the ring. Light marks on dark surfaces, dark rims on light ones:
+  one marker reads on any surface, and the accent stays the only color.
+  Hover lifts the ring to the off-white.
+  */
+  --marker-dot: var(--off);
+  --marker-dot-rim-width: 1px;
+  --marker-dot-rim: var(--black);
+  --marker-ring: var(--boundary);
+  --marker-ring-hover: var(--off);
+  --marker-ring-rim-width: var(--marker-dot-rim-width);
+  --marker-ring-rim: var(--marker-dot-rim);
+  /*
+  The gap between a hotspot marker and the card floating beside it, and the
+  stacking of the floating card above the markers, whose placed elements
+  tie in DOM order.
+  */
+  --offset-hotspot-card: var(--space-2);
+  --z-hotspot-card: 1;
+  /*
+  The widest the floating hotspot card lays out: it sizes to its content up
+  to this bound, so a title and the one-line bullets of the copy rules fit
+  on one line each, and longer copy wraps inside the bound instead of
+  spreading over the stage.
+  */
+  --size-hotspot-card-max: 360px;
+  /*
+  The widest the collection index dialog lays out: one product per row
+  reads on a single line inside this bound, and the min() with the fill
+  size keeps the dialog inside a phone viewport.
+  */
+  --size-index-dialog-max: 400px;
+  /*
+  Where the open hotspot card goes: beside its marker, docked into the
+  panel only when no side of the marker has room. The phone's panel is a
+  sheet under a short stage, so there every card docks; the breakpoints at
+  the end of this file switch it. Code reads this property, never a width.
+  */
+  --hotspot-card-dock: when-crowded;
+  /* The width of the dev harness page's dock, which sits under its stage. */
+  --size-harness-dock: 400px;
   /*
   The keyboard focus ring. global.css owns the one
   :focus-visible rule and draws it from --focus-ring; a component that needs
@@ -98,14 +175,46 @@ their minimum below it, switched by the breakpoints at the end of this file.
   --focus-width: 2px;
   --focus-offset: 3px;
   --focus-ring: var(--focus-width) solid var(--off);
+  /*
+  The hotspot marker's own ring offset: the marker sets the recipe's
+  --focus-ring-offset from it, and the card placement reads the same token
+  to keep the whole ring clear.
+  */
+  --offset-hotspot-focus-ring: var(--focus-offset);
   /* Gap between a selected text button and its persistent underline. */
   --offset-text-underline: var(--space-1);
+  /* The underline style of a partly open toggle, apart from the solid pressed one. */
+  --underline-partial: dotted;
+
+  /*
+  Stage controls and highlights.
+  The pill spaces its clusters by the column gap and its two rows, where it
+  wraps, by the row gap; the angle row keeps its rotate buttons close to
+  the readout they turn.
+  */
+  --gap-stage-controls: var(--space-4);
+  --width-stage-controls-max: calc(100cqi - 2 * var(--inset-stage-chrome));
+  --gap-stage-controls-rows: var(--space-2);
+  --gap-stage-angle: var(--space-1);
+  /*
+  How far inside the stage edge the stage's keyboard target draws its focus
+  ring: the stage clips its edges, and the chrome's corners sit further in
+  at every breakpoint, so no control covers the ring.
+  */
+  --inset-stage-target-focus-ring: var(--space-2);
+  /*
+  How far below its scroller's top a card opened from the Highlights list
+  lands when it scrolls into view: one list row and its gap, so the list
+  button that opened it stays in view above it.
+  */
+  --scroll-margin-highlight-card: calc(var(--size-hit-min) + var(--space-2));
 
   /*
   Layout structural sizes.
   The panel is clamped between 380px and 520px at about 34% width.
   Top bar height, mark size, and stage chrome insets.
-  Tablet stage height is 60vh; phone stage height is 62svh.
+  Tablet stage height is 60vh; the phone stage takes 62svh, given way to
+  the resting sheet.
   Bottom sheet grab handle dimensions.
   */
   /*
@@ -115,23 +224,77 @@ their minimum below it, switched by the breakpoints at the end of this file.
   --size-fill: 100%;
   /* The height of the viewport, for the app shell that must span it. */
   --height-viewport: 100vh;
-  --size-ra-mark: var(--space-6);
+  --size-ra-mark: var(--space-8);
+  /*
+  The turn box: a turned square's axis aligned box grows to the mark's
+  diagonal, size times the square root of two, so the layer that holds a
+  turning ring is inline the smallest whole pixel box at or above it (46 px
+  at the 32 px mark) and block the mark's own size. The whole pixel width
+  keeps the turned ring on the layout's pixel grid; the inline overhang
+  around the mark stays under the top bar's inline padding, and the ring
+  corners above and below paint nothing.
+  */
+  --ra-turn-box: round(up, calc(var(--size-ra-mark) * sqrt(2)), 1px);
+  /* The mark's glows read at its small size and scale with its box. */
+  --ra-angle-start: 0deg;
+  --ra-angle-full: 360deg;
+  --ra-mask-clear: transparent;
+  --ra-sweep-glow-near-ratio: 0.0625;
+  --ra-sweep-glow-far-ratio: 0.1875;
+  --ra-sweep-alpha-near: 0.9;
+  --ra-sweep-alpha-far: 0.55;
+  --ra-hover-glow-near-ratio: 0.09375;
+  --ra-hover-glow-far-ratio: 0.25;
+  --ra-hover-alpha-near: 0.95;
+  --ra-hover-alpha-far: 0.55;
   --height-top-bar: 56px;
   --panel-width-min: 380px;
   --panel-width-max: 520px;
   --panel-width-basis: 34%;
   --panel-width: clamp(var(--panel-width-min), var(--panel-width-basis), var(--panel-width-max));
   --height-stage-tablet: 60vh;
+  /*
+  The phone stage takes its share of the viewport, and gives way to the
+  resting sheet below it: the sheet keeps at least its resting height, so
+  the product's eyebrow, its title and its finishes show without a scroll
+  on every phone. The resting height holds the sheet's border, padding,
+  handle and gap (45px), an eyebrow of two lines (28px), the two-line
+  title (107px), a finish heading of two lines (41px), the swatch row
+  (22px) with the focus ring around it (5px), and the four gaps between
+  them (56px).
+  */
   --height-stage-phone: 62svh;
+  --height-sheet-rest: 304px;
+  /*
+  The stage's floor where the layout scrolls as one document (the short
+  viewports below): the product keeps a stage it reads at, and the panel
+  follows it down the page. Beside the panel the stage keeps the window's
+  height under the top bar, down to the same floor.
+  */
+  --height-stage-min: 240px;
+  --height-stage-beside-scroll: max(var(--height-stage-min), calc(100svh - var(--height-top-bar)));
   --size-sheet-handle-width: var(--space-9);
   --size-sheet-handle-height: var(--space-1);
   --inset-stage-chrome: var(--space-8);
+  /*
+  The gap the stage chrome keeps between the slots that share an edge: the
+  label or hint gives way to the controls beside it, down to this gap.
+  */
+  --gap-stage-chrome: var(--space-4);
 
   /*
   Motion. Every duration is this scale times its own
   value, so reduced motion resolves each of them to instant in one place.
   */
   --motion-scale: 1;
+  --duration-ra-spin: calc(24000ms * var(--motion-scale));
+  --duration-ra-sweep: calc(12000ms * var(--motion-scale));
+  --duration-ra-hover: calc(180ms * var(--motion-scale));
+  --animation-ra-spin: ra-spin;
+  --animation-ra-sweep: ra-sweep;
+  --ease-ra-spin: linear;
+  --ease-ra-sweep: linear;
+  --ease-ra-hover: ease-out;
   --duration-camera: calc(700ms * var(--motion-scale));
   --ease-camera: cubic-bezier(0.215, 0.61, 0.355, 1);
   /*
@@ -139,23 +302,87 @@ their minimum below it, switched by the breakpoints at the end of this file.
   feel immediate. Reduced motion resolves it to instant.
   */
   --duration-hover: calc(150ms * var(--motion-scale));
+  /*
+  The hotspot marker's one first-load pulse: a slow ring pulse, so the
+  first look tells the markers are interactive. Scaled by the motion scale,
+  so reduced motion resolves it to none.
+  */
+  --duration-hotspot-pulse: calc(1800ms * var(--motion-scale));
+  --ease-pulse: ease-out;
 
   /*
-  Stage backdrop. The grid line is --white-rgb
-  at --backdrop-grid-alpha. The exploded view animates that alpha up to about
-  .05 on the backdrop element, so the grid color is composed in the backdrop
-  rule itself: a color pre-composed here would resolve once, on :root, and
+  The product switch transition: the diagonal ticker band that covers the
+  stage while products swap. The band is oversized and tilted, so its rest
+  pose holds the whole stage inside it: the inset places it centered with
+  half its depth beyond the box top and bottom, and half its length
+  beyond the box left and right. Its travel is its own depth, far enough
+  that no edge of it stays over the stage. Reduced motion cuts the band
+  to a plain crossfade of the same red through the same phases.
+  */
+  --switch-band-inset: -50% -75%;
+  --switch-band-angle: -12deg;
+  --switch-travel: 100%;
+  --switch-rest: 0%;
+  --switch-band-alpha: 0.7;
+  --switch-band: rgb(var(--red-rgb) / var(--switch-band-alpha));
+  --size-switch-dot: 6px;
+  --duration-switch-move: calc(600ms * var(--motion-scale));
+  --ease-switch: cubic-bezier(0.215, 0.61, 0.355, 1);
+  --duration-switch-marquee: calc(16000ms * var(--motion-scale));
+  --switch-marquee-shift: -50%;
+
+  /*
+  Stage backdrop. The grid line is --white-rgb at the grid alpha the
+  backdrop applies: the rest alpha plus the emphasis input times the step
+  to the exploded alpha. The emphasis is the backdrop's own input, its
+  default here is rest, and whatever drives it writes a plain number onto
+  an ancestor element, so the value that reaches this sheet is the exact
+  one that was written. The grid color is composed in the backdrop rule
+  itself: a color pre-composed here would resolve once, on :root, and
   never see the change.
   */
   --backdrop-grid-cell: 64px;
   --backdrop-grid-line: 1px;
   --backdrop-grid-alpha: 0.025;
+  --backdrop-grid-alpha-exploded: 0.05;
+  --backdrop-grid-emphasis: 0;
   --backdrop-vignette-shape: 120% 90% at 50% 42%;
   --backdrop-vignette-inner: rgb(var(--bg-rgb) / 0);
   --backdrop-vignette-inner-stop: 35%;
   --backdrop-vignette-outer-stop: 100%;
   --backdrop-vignette-outer-alpha: 0.85;
   --backdrop-vignette-outer: rgb(var(--black-rgb) / var(--backdrop-vignette-outer-alpha));
+}
+
+/*
+The grid alpha the backdrop applies, registered as a number so its computed
+value resolves the backdrop's formula and reads back as the number it is.
+The backdrop rule declares it on itself always, so the initial value is only
+the fallback of a substitution failure, where no grid shows at all.
+*/
+@property --backdrop-grid-alpha-applied {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0;
+}
+
+/* One inherited rotation drives both masks; the sweep stays in page space. */
+@property --ra-spin-angle {
+  syntax: '<angle>';
+  inherits: true;
+  initial-value: 0deg;
+}
+
+@property --ra-sweep-start {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@property --ra-sweep-end {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -173,6 +400,40 @@ at build time, so every stylesheet that queries one of these must
 @custom-media --vp-tablet (640px <= width < 1024px);
 @custom-media --vp-desktop (width >= 1024px);
 
+/*
+The two height breakpoints, one inside the other, at any width.
+
+--vp-short-sheet: a viewport too short for the sheet under the stacked
+stage to hold a docked card at its full size (a phone held sideways). The
+band the sheet keeps is four tenths of the height less the top bar (the
+tablet stage's share), so it stops holding the full card, its block
+padding and its handle below about 598 px of height; there the docked card
+takes its compact form, and the band scrolls for whatever still exceeds
+it. The stage never gives the band its space instead: the markers of the
+launch products lose their keep-out room on a stage that short (measured:
+at a 150 px stage, half the markers of three products hide), so discovery
+would pay for the card.
+
+--vp-page-scroll: a viewport too short for the fixed shell at all (the
+320 x 256 window of a 1280 px screen at 400 percent zoom, a phone held
+sideways). Below 480 px of height the layout becomes one scrolling
+document: the panel is no longer its own scroll container, so nothing is
+reached through a nested slit, and the stage keeps its floor. Every
+viewport under it is also under --vp-short-sheet, so a docked card there
+takes its compact form in a sheet that scrolls with the page.
+*/
+@custom-media --vp-short-sheet (height < 598px);
+@custom-media --vp-page-scroll (height < 480px);
+
+/* On phone every hotspot card docks into the panel's sheet, and the stage
+chrome sits closer to the stage edge, so the narrow stage keeps its room. */
+@media (--vp-phone) {
+  :root {
+    --hotspot-card-dock: always;
+    --inset-stage-chrome: var(--space-4);
+  }
+}
+
 /* Ranged type sizes drop to their minimum below the desktop breakpoint. */
 @media not (--vp-desktop) {
   :root {
@@ -180,5 +441,69 @@ at build time, so every stylesheet that queries one of these must
     --fs-tagline: var(--fs-tagline-min);
     --fs-body: var(--fs-body-min);
     --fs-readout: var(--fs-readout-min);
+  }
+}
+
+/* Typed animation tokens have literal endpoints so every engine interpolates. */
+@keyframes ra-spin {
+  from {
+    --ra-spin-angle: 0deg;
+  }
+  to {
+    --ra-spin-angle: 360deg;
+  }
+}
+@keyframes ra-sweep {
+  from {
+    --ra-sweep-start: 0deg;
+    --ra-sweep-end: 0deg;
+  }
+  50% {
+    --ra-sweep-start: 0deg;
+    --ra-sweep-end: 360deg;
+  }
+  to {
+    --ra-sweep-start: 360deg;
+    --ra-sweep-end: 360deg;
+  }
+}
+
+/*
+The loading readout, in one named block. The reveal delay is its own token
+and is never multiplied by the motion scale: under reduced motion the
+readout must still wait it out, or it would vanish there and flash on every
+fast load. Everything else that moves resolves through the scale: the
+reveal's fade and the fill's ease go instant. The marching segment has one
+reduced-motion mechanism of its own, the readout module's query, which
+rests it as a static partial-width segment at its reduced alpha, so its
+duration is a plain value the scale never touches. The placement is one
+token pair, the block-end
+offset and the block shift that centers a box on it: the wide stages sit
+the readout low, and the phone breakpoint flips the pair to center it.
+The track is fixed width; the fill reads the custom property the component
+writes, with the empty fill here as the fallback.
+*/
+:root {
+  --delay-load-readout: 800ms;
+  --duration-load-reveal: calc(200ms * var(--motion-scale));
+  --duration-load-fill: calc(200ms * var(--motion-scale));
+  --duration-load-march: 1400ms;
+  --ease-load-reveal: ease-out;
+  --ease-load-fill: linear;
+  --ease-load-march: linear;
+  --tracking-load-readout: 0.1em;
+  --size-load-track: 160px;
+  --size-load-march: 40px;
+  --load-readout-fill: 0%;
+  --load-march-rest-alpha: 0.4;
+  --offset-load-readout-block-end: 96px;
+  --offset-load-readout-block-shift: 0%;
+}
+
+/* Phones center the readout through the same pair. */
+@media (--vp-phone) {
+  :root {
+    --offset-load-readout-block-end: 50%;
+    --offset-load-readout-block-shift: 50%;
   }
 }

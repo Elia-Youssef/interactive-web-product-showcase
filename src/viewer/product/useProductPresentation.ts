@@ -1,49 +1,101 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect } from 'react'
+import type { PendingGate } from '@lib/async/pendingGate'
+import { CAMERA_HOME_ID, type Product, type ProductFailure } from '@lib/product'
+import { reportStageSettleFailure } from '../reportStageSettleFailure'
+import { useStageCamera } from '../camera/StageCameraContext'
 import type { ModelFrame } from '../modelFrame'
-import { useStageCameraFit } from '../useStageCameraFit'
+import type { ProductRig } from '../rig/productRig'
 import { useStageSettle } from '../stageSettleContext'
+import { planPresentation } from './productOutcomes'
+import { settleWhenReady } from './productReadyGate'
 import { reportSettledProduct } from './reportSettledProduct'
 
 type ProductPresentationProps = {
-  // The measured frame of the loaded model: the fit frames it, and the
-  // ready report carries its counts.
+  // The parsed rig, whose cameras the product's views come from.
+  readonly rig: ProductRig
+  // The manifest, whose camera block authors the distance limits.
+  readonly manifest: Product
+  // The measured frame of the loaded model: the views orbit its centered
+  // position, and the ready report carries its counts.
   readonly frame: ModelFrame
   // The report the stage settle triggers: it hands the store the ready
   // status with the product's slug, its rig summary and the model counts.
   readonly report: () => void
+  // The product's failure channel.
+  readonly fail: (failure: ProductFailure) => void
+  // The product's ready gate: the extensions' first work the ready settle
+  // waits for.
+  readonly readyGate: PendingGate
 }
 
-// The stage life of a loaded product: the stage camera frames it, the
-// stage's settle chain compiles, presents and records a frame around the
-// centered, framed model, and only that settle's resolution reports the
-// product ready. The store's ready status therefore means a presented
-// product, never one whose render pipelines may still be pending.
+// The stage life of a loaded product: the stage camera presents the home
+// view at once, the ready settle waits for the extensions' first work held
+// on the product's ready gate (the first finish and its precompile), the
+// stage's settle chain then presents the settled state twice and records
+// both frames around the centered product, and only that settle's
+// resolution reports the product ready. The store's ready status
+// therefore means a presented product at its home view, never one whose
+// render pipelines may still be pending.
 //
-// Both settles of the life report their failures here: the mount settle of
-// the report and the fit's re-settle on a resize. The first one is kept, the
-// hook returns it, and the component throws it into the product boundary,
-// which turns it into the store's failed status.
-export function useProductPresentation({ frame, report }: ProductPresentationProps): Error | null {
+// The leave settles as well: the stage presents itself without the product
+// in the frames after it leaves.
+//
+// Both anticipated failures of the life reach the product's channel as
+// typed values: the camera rules the authored data breaks, with every
+// problem the plan computed, and a settle that rejects. Neither is thrown,
+// so neither reaches the render.
+export function useProductPresentation({
+  rig,
+  manifest,
+  frame,
+  report,
+  fail,
+  readyGate,
+}: ProductPresentationProps): void {
   const settleScene = useStageSettle()
-  const [failure, setFailure] = useState<Error | null>(null)
-  const fail = useCallback((error: Error) => {
-    setFailure((first) => first ?? error)
-  }, [])
+  const stageCamera = useStageCamera()
 
-  useStageCameraFit(frame, fail)
+  useEffect(() => {
+    const presentation = planPresentation(rig, manifest, frame)
+    if (presentation.kind === 'failed') {
+      fail(presentation.failure)
+      return
+    }
+    // The home view is on the controls before the settle, so the settled
+    // frame is the home view.
+    stageCamera.present(presentation.plan, CAMERA_HOME_ID)
+    return () => {
+      stageCamera.release()
+    }
+  }, [stageCamera, rig, manifest, frame, fail])
 
   useEffect(() => {
     let cancelled = false
+    const isCancelled = (): boolean => cancelled
     void reportSettledProduct({
-      settle: settleScene(),
+      outcome: 'ready',
+      settle: settleWhenReady({ gate: readyGate, settle: settleScene, isCancelled }),
       report,
       fail,
-      isCancelled: () => cancelled,
+      isCancelled,
     })
     return () => {
       cancelled = true
     }
-  }, [settleScene, report, fail])
+  }, [settleScene, report, fail, readyGate])
 
-  return failure
+  // The product leaving the stage is a scene mutation like any other, so
+  // its leave settles too: the stage presents itself without the product.
+  // Without that present the canvas keeps showing a product whose
+  // resources were released, and the engine's frame loop keeps the list of
+  // frame callbacks it ran last, the product's own among them, which holds
+  // the whole released product reachable until some later frame renders.
+  useEffect(
+    () => () => {
+      // Leave has no outcome. Disposal ends it quietly; a failed renderer
+      // still reaches the shared settle failure channel.
+      void settleScene().catch(reportStageSettleFailure)
+    },
+    [settleScene],
+  )
 }

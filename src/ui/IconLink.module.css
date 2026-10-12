@@ -1,0 +1,20 @@
+/* The icon link: the link twin of the icon
+button, with the same hit area at the control minimum and the same one
+color change on hover. No pill: the panel's controls sit on the flat
+background, so only the zoom and reset pills carry a surface. Values are
+tokens. */
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: var(--size-icon-button);
+  block-size: var(--size-icon-button);
+  color: var(--label);
+  transition: color var(--duration-hover);
+}
+
+.link:hover,
+.link[data-force-hover] {
+  color: var(--white);
+}

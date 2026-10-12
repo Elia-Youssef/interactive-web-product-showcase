@@ -37,18 +37,17 @@ a token. */
   row-gap: var(--space-4);
 }
 
+/* The heading and the active finish share a line while they fit, and the
+active finish wraps under the heading when they do not. */
 .finishHeading {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--space-6);
+  column-gap: var(--space-6);
+  row-gap: var(--space-2);
 }
 
 .activeFinish {
   text-transform: uppercase;
-}
-
-.swatches {
-  display: flex;
-  gap: var(--space-4);
 }

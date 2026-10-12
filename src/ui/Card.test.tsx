@@ -5,7 +5,7 @@ import { Card } from './Card'
 
 const bullets = ['Neodymium motor', 'Ported rear chamber', 'Replaceable grill']
 
-function render(overrides: Partial<{ bullets: string[] }> = {}) {
+function render(overrides: Partial<{ bullets: string[]; headingLevel: 2 | 3 }> = {}) {
   return renderToString(
     <Card
       eyebrow="A closer look"
@@ -13,6 +13,7 @@ function render(overrides: Partial<{ bullets: string[] }> = {}) {
       bullets={overrides.bullets ?? bullets}
       onClose={() => {}}
       closeLabel="Close"
+      {...(overrides.headingLevel === undefined ? {} : { headingLevel: overrides.headingLevel })}
     />,
   )
 }
@@ -45,4 +46,18 @@ test(`Card reports more than ${HOTSPOT_BULLETS_MAX} bullets as the caller error 
   expect(() => render({ bullets: [...bullets, 'One bullet too many'] })).toThrowError(
     new RegExp(`at most ${HOTSPOT_BULLETS_MAX} bullets, but got 4`),
   )
+})
+
+test('Card is a group named by its own title heading', () => {
+  const html = render()
+  const labelledBy = /role="group" aria-labelledby="([^"]+)"/.exec(html)?.[1]
+
+  expect(labelledBy).toBeDefined()
+  expect(html).toContain(`<h2 id="${labelledBy}"`)
+})
+
+test('Card titles at the heading level its caller names, h2 by default', () => {
+  expect(render()).toContain('<h2')
+  expect(render({ headingLevel: 3 })).toContain('<h3')
+  expect(render({ headingLevel: 3 })).not.toContain('<h2')
 })

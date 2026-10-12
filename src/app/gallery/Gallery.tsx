@@ -5,6 +5,7 @@ import { Eyebrow } from '@ui/index'
 import backdrop from '@styles/StageBackdrop.module.css'
 import { PrimitiveStates } from './PrimitiveStates'
 import styles from './gallery.module.css'
+import { TransitionStates } from './TransitionStates'
 
 export function Gallery() {
   return (
@@ -18,6 +19,7 @@ export function Gallery() {
           <PrimitiveStates />
         </div>
       </section>
+      <TransitionStates />
       <section className={styles.panel} aria-label="The primitives on the flat panel background">
         <PrimitiveStates />
       </section>

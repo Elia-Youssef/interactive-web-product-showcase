@@ -1,0 +1,58 @@
+@import '../../styles/tokens.css';
+
+/* The open hotspot card in its three slots. Values are tokens. */
+
+/* The floating card: the element the stage overlay places by its top-left
+   corner at the card box the placement chose, stacked above the markers. It lays out
+   at its content's width up to the token maximum. The width is set, not
+   shrink-to-fit: an absolutely positioned box would shrink against its
+   containing block, so the card would lay out narrower near a stage edge,
+   and the size the placement measures would depend on where the card sits.
+   With max-content it is the card's own size wherever it goes. */
+.floating {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  z-index: var(--z-hotspot-card);
+  inline-size: max-content;
+  max-inline-size: var(--size-hotspot-card-max);
+  /* The overlay box passes pointer events through; the card takes them
+     where it covers, like the markers do. */
+  pointer-events: auto;
+}
+
+/* The listed card fills the width of its list item, under the item's own
+   button, and brings its top into view a row below where it starts, so the
+   button that opened it stays in view above it. */
+.listed {
+  inline-size: var(--size-fill);
+  scroll-margin-block-start: var(--scroll-margin-highlight-card);
+}
+
+/* The docked card fills the width of the dock the layout gives it. */
+.docked {
+  inline-size: var(--size-fill);
+}
+
+/* The compact form of the docked card on a sheet band too short for the
+   full one (a phone held sideways): tighter padding and gaps, and the
+   title at the body size. The card's top lands at the band's top (the
+   dock's scroll rule), so this is the form a visitor reads whole; the
+   band scrolls for anything the copy cap still adds past it. */
+@media (--vp-tablet) and (--vp-short-sheet) {
+  .docked {
+    --card-padding: var(--space-2);
+    --card-gap: var(--space-2);
+    --card-title-size: var(--fs-body);
+    --card-bullet-gap: var(--space-1);
+  }
+}
+
+@media (--vp-phone) and (--vp-short-sheet) {
+  .docked {
+    --card-padding: var(--space-2);
+    --card-gap: var(--space-2);
+    --card-title-size: var(--fs-body);
+    --card-bullet-gap: var(--space-1);
+  }
+}

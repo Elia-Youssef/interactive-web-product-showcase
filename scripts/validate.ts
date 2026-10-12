@@ -14,7 +14,9 @@
 import { fileURLToPath } from 'node:url'
 import { loadParseProduct } from './manifestIo.ts'
 import { productPaths, repoPath } from './productPaths.ts'
+import { POSITION_QUANTIZE_BITS } from './settings.ts'
 import { listShippedSlugs } from './shippedProducts.ts'
+import { positionGridOf } from './storageGrid.ts'
 import { validateShippedProduct } from './validateProduct.ts'
 import { countViolations, type ProductValidation } from './validateChecks.ts'
 import { formatProductReport, formatRunSummary } from './validateReport.ts'
@@ -53,9 +55,11 @@ async function resolveSlugs(argv: readonly string[]): Promise<string[]> {
 export async function main(argv: readonly string[]): Promise<void> {
   const slugs = await resolveSlugs(argv)
   const parseProduct = await loadParseProduct()
+  // The pipeline's quantize grid, derived once for every product of the run.
+  const positionGrid = await positionGridOf(POSITION_QUANTIZE_BITS)
   const validations: ProductValidation[] = []
   for (const slug of slugs) {
-    validations.push(await validateShippedProduct(ROOT, slug, parseProduct))
+    validations.push(await validateShippedProduct(ROOT, slug, parseProduct, positionGrid))
   }
   for (const validation of validations) {
     writeLine(formatProductReport(validation))

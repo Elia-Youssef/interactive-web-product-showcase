@@ -1,12 +1,15 @@
 /* The hotspot card: --surface, hairline
 border, --radius. The title is --off, the bullets --muted with red dot
-markers. Values are tokens. */
+markers. Values are tokens, and the card's own spacing and title size read
+them through variables the embedding context can tighten: the sheet's
+compact form of a docked card sets them, and every other context keeps the
+defaults. */
 
 .card {
   position: relative;
   display: grid;
-  gap: var(--space-3);
-  padding: var(--space-6);
+  gap: var(--card-gap, var(--space-3));
+  padding: var(--card-padding, var(--space-6));
   background-color: var(--surface);
   border: var(--hairline-width) solid var(--hairline);
   border-radius: var(--radius);
@@ -47,14 +50,14 @@ The forced focus of the gallery demos: the same two declarations the global
 
 .title {
   padding-inline-end: var(--size-icon-button);
-  font-size: var(--fs-tagline);
+  font-size: var(--card-title-size, var(--fs-tagline));
   font-weight: var(--weight-tagline);
   color: var(--off);
 }
 
 .bullets {
   display: grid;
-  gap: var(--space-2);
+  gap: var(--card-bullet-gap, var(--space-2));
   padding: 0;
   list-style: none;
 }

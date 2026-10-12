@@ -1,4 +1,4 @@
-import { BufferAttribute, BufferGeometry, BoxGeometry, Group, Mesh } from 'three'
+import { BufferAttribute, BufferGeometry, BoxGeometry, Group, Mesh } from 'three/webgpu'
 import { describe, expect, it } from 'vitest'
 import { measureModelFrame } from './modelFrame'
 

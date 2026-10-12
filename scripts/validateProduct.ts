@@ -2,21 +2,26 @@
 // every check group, and reports what was checked with every violation.
 // Each input is loaded independently, so a product with a broken manifest
 // still gets its model checks, and the other way around.
-import type { NodeIO } from '@gltf-transform/core'
+import type { Document, NodeIO } from '@gltf-transform/core'
+import { readContractModelFacts } from './contractFacts.ts'
+import type { ContractModelFacts } from './contractFacts.ts'
+import { validateContractChecks } from './validateContractChecks.ts'
 import { countDrawCalls } from './drawCalls.ts'
+import { readHomeFitFacts } from './homeFitFacts.ts'
+import { readShadowFacts, type ShadowFacts } from './shadowFacts.ts'
+import type { HomeFitFacts } from './homeFitFacts.ts'
 import { createModelIO } from './modelIo.ts'
 import type { ParseProduct } from './manifestIo.ts'
-import { readManifestFile } from './manifestIo.ts'
+import { loadCameraContract, readManifestFile } from './manifestIo.ts'
+import { readPositionStorage, readTranslationOutputs } from './storageFacts.ts'
+import type { StorageFacts } from './storageFacts.ts'
+import type { PositionGrid } from './storageGrid.ts'
 import { productPaths, repoPath, type ProductPaths } from './productPaths.ts'
 import { describeTextures, fileSizeBytes, formatBytes } from './report.ts'
 import { readProductStructure, type ProductStructure } from './structure.ts'
 import {
   checkBudgets,
-  checkCameras,
   checkEncoding,
-  checkExplode,
-  checkFinishes,
-  checkHotspots,
   checkManifest,
   checkResult,
   skippedCheck,
@@ -73,83 +78,122 @@ async function loadManifest(
   return { check: checkManifest(paths.slug, manifest), manifest }
 }
 
+// The model facts of one product side, as the load answers them: every
+// fact null when the model never loaded, so the contract groups skip for
+// want of their input.
+type ModelSide = {
+  readonly check: CheckResult
+  readonly structure: ProductStructure | null
+  readonly facts: ContractModelFacts | null
+  readonly homeFit: HomeFitFacts | null
+  readonly storage: StorageFacts | null
+  readonly shadow: ShadowFacts | null
+  readonly fileBytes: number | null
+  readonly textures: readonly TextureFact[]
+  readonly drawCalls: number | null
+}
+
+// The model side when the file is missing or unreadable: the load's own
+// violation, and every fact null.
+function unreadableModel(detail: string, violation: string, fileBytes: number | null): ModelSide {
+  return {
+    check: checkResult('model', detail, [violation]),
+    structure: null,
+    facts: null,
+    homeFit: null,
+    storage: null,
+    shadow: null,
+    fileBytes,
+    textures: [],
+    drawCalls: null,
+  }
+}
+
 // The model side: the file exists, reads back, and yields the facts every
-// model check reads: the structure, the texture reports and the draw-call
-// count. A missing or unreadable model is this group's violation; the
-// model check groups then skip for want of their input.
+// model check reads: the structure, the contract and home-fit facts, the
+// storage facts (the position storage from the read-back document, the
+// translation outputs from the file's own glTF JSON and binary chunk), the
+// texture reports and the draw-call count. A
+// missing or unreadable model is this group's violation; the model check
+// groups then skip for want of their input.
 async function loadModel(
   io: NodeIO,
   root: string,
   paths: ProductPaths,
-): Promise<{
-  check: CheckResult
-  structure: ProductStructure | null
-  fileBytes: number | null
-  textures: readonly TextureFact[]
-  drawCalls: number | null
-}> {
+  positionGrid: PositionGrid,
+): Promise<ModelSide> {
   const shown = repoPath(root, paths.modelGlb)
   const fileBytes = await fileSizeBytes(paths.modelGlb)
   if (fileBytes === null) {
-    return {
-      check: checkResult('model', `expected ${shown}`, [`model missing: expected ${shown}`]),
-      structure: null,
-      fileBytes: null,
-      textures: [],
-      drawCalls: null,
-    }
+    return unreadableModel(`expected ${shown}`, `model missing: expected ${shown}`, null)
   }
-  let doc
+  let doc: Document
   try {
     doc = await io.read(paths.modelGlb)
   } catch (error) {
-    return {
-      check: checkResult('model', shown, [`could not read ${shown}: ${reasonOf(error)}`]),
-      structure: null,
-      fileBytes,
-      textures: [],
-      drawCalls: null,
-    }
+    return unreadableModel(shown, `could not read ${shown}: ${reasonOf(error)}`, fileBytes)
   }
+  const structure = readProductStructure(doc)
   return {
     check: checkResult('model', `${shown} (${formatBytes(fileBytes)})`, []),
-    structure: readProductStructure(doc),
+    structure,
+    facts: readContractModelFacts(doc),
+    homeFit: readHomeFitFacts(doc, structure.animationChannels),
+    storage: await readStorageFacts(io, paths.modelGlb, doc, positionGrid),
+    shadow: await readShadowFacts(doc),
     fileBytes,
     textures: describeTextures(doc),
     drawCalls: countDrawCalls(doc),
   }
 }
 
+// The storage facts of one written model: the position storage from the
+// read-back document, held against the quantize grid the run passes in, and
+// the translation outputs from the file's own glTF JSON and binary chunk.
+async function readStorageFacts(
+  io: NodeIO,
+  modelPath: string,
+  doc: Document,
+  positionGrid: PositionGrid,
+): Promise<StorageFacts> {
+  return {
+    positionGrid,
+    positions: readPositionStorage(doc, positionGrid),
+    translationOutputs: await readTranslationOutputs(io, modelPath),
+  }
+}
+
+// The position grid is the run's: derived once from the pipeline's bits and
+// passed down, so a file's stored positions are held against the grid the
+// caller names.
 export async function validateShippedProduct(
   root: string,
   slug: string,
   parseProduct: ParseProduct,
+  positionGrid: PositionGrid,
 ): Promise<ProductValidation> {
   const io = await createModelIO()
   const paths = productPaths(root, slug)
+  const contract = await loadCameraContract()
   const manifestSide = await loadManifest(root, paths, parseProduct)
-  const modelSide = await loadModel(io, root, paths)
-  const checks: CheckResult[] = [manifestSide.check, modelSide.check]
+  const modelSide = await loadModel(io, root, paths, positionGrid)
+  const checks: CheckResult[] = [
+    manifestSide.check,
+    ...validateContractChecks(
+      {
+        manifest: manifestSide.manifest,
+        structure: modelSide.structure,
+        facts: modelSide.facts,
+        homeFit: modelSide.homeFit,
+        storage: modelSide.storage,
+        shadow: modelSide.shadow,
+        contract,
+      },
+      modelSide.check,
+    ),
+  ]
 
-  const manifest = manifestSide.manifest
   const structure = modelSide.structure
-  if (manifest !== null && structure !== null) {
-    checks.push(
-      checkHotspots(manifest, structure),
-      checkCameras(manifest, structure),
-      checkFinishes(manifest, structure),
-      checkExplode(manifest, structure),
-    )
-  } else {
-    const reason = manifest === null ? 'the manifest did not load' : 'the model did not read'
-    checks.push(
-      skippedCheck('hotspots', reason),
-      skippedCheck('cameras', reason),
-      skippedCheck('finishes', reason),
-      skippedCheck('explode', reason),
-    )
-  }
-
   if (structure !== null && modelSide.fileBytes !== null && modelSide.drawCalls !== null) {
     const encodingFacts: EncodingFacts = {
       textures: modelSide.textures,

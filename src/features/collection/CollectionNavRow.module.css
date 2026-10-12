@@ -1,0 +1,29 @@
+/* The collection navigation row: the previous and next icon links around
+the counter that opens the index. The counter is a readout that is also a
+control, so it carries the hit height of the links beside it and the same
+hover lift, with no surface of its own. Values are tokens. */
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.counter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  block-size: var(--size-icon-button);
+  padding: 0 var(--space-2);
+  border: none;
+  background: none;
+  cursor: pointer;
+  /* The color the readout inherits, the label gray the links beside it
+     carry, lifted to white on hover. */
+  color: var(--label);
+  transition: color var(--duration-hover);
+}
+
+.counter:hover {
+  color: var(--white);
+}

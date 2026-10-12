@@ -4,7 +4,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { runGit } from './gitCommand.ts'
+import { execFixtureFile, TOOL_FIXTURE_TIMEOUT_MS } from './subprocess.fixtures.ts'
 import { parseLocalOnlyEntries } from './localOnlyPaths.ts'
 import type { LocalOnlyEntry } from './localOnlyPaths.ts'
 import { readLocalOnlyEntries } from './localOnlyReader.ts'
@@ -82,25 +82,29 @@ describe('parseLocalOnlyEntries', () => {
 describe('readLocalOnlyEntries', () => {
   const scratchRoot = join(import.meta.dirname, '..', 'scratch')
   let repoRoot: string
+  let empty: LocalOnlyEntry[]
+  let parsed: LocalOnlyEntry[]
+  const planted = [folderLine, commentLine, fileLine].join('\n')
 
-  beforeAll(() => {
+  beforeAll(async () => {
     mkdirSync(scratchRoot, { recursive: true })
     repoRoot = mkdtempSync(join(scratchRoot, 'local-only-'))
-    runGit(repoRoot, ['init', '--quiet'])
-  }, 30_000)
+    await execFixtureFile('git', ['init', '--quiet'], { cwd: repoRoot })
+    empty = readLocalOnlyEntries(repoRoot)
+    writeFileSync(join(repoRoot, '.git', 'info', 'exclude'), planted)
+    parsed = readLocalOnlyEntries(repoRoot)
+  }, TOOL_FIXTURE_TIMEOUT_MS)
 
   afterAll(() => {
     rmSync(repoRoot, { recursive: true, force: true })
   })
 
   it('yields no entries for a checkout without exclude entries', () => {
-    expect(readLocalOnlyEntries(repoRoot)).toEqual([])
+    expect(empty).toEqual([])
   })
 
   it('reads the exclude file through the pure parser', () => {
-    const planted = [folderLine, commentLine, fileLine].join('\n')
-    writeFileSync(join(repoRoot, '.git', 'info', 'exclude'), planted)
-    expect(readLocalOnlyEntries(repoRoot)).toEqual(parseLocalOnlyEntries(planted))
-    expect(readLocalOnlyEntries(repoRoot)).toEqual([folderEntry, fileEntry])
+    expect(parsed).toEqual(parseLocalOnlyEntries(planted))
+    expect(parsed).toEqual([folderEntry, fileEntry])
   })
 })

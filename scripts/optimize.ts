@@ -7,31 +7,37 @@
 //   pnpm assets:optimize            optimize every product with an export
 //   pnpm assets:optimize <slug>     optimize one product
 //
-// KTX-Software is resolved once per run: the environment variable
-// KTX_SOFTWARE_BIN first, then the process PATH, then the platform default
-// install folder. The resolved folder goes on this process's PATH only.
+// KTX-Software is resolved and verified once per run: the environment
+// variable KTX_SOFTWARE_BIN first, then the process PATH, then the platform
+// default install folder. The encode stage spawns ktx by absolute path
+// from the resolved folder.
 import { fileURLToPath } from 'node:url'
 import { GltfCliError, resolveGltfCliBin, runGltfCli } from './gltfCli.ts'
 import { MODEL_BUDGET_BYTES } from './budgets.ts'
 import { listExportedSlugs } from './exports.ts'
-import { KtxError, prepareKtxSoftware } from './ktxSoftware.ts'
+import {
+  KtxError,
+  ktxExecutablePath,
+  prepareKtxSoftware,
+  runKtxCommand,
+  type KtxResolution,
+} from './ktxSoftware.ts'
 import { createModelIO } from './modelIo.ts'
 import { runOptimizePipeline } from './pipeline.ts'
 import {
   budgetShare,
-  describeTextures,
   fileSizeBytes,
   formatBytes,
   formatKtxResolutionLine,
+  formatTangentLine,
   formatTextureLine,
+  type TextureReport,
 } from './report.ts'
 import { productPaths, type ProductPaths } from './productPaths.ts'
 import { loadOptimizeSettings, type OptimizeSettings } from './settings.ts'
-import {
-  findSingleAnimationViolations,
-  findStructureLosses,
-  readProductStructure,
-} from './structure.ts'
+import type { TangentReport } from './tangents.ts'
+import { findPreservationLosses, readProductPreservation } from './preservationCompare.ts'
+import type { ProductStructure } from './structure.ts'
 
 // The repo root: the parent of the scripts folder this file lives in.
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
@@ -61,33 +67,45 @@ async function resolveSlugs(argv: readonly string[]): Promise<string[]> {
 
 // Optimizes one product and prints its report. The settings come from the
 // optional per-product override file; the structure facts are read back
-// from the written file, never assumed.
-async function optimizeProduct(paths: ProductPaths, settings: OptimizeSettings): Promise<void> {
+// from the written file, never assumed, and the texture lines are the
+// run's own, each drawn from the plan entry that encoded it.
+async function optimizeProduct(
+  paths: ProductPaths,
+  settings: OptimizeSettings,
+  ktxResolution: KtxResolution,
+): Promise<void> {
   const io = await createModelIO()
-  const beforeStructure = readProductStructure(await io.read(paths.exportGlb))
+  const before = readProductPreservation(await io.read(paths.exportGlb))
   const inputBytes = await fileSizeBytes(paths.exportGlb)
-  await runOptimizePipeline({
+  let outputBytes: number | null = null
+  let afterStructure: ProductStructure | undefined
+  const run = await runOptimizePipeline({
     inputPath: paths.exportGlb,
     outputPath: paths.modelGlb,
     settings,
+    io,
+    runKtx: (args) =>
+      runKtxCommand(ktxExecutablePath(ktxResolution.folder, process.platform), args),
     run: (args) => runGltfCli(resolveGltfCliBin(), args, process.env),
+    validateCandidate: async (candidatePath) => {
+      const after = readProductPreservation(await io.read(candidatePath))
+      afterStructure = after.structure
+      outputBytes = await fileSizeBytes(candidatePath)
+      if (outputBytes === null || inputBytes === null) {
+        throw new Error(`Missing file after optimizing '${paths.slug}'`)
+      }
+      const losses = findPreservationLosses(before, after)
+      if (losses.length > 0) {
+        const lines = losses.map((loss) => `- ${loss}`).join('\n')
+        throw new Error(`Optimized '${paths.slug}' lost required structure:\n${lines}`)
+      }
+    },
   })
-  const outputDoc = await io.read(paths.modelGlb)
-  const outputBytes = await fileSizeBytes(paths.modelGlb)
-  if (outputBytes === null || inputBytes === null) {
+  if (outputBytes === null || inputBytes === null || afterStructure === undefined) {
     throw new Error(`Missing file after optimizing '${paths.slug}'`)
   }
-  printRunReport(paths, settings, inputBytes, outputBytes, describeTextures(outputDoc))
-  const afterStructure = readProductStructure(outputDoc)
+  printRunReport(paths, settings, inputBytes, outputBytes, run.textures, run.tangents)
   printStructure(afterStructure)
-  const losses = [
-    ...findStructureLosses(beforeStructure, afterStructure),
-    ...findSingleAnimationViolations(afterStructure),
-  ]
-  if (losses.length > 0) {
-    const lines = losses.map((loss) => `- ${loss}`).join('\n')
-    throw new Error(`Optimized '${paths.slug}' lost required structure:\n${lines}`)
-  }
 }
 
 function printRunReport(
@@ -95,7 +113,8 @@ function printRunReport(
   settings: OptimizeSettings,
   inputBytes: number,
   outputBytes: number,
-  textures: ReturnType<typeof describeTextures>,
+  textures: readonly TextureReport[],
+  tangents: TangentReport,
 ): void {
   writeLine(`product: ${paths.slug}`)
   writeLine(`  input:  ${paths.exportGlb} (${formatBytes(inputBytes)})`)
@@ -107,13 +126,14 @@ function printRunReport(
     `  settings: textureMaxSize ${settings.textureMaxSize}, ` +
       `occlusionTextureMaxSize ${settings.occlusionTextureMaxSize}`,
   )
+  writeLine(`  ${formatTangentLine(tangents)}`)
   writeLine('  textures:')
   for (const texture of textures) {
     writeLine(`    ${formatTextureLine(texture, settings)}`)
   }
 }
 
-function printStructure(structure: ReturnType<typeof readProductStructure>): void {
+function printStructure(structure: ProductStructure): void {
   writeLine(`  structure: ${structure.nodeNames.length} named nodes`)
   for (const anchor of structure.hotspotAnchors) {
     writeLine(`    hotspot ${anchor.name} under ${anchor.parentName ?? 'scene root'}`)
@@ -138,7 +158,7 @@ export async function main(argv: readonly string[]): Promise<void> {
     if (usedOverride) {
       writeLine(`settings: override ${paths.settingsFile}`)
     }
-    await optimizeProduct(paths, settings)
+    await optimizeProduct(paths, settings, resolution)
   }
 }
 

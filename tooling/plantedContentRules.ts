@@ -140,3 +140,84 @@ export function hooksCases(): PlantedCase[] {
     },
   ]
 }
+
+// The renderer compile walk the frame path replaces. Both spellings of the
+// scene compile are banned in src; the compute compile is a different walk
+// over compute pipelines the stage never builds, so it stays allowed and
+// pins the selector to exact names.
+export function rendererCompileCases(): PlantedCase[] {
+  return [
+    {
+      title: 'a renderer compileAsync call',
+      tree: 'violations',
+      file: 'src/viewer/uses-compile-async.ts',
+      code: 'export function planted(renderer: { compileAsync(): Promise<void> }): Promise<void> {\n  return renderer.compileAsync()\n}\n',
+      expectedRuleIds: ['no-restricted-syntax'],
+    },
+    {
+      title: 'a renderer compile call, the installed alias of compileAsync',
+      tree: 'violations',
+      file: 'src/viewer/uses-compile-alias.ts',
+      code: 'export function planted(renderer: { compile(): Promise<void> }): Promise<void> {\n  return renderer.compile()\n}\n',
+      expectedRuleIds: ['no-restricted-syntax'],
+    },
+    {
+      title: 'a compute compile call is not the scene compile walk',
+      tree: 'clean',
+      file: 'src/viewer/uses-compute-compile.ts',
+      code: 'export function planted(renderer: { compileComputeAsync(): Promise<void> }): Promise<void> {\n  return renderer.compileComputeAsync()\n}\n',
+      expectedRuleIds: [],
+    },
+  ]
+}
+
+// A stand-in for the runner's poll, declared in the planted file, so the
+// cases need no installed test runner in the planted tree. The capture case
+// group plants it too, for the ban proof at its exempt path.
+export const pollStandIn =
+  'declare const expect: { poll(read: () => unknown, options?: unknown): { toBe(value: unknown): Promise<void> } }\n'
+
+function pollCase(
+  title: string,
+  tree: 'violations' | 'clean',
+  name: string,
+  call: string,
+): PlantedCase {
+  return {
+    title,
+    tree,
+    file: `tests/e2e/${name}.spec.ts`,
+    code: `${pollStandIn}export async function planted(): Promise<void> {\n  await ${call}.toBe(1)\n}\n`,
+    expectedRuleIds: tree === 'violations' ? ['no-restricted-syntax'] : [],
+  }
+}
+
+export function pollBudgetCases(): PlantedCase[] {
+  return [
+    pollCase('a poll with no options', 'violations', 'poll-bare', 'expect.poll(() => 1)'),
+    pollCase(
+      'a poll with a message where its options belong',
+      'violations',
+      'poll-message',
+      "expect.poll(() => 1, 'the value arrives')",
+    ),
+    pollCase(
+      'a poll whose options name no timeout',
+      'violations',
+      'poll-no-timeout',
+      "expect.poll(() => 1, { message: 'the value arrives' })",
+    ),
+    pollCase(
+      'a poll with a timeout',
+      'clean',
+      'poll-timeout',
+      'expect.poll(() => 1, { timeout: 5 })',
+    ),
+    pollCase(
+      'a poll with a message and a timeout',
+      'clean',
+      'poll-message-timeout',
+      "expect.poll(() => 1, { message: 'the value arrives', timeout: 5 })",
+    ),
+  ]
+}

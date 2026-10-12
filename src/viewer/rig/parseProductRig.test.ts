@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { AnimationClip, Object3D } from 'three'
+import { AnimationClip, Object3D } from 'three/webgpu'
 import { parseProduct } from '@lib/product'
 import { sampleOneManifest } from '@lib/product/fixtures'
 import {
@@ -11,14 +11,24 @@ import {
   validTree,
   variantsJson,
 } from './fixtures'
-import { readVariantNames } from './gltfJson'
+import { readVariantNames } from '@lib/product'
 import { parseProductRig, type ProductSource } from './parseProductRig'
-import { ProductRigError } from './rigError'
+import type { ProductRig } from './productRig'
 import { summarizeProductRig } from './summary'
 
 // The parsed manifest every tree is parsed against, so the rig tests run
 // over the real schema output, explode block normalized included.
 const manifest = parseProduct(sampleOneManifest, 'sample-one.test')
+
+// The rig of a tree the test expects to parse; a broken parse fails the
+// test with the problems it listed.
+function parsedRig(source: ProductSource): ProductRig {
+  const parse = parseProductRig(source, manifest)
+  if (parse.kind === 'broken') {
+    throw new Error(`the tree must parse, it broke with: ${JSON.stringify(parse.problems)}`)
+  }
+  return parse.rig
+}
 
 type ParseCase = {
   readonly name: string
@@ -179,23 +189,20 @@ const cases: ParseCase[] = [
 ]
 
 test.each(cases)('$name', ({ source, expectedProblems }) => {
+  const parse = parseProductRig(source, manifest)
   if (expectedProblems.length === 0) {
-    expect(() => parseProductRig(source, manifest)).not.toThrow()
+    expect(parse.kind).toBe('parsed')
     return
   }
-  let error: ProductRigError | null = null
-  try {
-    parseProductRig(source, manifest)
-  } catch (caught) {
-    error = caught as ProductRigError
+  if (parse.kind !== 'broken') {
+    throw new Error('the parse must report the broken tree as a value')
   }
-  expect(error, 'the parse must fail with a ProductRigError').toBeInstanceOf(ProductRigError)
-  expect(error?.problems.map((problem) => ({ node: problem.node }))).toEqual(expectedProblems)
+  expect(parse.problems.map((problem) => ({ node: problem.node }))).toEqual(expectedProblems)
 })
 
 test('the parsed rig resolves every contract part the manifest and tree agree on', () => {
   const tree = validTree()
-  const rig = parseProductRig(sourceOf(tree), manifest)
+  const rig = parsedRig(sourceOf(tree))
 
   expect([...rig.parts.keys()]).toEqual(['PART_base', 'PART_body', 'PART_grille'])
   expect(rig.hotspots.map((hotspot) => ({ id: hotspot.id, part: hotspot.part.name }))).toEqual([
@@ -208,10 +215,11 @@ test('the parsed rig resolves every contract part the manifest and tree agree on
   expect(rig.shadow.name).toBe('SHADOW')
   expect(rig.clip.name).toBe('Explode')
   expect(rig.variants).toEqual(['sage', 'graphite'])
+  expect([...rig.anchorRest.keys()]).toEqual(['driver', 'shell'])
 })
 
 test('the rig summary is the plain data the store and the hook report', () => {
-  const rig = parseProductRig(sourceOf(validTree()), manifest)
+  const rig = parsedRig(sourceOf(validTree()))
 
   expect(summarizeProductRig(rig)).toEqual({
     parts: ['PART_base', 'PART_body', 'PART_grille'],
@@ -241,21 +249,4 @@ test.each([
   },
 ])('readVariantNames: $name', ({ json, expected }) => {
   expect(readVariantNames(json)).toEqual(expected)
-})
-
-test('the rig error lists every problem in its message, one line each', () => {
-  const broken = cases[cases.length - 1]
-  if (broken === undefined) {
-    throw new Error('the case table must end with the multi-problem row')
-  }
-  let error: ProductRigError | null = null
-  try {
-    parseProductRig(broken.source, manifest)
-  } catch (caught) {
-    error = caught as ProductRigError
-  }
-  const lines = error?.message.split('\n') ?? []
-  expect(error?.slug).toBe(manifest.slug)
-  expect(lines[0]).toBe(`Invalid product rig for '${manifest.slug}':`)
-  expect(lines).toHaveLength(1 + (error?.problems.length ?? 0))
 })
